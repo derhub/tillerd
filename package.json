@@ -1,0 +1,32 @@
+{
+  "name": "a-thing",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "dev": "turbo run dev",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "test:ui": "turbo run test:ui --filter=@athing/e2e",
+    "lint": "oxlint",
+    "format": "oxfmt --write ."
+  },
+  "dependencies": {
+    "oxfmt": "^0.52.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/bun": "^1.3.14",
+    "oxlint": "^1.67.0",
+    "turbo": "^2.9.16",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "bun@1.3.14"
+}

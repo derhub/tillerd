@@ -1,0 +1,42 @@
+schema: spec-driven
+
+context: |
+  Project: a-thing — an SDK that drives coding-agent CLIs (Claude Code first) so any UI can
+  integrate them without reimplementing the agent loop or holding credentials.
+
+  Runtime & tooling: Bun (Bun-first — prefer Bun.serve, Bun.file, Bun.spawn, native WebSocket,
+  bun:sqlite, bun test; do NOT add express, ws, execa, chokidar, vite, or jest). TypeScript.
+  turbo monorepo. valibot is the standard validation library. node-pty v1.1.0 (pinned) is the
+  PTY binding, confined to the engine. Platform scope: macOS/Linux for v1.
+
+  Packages (ports-and-adapters; deps point inward to sdk):
+    @athing/sdk                 contracts/types only, zero deps, zero impl
+    @athing/engine              the machinery (depends on sdk; never imports a specific adapter)
+    @athing/adapter-claude-code a hybrid AgentDefinition: config data + parse functions
+    apps/server                 composition root — injects adapter into engine; WebSocket + HTTP
+    apps/ui                     react-router SPA (depends on sdk types + network)
+
+  Architecture: drive the agent via an interactive PTY, riding the user's own Claude login
+  (no API key, no vendor SDK). The engine consumes lifecycle only as the HookEvent contract;
+  a generic loopback hook ingress verifies a per-session token and calls adapter.parseHook.
+  Status = generic contract-enum -> {IDLE|WORKING|WAITING_INPUT|DONE}. Structured content =
+  transcript read-on-hook. Adapters are hybrid (declarative config + parse functions). The
+  durable decisions are recorded in docs/adr/0001-0007 and MUST be honored.
+
+  Constraints: one subscription = one user (bring-your-own-login); a multi-user/commercial
+  deployment requires API keys under the Commercial Terms (out of scope here). Raw bytes
+  end-to-end — no ANSI stripping, no UTF-8 re-decode. Honor the reliability/operability
+  contract (ADR-0007): graceful shutdown, timeouts, typed errors, authenticated control plane,
+  backpressure, plane degradation, CLI version awareness, session-correlated observability.
+
+  Conventions: Conventional Commits and Conventional Branches. Do NOT use the word "Claude"
+  or any emojis in commit messages or docs.
+
+rules:
+  specs:
+    - Specs are behavioral and library-free — do not name implementation packages
+      (node-pty, Bun APIs, valibot, xterm, react-router) in spec requirements; describe the
+      behavior generically (e.g. "a pseudo-terminal", "a loopback receiver").
+    - Never reference third-party or competitor projects by name.
+  tasks:
+    - Each task must trace to a spec requirement and honor the ADRs in docs/adr/.
