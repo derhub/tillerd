@@ -9,11 +9,12 @@
   },
   "dependencies": {
     "@athing/adapter-claude-code": "workspace:*",
+    "@athing/daemon": "workspace:*",
     "@athing/engine": "workspace:*",
     "@athing/sdk": "workspace:*",
     "valibot": "^1.4.1"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^6.0.3"
   }
 }

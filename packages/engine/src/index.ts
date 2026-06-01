@@ -1,3 +1,4 @@
 export { createEngine } from "./engine";
-export { installHooks, uninstallHooks } from "./ingress/install";
 export * from "./schemas";
+export { adoptOrSpawn } from "./daemon/supervisor";
+export { DaemonClient } from "./daemon/client";

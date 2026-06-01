@@ -1,12 +1,5 @@
 import { test, expect, describe } from "bun:test";
 
-describe("node-pty loads under Bun", () => {
-  test("can import node-pty and access spawn", async () => {
-    const pty = await import("node-pty");
-    expect(typeof pty.spawn).toBe("function");
-  });
-});
-
 describe("StatusMapper", () => {
   test("maps SessionStart -> IDLE", async () => {
     const { StatusMapper } = await import("../src/session/status");

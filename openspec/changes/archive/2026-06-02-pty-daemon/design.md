@@ -7,6 +7,7 @@ ADR-0007 requires no orphaned processes, graceful shutdown, and typed errors. AD
 ## Goals / Non-Goals
 
 **Goals:**
+
 - PTY sessions survive server process restarts
 - Hook delivery survives server process restarts
 - Engine public API (`AgentSession`, `Engine`) unchanged except two additive methods
@@ -14,6 +15,7 @@ ADR-0007 requires no orphaned processes, graceful shutdown, and typed errors. AD
 - Replay buffer allows terminal renderers to restore visual state after reconnect
 
 **Non-Goals:**
+
 - Zero-downtime daemon binary upgrade (fd inheritance handoff) — Phase 2
 - Daemon crash recovery — Phase 2
 - Content event replay on reconnect (transcripts are on disk; callers re-read from offset)
@@ -28,12 +30,14 @@ ADR-0007 requires no orphaned processes, graceful shutdown, and typed errors. AD
 **Why:** The PTY master fd must outlive the engine host process. The only way to achieve this on Unix is to move fd ownership into a process that is not a child of the server. A detached sibling process with a known socket address satisfies this. Embedding the daemon logic as a thread or worker inside the engine process does not — the fd still closes when the process dies.
 
 **Alternatives considered:**
+
 - _OS-level supervisor (launchd/systemd)_: Reliable but requires platform-specific service registration outside the SDK; not portable for a dev tool.
 - _Named pipe / shared memory_: More complex, no meaningful benefit over Unix domain sockets for this use case.
 
 ### 2. Two named Unix domain sockets with deterministic paths
 
 **Decision:**
+
 - `~/.athing/daemon.sock` — IPC control channel (NDJSON framed by newlines)
 - `~/.athing/hooks.sock` — hook HTTP ingress (HTTP/1.1 over Unix domain socket)
 
@@ -60,6 +64,7 @@ Paths are derived from `$HOME` at runtime. No random ports. No manifest entries 
 **Message taxonomy:**
 
 Client → Daemon:
+
 ```
 { op: "spawn",      sessionId, launch: { command, args, flags }, hookSocketPath, token, cols, rows, cwd }
 { op: "kill",       sessionId }
@@ -73,6 +78,7 @@ Client → Daemon:
 ```
 
 Daemon → Client:
+
 ```
 { ev: "spawned",   sessionId }
 { ev: "data",      sessionId, bytes: number[] }
@@ -88,6 +94,8 @@ Daemon → Client:
 **Decision:** `createEngine()` remains synchronous. Daemon adoption is lazy — triggered on the first call to `engine.start()` or `engine.reconnect()`. The supervisor reads the manifest, checks `process.kill(pid, 0)`, connects to the socket, or spawns the daemon.
 
 **Why:** Keeps the existing `createEngine()` API unchanged. A synchronous factory is simpler for callers. The first `start()` is already async, so the adoption latency is absorbed there.
+
+**Implementation deviation:** The original plan called for a `useDaemon?: boolean` flag on `createEngine()` defaulting to `false` for staged rollout. During implementation this flag was dropped: the engine is daemon-only and the direct-PTY path (`AgentSessionImpl`, `HookReceiver`, `HookDispatcher`, `PtyTransport`) was removed entirely. The `useDaemon` flag in decision §7 ("non-daemon path implements `listSessions` as `[]`") is also moot. Rollback now requires a code change rather than a config toggle.
 
 ### 6. Session store in `apps/server` using embedded SQL
 
@@ -111,13 +119,13 @@ Daemon → Client:
 
 ## Migration Plan
 
-1. Add `packages/daemon`; existing engine remains functional with direct PTY (no breaking change yet).
-2. Add daemon supervisor + client + proxy to `packages/engine`; gated behind a `useDaemon: true` option on `createEngine()` for rollout safety.
-3. Once validated, make `useDaemon: true` the default; deprecate direct PTY path.
-4. Update `apps/server` to use session store and `?id=` reconnect endpoint.
-5. Remove deprecated direct PTY path in a subsequent change.
+Steps 1–3 were collapsed into a single change: `packages/daemon` was added and the engine was made daemon-only immediately. The `useDaemon` staged-rollout flag was not implemented.
 
-**Rollback:** If the daemon path is gated behind `useDaemon`, reverting to the direct path requires only a config change.
+1. ~~Add `packages/daemon`; existing engine remains functional with direct PTY (no breaking change yet).~~ _Done (collapsed with step 3)._
+2. ~~Add daemon supervisor + client + proxy to `packages/engine`; gated behind a `useDaemon: true` option on `createEngine()` for rollout safety.~~ _Skipped — no flag added._
+3. ~~Once validated, make `useDaemon: true` the default; deprecate direct PTY path.~~ _Done — direct PTY path deleted._
+4. Update `apps/server` to use session store and `?id=` reconnect endpoint. _Done._
+5. ~~Remove deprecated direct PTY path in a subsequent change.~~ _Done (collapsed with step 3)._
 
 ## Open Questions
 

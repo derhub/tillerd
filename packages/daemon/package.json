@@ -1,0 +1,27 @@
+{
+  "name": "@athing/daemon",
+  "version": "0.1.0",
+  "bin": {
+    "athing-daemon": "./src/main.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./protocol": "./src/protocol/index.ts"
+  },
+  "scripts": {
+    "dev": "ATHING_DIR=$(cd ../.. && pwd)/.athing ATHING_DAEMON_BIN=$(cd ../.. && pwd)/bin/athing-daemon bun --watch src/main.ts",
+    "build": "bun scripts/build-wrapper.ts",
+    "postinstall": "bun scripts/fix-pty-permissions.ts",
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@athing/sdk": "workspace:*",
+    "node-pty": "1.1.0",
+    "valibot": "^1.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

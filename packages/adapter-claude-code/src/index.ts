@@ -1,6 +1,5 @@
-import * as os from "node:os";
-import * as path from "node:path";
 import type { AgentDefinition } from "@athing/sdk";
+import { installHooks, uninstallHooks } from "./hook-installer";
 import { parseHook } from "./parse-hook";
 import { transcriptPath } from "./transcript-path";
 import { parseTranscriptEntry } from "./parse-entry";
@@ -14,19 +13,9 @@ export const claudeCode: AgentDefinition = {
     args: ["--session-id", "{id}"],
     flags: ["--dangerously-skip-permissions"],
   },
-  hookInstall: {
-    settingsPath: "~/.claude/settings.json",
-    notifyScriptPath: path.join(os.homedir(), ".athing", "notify.mjs"),
-    events: [
-      "SessionStart",
-      "UserPromptSubmit",
-      "PostToolUse",
-      "PermissionRequest",
-      "Stop",
-      "SessionEnd",
-    ],
-  },
   cliVersionRange: SUPPORTED_CLI_VERSION_RANGE,
+  installHooks,
+  uninstallHooks,
   parseHook,
   transcriptPath,
   parseTranscriptEntry: (line) => parseTranscriptEntry(line),

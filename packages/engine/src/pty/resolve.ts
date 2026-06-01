@@ -31,13 +31,20 @@ function satisfiesRange(version: string, range: string): boolean {
   const [vmaj, vmin, vpat] = [Number(vm[1]), Number(vm[2]), Number(vm[3])];
   const diff = vmaj !== rmaj ? vmaj - rmaj : vmin !== rmin ? vmin - rmin : vpat - rpat;
   switch (op) {
-    case ">=": return diff >= 0;
-    case ">":  return diff > 0;
-    case "<=": return diff <= 0;
-    case "<":  return diff < 0;
-    case "^":  return vmaj === rmaj && diff >= 0;
-    case "~":  return vmaj === rmaj && vmin === rmin && diff >= 0;
-    default:   return diff >= 0;
+    case ">=":
+      return diff >= 0;
+    case ">":
+      return diff > 0;
+    case "<=":
+      return diff <= 0;
+    case "<":
+      return diff < 0;
+    case "^":
+      return vmaj === rmaj && diff >= 0;
+    case "~":
+      return vmaj === rmaj && vmin === rmin && diff >= 0;
+    default:
+      return diff >= 0;
   }
 }
 

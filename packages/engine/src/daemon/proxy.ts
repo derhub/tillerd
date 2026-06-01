@@ -7,11 +7,12 @@ import type {
   SessionOptions,
 } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
-import { PtyTransport } from "../pty/transport";
-import { StatusMapper } from "./status";
-import { TranscriptReader } from "./content";
-import { SendQueue } from "./queue";
-import type { HookDispatcher } from "../ingress/dispatcher";
+import { StatusMapper } from "../session/status";
+import { TranscriptReader } from "../session/content";
+import { SendQueue } from "../session/queue";
+import type { DaemonFrame } from "@athing/daemon/protocol";
+import { HOOKS_SOCK } from "@athing/daemon";
+import type { DaemonClient, FrameHandler } from "./client";
 import type { Logger } from "../logger";
 import { createLogger } from "../logger";
 import { randomBytes } from "node:crypto";
@@ -21,15 +22,6 @@ const DEFAULT_SHUTDOWN_GRACE = 5_000;
 const DEFAULT_SEND_QUEUE_CAPACITY = 32;
 const DEFAULT_COLS = 220;
 const DEFAULT_ROWS = 50;
-const AUTH_SCAN_LIMIT = 8192;
-const DATA_BUF_LIMIT = 512 * 1024; // 512 KB bounded replay buffer per session
-const NOT_AUTH_PATTERNS = [
-  "claude.ai/login",
-  "run claude login",
-  "not logged in",
-  "login to claude",
-  "anthropic.com/login",
-];
 
 type DataHandler = (bytes: Uint8Array) => void;
 type StatusHandler = (status: SessionStatus) => void;
@@ -37,7 +29,9 @@ type ContentHandler = (event: ContentEvent) => void;
 type ErrorHandler = (err: AtError) => void;
 type ExitHandler = (event: ExitEvent) => void;
 
-export class AgentSessionImpl implements AgentSession {
+export type ProxyMode = "spawn" | "subscribe";
+
+export class AgentSessionProxy implements AgentSession {
   readonly sessionId: string;
   readonly token: string;
 
@@ -47,108 +41,46 @@ export class AgentSessionImpl implements AgentSession {
   private errorHandlers = new Set<ErrorHandler>();
   private exitHandlers = new Set<ExitHandler>();
 
-  private transport: PtyTransport;
   private statusMapper: StatusMapper;
   private transcriptReader: TranscriptReader;
   private sendQueue: SendQueue;
   private logger: Logger;
-  private startupTimer: ReturnType<typeof setTimeout> | null = null;
-  private idleTimer: ReturnType<typeof setTimeout> | null = null;
-  private killed_ = false;
-  private authBuf = "";
-  private authChecked = false;
+
   private dataBuf: Uint8Array[] = [];
   private dataBufBytes = 0;
   private exitEvent: ExitEvent | null = null;
   private started = false;
+  private killed_ = false;
+  private startupTimer: ReturnType<typeof setTimeout> | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private unsub: (() => void) | null = null;
+
+  private readonly opts: Required<SessionOptions>;
 
   constructor(
     sessionId: string,
     private readonly adapter: AgentDefinition,
-    private readonly opts: Required<SessionOptions>,
-    private readonly dispatcher: HookDispatcher,
-    bridgeUrl: string,
+    opts: Required<SessionOptions>,
+    private readonly client: DaemonClient,
+    private readonly mode: ProxyMode,
   ) {
     this.sessionId = sessionId;
     this.token = randomBytes(32).toString("hex");
     this.logger = createLogger(sessionId);
+    this.opts = opts;
     this.sendQueue = new SendQueue(opts.sendQueueCapacity);
     this.statusMapper = new StatusMapper();
     this.transcriptReader = new TranscriptReader(sessionId, adapter, opts.cwd, this.logger);
-
-    const launchArgs = buildArgs(adapter, sessionId, opts.resume);
-
-    this.transport = new PtyTransport({
-      command: adapter.launch.command,
-      args: launchArgs,
-      cwd: opts.cwd,
-      env: {
-        ATHING_BRIDGE_URL: bridgeUrl,
-        ATHING_SESSION_ID: sessionId,
-        ATHING_SESSION_TOKEN: this.token,
-      },
-      cols: opts.cols,
-      rows: opts.rows,
-      logger: this.logger,
-      captureRawIo: opts.captureRawIo,
-      shutdownGraceMs: opts.shutdownGraceMs,
-    });
-
-    this.wireTransport();
-  }
-
-  private wireTransport(): void {
-    this.transport.onData((bytes) => {
-      if (!this.authChecked) {
-        this.authBuf += Buffer.from(bytes).toString("utf8");
-        if (this.authBuf.length >= AUTH_SCAN_LIMIT) {
-          this.authChecked = true;
-          this.authBuf = "";
-        } else {
-          const lower = this.authBuf.toLowerCase();
-          if (NOT_AUTH_PATTERNS.some((p) => lower.includes(p))) {
-            this.authChecked = true;
-            this.authBuf = "";
-            this.cancelStartupTimer();
-            const err = new AtError("NotAuthenticated", "Agent requires authentication");
-            for (const h of this.errorHandlers) h(err);
-            void this.kill();
-          }
-        }
-      }
-      // Maintain bounded replay buffer; drop oldest when over limit (logged)
-      this.dataBuf.push(bytes);
-      this.dataBufBytes += bytes.length;
-      while (this.dataBufBytes > DATA_BUF_LIMIT) {
-        const dropped = this.dataBuf.shift()!;
-        this.dataBufBytes -= dropped.length;
-        this.logger.warn("data buffer overflow, dropping oldest chunk", {
-          droppedBytes: dropped.length,
-          bufferBytes: this.dataBufBytes,
-        });
-      }
-
-      for (const h of this.dataHandlers) h(bytes);
-    });
-
-    this.transport.onExit((event) => {
-      this.exitEvent = event;
-      this.transcriptReader.onExit();
-      this.cancelStartupTimer();
-      this.cancelIdleTimer();
-      this.dispatcher.unregister(this.sessionId);
-      for (const h of this.exitHandlers) h(event);
-    });
 
     this.statusMapper.onChange((status) => {
       this.cancelIdleTimer();
       if (status === "IDLE" || status === "WAITING_INPUT") {
         const queued = this.sendQueue.setReady(true);
         for (const text of queued) {
-          this.transport.sendPrompt(text);
+          this.sendText(text);
           this.sendQueue.setReady(false);
         }
-        if (status === "IDLE" && queued.length === 0 && this.opts.idleTimeoutMs > 0) {
+        if (status === "IDLE" && queued.length === 0 && opts.idleTimeoutMs > 0) {
           this.startIdleTimer();
         }
       } else {
@@ -170,24 +102,92 @@ export class AgentSessionImpl implements AgentSession {
     if (this.started || this.killed_) return;
     this.started = true;
 
-    this.dispatcher.register(this.sessionId, this.token, this.adapter, (event) => {
-      this.transcriptReader.onHook(event);
-      this.statusMapper.apply(event);
-    });
-
     this.startupTimer = setTimeout(() => {
       const err = new AtError("Timeout", `Session ${this.sessionId} startup timed out`);
       for (const h of this.errorHandlers) h(err);
       void this.kill();
     }, this.opts.startupTimeoutMs);
 
-    try {
-      this.transport.spawn();
-    } catch (err) {
-      this.cancelStartupTimer();
-      const atErr = err instanceof AtError ? err : new AtError("SpawnFailed", String(err));
-      for (const h of this.errorHandlers) h(atErr);
+    const handler: FrameHandler = (frame, body) => this.handleFrame(frame, body);
+    this.unsub = this.client.subscribe(this.sessionId, handler);
+
+    if (this.mode === "spawn") {
+      const launchArgs = buildArgs(this.adapter, this.sessionId, this.opts.resume);
+      this.client.send({
+        type: "spawn",
+        sessionId: this.sessionId,
+        command: this.adapter.launch.command,
+        args: launchArgs,
+        flags: this.adapter.launch.flags,
+        hookSocketPath: HOOKS_SOCK,
+        token: this.token,
+        cols: this.opts.cols,
+        rows: this.opts.rows,
+        cwd: this.opts.cwd,
+      });
+    } else {
+      this.client.send({ type: "subscribe", sessionId: this.sessionId });
     }
+  }
+
+  private handleFrame(frame: DaemonFrame, body: Buffer | null): void {
+    switch (frame.type) {
+      case "data": {
+        const bytes = body ? new Uint8Array(body) : new Uint8Array(0);
+        this.cancelStartupTimer();
+        this.dataBuf.push(bytes);
+        this.dataBufBytes += bytes.length;
+        // Bounded replay: 512 KB
+        while (this.dataBufBytes > 512 * 1024) {
+          const dropped = this.dataBuf.shift()!;
+          this.dataBufBytes -= dropped.length;
+        }
+        for (const h of this.dataHandlers) h(bytes);
+        // Flow control: ack consumed bytes
+        if (bytes.length > 0) {
+          this.client.send({ type: "ack", sessionId: this.sessionId, bytes: bytes.length });
+        }
+        break;
+      }
+
+      case "spawn-ack": {
+        this.cancelStartupTimer();
+        break;
+      }
+
+      case "hook": {
+        this.cancelStartupTimer();
+        try {
+          const hookEvent = this.adapter.parseHook(frame.payload);
+          this.transcriptReader.onHook(hookEvent);
+          this.statusMapper.apply(hookEvent);
+        } catch (err) {
+          this.logger.warn("proxy: parseHook failed", { err: String(err) });
+        }
+        break;
+      }
+
+      case "exit": {
+        this.exitEvent = { code: frame.code, signal: frame.signal };
+        this.transcriptReader.onExit();
+        this.cancelStartupTimer();
+        this.cancelIdleTimer();
+        this.unsub?.();
+        for (const h of this.exitHandlers) h(this.exitEvent);
+        break;
+      }
+
+      case "error": {
+        const err = new AtError(frame.code as import("@athing/sdk").ErrorKind, frame.message);
+        for (const h of this.errorHandlers) h(err);
+        break;
+      }
+    }
+  }
+
+  private sendText(text: string): void {
+    const bytes = Buffer.from(`\x1b[200~${text}\x1b[201~\r`, "utf8");
+    this.client.send({ type: "input", sessionId: this.sessionId }, bytes);
   }
 
   private cancelStartupTimer(): void {
@@ -216,22 +216,22 @@ export class AgentSessionImpl implements AgentSession {
   send(text: string): void {
     if (this.sendQueue.isReady()) {
       this.sendQueue.setReady(false);
-      this.transport.sendPrompt(text);
+      this.sendText(text);
     } else {
       this.sendQueue.enqueue(text);
     }
   }
 
   input(bytes: Uint8Array): void {
-    this.transport.write(bytes);
+    this.client.send({ type: "input", sessionId: this.sessionId }, Buffer.from(bytes));
   }
 
   interrupt(): void {
-    this.transport.sendInterrupt();
+    this.client.send({ type: "interrupt", sessionId: this.sessionId });
   }
 
   resize(cols: number, rows: number): void {
-    this.transport.resize(cols, rows);
+    this.client.send({ type: "resize", sessionId: this.sessionId, cols, rows });
   }
 
   async kill(): Promise<ExitEvent> {
@@ -239,7 +239,21 @@ export class AgentSessionImpl implements AgentSession {
     this.cancelStartupTimer();
     this.cancelIdleTimer();
     if (this.exitEvent) return this.exitEvent;
-    return this.transport.kill();
+    // killed before proxy.start() ran — no spawn was sent, nothing to kill
+    if (!this.started) {
+      const event: ExitEvent = { code: null, signal: null };
+      this.exitEvent = event;
+      for (const h of this.exitHandlers) h(event);
+      return event;
+    }
+    return new Promise<ExitEvent>((resolve) => {
+      const handler: ExitHandler = (event) => {
+        this.exitHandlers.delete(handler);
+        resolve(event);
+      };
+      this.exitHandlers.add(handler);
+      this.client.send({ type: "kill", sessionId: this.sessionId });
+    });
   }
 
   onData(handler: DataHandler): () => void {
@@ -272,11 +286,10 @@ export class AgentSessionImpl implements AgentSession {
 function buildArgs(adapter: AgentDefinition, sessionId: string, resume?: string): string[] {
   return adapter.launch.args
     .map((arg) => arg.replace("{id}", sessionId).replace("{resume}", resume ?? ""))
-    .concat(adapter.launch.flags)
     .filter((a) => a !== "");
 }
 
-export function fillOptions(opts?: SessionOptions): Required<SessionOptions> {
+export function fillProxyOptions(opts?: SessionOptions): Required<SessionOptions> {
   return {
     cwd: opts?.cwd ?? process.cwd(),
     cols: opts?.cols ?? DEFAULT_COLS,

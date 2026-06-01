@@ -82,10 +82,9 @@ export default function App() {
       <main
         style={{
           flex: 1,
-          padding: "2rem",
-          maxWidth: "1200px",
-          width: "100%",
-          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
         <Outlet />

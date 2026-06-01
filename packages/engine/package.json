@@ -6,12 +6,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build": "mkdir -p \"${ATHING_DIR}\" && bun build --minify --target bun src/ingress/notify.ts --outfile \"${ATHING_DIR}/notify.mjs\"",
     "check-types": "tsc --noEmit",
     "test": "bun test"
   },
   "dependencies": {
+    "@athing/daemon": "workspace:*",
     "@athing/sdk": "workspace:*",
-    "node-pty": "1.1.0",
     "valibot": "^1.4.1"
   },
   "devDependencies": {

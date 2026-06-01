@@ -1,43 +1,96 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import "@xterm/xterm/css/xterm.css";
 import type { Route } from "./+types/_index";
-import type { SessionStatus, ContentEvent } from "@athing/sdk";
 
 export const meta: Route.MetaFunction = () => [
-  { title: "a-thing" },
-  { name: "description", content: "Agent session terminal" },
+  { title: "Terminal | a-thing" },
+  { name: "description", content: "Interactive PTY terminal" },
 ];
 
-const SERVER = "localhost:3000";
-const WS_URL = `ws://${SERVER}/ws/session`;
+const WS_URL = `ws://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:3000/ws/terminal`;
 
-interface ContentItem {
-  id: number;
-  event: ContentEvent;
-}
-
-let _idCounter = 0;
+type Status = "connecting" | "connected" | "disconnected";
 
 export default function TerminalPage() {
   const termContainerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const [status, setStatus] = useState<SessionStatus | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [content, setContent] = useState<ContentItem[]>([]);
-  const [connected, setConnected] = useState(false);
-  const [promptText, setPromptText] = useState("");
+  const [status, setStatus] = useState<Status>("connecting");
+
+  const openWs = useCallback(() => {
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    setStatus("connecting");
+    setSessionId(null);
+
+    ws.onopen = () => setStatus("connected");
+    ws.onclose = () => {
+      setStatus("disconnected");
+      setSessionId(null);
+      termRef.current?.write("\r\n\x1b[31m[disconnected]\x1b[0m\r\n");
+    };
+    ws.onerror = () => {
+      termRef.current?.write(
+        "\r\n\x1b[31m[connection error — is the server running on :3000?]\x1b[0m\r\n",
+      );
+    };
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data as string) as Record<string, unknown>;
+      switch (msg["type"]) {
+        case "session_start":
+          setSessionId(String(msg["sessionId"] ?? ""));
+          break;
+        case "data": {
+          const arr = new Uint8Array(msg["bytes"] as number[]);
+          termRef.current?.write(arr);
+          break;
+        }
+        case "exit":
+          termRef.current?.write(
+            `\r\n\x1b[33m[exited code=${msg["code"] ?? "?"} signal=${msg["signal"] ?? "none"}]\x1b[0m\r\n`,
+          );
+          break;
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    let term: import("@xterm/xterm").Terminal;
-    let fitAddon: import("@xterm/addon-fit").FitAddon;
-    let ws: WebSocket;
+    let cleanup: (() => void) | undefined;
 
     (async () => {
       const { Terminal } = await import("@xterm/xterm");
       const { FitAddon } = await import("@xterm/addon-fit");
 
-      term = new Terminal({ allowProposedApi: true });
-      fitAddon = new FitAddon();
+      const term = new Terminal({
+        allowProposedApi: true,
+        cursorBlink: true,
+        fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
+        fontSize: 14,
+        theme: {
+          background: "#0d1117",
+          foreground: "#e6edf3",
+          cursor: "#e6edf3",
+          selectionBackground: "#264f78",
+          black: "#484f58",
+          red: "#ff7b72",
+          green: "#3fb950",
+          yellow: "#d29922",
+          blue: "#58a6ff",
+          magenta: "#bc8cff",
+          cyan: "#39c5cf",
+          white: "#b1bac4",
+          brightBlack: "#6e7681",
+          brightRed: "#ffa198",
+          brightGreen: "#56d364",
+          brightYellow: "#e3b341",
+          brightBlue: "#79c0ff",
+          brightMagenta: "#d2a8ff",
+          brightCyan: "#56d4dd",
+          brightWhite: "#f0f6fc",
+        },
+      });
+      const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
 
       if (termContainerRef.current) {
@@ -46,260 +99,116 @@ export default function TerminalPage() {
       }
       termRef.current = term;
 
-      ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-
-      ws.binaryType = "arraybuffer";
-
-      ws.onopen = () => setConnected(true);
-      ws.onclose = () => {
-        setConnected(false);
-        setStatus(null);
-      };
-
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data as string) as Record<string, unknown>;
-        switch (msg["type"]) {
-          case "session_start":
-            setSessionId(String(msg["sessionId"] ?? ""));
-            break;
-          case "data": {
-            const arr = new Uint8Array(msg["bytes"] as number[]);
-            term.write(arr);
-            break;
-          }
-          case "status":
-            setStatus(msg["status"] as SessionStatus);
-            break;
-          case "content":
-            setContent((prev) => [
-              ...prev.slice(-99),
-              { id: ++_idCounter, event: msg["event"] as ContentEvent },
-            ]);
-            break;
-        }
-      };
-
       term.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          const bytes = Array.from(new TextEncoder().encode(data));
-          ws.send(JSON.stringify({ type: "input", bytes }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({ type: "input", bytes: Array.from(new TextEncoder().encode(data)) }),
+          );
         }
       });
 
-      const resizeObserver = new ResizeObserver(() => {
+      const ro = new ResizeObserver(() => {
         fitAddon.fit();
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+        if (wsRef.current?.readyState === WebSocket.OPEN && term.cols && term.rows) {
+          wsRef.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
       });
-      if (termContainerRef.current) {
-        resizeObserver.observe(termContainerRef.current);
-      }
+      if (termContainerRef.current) ro.observe(termContainerRef.current);
+
+      openWs();
+
+      cleanup = () => {
+        wsRef.current?.close();
+        ro.disconnect();
+        term.dispose();
+      };
     })();
 
     return () => {
-      ws?.close();
-      term?.dispose();
+      cleanup?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sendPrompt = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && promptText.trim()) {
-      wsRef.current.send(JSON.stringify({ type: "send", text: promptText }));
-      setPromptText("");
-    }
-  }, [promptText]);
+  const reconnect = useCallback(() => {
+    wsRef.current?.close();
+    termRef.current?.clear();
+    openWs();
+  }, [openWs]);
 
   const interrupt = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: "interrupt" }));
   }, []);
 
-  const statusColor: Record<string, string> = {
-    IDLE: "#22c55e",
-    WORKING: "#f59e0b",
-    WAITING_INPUT: "#3b82f6",
-    DONE: "#6b7280",
-  };
+  const dot = status === "connected" ? "#3fb950" : status === "connecting" ? "#d29922" : "#ff7b72";
 
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "100%",
         background: "#0d1117",
         color: "#e6edf3",
       }}
     >
+      {/* Toolbar */}
       <div
         style={{
-          padding: "0.5rem 1rem",
-          borderBottom: "1px solid #30363d",
+          padding: "0.3rem 0.75rem",
+          borderBottom: "1px solid #21262d",
           display: "flex",
           alignItems: "center",
-          gap: "1rem",
+          gap: "0.6rem",
+          flexShrink: 0,
+          background: "#161b22",
+          fontSize: "0.75rem",
         }}
       >
-        <strong>a-thing</strong>
+        <span style={{ color: "#8b949e" }}>Terminal</span>
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: dot,
+            display: "inline-block",
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ color: dot }}>{status}</span>
         {sessionId && (
-          <span style={{ fontSize: "0.75rem", color: "#8b949e" }}>
-            session: {sessionId.slice(0, 8)}
+          <span style={{ color: "#484f58", fontFamily: "monospace", fontSize: "0.68rem" }}>
+            {sessionId.slice(0, 8)}
           </span>
         )}
-        {status && (
-          <span
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: statusColor[status] ?? "#e6edf3",
-            }}
-          >
-            {status}
-          </span>
-        )}
-        {!connected && <span style={{ fontSize: "0.75rem", color: "#f87171" }}>disconnected</span>}
-        <button
-          onClick={interrupt}
-          style={{
-            marginLeft: "auto",
-            padding: "0.25rem 0.75rem",
-            background: "#21262d",
-            border: "1px solid #30363d",
-            color: "#e6edf3",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Interrupt
-        </button>
-      </div>
-
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <div ref={termContainerRef} style={{ flex: 1, overflow: "hidden" }} />
-
-        <div
-          style={{
-            width: "280px",
-            borderLeft: "1px solid #30363d",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              padding: "0.5rem 1rem",
-              borderBottom: "1px solid #30363d",
-              fontSize: "0.75rem",
-              color: "#8b949e",
-            }}
-          >
-            CONTENT
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "0.5rem" }}>
-            {content.map((item) => (
-              <ContentCard key={item.id} event={item.event} />
-            ))}
-          </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem" }}>
+          <TBtn onClick={interrupt}>⌃C</TBtn>
+          <TBtn onClick={reconnect}>New session</TBtn>
         </div>
       </div>
 
-      <div
-        style={{
-          padding: "0.5rem",
-          borderTop: "1px solid #30363d",
-          display: "flex",
-          gap: "0.5rem",
-        }}
-      >
-        <input
-          value={promptText}
-          onChange={(e) => setPromptText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendPrompt();
-            }
-          }}
-          placeholder="Send a prompt…"
-          style={{
-            flex: 1,
-            padding: "0.5rem",
-            background: "#161b22",
-            border: "1px solid #30363d",
-            color: "#e6edf3",
-            borderRadius: "4px",
-          }}
-        />
-        <button
-          onClick={sendPrompt}
-          style={{
-            padding: "0.5rem 1rem",
-            background: "#1f6feb",
-            border: "none",
-            color: "#fff",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Send
-        </button>
-      </div>
+      <div ref={termContainerRef} style={{ flex: 1, overflow: "hidden", padding: "4px 4px 0" }} />
     </div>
   );
 }
 
-function ContentCard({ event }: { event: ContentEvent }) {
-  if (event.kind === "tool_use") {
-    return (
-      <div
-        style={{
-          marginBottom: "0.5rem",
-          padding: "0.5rem",
-          background: "#161b22",
-          borderRadius: "4px",
-          fontSize: "0.7rem",
-        }}
-      >
-        <div style={{ color: "#79c0ff" }}>tool: {event.toolName}</div>
-        <pre style={{ margin: 0, color: "#8b949e", overflow: "hidden", maxHeight: "4rem" }}>
-          {JSON.stringify(event.toolInput, null, 1).slice(0, 200)}
-        </pre>
-      </div>
-    );
-  }
-  if (event.kind === "edit") {
-    return (
-      <div
-        style={{
-          marginBottom: "0.5rem",
-          padding: "0.5rem",
-          background: "#161b22",
-          borderRadius: "4px",
-          fontSize: "0.7rem",
-        }}
-      >
-        <div style={{ color: "#7ee787" }}>edit: {event.filePath.split("/").pop()}</div>
-      </div>
-    );
-  }
-  if (event.kind === "usage") {
-    return (
-      <div
-        style={{
-          marginBottom: "0.5rem",
-          padding: "0.5rem",
-          background: "#161b22",
-          borderRadius: "4px",
-          fontSize: "0.7rem",
-          color: "#8b949e",
-        }}
-      >
-        in: {event.inputTokens} out: {event.outputTokens}
-        {event.costUsd != null && ` $${event.costUsd.toFixed(4)}`}
-      </div>
-    );
-  }
-  return null;
+function TBtn({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "0.15rem 0.5rem",
+        background: "#21262d",
+        border: "1px solid #30363d",
+        color: "#c9d1d9",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "0.72rem",
+        fontFamily: "inherit",
+      }}
+    >
+      {children}
+    </button>
+  );
 }

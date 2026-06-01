@@ -26,6 +26,9 @@ out/
 build/
 dist/
 
+# Keep committed: adapter notify script (built artifact shipped with package)
+!packages/adapter-claude-code/dist/notify.mjs
+
 # Playwright
 test-results/
 playwright-report/
@@ -40,6 +43,12 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Local daemon state (dev mode)
+.athing/
+
+# Compiled daemon binary
+bin/athing-daemon
 
 # Include openspec (overrides global ignore)
 !openspec/

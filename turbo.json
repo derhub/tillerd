@@ -1,31 +1,24 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": ["ATHING_*"],
+  "globalDependencies": [".env"],
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "env": ["ATHING_DIR"]
     },
     "check-types": {
-      "dependsOn": [
-        "^check-types"
-      ]
+      "dependsOn": ["^check-types"]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "test": {
-      "outputs": [
-        "test-results/**"
-      ]
+      "outputs": ["test-results/**"]
     }
   },
-  "globalPassThroughEnv": [
-    "PLAYWRIGHT_*"
-  ]
+  "globalPassThroughEnv": ["PLAYWRIGHT_*"]
 }

@@ -30,5 +30,11 @@ export interface AgentSession {
 
 export interface Engine {
   start(adapter: AgentDefinition, options?: SessionOptions): Promise<AgentSession>;
+  reconnect(
+    sessionId: string,
+    adapter: AgentDefinition,
+    options?: SessionOptions,
+  ): Promise<AgentSession>;
+  listSessions(): Promise<string[]>;
   shutdown(): Promise<void>;
 }

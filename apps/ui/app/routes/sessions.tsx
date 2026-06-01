@@ -10,7 +10,7 @@ export default function Sessions() {
   const [sessions] = useState<Array<{ id: string; status: string }>>([]);
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto", flex: 1 }}>
       <h1>Sessions</h1>
       <p>Manage agent sessions</p>
       {sessions.length === 0 ? (

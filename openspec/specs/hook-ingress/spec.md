@@ -8,7 +8,7 @@ Defines how the engine installs agent lifecycle hooks, receives hook callbacks, 
 
 ### Requirement: Install hooks once, scope per session via environment
 
-The engine SHALL install the agent's lifecycle hook a single time (non-destructively merged into the agent's settings) and SHALL differentiate sessions by injecting the bridge URL, the session id, and a per-session token into each session's process environment at launch. It SHALL provide an explicit uninstall path.
+The engine SHALL install the agent's lifecycle hook a single time (non-destructively merged into the agent's settings) and SHALL differentiate sessions by injecting the hook socket path, the session id, and a per-session token into each session's process environment at launch. It SHALL provide an explicit uninstall path. The hook socket path SHALL be a deterministic local path that does not change across engine host process restarts.
 
 #### Scenario: Non-destructive install
 
@@ -18,7 +18,12 @@ The engine SHALL install the agent's lifecycle hook a single time (non-destructi
 #### Scenario: Per-session scoping via environment
 
 - **WHEN** a session launches
-- **THEN** the engine SHALL inject the bridge URL, session id, and per-session token into that session's environment so the static hook command reports them back
+- **THEN** the engine SHALL inject the hook socket path, session id, and per-session token into that session's environment so the static hook command reports them back
+
+#### Scenario: Socket path survives engine restart
+
+- **WHEN** the engine host process restarts
+- **THEN** the hook socket path injected into running sessions SHALL remain valid and accept callbacks
 
 #### Scenario: Uninstall restores settings
 
@@ -27,12 +32,17 @@ The engine SHALL install the agent's lifecycle hook a single time (non-destructi
 
 ### Requirement: Loopback receiver
 
-The engine SHALL receive hook callbacks over an HTTP endpoint bound to the loopback interface on an ephemeral port, and SHALL handle the port being unavailable.
+The hook receiver SHALL bind to a named Unix domain socket at a deterministic path (`~/.athing/hooks.sock`) on the loopback-equivalent local interface. It SHALL NOT use an ephemeral TCP port. The receiver SHALL be owned and managed by the daemon process so it remains available across engine host process restarts.
 
-#### Scenario: Loopback only
+#### Scenario: Receiver at stable path
 
 - **WHEN** the receiver starts
-- **THEN** it SHALL bind only to the loopback interface and expose its URL for injection into sessions
+- **THEN** it SHALL listen on `~/.athing/hooks.sock` and that path SHALL be usable as long as the daemon is running
+
+#### Scenario: Receiver survives engine restart
+
+- **WHEN** the engine host process exits and restarts
+- **THEN** the receiver socket SHALL still be accepting callbacks from running sessions without any reconfiguration
 
 ### Requirement: Authenticated callbacks
 
