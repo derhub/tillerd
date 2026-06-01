@@ -1,0 +1,15 @@
+{
+  "name": "@athing/integration-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "ATHING_INTEGRATION=1 bun test"
+  },
+  "dependencies": {
+    "@athing/adapter-claude-code": "workspace:*",
+    "@athing/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
+  }
+}

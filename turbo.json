@@ -2,24 +2,30 @@
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
   "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
+    },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": [
+        "^check-types"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "test": {
-      "outputs": ["test-results/**", "playwright-report/**"]
-    },
-    "test:ui": {
-      "cache": false,
-      "persistent": true
-    },
-    "test:debug": {
-      "cache": false,
-      "persistent": true
+      "outputs": [
+        "test-results/**"
+      ]
     }
   },
-  "globalPassThroughEnv": ["PLAYWRIGHT_*"]
+  "globalPassThroughEnv": [
+    "PLAYWRIGHT_*"
+  ]
 }
