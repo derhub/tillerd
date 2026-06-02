@@ -4,9 +4,7 @@ import { test, expect } from "@playwright/test";
 test.describe("shell layout", () => {
   test.beforeEach(async ({ page }) => {
     await page.routeWebSocket("**/ws/**", (ws) => ws.close());
-    await page.route("**/api/sessions", (route) =>
-      route.fulfill({ json: { sessions: [] } }),
-    );
+    await page.route("**/api/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
   });
 
   test("resize handles present between panels", async ({ page }) => {

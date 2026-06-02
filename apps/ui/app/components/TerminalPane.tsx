@@ -2,10 +2,9 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { useRevalidator } from "react-router";
 import { use } from "react";
 import { SessionContext } from "~/lib/sessionContext";
-import { cn } from "~/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 
-const WS_BASE = `ws://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:3000`;
+const WS_BASE = `ws://${typeof window !== "undefined" ? window.location.host : "localhost"}`;
 
 type Props = {
   sessionId: string | null;
@@ -42,7 +41,7 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
   const openWsRef = useRef<((id: string | null) => void) | null>(null);
   const revalidator = useRevalidator();
   const { setStatus } = use(SessionContext);
-  const [connected, setConnected] = useState(false);
+  const [_connected, setConnected] = useState(false);
 
   const openWs = useCallback(
     (id: string | null) => {
@@ -51,7 +50,9 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
-      ws.onopen = () => { setConnected(true); };
+      ws.onopen = () => {
+        setConnected(true);
+      };
       ws.onclose = () => {
         setConnected(false);
         termRef.current?.write("\r\n\x1b[31m[disconnected]\x1b[0m\r\n");
@@ -124,9 +125,7 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
       const ro = new ResizeObserver(() => {
         fitAddon.fit();
         if (wsRef.current?.readyState === WebSocket.OPEN && term.cols && term.rows) {
-          wsRef.current.send(
-            JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }),
-          );
+          wsRef.current.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
       });
       if (containerRef.current) ro.observe(containerRef.current);
@@ -146,11 +145,11 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const interrupt = useCallback(() => {
+  const _interrupt = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: "interrupt" }));
   }, []);
 
-  const reconnect = useCallback(() => {
+  const _reconnect = useCallback(() => {
     wsRef.current?.close();
     termRef.current?.clear();
     openWsRef.current?.(sessionId);
@@ -166,4 +165,3 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     </div>
   );
 }
-

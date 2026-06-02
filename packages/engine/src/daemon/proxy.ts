@@ -13,8 +13,8 @@ import { SendQueue } from "../session/queue";
 import type { DaemonFrame } from "@athing/daemon/protocol";
 import { HOOKS_SOCK } from "@athing/daemon";
 import type { DaemonClient, FrameHandler } from "./client";
-import type { Logger } from "../logger";
-import { createLogger } from "../logger";
+import type { Logger } from "@athing/logger";
+import { createLogger } from "@athing/logger";
 import { randomBytes } from "node:crypto";
 
 const DEFAULT_STARTUP_TIMEOUT = 30_000;

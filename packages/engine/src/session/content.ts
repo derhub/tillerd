@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import type { HookEvent, ContentEvent, AgentDefinition } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
-import type { Logger } from "../logger";
+import type { Logger } from "@athing/logger";
 
 type ContentHandler = (event: ContentEvent) => void;
 type ErrorHandler = (err: AtError) => void;

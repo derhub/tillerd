@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useNavigate, useRevalidator } from "react-router";
 
-const WS_BASE = `ws://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:3000`;
+const WS_BASE = `ws://${typeof window !== "undefined" ? window.location.host : "localhost"}`;
 
 export function useSpawnSession() {
   const navigate = useNavigate();

@@ -3,42 +3,42 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --background:         #FAFAFD;
-  --foreground:         #202020;
+  --background: #fafafd;
+  --foreground: #202020;
 
-  --card:               #FFFFFF;
-  --card-foreground:    #202020;
+  --card: #ffffff;
+  --card-foreground: #202020;
 
-  --popover:            #FFFFFF;
+  --popover: #ffffff;
   --popover-foreground: #202020;
 
-  --primary:            #0069CC;
+  --primary: #0069cc;
   --primary-foreground: #ffffff;
 
-  --secondary:          #EAEAEA;
+  --secondary: #eaeaea;
   --secondary-foreground: #202020;
 
-  --muted:              #EAEAEA;
-  --muted-foreground:   #606060;
+  --muted: #eaeaea;
+  --muted-foreground: #606060;
 
-  --accent:             #DADADA;
-  --accent-foreground:  #202020;
+  --accent: #dadada;
+  --accent-foreground: #202020;
 
-  --destructive:        #ad0707;
+  --destructive: #ad0707;
 
-  --border:             #E4E5E6;
-  --input:              #D8D8D8;
-  --ring:               #0069CC;
+  --border: #e4e5e6;
+  --input: #d8d8d8;
+  --ring: #0069cc;
 
-  --radius:             0rem;
+  --radius: 0rem;
 
   /* Sidebar tokens (mirrored from main) */
-  --sidebar:                    #FAFAFD;
-  --sidebar-foreground:         #202020;
-  --sidebar-primary:            #0069CC;
+  --sidebar: #fafafd;
+  --sidebar-foreground: #202020;
+  --sidebar-primary: #0069cc;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent:             #DADADA;
-  --sidebar-accent-foreground:  #202020;
-  --sidebar-border:             #E4E5E6;
-  --sidebar-ring:               #0069CC;
+  --sidebar-accent: #dadada;
+  --sidebar-accent-foreground: #202020;
+  --sidebar-border: #e4e5e6;
+  --sidebar-ring: #0069cc;
 }

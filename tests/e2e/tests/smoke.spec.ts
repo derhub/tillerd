@@ -3,9 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.routeWebSocket("**/ws/**", (ws) => ws.close());
-    await page.route("**/api/sessions", (route) =>
-      route.fulfill({ json: { sessions: [] } }),
-    );
+    await page.route("**/api/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
   });
 
   test("app loads without JS errors", async ({ page }) => {

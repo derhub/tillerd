@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { spawnSync } from "node:child_process";
@@ -11,7 +10,7 @@ import { FrameDecoder, encodeFrame } from "./protocol/codec";
 import { parseClientFrame, SUPPORTED_VERSIONS, type ClientFrame } from "./protocol/messages";
 import { PtySession } from "./pty-session";
 import { HookIngress } from "./hook-ingress";
-import { createLogger } from "./logger";
+import { createLogger } from "@athing/logger";
 import { DAEMON_VERSION } from "./version";
 import { writeSnapshot, type SnapshotRecord } from "./snapshot";
 

@@ -139,7 +139,7 @@ export function AppShell({ sessions }: AppShellProps) {
     );
   }
 
-  function renderLeaf(leaf: PanelLeaf, path: string): React.ReactNode {
+  function renderLeaf(leaf: PanelLeaf, _path: string): React.ReactNode {
     const actions = {
       split: (direction: "horizontal" | "vertical") => split(leaf.id, direction),
       close: () => close(leaf.id),
@@ -173,9 +173,7 @@ export function AppShell({ sessions }: AppShellProps) {
               </Panel.Toolbar>
             </Panel.Header>
           )}
-          <Panel.Content>
-            {renderContent(leaf.content, leaf.id)}
-          </Panel.Content>
+          <Panel.Content>{renderContent(leaf.content, leaf.id)}</Panel.Content>
         </Panel.Frame>
       </Panel.Provider>
     );
@@ -196,9 +194,7 @@ export function AppShell({ sessions }: AppShellProps) {
 
   return (
     <SessionContext value={{ sessionId, status, setStatus }}>
-      <div className="h-dvh w-full overflow-hidden pt-px">
-        {renderNode(tree, "root")}
-      </div>
+      <div className="h-dvh w-full overflow-hidden pt-px">{renderNode(tree, "root")}</div>
     </SessionContext>
   );
 }

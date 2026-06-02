@@ -3,7 +3,7 @@ import type { IPty } from "node-pty";
 import * as net from "node:net";
 import type { ExitEvent } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
-import type { Logger } from "./logger";
+import type { Logger } from "@athing/logger";
 import { resolveBinary } from "./resolve";
 
 const BRACKETED_PASTE_START = "\x1b[200~";

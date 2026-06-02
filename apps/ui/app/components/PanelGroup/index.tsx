@@ -10,11 +10,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ResizablePanelGroup = ResizablePanelGroupBase as React.ComponentType<any>;
 import { TabsList, TabsTrigger, Tabs, TabsContent } from "~/components/ui/tabs";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 import { cn } from "~/lib/utils";
 import type { DisplayMode } from "~/lib/panelTree";
@@ -111,13 +107,7 @@ function PanelGroupSplitItem({
   );
 }
 
-function PanelGroupTabBar({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function PanelGroupTabBar({ children, className }: { children: ReactNode; className?: string }) {
   const { state } = usePanelGroupContext();
   const isBottom = state.displayMode === "tabbar-bottom";
   return (
@@ -155,23 +145,11 @@ function PanelGroupTabBarTab({
   );
 }
 
-function PanelGroupTabPanels({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function PanelGroupTabPanels({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("flex-1 min-h-0 overflow-hidden", className)}>{children}</div>;
 }
 
-function PanelGroupTabContent({
-  panelId,
-  children,
-}: {
-  panelId: string;
-  children: ReactNode;
-}) {
+function PanelGroupTabContent({ panelId, children }: { panelId: string; children: ReactNode }) {
   return (
     <TabsContent value={panelId} className="mt-0 h-full data-[state=inactive]:hidden">
       {children}
@@ -179,18 +157,8 @@ function PanelGroupTabContent({
   );
 }
 
-function PanelGroupSidebar({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex flex-col w-full h-full", className)}>
-      {children}
-    </div>
-  );
+function PanelGroupSidebar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("flex flex-col w-full h-full", className)}>{children}</div>;
 }
 
 function PanelGroupSidebarItem({
@@ -209,7 +177,9 @@ function PanelGroupSidebarItem({
   return (
     <Collapsible
       open={isOpen}
-      onOpenChange={(open) => { if (open) actions.setActiveTab(panelId); }}
+      onOpenChange={(open) => {
+        if (open) actions.setActiveTab(panelId);
+      }}
       className={cn("flex flex-col", className)}
     >
       <CollapsibleTrigger className="flex items-center gap-1 px-2 h-7 w-full text-left text-[0.917rem] uppercase tracking-wide text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
@@ -219,9 +189,7 @@ function PanelGroupSidebarItem({
         />
         {title}
       </CollapsibleTrigger>
-      <CollapsibleContent className="flex-1 min-h-0 overflow-hidden">
-        {children}
-      </CollapsibleContent>
+      <CollapsibleContent className="flex-1 min-h-0 overflow-hidden">{children}</CollapsibleContent>
     </Collapsible>
   );
 }

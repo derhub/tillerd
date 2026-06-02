@@ -1,4 +1,4 @@
-import type { Logger } from "./logger";
+import type { Logger } from "@athing/logger";
 
 interface HookIngressOptions {
   socketPath: string;

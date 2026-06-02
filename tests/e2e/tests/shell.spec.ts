@@ -2,9 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("shell layout", () => {
   test.beforeEach(async ({ page }) => {
-    await page.route("**/api/sessions", (route) =>
-      route.fulfill({ json: { sessions: [] } }),
-    );
+    await page.route("**/api/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
     await page.route("**/ws/session**", (route) => route.abort());
     // Clear panel tree localStorage so each test starts with the default layout
     await page.addInitScript(() => localStorage.removeItem("athing:panel-tree"));

@@ -1,8 +1,8 @@
 import type { ExitEvent } from "@athing/sdk";
 import { PtyTransport } from "./pty-transport";
 import { ReplayBuffer } from "./replay-buffer";
-import type { Logger } from "./logger";
-import { createLogger } from "./logger";
+import type { Logger } from "@athing/logger";
+import { createLogger } from "@athing/logger";
 
 const DEFAULT_SHUTDOWN_GRACE = 5_000;
 const INITIAL_CREDIT = 65_536;

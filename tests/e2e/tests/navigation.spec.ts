@@ -18,6 +18,7 @@ test.describe("session routing", () => {
   });
 
   test("/ route renders the spawning terminal pane", async ({ page }) => {
+    await page.route("**/api/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
     await page.route("**/ws/session**", (route) => route.abort());
     await page.goto("/");
     await page.waitForLoadState("networkidle");

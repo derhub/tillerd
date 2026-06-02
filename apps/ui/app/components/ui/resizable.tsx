@@ -1,25 +1,19 @@
-import * as ResizablePrimitive from "react-resizable-panels"
+import * as ResizablePrimitive from "react-resizable-panels";
 
-import { cn } from "~/lib/utils"
+import { cn } from "~/lib/utils";
 
-function ResizablePanelGroup({
-  className,
-  ...props
-}: ResizablePrimitive.GroupProps) {
+function ResizablePanelGroup({ className, ...props }: ResizablePrimitive.GroupProps) {
   return (
     <ResizablePrimitive.Group
       data-slot="resizable-panel-group"
-      className={cn(
-        "flex h-full w-full aria-[orientation=vertical]:flex-col",
-        className
-      )}
+      className={cn("flex h-full w-full aria-[orientation=vertical]:flex-col", className)}
       {...props}
     />
-  )
+  );
 }
 
 function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps) {
-  return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />
+  return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />;
 }
 
 function ResizableHandle({
@@ -27,7 +21,7 @@ function ResizableHandle({
   className,
   ...props
 }: ResizablePrimitive.SeparatorProps & {
-  withHandle?: boolean
+  withHandle?: boolean;
 }) {
   return (
     <ResizablePrimitive.Separator
@@ -51,7 +45,7 @@ function ResizableHandle({
         "aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-3",
         "aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0",
         "aria-[orientation=horizontal]:after:-translate-y-1/2",
-        className
+        className,
       )}
       {...props}
     >
@@ -66,7 +60,7 @@ function ResizableHandle({
         />
       )}
     </ResizablePrimitive.Separator>
-  )
+  );
 }
 
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup }
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup };

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@athing/daemon": "workspace:*",
+    "@athing/logger": "workspace:*",
     "@athing/sdk": "workspace:*",
     "valibot": "^1.4.1"
   },

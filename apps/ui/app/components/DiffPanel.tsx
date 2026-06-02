@@ -6,8 +6,6 @@ import { cn } from "~/lib/utils";
 import type { FileDiffMetadata } from "@pierre/diffs/react";
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 
-const API_BASE = `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:3000`;
-
 type DiffState =
   | { phase: "idle" }
   | { phase: "loading" }
@@ -26,7 +24,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
     if (status !== "IDLE" && status !== "DONE") return;
 
     setDiff({ phase: "loading" });
-    fetch(`${API_BASE}/api/sessions/${sessionId}/diff`)
+    fetch(`/api/sessions/${sessionId}/diff`)
       .then(async (r) => {
         const patch = await r.text();
         if (!patch.trim()) {
@@ -90,7 +88,11 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
 function DiffPlaceholder({ message, error }: { message: string; error?: boolean }) {
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <p className={error ? "text-[0.917rem] text-destructive" : "text-[0.917rem] text-muted-foreground"}>
+      <p
+        className={
+          error ? "text-[0.917rem] text-destructive" : "text-[0.917rem] text-muted-foreground"
+        }
+      >
         {message}
       </p>
     </div>
@@ -102,7 +104,10 @@ type RendererComponent = React.ComponentType<{ files: FileDiffMetadata[]; viewMo
 function DiffView({ files, viewMode }: { files: FileDiffMetadata[]; viewMode: ViewMode }) {
   const rendererRef = useRef<RendererComponent | null>(null);
   const [Renderer, setRenderer] = useState<RendererComponent | null>(null);
-  const poolSize = useMemo(() => Math.max(2, Math.min(6, Math.floor((navigator.hardwareConcurrency || 4) / 2))), []);
+  const poolSize = useMemo(
+    () => Math.max(2, Math.min(6, Math.floor((navigator.hardwareConcurrency || 4) / 2))),
+    [],
+  );
 
   useEffect(() => {
     if (rendererRef.current) {
@@ -110,7 +115,8 @@ function DiffView({ files, viewMode }: { files: FileDiffMetadata[]; viewMode: Vi
       return;
     }
     (async () => {
-      const { FileDiff, Virtualizer, WorkerPoolContextProvider } = await import("@pierre/diffs/react");
+      const { FileDiff, Virtualizer, WorkerPoolContextProvider } =
+        await import("@pierre/diffs/react");
       const comp = makeDiffRenderer(FileDiff, Virtualizer, WorkerPoolContextProvider, poolSize);
       rendererRef.current = comp;
       setRenderer(() => comp);

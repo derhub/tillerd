@@ -28,6 +28,7 @@
 shadcn CLI (`npx shadcn init -b base`) initializes shadcn with Base UI as the primitive library instead of Radix UI. Base UI handles all accessibility concerns (ARIA, keyboard, focus management). shadcn provides the styled wrapper components (Tailwind + CSS variables). Components are copied into the codebase — no runtime shadcn dep.
 
 Components added:
+
 - `resizable` — wraps `react-resizable-panels`; handles split mode resize
 - `tooltip` — wraps `@base-ui/react/tooltip`; used by `Panel.Toolbar.Button`
 - `tabs` — wraps `@base-ui/react/tabs`; used by `PanelGroup.TabBar`
@@ -45,38 +46,39 @@ The shadcn `Resizable` wrapper handles `split` mode. The other three display mod
 ### D2 — Panel tree data model
 
 ```typescript
-type PanelNode = PanelGroupNode | PanelLeaf
+type PanelNode = PanelGroupNode | PanelLeaf;
 
 type PanelGroupNode = {
-  kind: 'group'
-  direction: 'horizontal' | 'vertical'
-  displayMode: 'split' | 'tabbar-top' | 'tabbar-bottom' | 'sidebar'
-  activeTabId?: string          // for tabbar-* and sidebar modes
-  children: PanelNode[]
-}
+  kind: "group";
+  direction: "horizontal" | "vertical";
+  displayMode: "split" | "tabbar-top" | "tabbar-bottom" | "sidebar";
+  activeTabId?: string; // for tabbar-* and sidebar modes
+  children: PanelNode[];
+};
 
 type PanelLeaf = {
-  kind: 'panel'
-  id: string
-  title: string                 // required, shown in header, tabs, sidebar
-  content: PanelContent
-  toolbar?: ToolbarConfig       // optional list of button configs
-}
+  kind: "panel";
+  id: string;
+  title: string; // required, shown in header, tabs, sidebar
+  content: PanelContent;
+  toolbar?: ToolbarConfig; // optional list of button configs
+};
 
 type PanelContent =
-  | { type: 'sidebar' }
-  | { type: 'terminal'; sessionId: string | null }
-  | { type: 'diff';     sessionId: string | null }
-  | { type: 'empty' }
+  | { type: "sidebar" }
+  | { type: "terminal"; sessionId: string | null }
+  | { type: "diff"; sessionId: string | null }
+  | { type: "empty" };
 
 type ToolbarConfig = {
-  buttons: ToolbarButtonConfig[]
-}
+  buttons: ToolbarButtonConfig[];
+};
 ```
 
 Tree stored in React state, initialized from `localStorage`, falls back to default on parse failure. `react-resizable-panels` `autoSaveId` handles split percentages independently.
 
 **Default layout:**
+
 ```
 PanelGroup(horizontal, split)
   PanelLeaf("Sessions", content: sidebar)
@@ -92,17 +94,19 @@ Every new component follows the compound component pattern with shared context. 
 
 ```tsx
 // Each compound has a typed context
-const PanelCtx = createContext<PanelContextValue | null>(null)
+const PanelCtx = createContext<PanelContextValue | null>(null);
 
 // Provider injects state + actions + meta
 function PanelProvider({ children, state, actions, meta }) {
-  return <PanelCtx value={{ state, actions, meta }}>{children}</PanelCtx>
+  return <PanelCtx value={{ state, actions, meta }}>{children}</PanelCtx>;
 }
 
 // Sub-components use `use()` (React 19 — no `useContext`)
 function PanelTitle() {
-  const { state: { title } } = use(PanelCtx)
-  return <span>{title}</span>
+  const {
+    state: { title },
+  } = use(PanelCtx);
+  return <span>{title}</span>;
 }
 
 // Exported as namespace object
@@ -113,8 +117,8 @@ export const Panel = {
   Title: PanelTitle,
   Toolbar: PanelToolbar,
   Content: PanelContent,
-}
-Panel.Toolbar.Button = PanelToolbarButton
+};
+Panel.Toolbar.Button = PanelToolbarButton;
 ```
 
 **No `forwardRef`** (React 19): pass refs as regular props.
@@ -138,12 +142,12 @@ Panel.Toolbar.Button = PanelToolbarButton
 
 Each display mode has its own sub-components. Consumers compose only what they use:
 
-| Mode | Sub-components | Behavior |
-|---|---|---|
-| `split` | `PanelGroup.Split` | All children visible, `react-resizable-panels` resize handles |
-| `tabbar-top` | `PanelGroup.TabBar` (top) + `PanelGroup.Panels` | One panel visible, tabs above |
-| `tabbar-bottom` | `PanelGroup.TabBar` (bottom) + `PanelGroup.Panels` | One panel visible, tabs below |
-| `sidebar` | `PanelGroup.Sidebar` + `PanelGroup.Panels` | Vertical accordion of titles; one expanded |
+| Mode            | Sub-components                                     | Behavior                                                      |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------- |
+| `split`         | `PanelGroup.Split`                                 | All children visible, `react-resizable-panels` resize handles |
+| `tabbar-top`    | `PanelGroup.TabBar` (top) + `PanelGroup.Panels`    | One panel visible, tabs above                                 |
+| `tabbar-bottom` | `PanelGroup.TabBar` (bottom) + `PanelGroup.Panels` | One panel visible, tabs below                                 |
+| `sidebar`       | `PanelGroup.Sidebar` + `PanelGroup.Panels`         | Vertical accordion of titles; one expanded                    |
 
 `PanelGroup.TabBar.Tab` reads the panel's `title` from its leaf node to label the tab. `PanelGroup.Sidebar.Item` does the same for the sidebar list.
 
@@ -168,12 +172,12 @@ The `_shell.tsx` layout route uses `clientLoader` to fetch sessions from `GET /a
 ```tsx
 // _shell.tsx
 export async function clientLoader(): Promise<{ sessions: Session[] }> {
-  const res = await fetch('/api/sessions')
-  return res.json()
+  const res = await fetch("/api/sessions");
+  return res.json();
 }
 
 export default function Shell({ loaderData }: Route.ComponentProps) {
-  return <AppShell sessions={loaderData.sessions} />
+  return <AppShell sessions={loaderData.sessions} />;
 }
 ```
 
@@ -187,18 +191,18 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
 
 CSS variables in `app.css` (Tailwind v4 CSS-first):
 
-| Token | Value |
-|---|---|
-| `--font-size-base` | 12px |
-| `--height-toolbar` | 28px |
-| `--height-panel-header` | 24px |
-| `--border-panel` | 1px solid #1e1e1e |
-| `--radius-panel` | 0px |
-| `--radius-button` | 2px |
-| `--color-bg` | #0d1117 |
-| `--color-panel-header` | #161b22 |
-| `--color-text` | #e6edf3 |
-| `--color-muted` | #8b949e |
+| Token                   | Value             |
+| ----------------------- | ----------------- |
+| `--font-size-base`      | 12px              |
+| `--height-toolbar`      | 28px              |
+| `--height-panel-header` | 24px              |
+| `--border-panel`        | 1px solid #1e1e1e |
+| `--radius-panel`        | 0px               |
+| `--radius-button`       | 2px               |
+| `--color-bg`            | #0d1117           |
+| `--color-panel-header`  | #161b22           |
+| `--color-text`          | #e6edf3           |
+| `--color-muted`         | #8b949e           |
 
 Resize handles: 1px, transparent at rest, `--color-muted` on hover.
 

@@ -38,9 +38,7 @@ function PanelProvider({
   actions: PanelActions;
 }) {
   return (
-    <PanelContext value={{ state: { id, title }, actions, meta: {} }}>
-      {children}
-    </PanelContext>
+    <PanelContext value={{ state: { id, title }, actions, meta: {} }}>{children}</PanelContext>
   );
 }
 
@@ -59,10 +57,7 @@ function PanelFrame({ children, className }: { children: ReactNode; className?: 
 function PanelHeader({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={cn(
-        "flex items-center shrink-0 px-4 gap-1.5",
-        className,
-      )}
+      className={cn("flex items-center shrink-0 px-4 gap-1.5", className)}
       style={{ height: "var(--panel-header-height, 2.5rem)" }}
     >
       {children}
@@ -132,21 +127,11 @@ function PanelToolbarButton({
 function PanelCloseButton({ totalPanels }: { totalPanels: number }) {
   const { actions } = usePanelContext();
   if (totalPanels <= 1) return null;
-  return (
-    <PanelToolbarButton
-      icon={<X size={12} />}
-      label="Close panel"
-      onClick={actions.close}
-    />
-  );
+  return <PanelToolbarButton icon={<X size={12} />} label="Close panel" onClick={actions.close} />;
 }
 
 function PanelContent({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("flex-1 min-h-0 overflow-hidden", className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn("flex-1 min-h-0 overflow-hidden", className)}>{children}</div>;
 }
 
 // ── Compound export ────────────────────────────────────────────────────────

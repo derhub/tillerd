@@ -39,7 +39,10 @@ describe("splitNode", () => {
 
   test("nested split finds correct leaf", () => {
     const tree: PanelGroupNode = {
-      kind: "group", id: "g", direction: "horizontal", displayMode: "split",
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
       children: [leaf("a"), leaf("b")],
     };
     const result = splitNode(tree, "b", "horizontal") as PanelGroupNode;
@@ -60,7 +63,10 @@ describe("closeNode", () => {
 
   test("removes leaf from group", () => {
     const tree: PanelGroupNode = {
-      kind: "group", id: "g", direction: "horizontal", displayMode: "split",
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
       children: [leaf("a"), leaf("b"), leaf("c")],
     };
     const result = closeNode(tree, "b") as PanelGroupNode;
@@ -70,7 +76,10 @@ describe("closeNode", () => {
 
   test("collapses group when 1 child remains", () => {
     const tree: PanelGroupNode = {
-      kind: "group", id: "g", direction: "horizontal", displayMode: "split",
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
       children: [leaf("a"), leaf("b")],
     };
     const result = closeNode(tree, "b");
@@ -116,7 +125,10 @@ describe("countLeaves", () => {
 
   test("counts nested leaves", () => {
     const tree: PanelNode = {
-      kind: "group", id: "g", direction: "horizontal", displayMode: "split",
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
       children: [leaf("a"), leaf("b"), leaf("c")],
     };
     expect(countLeaves(tree)).toBe(3);

@@ -6,15 +6,15 @@ The `Panel` export SHALL be a namespace object of sub-components sharing state v
 
 The `Panel` namespace SHALL expose at minimum:
 
-| Sub-component | Responsibility |
-|---|---|
-| `Panel.Provider` | Injects `{ state: { id, title }, actions, meta }` into context |
-| `Panel.Frame` | Outer container; flex column, full height |
-| `Panel.Header` | 24px bar; flex row; left: title area, right: toolbar area |
-| `Panel.Title` | Reads title from context; renders truncated label |
-| `Panel.Toolbar` | Right-side flex row in header; renders children (buttons) |
-| `Panel.Toolbar.Button` | Icon button with tooltip; receives `icon`, `label`, `onClick` |
-| `Panel.Content` | Flex-grow scroll container for panel body content |
+| Sub-component          | Responsibility                                                 |
+| ---------------------- | -------------------------------------------------------------- |
+| `Panel.Provider`       | Injects `{ state: { id, title }, actions, meta }` into context |
+| `Panel.Frame`          | Outer container; flex column, full height                      |
+| `Panel.Header`         | 24px bar; flex row; left: title area, right: toolbar area      |
+| `Panel.Title`          | Reads title from context; renders truncated label              |
+| `Panel.Toolbar`        | Right-side flex row in header; renders children (buttons)      |
+| `Panel.Toolbar.Button` | Icon button with tooltip; receives `icon`, `label`, `onClick`  |
+| `Panel.Content`        | Flex-grow scroll container for panel body content              |
 
 #### Scenario: Sub-components access shared context
 
@@ -32,15 +32,15 @@ The `PanelGroup` export SHALL be a namespace object. It SHALL provide display-mo
 
 The `PanelGroup` namespace SHALL expose at minimum:
 
-| Sub-component | Used by mode | Responsibility |
-|---|---|---|
-| `PanelGroup.Provider` | all | Injects `{ displayMode, activeTabId, direction, actions }` |
-| `PanelGroup.Split` | split | Wraps children in resizable panel group with resize handles |
-| `PanelGroup.TabBar` | tabbar-* | Tab strip container; position (top/bottom) determined by display mode |
-| `PanelGroup.TabBar.Tab` | tabbar-* | Single tab; reads panel title from panel registry; activates on click |
-| `PanelGroup.Sidebar` | sidebar | Vertical accordion list container |
-| `PanelGroup.Sidebar.Item` | sidebar | Single sidebar item; reads panel title; expands/collapses on click |
-| `PanelGroup.Panels` | all | Renders active panel (tabbar/sidebar) or all panels (split) |
+| Sub-component             | Used by mode | Responsibility                                                        |
+| ------------------------- | ------------ | --------------------------------------------------------------------- |
+| `PanelGroup.Provider`     | all          | Injects `{ displayMode, activeTabId, direction, actions }`            |
+| `PanelGroup.Split`        | split        | Wraps children in resizable panel group with resize handles           |
+| `PanelGroup.TabBar`       | tabbar-\*    | Tab strip container; position (top/bottom) determined by display mode |
+| `PanelGroup.TabBar.Tab`   | tabbar-\*    | Single tab; reads panel title from panel registry; activates on click |
+| `PanelGroup.Sidebar`      | sidebar      | Vertical accordion list container                                     |
+| `PanelGroup.Sidebar.Item` | sidebar      | Single sidebar item; reads panel title; expands/collapses on click    |
+| `PanelGroup.Panels`       | all          | Renders active panel (tabbar/sidebar) or all panels (split)           |
 
 #### Scenario: Split mode composition
 

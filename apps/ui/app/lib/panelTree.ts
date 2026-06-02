@@ -47,8 +47,18 @@ export const DEFAULT_LAYOUT: PanelGroupNode = {
   activeTabId: undefined,
   children: [
     { kind: "panel", id: "sidebar-panel", title: "Sessions", content: { type: "sidebar" } },
-    { kind: "panel", id: "terminal-panel", title: "Terminal", content: { type: "terminal", sessionId: null } },
-    { kind: "panel", id: "diff-panel", title: "Changes", content: { type: "diff", sessionId: null } },
+    {
+      kind: "panel",
+      id: "terminal-panel",
+      title: "Terminal",
+      content: { type: "terminal", sessionId: null },
+    },
+    {
+      kind: "panel",
+      id: "diff-panel",
+      title: "Changes",
+      content: { type: "diff", sessionId: null },
+    },
   ],
 };
 
@@ -79,7 +89,12 @@ export function splitNode(
 ): PanelNode {
   if (tree.kind === "panel") {
     if (tree.id !== targetId) return tree;
-    const newLeaf: PanelLeaf = { kind: "panel", id: makeId(), title: "Empty", content: { type: "empty" } };
+    const newLeaf: PanelLeaf = {
+      kind: "panel",
+      id: makeId(),
+      title: "Empty",
+      content: { type: "empty" },
+    };
     return {
       kind: "group",
       id: makeId(),
@@ -121,7 +136,10 @@ export function setDisplayModeNode(
 ): PanelNode {
   if (tree.kind === "panel") return tree;
   if (tree.id === targetId) return { ...tree, displayMode };
-  return { ...tree, children: tree.children.map((c) => setDisplayModeNode(c, targetId, displayMode)) };
+  return {
+    ...tree,
+    children: tree.children.map((c) => setDisplayModeNode(c, targetId, displayMode)),
+  };
 }
 
 export function setActiveTabNode(tree: PanelNode, groupId: string, tabId: string): PanelNode {

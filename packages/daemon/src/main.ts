@@ -4,7 +4,7 @@ import { DAEMON_VERSION } from "./version";
 import { readSnapshot } from "./snapshot";
 import { PtySession } from "./pty-session";
 import { PtyTransport } from "./pty-transport";
-import { createLogger } from "./logger";
+import { createLogger } from "@athing/logger";
 
 async function main() {
   if (process.argv.includes("--handoff")) {

@@ -1,7 +1,7 @@
 import type { Engine as IEngine, AgentSession, AgentDefinition, SessionOptions } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
 import { prepareNotifyScript } from "./ingress/install";
-import { createLogger } from "./logger";
+import { createLogger } from "@athing/logger";
 import { checkCliVersion } from "./pty/resolve";
 import { randomUUID } from "node:crypto";
 import { adoptOrSpawn } from "./daemon/supervisor";

@@ -1,21 +1,17 @@
 import { test, expect, describe } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { createEngine } from "@athing/engine";
-import { claudeCode } from "@athing/adapter-claude-code";
+import { bashAdapter } from "./fixtures/bash-adapter";
 
-const hasClaude = (() => {
-  const r = spawnSync("which", ["claude"], { encoding: "utf8" });
-  return r.status === 0;
-})();
+const isIntegration = !!process.env.ATHING_INTEGRATION;
 
-describe("engine integration (requires claude binary)", () => {
-  test.skipIf(!hasClaude)(
+describe("engine integration", () => {
+  test.skipIf(!isIntegration)(
     "start → ready → onData → kill",
     async () => {
       const engine = createEngine();
       const dataChunks: Uint8Array[] = [];
 
-      const session = await engine.start(claudeCode, { startupTimeoutMs: 20_000 });
+      const session = await engine.start(bashAdapter, { startupTimeoutMs: 5_000 });
       session.onData((b) => dataChunks.push(b));
 
       await new Promise<void>((resolve) => {
@@ -25,7 +21,7 @@ describe("engine integration (requires claude binary)", () => {
             resolve();
           }
         });
-        setTimeout(resolve, 18_000);
+        setTimeout(resolve, 3_000);
       });
 
       expect(dataChunks.length).toBeGreaterThan(0);
@@ -33,16 +29,16 @@ describe("engine integration (requires claude binary)", () => {
       await session.kill();
       await engine.shutdown();
     },
-    25_000,
+    10_000,
   );
 
-  test.skipIf(!hasClaude)(
+  test.skipIf(!isIntegration)(
     "two concurrent sessions are isolated",
     async () => {
       const engine = createEngine();
       const [s1, s2] = await Promise.all([
-        engine.start(claudeCode, { startupTimeoutMs: 20_000 }),
-        engine.start(claudeCode, { startupTimeoutMs: 20_000 }),
+        engine.start(bashAdapter, { startupTimeoutMs: 5_000 }),
+        engine.start(bashAdapter, { startupTimeoutMs: 5_000 }),
       ]);
 
       expect(s1.sessionId).not.toBe(s2.sessionId);
@@ -50,16 +46,16 @@ describe("engine integration (requires claude binary)", () => {
       await Promise.all([s1.kill(), s2.kill()]);
       await engine.shutdown();
     },
-    30_000,
+    15_000,
   );
 
-  test.skipIf(!hasClaude)(
+  test.skipIf(!isIntegration)(
     "BinaryNotFound when binary missing",
     async () => {
       const engine = createEngine();
       const badAdapter = {
-        ...claudeCode,
-        launch: { ...claudeCode.launch, command: "__athing_no_such_binary__" },
+        ...bashAdapter,
+        launch: { ...bashAdapter.launch, command: "__athing_no_such_binary__" },
       };
 
       const errors: string[] = [];

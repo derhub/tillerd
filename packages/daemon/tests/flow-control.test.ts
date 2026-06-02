@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
 import { PtySession } from "../src/pty-session";
 import { PtyTransport } from "../src/pty-transport";
-import { createLogger } from "../src/logger";
+import { createLogger } from "@athing/logger";
 
 // Minimal mock of PtyTransport for unit-testing flow control logic.
 class MockTransport extends PtyTransport {

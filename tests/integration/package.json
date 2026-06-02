@@ -6,8 +6,8 @@
     "test": "ATHING_INTEGRATION=1 bun test"
   },
   "dependencies": {
-    "@athing/adapter-claude-code": "workspace:*",
-    "@athing/engine": "workspace:*"
+    "@athing/engine": "workspace:*",
+    "@athing/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

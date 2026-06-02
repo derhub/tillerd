@@ -8,7 +8,7 @@ const FIXTURES = path.join(import.meta.dir, "fixtures");
 const NOTIFY_CMD = "bun /home/user/.athing/notify.mjs";
 
 const noop = () => {};
-const logger = { debug: noop, info: noop, warn: noop };
+const logger = { debug: noop, info: noop, warn: noop, error: noop };
 
 function tempSettings(fixtureName: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-test-"));

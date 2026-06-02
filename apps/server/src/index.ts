@@ -82,6 +82,16 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   });
 }
 
+process.on("exit", () => {
+  shutdownDaemon();
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[server] uncaught exception — shutting down daemon", err);
+  shutdownDaemon();
+  process.exit(1);
+});
+
 interface WsData {
   mode: "session" | "terminal";
   sessionId: string;
