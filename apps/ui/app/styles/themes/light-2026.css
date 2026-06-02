@@ -1,0 +1,44 @@
+/* ── 2026 Light ────────────────────────────────────────────────────────────
+   Source: microsoft/vscode extensions/theme-defaults/themes/2026-light.json
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --background:         #FAFAFD;
+  --foreground:         #202020;
+
+  --card:               #FFFFFF;
+  --card-foreground:    #202020;
+
+  --popover:            #FFFFFF;
+  --popover-foreground: #202020;
+
+  --primary:            #0069CC;
+  --primary-foreground: #ffffff;
+
+  --secondary:          #EAEAEA;
+  --secondary-foreground: #202020;
+
+  --muted:              #EAEAEA;
+  --muted-foreground:   #606060;
+
+  --accent:             #DADADA;
+  --accent-foreground:  #202020;
+
+  --destructive:        #ad0707;
+
+  --border:             #E4E5E6;
+  --input:              #D8D8D8;
+  --ring:               #0069CC;
+
+  --radius:             0rem;
+
+  /* Sidebar tokens (mirrored from main) */
+  --sidebar:                    #FAFAFD;
+  --sidebar-foreground:         #202020;
+  --sidebar-primary:            #0069CC;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #DADADA;
+  --sidebar-accent-foreground:  #202020;
+  --sidebar-border:             #E4E5E6;
+  --sidebar-ring:               #0069CC;
+}

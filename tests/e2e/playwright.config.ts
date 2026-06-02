@@ -24,7 +24,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `cd ${rootDir} && bun run dev`,
+    command: `cd ${rootDir}/apps/ui && bun run dev`,
     url: "http://localhost:5173",
     reuseExistingServer: !process.env["CI"],
     timeout: 180 * 1000,

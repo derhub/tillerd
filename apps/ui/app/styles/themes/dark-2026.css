@@ -1,0 +1,44 @@
+/* ── 2026 Dark ─────────────────────────────────────────────────────────────
+   Source: microsoft/vscode extensions/theme-defaults/themes/2026-dark.json
+   ───────────────────────────────────────────────────────────────────────── */
+
+.dark {
+  --background:         #191A1B;
+  --foreground:         #bfbfbf;
+
+  --card:               #202122;
+  --card-foreground:    #bfbfbf;
+
+  --popover:            #202122;
+  --popover-foreground: #bfbfbf;
+
+  --primary:            #297AA0;
+  --primary-foreground: #ffffff;
+
+  --secondary:          #242526;
+  --secondary-foreground: #bfbfbf;
+
+  --muted:              #2C2D2E;
+  --muted-foreground:   #8C8C8C;
+
+  --accent:             #2C2D2E;
+  --accent-foreground:  #ededed;
+
+  --destructive:        #f48771;
+
+  --border:             #2A2B2C;
+  --input:              #333536;
+  --ring:               #3994BC;
+
+  --radius:             0rem;
+
+  /* Sidebar tokens (mirrored from main) */
+  --sidebar:                    #191A1B;
+  --sidebar-foreground:         #bfbfbf;
+  --sidebar-primary:            #297AA0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #2C2D2E;
+  --sidebar-accent-foreground:  #ededed;
+  --sidebar-border:             #2A2B2C;
+  --sidebar-ring:               #3994BC;
+}

@@ -113,7 +113,7 @@ const activeSessions = new Map<string, AgentSession>();
 
 Bun.serve<WsData>({
   port: Number(process.env["PORT"] ?? 3000),
-  fetch(req, server) {
+  async fetch(req, server) {
     const url = new URL(req.url);
 
     const corsHeaders = {
@@ -142,6 +142,33 @@ Bun.serve<WsData>({
         { sessions: [...activeSessions.keys()].map((id) => ({ id })) },
         { headers: corsHeaders },
       );
+    }
+
+    const diffMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/diff$/);
+    if (diffMatch && req.method === "GET") {
+      const sessionId = diffMatch[1] as string;
+      const row = db.query("SELECT cwd FROM sessions WHERE id = ?").get(sessionId) as {
+        cwd: string;
+      } | null;
+      if (!row) {
+        return Response.json({ error: "session not found" }, { status: 404, headers: corsHeaders });
+      }
+      try {
+        const proc = Bun.spawn(["git", "diff", "HEAD"], {
+          cwd: row.cwd,
+          stdout: "pipe",
+          stderr: "ignore",
+        });
+        const output = await new Response(proc.stdout).text();
+        await proc.exited;
+        return new Response(output, {
+          headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
+        });
+      } catch {
+        return new Response("", {
+          headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
     }
 
     if (url.pathname === "/ws/session") {

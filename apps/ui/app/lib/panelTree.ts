@@ -1,0 +1,136 @@
+export type PanelContent =
+  | { type: "sidebar" }
+  | { type: "terminal"; sessionId: string | null }
+  | { type: "diff"; sessionId: string | null }
+  | { type: "empty" };
+
+export type ToolbarButtonConfig = {
+  id: string;
+  icon: string;
+  label: string;
+};
+
+export type ToolbarConfig = {
+  buttons: ToolbarButtonConfig[];
+};
+
+export type PanelLeaf = {
+  kind: "panel";
+  id: string;
+  title: string;
+  content: PanelContent;
+  toolbar?: ToolbarConfig;
+};
+
+export type DisplayMode = "split" | "tabbar-top" | "tabbar-bottom" | "sidebar";
+
+export type PanelGroupNode = {
+  kind: "group";
+  id: string;
+  direction: "horizontal" | "vertical";
+  displayMode: DisplayMode;
+  activeTabId?: string;
+  children: PanelNode[];
+};
+
+export type PanelNode = PanelGroupNode | PanelLeaf;
+
+function makeId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export const DEFAULT_LAYOUT: PanelGroupNode = {
+  kind: "group",
+  id: "root",
+  direction: "horizontal",
+  displayMode: "split",
+  activeTabId: undefined,
+  children: [
+    { kind: "panel", id: "sidebar-panel", title: "Sessions", content: { type: "sidebar" } },
+    { kind: "panel", id: "terminal-panel", title: "Terminal", content: { type: "terminal", sessionId: null } },
+    { kind: "panel", id: "diff-panel", title: "Changes", content: { type: "diff", sessionId: null } },
+  ],
+};
+
+export function serializeLayout(node: PanelNode): string {
+  return JSON.stringify(node);
+}
+
+export function deserializeLayout(raw: string): PanelNode {
+  const parsed = JSON.parse(raw) as PanelNode;
+  validateNode(parsed);
+  return parsed;
+}
+
+function validateNode(node: unknown): asserts node is PanelNode {
+  if (typeof node !== "object" || node === null) throw new Error("invalid node");
+  const n = node as Record<string, unknown>;
+  if (n["kind"] !== "panel" && n["kind"] !== "group") throw new Error("invalid kind");
+  if (n["kind"] === "group") {
+    if (!Array.isArray(n["children"])) throw new Error("group missing children");
+    for (const c of n["children"] as unknown[]) validateNode(c);
+  }
+}
+
+export function splitNode(
+  tree: PanelNode,
+  targetId: string,
+  direction: "horizontal" | "vertical",
+): PanelNode {
+  if (tree.kind === "panel") {
+    if (tree.id !== targetId) return tree;
+    const newLeaf: PanelLeaf = { kind: "panel", id: makeId(), title: "Empty", content: { type: "empty" } };
+    return {
+      kind: "group",
+      id: makeId(),
+      direction,
+      displayMode: "split",
+      children: [tree, newLeaf],
+    };
+  }
+  return { ...tree, children: tree.children.map((c) => splitNode(c, targetId, direction)) };
+}
+
+export function closeNode(tree: PanelNode, targetId: string): PanelNode | null {
+  if (tree.kind === "panel") {
+    return tree.id === targetId ? null : tree;
+  }
+  const newChildren = tree.children
+    .map((c) => closeNode(c, targetId))
+    .filter((c): c is PanelNode => c !== null);
+  if (newChildren.length === 0) return null;
+  if (newChildren.length === 1) return newChildren[0];
+  return { ...tree, children: newChildren };
+}
+
+export function setContentNode(
+  tree: PanelNode,
+  targetId: string,
+  content: PanelContent,
+): PanelNode {
+  if (tree.kind === "panel") {
+    return tree.id === targetId ? { ...tree, content } : tree;
+  }
+  return { ...tree, children: tree.children.map((c) => setContentNode(c, targetId, content)) };
+}
+
+export function setDisplayModeNode(
+  tree: PanelNode,
+  targetId: string,
+  displayMode: DisplayMode,
+): PanelNode {
+  if (tree.kind === "panel") return tree;
+  if (tree.id === targetId) return { ...tree, displayMode };
+  return { ...tree, children: tree.children.map((c) => setDisplayModeNode(c, targetId, displayMode)) };
+}
+
+export function setActiveTabNode(tree: PanelNode, groupId: string, tabId: string): PanelNode {
+  if (tree.kind === "panel") return tree;
+  if (tree.id === groupId) return { ...tree, activeTabId: tabId };
+  return { ...tree, children: tree.children.map((c) => setActiveTabNode(c, groupId, tabId)) };
+}
+
+export function countLeaves(tree: PanelNode): number {
+  if (tree.kind === "panel") return 1;
+  return tree.children.reduce((s, c) => s + countLeaves(c), 0);
+}

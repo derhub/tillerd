@@ -1,27 +1,27 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Navigation", () => {
-  test("nav should have links", async ({ page }) => {
-    await page.goto("/");
-    const nav = page.locator("nav");
-    await expect(nav.locator("text=Dashboard")).toBeVisible();
-    await expect(nav.locator("text=Sessions")).toBeVisible();
+// Renamed: was nav-link navigation. Now covers session routing.
+test.describe("session routing", () => {
+  test("navigating to /session/:id updates active sidebar row", async ({ page }) => {
+    const SESSION_ID = "abc12345-0000-0000-0000-000000000000";
+    await page.route("**/api/sessions", (route) =>
+      route.fulfill({ json: { sessions: [{ id: SESSION_ID, cwd: "/tmp/test" }] } }),
+    );
+    // Block WS upgrade to avoid terminal init noise
+    await page.route("**/ws/session**", (route) => route.abort());
+
+    await page.goto(`/session/${SESSION_ID}`);
+    await page.waitForLoadState("networkidle");
+
+    const row = page.locator(`a[href='/session/${SESSION_ID}']`);
+    await expect(row).toHaveClass(/bg-muted/);
   });
 
-  test("logo link goes to home", async ({ page }) => {
-    await page.goto("/sessions");
-    await page.click("text=a-thing");
-    await expect(page).toHaveURL("/");
-  });
-
-  test("should navigate between routes", async ({ page }) => {
+  test("/ route renders the spawning terminal pane", async ({ page }) => {
+    await page.route("**/ws/session**", (route) => route.abort());
     await page.goto("/");
-    await expect(page.locator("h1")).toContainText("Dashboard");
-
-    await page.click("text=Sessions");
-    await expect(page.locator("h1")).toContainText("Sessions");
-
-    await page.click("text=Dashboard");
-    await expect(page.locator("h1")).toContainText("Dashboard");
+    await page.waitForLoadState("networkidle");
+    // Terminal container inside the terminal panel
+    await expect(page.locator("[data-panel-id='terminal-panel']")).toBeVisible();
   });
 });
