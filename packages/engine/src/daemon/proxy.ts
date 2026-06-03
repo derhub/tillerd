@@ -7,8 +7,7 @@ import type {
   SessionOptions,
   SnapshotFrame,
 } from "@athing/sdk";
-import { AtError, exitToStatus } from "@athing/sdk";
-import { snapshotToBytes } from "../snapshot-convert";
+import { AtError, exitToStatus, snapshotToBytes } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
@@ -234,6 +233,9 @@ export class AgentSessionProxy implements AgentSession {
   }
 
   send(text: string): void {
+    if (this.killed_ || this.exitEvent) {
+      throw new AtError("TransportClosed", "cannot send to a killed or exited session");
+    }
     if (this.sendQueue.isReady()) {
       this.sendQueue.setReady(false);
       this.sendText(text);

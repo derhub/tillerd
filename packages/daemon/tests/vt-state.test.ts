@@ -1,5 +1,6 @@
 import { test, expect, describe } from "bun:test";
-import { VtState, snapshotToBytes } from "../src/vt-state";
+import { VtState } from "../src/vt-state";
+import { snapshotToBytes } from "@athing/sdk";
 
 function enc(s: string): Uint8Array {
   return new TextEncoder().encode(s);
@@ -182,30 +183,25 @@ describe("VtState — alternate screen (DECSET 1049)", () => {
   });
 });
 
-describe("VtState — resize", () => {
-  test("resize preserves cells in overlapping region", () => {
-    const vt = new VtState(3, 10);
+describe("VtState — construction at fixed dimensions", () => {
+  // The daemon builds a fresh VtState per snapshot at the current terminal
+  // dimensions (PtySession.getSnapshot); the grid is never resized in place.
+  test("grid is sized to constructor dimensions", () => {
+    const vt = new VtState(5, 15);
     vt.feed(enc("abc"));
-    vt.resize(5, 15);
-    expect(cell(vt, 0, 0)?.char).toBe("a");
-    expect(cell(vt, 0, 2)?.char).toBe("c");
-    expect(vt.getSnapshot().rows).toBe(5);
-    expect(vt.getSnapshot().cols).toBe(15);
+    const snap = vt.getSnapshot();
+    expect(snap.rows).toBe(5);
+    expect(snap.cols).toBe(15);
+    expect(snap.cells[0]![0]!.char).toBe("a");
   });
 
-  test("resize clears newly exposed cells", () => {
+  test("content beyond the column bound wraps within the grid", () => {
     const vt = new VtState(3, 5);
-    vt.feed(enc("abc"));
-    vt.resize(3, 10);
-    expect(cell(vt, 0, 5)?.char).toBe(" ");
-  });
-
-  test("resize drops content beyond new bounds", () => {
-    const vt = new VtState(3, 10);
     vt.feed(enc("abcdefghij"));
-    vt.resize(3, 5);
-    expect(vt.getSnapshot().cols).toBe(5);
-    expect(cell(vt, 0, 0)?.char).toBe("a");
+    const snap = vt.getSnapshot();
+    expect(snap.cols).toBe(5);
+    expect(snap.cells[0]![0]!.char).toBe("a");
+    expect(snap.cells[1]![0]!.char).toBe("f");
   });
 });
 

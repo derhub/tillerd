@@ -55,10 +55,12 @@ The drive plane SHALL stream raw bytes out of the PTY and write raw bytes into i
 
 ### Requirement: Interrupt key
 
+The drive plane SHALL cancel the in-progress turn by writing the interrupt key sequence (ESC) to the terminal, without terminating the session.
+
 #### Scenario: Interrupt the current turn
 
 - **WHEN** the current turn is interrupted
-- **THEN** the drive plane SHALL write the agent's interrupt key and the agent SHALL stop the in-progress turn
+- **THEN** the drive plane SHALL write the interrupt key sequence (ESC) to the terminal and the agent SHALL stop the in-progress turn
 
 ### Requirement: Terminal resize propagation
 
@@ -94,9 +96,9 @@ The PTY drive plane SHALL operate inside the daemon process so that active PTY s
 
 ### Requirement: First-run blocker handling
 
-The drive plane SHALL launch with options that skip first-run blocking dialogs (workspace trust, onboarding) where the agent supports it, and SHALL not hang on them; a not-logged-in state SHALL be surfaced as `NotAuthenticated` rather than left waiting on a login prompt.
+The drive plane SHALL launch with options that skip first-run blocking dialogs (workspace trust, permission prompts, onboarding) where the agent supports it, and SHALL not hang on them. An agent that never reaches readiness — including a not-logged-in state — SHALL be bounded by the startup timeout and surfaced as a typed startup error rather than left waiting indefinitely.
 
-#### Scenario: Not logged in
+#### Scenario: Agent never becomes ready
 
-- **WHEN** the agent is launched but the user is not authenticated
-- **THEN** the drive plane SHALL detect the unready state within the startup timeout and emit `NotAuthenticated`
+- **WHEN** the agent is launched but does not reach the ready state (for example, the user is not authenticated)
+- **THEN** the drive plane SHALL detect the unready state within the startup timeout and emit a typed `Timeout` error, terminating the session

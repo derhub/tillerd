@@ -219,6 +219,9 @@ export class DaemonServer {
         if (s) {
           s.markKilledByUser();
           await s.kill();
+          // Evict eagerly so a same-id respawn isn't blocked by EEXIST if the
+          // exit callback is slow; re-eviction in the exit handler is idempotent.
+          this.sessions.delete(msg.sessionId);
         }
         break;
       }
@@ -228,6 +231,7 @@ export class DaemonServer {
         if (stopped) {
           stopped.markKilledByUser();
           await stopped.kill();
+          this.sessions.delete(msg.sessionId);
         }
         this.stoppedSessions.add(msg.sessionId);
         this.logger.info("session stopped", { sessionId: msg.sessionId });
@@ -350,6 +354,7 @@ export class DaemonServer {
       masterFds.push(masterFd);
       records.push({
         sessionId: s.sessionId,
+        token: s.token,
         pid: s.pid,
         cwd: s.cwd,
         cols: s.cols,

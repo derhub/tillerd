@@ -12,6 +12,7 @@ function tmpFile(): string {
 const SAMPLE: SnapshotRecord[] = [
   {
     sessionId: "s1",
+    token: "tok-s1",
     pid: 1234,
     cwd: "/home/user",
     cols: 80,
@@ -19,7 +20,7 @@ const SAMPLE: SnapshotRecord[] = [
     fdIndex: 4,
     replayBuffer: "aGVsbG8=",
   },
-  { sessionId: "s2", pid: 5678, cwd: "/tmp", cols: 120, rows: 40, fdIndex: 5, replayBuffer: "" },
+  { sessionId: "s2", token: "tok-s2", pid: 5678, cwd: "/tmp", cols: 120, rows: 40, fdIndex: 5, replayBuffer: "" },
 ];
 
 describe("snapshot serialisation", () => {

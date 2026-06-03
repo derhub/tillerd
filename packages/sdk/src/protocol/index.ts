@@ -18,3 +18,15 @@ export type {
   SnapshotCell,
   ClientCapability,
 } from "./messages";
+export {
+  snapshotToBytes,
+  charDisplayWidth,
+  COLOR_DEFAULT,
+  ATTR_BOLD,
+  ATTR_DIM,
+  ATTR_ITALIC,
+  ATTR_UNDERLINE,
+  ATTR_BLINK,
+  ATTR_INVERSE,
+  ATTR_INVISIBLE,
+} from "./snapshot-render";

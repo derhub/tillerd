@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 export interface SnapshotRecord {
   sessionId: string;
+  token: string;
   pid: number;
   cwd: string;
   cols: number;

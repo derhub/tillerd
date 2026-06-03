@@ -1,7 +1,8 @@
 # session-recovery Specification
 
 ## Purpose
-TBD - created by archiving change session-crash-recovery. Update Purpose after archive.
+Defines supervised recovery for sessions that exit unexpectedly. A `stop` operation (distinct from `kill`) marks a session intentionally stopped and durably ineligible for resume; an unexpected exit surfaces a `crashed` status, after which a client may explicitly recover by spawning a new process that resumes the prior conversation. Recovery never replays the pre-crash terminal and never auto-respawns.
+
 ## Requirements
 ### Requirement: Stop operation
 

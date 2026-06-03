@@ -29,7 +29,7 @@ architectural decisions in `docs/adr/`.
 
 ### Packages (ports-and-adapters; deps point inward to sdk)
 
-- `@athing/sdk` — contracts/types only, zero deps, zero impl.
+- `@athing/sdk` — contracts, types, and pure contract functions (e.g. wire codec, exit-qualifier and signal mapping, snapshot rendering). Zero I/O, zero side effects, zero mutable module state; no adapter or transport deps. A function belongs here only if it is a deterministic, pure operation over the contract types.
 - `@athing/engine` — the machinery; depends on sdk; never imports a specific adapter.
 - `@athing/adapter-claude-code` — hybrid AgentDefinition (config data + parse functions).
 - `apps/server` — composition root; injects the adapter into the engine; WebSocket + HTTP.

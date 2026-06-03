@@ -176,9 +176,14 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
       openWs(sessionId);
 
       cleanup = () => {
+        if (coalesceTimerRef.current !== null) {
+          clearTimeout(coalesceTimerRef.current);
+          coalesceTimerRef.current = null;
+        }
         wsRef.current?.close();
         ro.disconnect();
         term.dispose();
+        termRef.current = null;
       };
     })();
 

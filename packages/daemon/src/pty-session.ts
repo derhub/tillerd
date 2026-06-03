@@ -32,6 +32,7 @@ interface Subscription {
 
 export interface AdoptedSessionMeta {
   replayBuffer: Uint8Array;
+  token: string;
   cwd: string;
   cols: number;
   rows: number;
@@ -51,7 +52,11 @@ export class PtySession {
   private pid_: number | null = null;
   private transport: PtyTransport;
   private replayBuffer = new ReplayBuffer();
-  private vtState: VtState;
+  // Current terminal dimensions, updated on resize. The snapshot is built
+  // on demand at these dims by replaying the ring buffer — the daemon does
+  // not maintain a live virtual terminal.
+  private curCols: number;
+  private curRows: number;
   private subscribers = new Map<unknown, Subscription>();
   private exitCallbacks = new Set<ExitCallback>();
   private logger: Logger;
@@ -77,17 +82,17 @@ export class PtySession {
   ) {
     if (optsOrSentinel === ADOPT) {
       this.sessionId = sessionId!;
-      this.token = "";
+      this.token = meta!.token;
       this.cwd = meta!.cwd;
       this.cols = meta!.cols;
       this.rows = meta!.rows;
       this.pid_ = meta!.pid;
       this.transport = transport!;
       this.logger = createLogger(sessionId!);
-      this.vtState = new VtState(meta!.rows, meta!.cols);
+      this.curCols = meta!.cols;
+      this.curRows = meta!.rows;
       if (meta!.replayBuffer.length > 0) {
         this.replayBuffer.push(meta!.replayBuffer);
-        this.vtState.feed(meta!.replayBuffer);
       }
       this.wireTransport();
       return;
@@ -100,7 +105,8 @@ export class PtySession {
     this.cols = opts.cols;
     this.rows = opts.rows;
     this.logger = createLogger(opts.sessionId);
-    this.vtState = new VtState(opts.rows, opts.cols);
+    this.curCols = opts.cols;
+    this.curRows = opts.rows;
 
     const launchArgs = [...opts.args, ...opts.flags].filter((a) => a !== "");
 
@@ -174,12 +180,11 @@ export class PtySession {
 
   private wireTransport(): void {
     this.transport.onData((bytes) => {
-      this.vtState.feed(bytes);
+      // Hot path: raw bytes only — ring buffer + forward. No parsing.
       this.replayBuffer.push(bytes);
       this.emitData(bytes);
     });
     this.transport.onExit((raw: RawExitEvent) => {
-      this.vtState.dispose();
       const event = this.translateExit(raw);
       for (const cb of this.exitCallbacks) cb(event);
     });
@@ -272,12 +277,20 @@ export class PtySession {
   }
 
   resize(cols: number, rows: number): void {
-    this.vtState.resize(rows, cols);
+    this.curCols = cols;
+    this.curRows = rows;
     this.transport.resize(cols, rows);
   }
 
+  // Build a terminal snapshot on demand by replaying the ring buffer through a
+  // fresh VT parser at the current dimensions. The daemon keeps no live virtual
+  // terminal — fidelity is bounded by the ring-buffer window, and any miss
+  // self-heals as live output repaints the screen.
   getSnapshot(): SnapshotPayload {
-    const snap = this.vtState.getSnapshot();
+    const vt = new VtState(this.curRows, this.curCols);
+    vt.feed(this.getReplayBytes());
+    const snap = vt.getSnapshot();
+    vt.dispose();
     this.logger.info("snapshot.generate", { sessionId: this.sessionId, rows: snap.rows, cols: snap.cols });
     return snap;
   }

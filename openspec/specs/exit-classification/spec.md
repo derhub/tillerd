@@ -1,7 +1,8 @@
 # exit-classification Specification
 
 ## Purpose
-TBD - created by archiving change exit-qualifier-taxonomy. Update Purpose after archive.
+Defines the closed, platform-independent exit taxonomy. The daemon translates each raw process exit (code, signal) into a single `ExitQualifier` at its boundary; every layer above branches only on the qualifier, never on raw platform values. Includes the signal reference table with platform-stable name resolution and the qualifier-to-status mapping that determines the `crashed` status.
+
 ## Requirements
 ### Requirement: Platform-independent exit qualifier
 

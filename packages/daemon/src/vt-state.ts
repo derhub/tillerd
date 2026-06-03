@@ -1,21 +1,15 @@
 import type { SnapshotCell } from "@athing/sdk";
-
-// Attrs bitmask
-const ATTR_BOLD      = 0x01;
-const ATTR_DIM       = 0x02;
-const ATTR_ITALIC    = 0x04;
-const ATTR_UNDERLINE = 0x08;
-const ATTR_BLINK     = 0x10;
-const ATTR_INVERSE   = 0x20;
-const ATTR_INVISIBLE = 0x40;
-
-// Color encoding:
-//   0         = default
-//   1–8       = ANSI standard colors (ESC[30m → 1, … ESC[37m → 8)
-//   9–16      = ANSI bright colors  (ESC[90m → 9, … ESC[97m → 16)
-//   17–272    = 256-color (index + 17, so index 0 = 17)
-//   0x1000000+= 24-bit RGB (r<<16 | g<<8 | b | 0x1000000)
-const COLOR_DEFAULT = 0;
+import {
+  charDisplayWidth,
+  COLOR_DEFAULT,
+  ATTR_BOLD,
+  ATTR_DIM,
+  ATTR_ITALIC,
+  ATTR_UNDERLINE,
+  ATTR_BLINK,
+  ATTR_INVERSE,
+  ATTR_INVISIBLE,
+} from "@athing/sdk";
 
 function ansiToColor(n: number, bright: boolean): number {
   return bright ? (n - 90 + 9) : (n - 30 + 1);
@@ -27,47 +21,6 @@ function color256(idx: number): number {
 
 function colorRgb(r: number, g: number, b: number): number {
   return 0x1000000 | (r << 16) | (g << 8) | b;
-}
-
-function colorToFgSGR(c: number): string {
-  if (c === COLOR_DEFAULT) return "39";
-  if (c >= 1 && c <= 8) return String(29 + c);
-  if (c >= 9 && c <= 16) return String(81 + c);
-  if (c >= 17 && c <= 272) return `38;5;${c - 17}`;
-  const r = (c >> 16) & 0xff; const g = (c >> 8) & 0xff; const b = c & 0xff;
-  return `38;2;${r};${g};${b}`;
-}
-
-function colorToBgSGR(c: number): string {
-  if (c === COLOR_DEFAULT) return "49";
-  if (c >= 1 && c <= 8) return String(39 + c);
-  if (c >= 9 && c <= 16) return String(91 + c);
-  if (c >= 17 && c <= 272) return `48;5;${c - 17}`;
-  const r = (c >> 16) & 0xff; const g = (c >> 8) & 0xff; const b = c & 0xff;
-  return `48;2;${r};${g};${b}`;
-}
-
-function charDisplayWidth(cp: number): 1 | 2 {
-  if (
-    (cp >= 0x1100 && cp <= 0x115f) ||
-    (cp >= 0x2e80 && cp <= 0x303f) ||
-    (cp >= 0x3040 && cp <= 0x33ff) ||
-    (cp >= 0x3400 && cp <= 0x4dbf) ||
-    (cp >= 0x4e00 && cp <= 0x9fff) ||
-    (cp >= 0xa960 && cp <= 0xa97f) ||
-    (cp >= 0xac00 && cp <= 0xd7ff) ||
-    (cp >= 0xf900 && cp <= 0xfaff) ||
-    (cp >= 0xfe10 && cp <= 0xfe1f) ||
-    (cp >= 0xfe30 && cp <= 0xfe4f) ||
-    (cp >= 0xfe50 && cp <= 0xfe6f) ||
-    (cp >= 0xff01 && cp <= 0xff60) ||
-    (cp >= 0xffe0 && cp <= 0xffe6) ||
-    (cp >= 0x1b000 && cp <= 0x1bfff) ||
-    (cp >= 0x1c000 && cp <= 0x1cfff) ||
-    (cp >= 0x20000 && cp <= 0x2fffd) ||
-    (cp >= 0x30000 && cp <= 0x3fffd)
-  ) return 2;
-  return 1;
 }
 
 export interface SnapshotPayload {
@@ -575,87 +528,8 @@ export class VtState {
     return { rows: this.rows, cols: this.cols, cells, cursor: { ...this.cursor } };
   }
 
-  resize(rows: number, cols: number): void {
-    const newGrid = makeGrid(rows, cols);
-    const g = this.activeGrid();
-    const minRows = Math.min(rows, this.rows);
-    const minCols = Math.min(cols, this.cols);
-    for (let r = 0; r < minRows; r++) {
-      for (let c = 0; c < minCols; c++) {
-        newGrid[r]![c] = { ...g[r]![c]! };
-      }
-    }
-    this.rows = rows;
-    this.cols = cols;
-    if (this.inAltScreen && this.altGrid) {
-      this.altGrid = newGrid;
-    } else {
-      this.grid = newGrid;
-    }
-    this.cursor.x = Math.min(this.cursor.x, cols - 1);
-    this.cursor.y = Math.min(this.cursor.y, rows - 1);
-  }
-
   dispose(): void {
     this.grid = [];
     this.altGrid = null;
   }
 }
-
-// Convert a snapshot payload to ANSI escape sequences.
-// Returns a Buffer of bytes suitable for direct feed to a terminal renderer.
-export function snapshotToBytes(snap: SnapshotPayload): Uint8Array {
-  const parts: string[] = [];
-
-  // ED2: erase entire display, then move cursor to home
-  parts.push("\x1b[2J\x1b[H");
-
-  let curFg = COLOR_DEFAULT;
-  let curBg = COLOR_DEFAULT;
-  let curAttrs = 0;
-
-  for (let row = 0; row < snap.rows; row++) {
-    for (let col = 0; col < snap.cols; col++) {
-      const cell = snap.cells[row]?.[col];
-      if (!cell) continue;
-
-      // Skip empty continuation cells (wide char right half)
-      if (cell.char === "") continue;
-
-      // Skip default empty spaces (common case — saves bytes)
-      if (cell.char === " " && cell.fg === COLOR_DEFAULT && cell.bg === COLOR_DEFAULT && cell.attrs === 0) continue;
-
-      // Position cursor
-      parts.push(`\x1b[${row + 1};${col + 1}H`);
-
-      // Apply SGR if changed
-      if (cell.fg !== curFg || cell.bg !== curBg || cell.attrs !== curAttrs) {
-        const sgr: string[] = [];
-        if (cell.attrs === 0 && curAttrs !== 0) sgr.push("0");
-        if (cell.attrs & ATTR_BOLD && !(curAttrs & ATTR_BOLD)) sgr.push("1");
-        if (cell.attrs & ATTR_DIM && !(curAttrs & ATTR_DIM)) sgr.push("2");
-        if (cell.attrs & ATTR_ITALIC && !(curAttrs & ATTR_ITALIC)) sgr.push("3");
-        if (cell.attrs & ATTR_UNDERLINE && !(curAttrs & ATTR_UNDERLINE)) sgr.push("4");
-        if (cell.attrs & ATTR_INVERSE && !(curAttrs & ATTR_INVERSE)) sgr.push("7");
-        if (cell.fg !== curFg) sgr.push(colorToFgSGR(cell.fg));
-        if (cell.bg !== curBg) sgr.push(colorToBgSGR(cell.bg));
-        if (sgr.length > 0) parts.push(`\x1b[${sgr.join(";")}m`);
-        curFg = cell.fg; curBg = cell.bg; curAttrs = cell.attrs;
-      }
-
-      parts.push(cell.char);
-    }
-  }
-
-  // Reset SGR to default
-  if (curFg !== COLOR_DEFAULT || curBg !== COLOR_DEFAULT || curAttrs !== 0) {
-    parts.push("\x1b[m");
-  }
-
-  // Restore cursor position
-  parts.push(`\x1b[${snap.cursor.y + 1};${snap.cursor.x + 1}H`);
-
-  return Buffer.from(parts.join("")) as unknown as Uint8Array;
-}
-
-export { colorToFgSGR, colorToBgSGR, COLOR_DEFAULT };

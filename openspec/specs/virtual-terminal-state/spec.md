@@ -1,26 +1,27 @@
 # virtual-terminal-state Specification
 
 ## Purpose
-TBD - created by archiving change terminal-state-snapshot. Update Purpose after archive.
+Defines the daemon-side virtual terminal: a headless VT parser that maintains the current screen state (cell grid, cursor, attributes) per session from raw PTY output, and serves a state snapshot to snapshot-capable clients on subscribe/reconnect so a renderer can restore the screen without replaying raw byte history. The ring buffer is retained as the legacy reconnect path for non-capable clients.
+
 ## Requirements
-### Requirement: VT state maintenance
+### Requirement: On-demand terminal state reconstruction
 
-The daemon SHALL parse raw PTY output for each active session and maintain an in-memory representation of the current terminal screen state, including rendered cell content, cursor position, scroll region, and active text attributes.
+The daemon SHALL NOT maintain a live virtual terminal per session. The hot output path SHALL forward raw bytes unmodified and retain them in the per-session ring buffer, with no parsing. A terminal screen state SHALL be reconstructed only when a snapshot is requested, by replaying the ring buffer through a fresh parser at the session's current dimensions, producing rendered cell content, cursor position, and active text attributes. Scroll-region control (DECSTBM) is out of scope for v1 — the full screen is treated as the scrolling area.
 
-#### Scenario: State updates on output
+#### Scenario: Output path does not parse
 
 - **WHEN** the PTY produces output bytes
-- **THEN** the daemon SHALL parse and apply those bytes to the session's in-memory terminal state before forwarding them to subscribers
+- **THEN** the daemon SHALL retain them in the ring buffer and forward them to subscribers unmodified, without parsing them into terminal state
 
-#### Scenario: State reflects latest output
+#### Scenario: Snapshot reconstructed at request time
 
-- **WHEN** any subscriber queries terminal state for an active session
-- **THEN** the state SHALL reflect all output received up to that point in time
+- **WHEN** a snapshot is requested for a session
+- **THEN** the daemon SHALL reconstruct the current screen by replaying the ring buffer through a fresh parser, reflecting all retained output up to that point, bounded by the ring-buffer window
 
-#### Scenario: Resize without reflow
+#### Scenario: Snapshot built at current dimensions after resize
 
-- **WHEN** the terminal is resized
-- **THEN** the daemon SHALL preserve cells in the overlapping region, clear newly exposed cells, and drop content beyond the new bounds, without reflowing wrapped lines
+- **WHEN** the terminal has been resized and a snapshot is subsequently requested
+- **THEN** the reconstructed snapshot SHALL be built at the current dimensions; no in-place grid reflow occurs because no live grid is maintained
 
 ### Requirement: State snapshot on subscribe for capable clients
 

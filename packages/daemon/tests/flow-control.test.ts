@@ -66,6 +66,7 @@ function makeSession(): { session: PtySession; transport: MockTransport } {
   const transport = new MockTransport();
   const session = PtySession.fromAdoptedTransport("test", transport, {
     replayBuffer: new Uint8Array(0),
+    token: "test-token",
     cwd: "/",
     cols: 80,
     rows: 24,
@@ -73,6 +74,30 @@ function makeSession(): { session: PtySession; transport: MockTransport } {
   });
   return { session, transport };
 }
+
+test("adopted session restores token from meta (hooks survive handoff)", () => {
+  const { session } = makeSession();
+  expect(session.token).toBe("test-token");
+});
+
+test("getSnapshot reconstructs the screen on demand from the ring buffer", () => {
+  const { session, transport } = makeSession();
+  transport.emit(new TextEncoder().encode("Hello"));
+  const snap = session.getSnapshot();
+  const row0 = snap.cells[0]!;
+  expect(row0[0]!.char).toBe("H");
+  expect(row0[4]!.char).toBe("o");
+  expect(snap.cursor).toEqual({ x: 5, y: 0 });
+});
+
+test("getSnapshot rebuilds at current dimensions after resize", () => {
+  const { session, transport } = makeSession();
+  transport.emit(new TextEncoder().encode("x"));
+  session.resize(120, 40);
+  const snap = session.getSnapshot();
+  expect(snap.cols).toBe(120);
+  expect(snap.rows).toBe(40);
+});
 
 describe("flow control", () => {
   test("credit exhaustion pauses PTY fd, ack resumes it", () => {
@@ -160,13 +185,14 @@ describe("flow control", () => {
 
   test("onExitOnce fires exactly once then unregisters", () => {
     const { session, transport } = makeSession();
-    const events: unknown[] = [];
+    const events: import("@athing/sdk").ExitEvent[] = [];
 
     session.onExitOnce((e) => events.push(e));
     transport.emitExit({ code: 0, signal: null });
     transport.emitExit({ code: 1, signal: null });
 
     expect(events).toHaveLength(1);
-    expect(events[0]).toEqual({ code: 0, signal: null });
+    expect(events[0]!.qualifier).toBe("ok");
+    expect(events[0]!.raw).toEqual({ code: 0, signal: null });
   });
 });

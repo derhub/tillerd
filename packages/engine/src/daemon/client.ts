@@ -49,6 +49,8 @@ export class DaemonClient {
           },
           close: () => {
             this.socket = null;
+            // Drain any pending list() callers so they don't hang forever.
+            for (const cb of this.pendingList.splice(0)) cb([]);
             for (const h of this.closeHandlers) h();
           },
           error: (_socket, err) => {

@@ -1,4 +1,13 @@
 import type { Logger } from "@athing/logger";
+import * as fs from "node:fs";
+import { timingSafeEqual } from "node:crypto";
+
+function tokensMatch(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 interface HookIngressOptions {
   socketPath: string;
@@ -40,7 +49,7 @@ export class HookIngress {
           return new Response("forbidden", { status: 403 });
         }
 
-        if (token !== expected) {
+        if (!tokensMatch(token, expected)) {
           logger.warn("hook-ingress: token mismatch", { sessionId });
           return new Response("forbidden", { status: 403 });
         }
@@ -64,6 +73,14 @@ export class HookIngress {
           });
       },
     });
+
+    // Restrict the control-plane socket to the owner — defence in depth on top
+    // of the per-session token (ADR-0007 authenticated control plane).
+    try {
+      fs.chmodSync(this.opts.socketPath, 0o600);
+    } catch (err) {
+      logger.warn("hook-ingress: chmod failed", { err: String(err) });
+    }
 
     logger.info("hook ingress started", { sock: this.opts.socketPath });
   }

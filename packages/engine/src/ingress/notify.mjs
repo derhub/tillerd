@@ -1,7 +1,18 @@
 // packages/engine/src/ingress/notify.ts
+var MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
 var chunks = [];
-process.stdin.on("data", (c) => chunks.push(c));
+var collected = 0;
+var overflow = false;
+process.stdin.on("data", (c) => {
+  collected += c.length;
+  if (collected > MAX_PAYLOAD_BYTES) {
+    overflow = true;
+    return;
+  }
+  chunks.push(c);
+});
 process.stdin.on("end", async () => {
+  if (overflow) return;
   const raw = Buffer.concat(chunks).toString("utf8");
   const bridgeUrl = process.env["ATHING_BRIDGE_URL"];
   const token = process.env["ATHING_SESSION_TOKEN"];

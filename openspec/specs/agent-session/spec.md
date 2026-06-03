@@ -20,7 +20,7 @@ The engine SHALL be created via a factory that returns an isolated instance owni
 
 ### Requirement: Session lifecycle
 
-The engine SHALL expose a session contract with `start`, `send`, `input`, `interrupt`, `resize`, `kill`, and `resume`, uniform across transport modes.
+The engine SHALL expose a session contract with `send`, `input`, `interrupt`, `resize`, `kill`, and `stop`, uniform across transport modes. Session creation and resumption are engine-level operations (`start`, `reconnect`, and `start({ resume })`), not methods on the session handle.
 
 #### Scenario: Start a session
 
@@ -131,7 +131,7 @@ Every external interaction SHALL be time-bounded — at minimum startup, shutdow
 
 ### Requirement: Typed error taxonomy
 
-Errors SHALL be a closed, typed set (including `BinaryNotFound`, `NotAuthenticated`, `SpawnFailed`, `HookInstallFailed`, `TranscriptUnavailable`, `TransportClosed`, `Timeout`, `VersionUnsupported`) surfaced on the event model so callers can branch on them.
+Errors SHALL be a closed, typed set (including `BinaryNotFound`, `NotAuthenticated`, `SpawnFailed`, `HookInstallFailed`, `TranscriptUnavailable`, `TransportClosed`, `QueueFull`, `Timeout`, `VersionUnsupported`, `SessionStopped`, `ResumeUnavailable`) surfaced on the event model so callers can branch on them.
 
 #### Scenario: Errors are typed
 

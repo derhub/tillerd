@@ -6,7 +6,7 @@ Defines the detached daemon process that owns PTY sessions and the hook ingress 
 ## Requirements
 ### Requirement: Detached daemon process with manifest
 
-The daemon SHALL run as a process independent of the engine's host process and SHALL write a manifest file to a deterministic path (`~/.athing/daemon.json`) containing its process identifier so the engine can detect whether a daemon is already running on startup.
+The daemon SHALL run as a process independent of the engine's host process and SHALL write a manifest file to a deterministic path (`~/.athing/daemon.json`) containing its process identifier and version so the engine can detect whether a daemon is already running on startup.
 
 #### Scenario: Daemon survives engine host process exit
 
@@ -16,7 +16,7 @@ The daemon SHALL run as a process independent of the engine's host process and S
 #### Scenario: Manifest written on start
 
 - **WHEN** the daemon starts
-- **THEN** it SHALL write `{ "pid": <pid> }` to `~/.athing/daemon.json` before accepting connections
+- **THEN** it SHALL write `{ "pid": <pid>, "version": <daemon-version> }` to `~/.athing/daemon.json` during startup
 
 #### Scenario: Manifest cleaned on stop
 
@@ -25,7 +25,7 @@ The daemon SHALL run as a process independent of the engine's host process and S
 
 ### Requirement: IPC control channel
 
-The daemon SHALL expose a Unix domain socket at `~/.athing/daemon.sock` for newline-delimited JSON message exchange with engine clients.
+The daemon SHALL expose a Unix domain socket at `~/.athing/daemon.sock` for length-prefixed binary frame exchange with engine clients (a JSON metadata header plus an optional raw binary body per frame), so terminal bytes pass through without re-encoding.
 
 #### Scenario: Engine adopts running daemon
 
@@ -79,6 +79,40 @@ The daemon SHALL maintain a bounded ring buffer of raw PTY output bytes per sess
 
 - **WHEN** PTY output exceeds the buffer capacity
 - **THEN** the daemon SHALL evict the oldest bytes and continue, never growing the buffer unbounded
+
+### Requirement: Snapshot frame cell encoding (language-neutral wire contract)
+
+A daemon implementation in any language that advertises the `snapshot` capability SHALL emit `snapshot` frames whose cells use the encoding below. This encoding is the contract between the snapshot producer (any-language daemon) and the consumer (the engine, which renders cells back to terminal escape sequences); it is part of the wire protocol, not an implementation detail.
+
+A `snapshot` frame is `{ type: "snapshot", sessionId, rows, cols, cells, cursor }` where:
+
+- `cells` is a `rows`-length array of `cols`-length arrays of cells, row-major, top-left origin.
+- `cursor` is `{ x, y }`, zero-based, `x` = column, `y` = row.
+- Each cell is `{ char, fg, bg, attrs }`.
+
+`char` SHALL be the grapheme occupying the cell. The left half of a double-width character carries the character; its right-half continuation cell SHALL carry the empty string `""`. An erased or never-written cell carries a single space `" "`.
+
+`fg` and `bg` SHALL be integers in this closed encoding:
+
+| Integer value | Meaning |
+| --- | --- |
+| `0` | terminal default color |
+| `1`–`8` | ANSI standard colors (black..white; SGR 30–37 map to 1–8) |
+| `9`–`16` | ANSI bright colors (SGR 90–97 map to 9–16) |
+| `17`–`272` | 256-color palette: value `= paletteIndex + 17` (palette index `0`–`255`) |
+| `0x1000000` and above | 24-bit RGB: `0x1000000 | (r << 16) | (g << 8) | b` |
+
+`attrs` SHALL be a bitmask: `bold = 0x01`, `dim = 0x02`, `italic = 0x04`, `underline = 0x08`, `blink = 0x10`, `inverse = 0x20`, `invisible = 0x40`.
+
+#### Scenario: Cell colors use the closed integer encoding
+
+- **WHEN** a daemon emits a `snapshot` frame with a cell colored with 256-color palette index `N`
+- **THEN** the cell's `fg` (or `bg`) SHALL be `N + 17`, and a default-colored cell SHALL be `0`
+
+#### Scenario: Wide-character continuation cell is empty
+
+- **WHEN** a double-width character occupies a cell
+- **THEN** the cell SHALL carry the character and the immediately following continuation cell SHALL carry `""`
 
 ### Requirement: Hook ingress on stable socket
 
@@ -172,7 +206,7 @@ A daemon upgrade SHALL preserve all live PTY sessions by adopting the running PT
 
 ### Requirement: Durable stopped-session set
 
-The daemon SHALL persist stopped-session identifiers to the durable session-persistence store so that a stopped session remains ineligible for resume across engine, server, and daemon restarts. The daemon SHALL consult the durable record when evaluating a resume request. Any in-memory set SHALL be a bounded cache over the durable record.
+The daemon SHALL persist stopped-session identifiers to a durable store so that a stopped session remains ineligible for resume across engine, server, and daemon restarts. The daemon SHALL hold the full set in memory and SHALL consult it when evaluating a resume request. The set SHALL NOT be evicted — a stopped session stays stopped for the daemon's lifetime.
 
 #### Scenario: Stop recorded durably
 
@@ -184,10 +218,10 @@ The daemon SHALL persist stopped-session identifiers to the durable session-pers
 - **WHEN** a session is stopped, the daemon is restarted, and a resume is later requested for that session id
 - **THEN** the daemon SHALL reject the resume with a `SessionStopped` typed error, having consulted the durable store
 
-#### Scenario: Bounded cache does not resurrect resumability
+#### Scenario: Stopped set is never evicted
 
-- **WHEN** the in-memory stopped-session cache evicts an entry that is still recorded in the durable store
-- **THEN** a resume request for that session id SHALL still be rejected, because the durable record is authoritative
+- **WHEN** any number of sessions have been stopped over the daemon's lifetime
+- **THEN** every stopped session id SHALL remain in the durable set and a resume request for any of them SHALL still be rejected
 
 ### Requirement: sessionId re-registration after eviction
 

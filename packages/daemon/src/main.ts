@@ -76,6 +76,7 @@ async function runHandoffReceiver(): Promise<void> {
       adoptedSessions.push(
         PtySession.fromAdoptedTransport(record.sessionId, transport, {
           replayBuffer: Buffer.from(record.replayBuffer, "base64"),
+          token: record.token,
           cwd: record.cwd,
           cols: record.cols,
           rows: record.rows,
