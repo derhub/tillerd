@@ -21,7 +21,7 @@ export function checkCliVersion(command: string, versionRange: string): void {
   }
 }
 
-function satisfiesRange(version: string, range: string): boolean {
+export function satisfiesRange(version: string, range: string): boolean {
   if (range === "*") return true;
   const m = range.match(/^(>=|<=|>|<|\^|~)?(\d+)\.(\d+)\.(\d+)/);
   if (!m) return true;

@@ -4,7 +4,7 @@ import { prepareNotifyScript } from "./ingress/install";
 import { createLogger } from "@athing/logger";
 import { checkCliVersion } from "./pty/resolve";
 import { randomUUID } from "node:crypto";
-import { adoptOrSpawn } from "./daemon/supervisor";
+import { adoptOrSpawn, HOOKS_SOCK } from "./daemon/supervisor";
 import { AgentSessionProxy, fillProxyOptions } from "./daemon/proxy";
 import type { DaemonClient } from "./daemon/client";
 
@@ -41,7 +41,7 @@ class EngineImpl implements IEngine {
     const client = await this.getDaemonClient();
     const sessionId = randomUUID();
     const opts = fillProxyOptions(options);
-    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "spawn");
+    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "spawn", HOOKS_SOCK);
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
     setTimeout(() => proxy.start(), 0);
@@ -62,7 +62,7 @@ class EngineImpl implements IEngine {
     }
 
     const opts = fillProxyOptions(options);
-    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "subscribe");
+    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "subscribe", HOOKS_SOCK);
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
     setTimeout(() => proxy.start(), 0);

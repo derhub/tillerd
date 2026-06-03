@@ -6,7 +6,7 @@ import { createLogger } from "@athing/logger";
 // Minimal mock of PtyTransport for unit-testing flow control logic.
 class MockTransport extends PtyTransport {
   paused = false;
-  private dataHandlers: Set<(bytes: Uint8Array) => void> = new Set();
+  private mockHandlers: Set<(bytes: Uint8Array) => void> = new Set();
 
   constructor() {
     super({
@@ -39,18 +39,26 @@ class MockTransport extends PtyTransport {
   }
 
   override onData(handler: (bytes: Uint8Array) => void): () => void {
-    this.dataHandlers.add(handler);
-    return () => this.dataHandlers.delete(handler);
+    this.mockHandlers.add(handler);
+    return () => this.mockHandlers.delete(handler);
   }
 
+  private mockExitHandlers: Set<(event: { code: number | null; signal: string | null }) => void> =
+    new Set();
+
   override onExit(
-    _handler: (event: { code: number | null; signal: string | null }) => void,
+    handler: (event: { code: number | null; signal: string | null }) => void,
   ): () => void {
-    return () => {};
+    this.mockExitHandlers.add(handler);
+    return () => this.mockExitHandlers.delete(handler);
   }
 
   emit(bytes: Uint8Array): void {
-    for (const h of this.dataHandlers) h(bytes);
+    for (const h of this.mockHandlers) h(bytes);
+  }
+
+  emitExit(event: { code: number | null; signal: string | null }): void {
+    for (const h of this.mockExitHandlers) h(event);
   }
 }
 
@@ -121,5 +129,44 @@ describe("flow control", () => {
     // Ack for A restores A — PTY should resume even though B is still paused.
     session.addCredit("A", 10);
     expect(transport.paused).toBe(false);
+  });
+
+  test("removeSubscriber stops data delivery and resumes PTY", () => {
+    const { session, transport } = makeSession();
+    const received: Uint8Array[] = [];
+
+    session.addSubscriber("key", (b) => received.push(b), 5);
+    transport.emit(new Uint8Array(5)); // exhausts credit, pauses PTY
+    expect(transport.paused).toBe(true);
+
+    session.removeSubscriber("key");
+    expect(transport.paused).toBe(false); // resumed because no more subscribers
+
+    transport.emit(new Uint8Array(1));
+    expect(received).toHaveLength(1); // only the first emit was received
+  });
+
+  test("getReplayBytes returns concatenation of all received chunks", () => {
+    const { session, transport } = makeSession();
+
+    const a = new Uint8Array([1, 2, 3]);
+    const b = new Uint8Array([4, 5]);
+    transport.emit(a);
+    transport.emit(b);
+
+    const replay = session.getReplayBytes();
+    expect(Array.from(replay)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  test("onExitOnce fires exactly once then unregisters", () => {
+    const { session, transport } = makeSession();
+    const events: unknown[] = [];
+
+    session.onExitOnce((e) => events.push(e));
+    transport.emitExit({ code: 0, signal: null });
+    transport.emitExit({ code: 1, signal: null });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ code: 0, signal: null });
   });
 });

@@ -6,10 +6,7 @@ import { AtError } from "@athing/sdk";
 import type { Logger } from "@athing/logger";
 import { resolveBinary } from "./resolve";
 
-const BRACKETED_PASTE_START = "\x1b[200~";
-const BRACKETED_PASTE_END = "\x1b[201~";
 const INTERRUPT_KEY = "\x1b";
-const SUBMIT_KEY = "\r";
 
 const DEFAULT_COLS = 220;
 const DEFAULT_ROWS = 50;
@@ -98,6 +95,7 @@ export class PtyTransport {
       LANG: process.env["LANG"] ?? "en_US.UTF-8",
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
+      ...(process.env["SSH_AUTH_SOCK"] ? { SSH_AUTH_SOCK: process.env["SSH_AUTH_SOCK"] } : {}),
       ...this.opts.env,
     };
 
@@ -242,12 +240,6 @@ export class PtyTransport {
     this.ptyProcess.write(Buffer.from(bytes).toString("binary"));
   }
 
-  sendPrompt(text: string): void {
-    if (!this.ptyProcess) throw new AtError("TransportClosed");
-    const escaped = `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}${SUBMIT_KEY}`;
-    this.ptyProcess.write(escaped);
-  }
-
   sendInterrupt(): void {
     if (this.adoptedSocket) {
       this.adoptedSocket.write(INTERRUPT_KEY);
@@ -277,6 +269,9 @@ export class PtyTransport {
 
   async kill(): Promise<ExitEvent> {
     if (this.adoptedPid_ !== null) {
+      if (process.platform !== "win32" && this.adoptedPid_ > 0) {
+        try { process.kill(-this.adoptedPid_, "SIGTERM"); } catch { /* already dead */ }
+      }
       try {
         process.kill(this.adoptedPid_, "SIGTERM");
       } catch {
@@ -284,6 +279,9 @@ export class PtyTransport {
       }
       return new Promise<ExitEvent>((resolve) => {
         const timer = setTimeout(() => {
+          if (process.platform !== "win32" && this.adoptedPid_! > 0) {
+            try { process.kill(-this.adoptedPid_!, "SIGKILL"); } catch { /* already dead */ }
+          }
           try {
             process.kill(this.adoptedPid_!, "SIGKILL");
           } catch {
@@ -314,6 +312,10 @@ export class PtyTransport {
       };
       this.exitHandlers.add(exitOnce);
 
+      const pid = this.ptyProcess!.pid;
+      if (process.platform !== "win32" && pid > 0) {
+        try { process.kill(-pid, "SIGTERM"); } catch { /* already dead */ }
+      }
       try {
         this.ptyProcess!.kill("SIGTERM");
       } catch {
@@ -322,6 +324,9 @@ export class PtyTransport {
 
       this.killTimer = setTimeout(() => {
         this.opts.logger.warn("pty.kill: grace expired, sending SIGKILL");
+        if (process.platform !== "win32" && pid > 0) {
+          try { process.kill(-pid, "SIGKILL"); } catch { /* already dead */ }
+        }
         try {
           this.ptyProcess?.kill("SIGKILL");
         } catch {

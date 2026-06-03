@@ -2,7 +2,7 @@
   "name": "@athing/e2e-test",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@playwright/test": "^1.60.0"

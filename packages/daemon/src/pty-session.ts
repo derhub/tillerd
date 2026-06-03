@@ -81,14 +81,7 @@ export class PtySession {
       this.transport = transport!;
       this.logger = createLogger(sessionId!);
       if (meta!.replayBuffer.length > 0) this.replayBuffer.push(meta!.replayBuffer);
-      // Wire transport events immediately — no spawn() needed.
-      this.transport.onData((bytes) => {
-        this.replayBuffer.push(bytes);
-        this.emitData(bytes);
-      });
-      this.transport.onExit((event) => {
-        for (const cb of this.exitCallbacks) cb(event);
-      });
+      this.wireTransport();
       return;
     }
 
@@ -131,17 +124,19 @@ export class PtySession {
   }
 
   start(): number {
+    this.wireTransport();
+    this.pid_ = this.transport.spawn();
+    return this.pid_;
+  }
+
+  private wireTransport(): void {
     this.transport.onData((bytes) => {
       this.replayBuffer.push(bytes);
       this.emitData(bytes);
     });
-
     this.transport.onExit((event: ExitEvent) => {
       for (const cb of this.exitCallbacks) cb(event);
     });
-
-    this.pid_ = this.transport.spawn();
-    return this.pid_;
   }
 
   addSubscriber(key: unknown, onData: DataCallback, initialCredit = INITIAL_CREDIT): void {

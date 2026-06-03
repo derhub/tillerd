@@ -10,8 +10,7 @@ import { AtError } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
-import type { DaemonFrame } from "@athing/daemon/protocol";
-import { HOOKS_SOCK } from "@athing/daemon";
+import type { DaemonFrame } from "@athing/sdk";
 import type { DaemonClient, FrameHandler } from "./client";
 import type { Logger } from "@athing/logger";
 import { createLogger } from "@athing/logger";
@@ -63,6 +62,7 @@ export class AgentSessionProxy implements AgentSession {
     opts: Required<SessionOptions>,
     private readonly client: DaemonClient,
     private readonly mode: ProxyMode,
+    private readonly hooksSockPath: string,
   ) {
     this.sessionId = sessionId;
     this.token = randomBytes(32).toString("hex");
@@ -119,7 +119,7 @@ export class AgentSessionProxy implements AgentSession {
         command: this.adapter.launch.command,
         args: launchArgs,
         flags: this.adapter.launch.flags,
-        hookSocketPath: HOOKS_SOCK,
+        hookSocketPath: this.hooksSockPath,
         token: this.token,
         cols: this.opts.cols,
         rows: this.opts.rows,

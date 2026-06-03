@@ -15,28 +15,35 @@ export interface ManifestData {
 }
 
 export class Manifest {
+  constructor(private readonly dir: string = ATHING_DIR) {}
+
+  private get manifestPath(): string {
+    return join(this.dir, "daemon.json");
+  }
+
   write(version: string): void {
     this.writeForPid(process.pid, version);
   }
 
   writeForPid(pid: number, version: string): void {
-    fs.mkdirSync(ATHING_DIR, { recursive: true });
-    const tmp = MANIFEST_PATH + ".tmp";
+    fs.mkdirSync(this.dir, { recursive: true });
+    const tmp = this.manifestPath + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify({ pid, version }), "utf8");
-    fs.renameSync(tmp, MANIFEST_PATH);
+    fs.renameSync(tmp, this.manifestPath);
   }
 
   remove(): void {
     try {
-      fs.rmSync(MANIFEST_PATH);
+      fs.rmSync(this.manifestPath);
     } catch {
       // already gone
     }
   }
 
-  static read(): ManifestData | null {
+  static read(dir = ATHING_DIR): ManifestData | null {
+    const manifestPath = join(dir, "daemon.json");
     try {
-      const raw = fs.readFileSync(MANIFEST_PATH, "utf8");
+      const raw = fs.readFileSync(manifestPath, "utf8");
       return JSON.parse(raw) as ManifestData;
     } catch {
       return null;

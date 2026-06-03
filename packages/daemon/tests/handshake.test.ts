@@ -38,7 +38,7 @@ async function connectRaw(sockPath: string): Promise<{
           const raw =
             typeof chunk === "string"
               ? Buffer.from(chunk, "utf8")
-              : Buffer.from(chunk as ArrayBuffer);
+              : Buffer.from(chunk);
           for (const f of decoder.push(raw)) {
             const waiter = waiters.shift();
             if (waiter) {

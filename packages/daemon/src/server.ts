@@ -1,9 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
 import { AtError } from "@athing/sdk";
 import { ATHING_DIR, DAEMON_SOCK, HOOKS_SOCK, Manifest } from "./manifest";
 import { FrameDecoder, encodeFrame } from "./protocol/codec";
@@ -37,20 +35,22 @@ export class DaemonServer {
 
   /** Pre-populate sessions from a handoff snapshot (successor daemon only). */
   async adoptSessions(sessions: PtySession[]): Promise<void> {
-    for (const s of sessions) {
-      this.sessions.set(s.sessionId, s);
-      s.onExit((event) => {
-        this.sessions.delete(s.sessionId);
-        s.emitToSubscribers((key) => {
-          this.send(key as BunSocket, {
-            type: "exit",
-            sessionId: s.sessionId,
-            code: event.code,
-            signal: event.signal,
-          });
+    for (const s of sessions) this.trackSession(s);
+  }
+
+  private trackSession(session: PtySession): void {
+    this.sessions.set(session.sessionId, session);
+    session.onExit((event) => {
+      this.sessions.delete(session.sessionId);
+      session.emitToSubscribers((key) => {
+        this.send(key as BunSocket, {
+          type: "exit",
+          sessionId: session.sessionId,
+          code: event.code,
+          signal: event.signal,
         });
       });
-    }
+    });
   }
 
   async start(): Promise<void> {
@@ -179,19 +179,7 @@ export class DaemonServer {
           rows: msg.rows,
           cwd: msg.cwd,
         });
-        this.sessions.set(msg.sessionId, session);
-        session.onExit((event) => {
-          this.sessions.delete(msg.sessionId);
-          session.emitToSubscribers((key) => {
-            const s = key as Socket<unknown>;
-            this.send(s, {
-              type: "exit",
-              sessionId: msg.sessionId,
-              code: event.code,
-              signal: event.signal,
-            });
-          });
-        });
+        this.trackSession(session);
         session.addSubscriber(
           socket,
           (bytes) => this.sendData(socket, msg.sessionId, bytes),
@@ -413,7 +401,7 @@ function resolveDaemonBinary(): string {
     const abs = path.resolve(envBin);
     if (fs.existsSync(abs)) return abs;
   }
-  const localBin = join(process.cwd(), "bin", "athing-daemon");
+  const localBin = path.join(process.cwd(), "bin", "athing-daemon");
   if (fs.existsSync(localBin)) return localBin;
   const shell = process.env["SHELL"] ?? "/bin/sh";
   const result = spawnSync(shell, ["-lc", "which athing-daemon"], {
@@ -421,7 +409,7 @@ function resolveDaemonBinary(): string {
     timeout: 5000,
   });
   if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
-  const userBin = join(homedir(), ".local", "bin", "athing-daemon");
+  const userBin = path.join(homedir(), ".local", "bin", "athing-daemon");
   if (fs.existsSync(userBin)) return userBin;
   throw new Error(
     "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon or set ATHING_DAEMON_BIN.",

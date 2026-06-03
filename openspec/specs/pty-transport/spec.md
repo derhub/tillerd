@@ -53,14 +53,7 @@ The drive plane SHALL stream raw bytes out of the PTY and write raw bytes into i
 - **WHEN** raw input bytes are forwarded to the session
 - **THEN** the drive plane SHALL write those exact bytes to the pseudo-terminal
 
-### Requirement: Prompt submission and interrupt keys
-
-The drive plane SHALL submit a prompt turn by writing the prompt text using bracketed paste (so multi-line input is delivered intact) followed by the submit key, and SHALL interrupt the current turn by writing the agent's interrupt key.
-
-#### Scenario: Multi-line prompt submitted intact
-
-- **WHEN** a multi-line prompt is submitted
-- **THEN** the drive plane SHALL deliver it via bracketed paste and a single submit, not as separate line-by-line submissions
+### Requirement: Interrupt key
 
 #### Scenario: Interrupt the current turn
 

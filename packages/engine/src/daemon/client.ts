@@ -1,5 +1,4 @@
-import { FrameDecoder, encodeFrame } from "@athing/daemon/protocol";
-import { parseDaemonFrame, type DaemonFrame } from "@athing/daemon/protocol";
+import { FrameDecoder, encodeFrame, parseDaemonFrame, type DaemonFrame } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
 
 export type FrameHandler = (frame: DaemonFrame, body: Buffer | null) => void;

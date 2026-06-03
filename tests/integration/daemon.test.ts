@@ -1,146 +1,314 @@
-import { test, expect, describe, afterAll } from "bun:test";
+import { test, expect, describe } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { spawnSync } from "node:child_process";
-import { bashAdapter } from "./fixtures/bash-adapter";
+import { encodeFrame, FrameDecoder } from "@athing/sdk";
 
-const hasDaemon = (() => {
-  const r = spawnSync("which", ["athing-daemon"], { encoding: "utf8" });
-  return r.status === 0;
-})();
+const ATHING_DIR = process.env["ATHING_DIR"]
+  ? path.resolve(process.env["ATHING_DIR"])
+  : path.join(os.homedir(), ".athing");
 
-const ATHING_DIR = path.join(os.homedir(), ".athing");
-const HOOKS_SOCK = path.join(ATHING_DIR, "hooks.sock");
-const MANIFEST = path.join(ATHING_DIR, "daemon.json");
+const SOCK_PATH = path.join(ATHING_DIR, "daemon.sock");
+const HOOKS_SOCK_PATH = path.join(ATHING_DIR, "hooks.sock");
 
-describe("daemon survival (requires athing-daemon binary)", () => {
-  afterAll(async () => {
-    try {
-      const raw = fs.readFileSync(MANIFEST, "utf8");
-      const { pid } = JSON.parse(raw) as { pid: number };
-      process.kill(pid, "SIGTERM");
-      await new Promise((r) => setTimeout(r, 300));
-    } catch {}
+// ── Socket client ────────────────────────────────────────────────────────────
+
+type Frame = { meta: Record<string, unknown>; body: Buffer | null };
+
+type Client = {
+  send(meta: unknown, body?: Buffer): void;
+  recv(timeoutMs?: number): Promise<Frame>;
+  disconnect(): void;
+};
+
+async function connect(): Promise<Client> {
+  const decoder = new FrameDecoder();
+  const pending: Frame[] = [];
+  const waiters: Array<(f: Frame | null) => void> = [];
+  let sock: { write(b: Buffer): void; end(): void } | null = null;
+
+  await new Promise<void>((resolve, reject) => {
+    Bun.connect({
+      unix: SOCK_PATH,
+      socket: {
+        open(s) {
+          sock = s as unknown as { write(b: Buffer): void; end(): void };
+          s.write(encodeFrame({ type: "hello", versions: [1] }));
+        },
+        data(_s, chunk) {
+          const buf =
+            typeof chunk === "string"
+              ? Buffer.from(chunk, "utf8")
+              : Buffer.from(chunk as unknown as Uint8Array);
+          for (const f of decoder.push(buf)) {
+            const meta = f.meta as Record<string, unknown>;
+            if (meta["type"] === "hello-ack") {
+              resolve();
+              continue;
+            }
+            const frame: Frame = { meta, body: f.body };
+            const w = waiters.shift();
+            if (w) w(frame);
+            else pending.push(frame);
+          }
+        },
+        error(_s, err) {
+          reject(err);
+        },
+        close() {
+          for (const w of waiters.splice(0)) w(null);
+        },
+      },
+    });
   });
 
-  // 15.5 — daemon spawn + engine reconnect after simulated engine restart
-  test.skipIf(!hasDaemon)(
-    "session stays alive after engine host restart simulation",
-    async () => {
-      const { createEngine } = await import("@athing/engine");
-
-      const engine1 = createEngine();
-      const session1 = await engine1.start(bashAdapter, {
-        startupTimeoutMs: 5_000,
-        cwd: os.tmpdir(),
-      });
-      const sessionId = session1.sessionId;
-
-      await new Promise((r) => setTimeout(r, 200));
-
-      await engine1.shutdown();
-
-      expect(fs.existsSync(MANIFEST)).toBe(true);
-      const { pid } = JSON.parse(fs.readFileSync(MANIFEST, "utf8")) as { pid: number };
-      let alive = false;
-      try {
-        process.kill(pid, 0);
-        alive = true;
-      } catch {}
-      expect(alive).toBe(true);
-
-      const engine2 = createEngine();
-      const liveIds = await engine2.listSessions();
-      expect(liveIds).toContain(sessionId);
-
-      const session2 = await engine2.reconnect(sessionId, bashAdapter, { cwd: os.tmpdir() });
-      expect(session2.sessionId).toBe(sessionId);
-
-      await session2.kill();
-      await engine2.shutdown();
+  return {
+    send(meta, body) {
+      sock!.write(encodeFrame(meta, body));
     },
-    30_000,
-  );
-
-  // 15.6 — hook delivery continues after engine host restart
-  test.skipIf(!hasDaemon)(
-    "hook delivery continues after engine restart",
-    async () => {
-      const { createEngine } = await import("@athing/engine");
-
-      const engine1 = createEngine();
-      const session1 = await engine1.start(bashAdapter, {
-        startupTimeoutMs: 5_000,
-        cwd: os.tmpdir(),
-      });
-
-      await new Promise((r) => setTimeout(r, 300));
-      await engine1.shutdown();
-
-      expect(fs.existsSync(HOOKS_SOCK)).toBe(true);
-
-      const engine2 = createEngine();
-      const session2 = await engine2.reconnect(session1.sessionId, bashAdapter, {
-        cwd: os.tmpdir(),
-      });
-
-      const statuses: string[] = [];
-      session2.onStatus((s) => statuses.push(s));
-
-      await new Promise((r) => setTimeout(r, 500));
-
-      const errors: string[] = [];
-      session2.onError((e) => errors.push(e.kind));
-      await new Promise((r) => setTimeout(r, 100));
-      expect(errors.filter((k) => k === "TransportClosed")).toHaveLength(0);
-
-      await session2.kill();
-      await engine2.shutdown();
-    },
-    30_000,
-  );
-
-  // 15.7 — ?id= WS reconnect delivers replay buffer
-  test.skipIf(!hasDaemon)(
-    "replay buffer delivered on reconnect subscribe",
-    async () => {
-      const { createEngine } = await import("@athing/engine");
-
-      const engine = createEngine();
-      const session1 = await engine.start(bashAdapter, {
-        startupTimeoutMs: 5_000,
-        cwd: os.tmpdir(),
-      });
-
-      const firstChunks: Uint8Array[] = [];
-      session1.onData((b) => firstChunks.push(b));
-
-      await new Promise<void>((resolve) => {
-        const t = setTimeout(resolve, 5_000);
-        session1.onData(() => {
+    recv(timeoutMs = 5_000) {
+      return new Promise((resolve, reject) => {
+        const f = pending.shift();
+        if (f) {
+          resolve(f);
+          return;
+        }
+        const t = setTimeout(() => reject(new Error("recv timeout")), timeoutMs);
+        waiters.push((frame) => {
           clearTimeout(t);
-          resolve();
+          if (frame) resolve(frame);
+          else reject(new Error("disconnected"));
         });
       });
-
-      await engine.shutdown();
-
-      const engine2 = createEngine();
-      const session2 = await engine2.reconnect(session1.sessionId, bashAdapter, {
-        cwd: os.tmpdir(),
-      });
-
-      const replayChunks: Uint8Array[] = [];
-      session2.onData((b) => replayChunks.push(b));
-
-      await new Promise((r) => setTimeout(r, 200));
-
-      expect(replayChunks.length).toBeGreaterThan(0);
-
-      await session2.kill();
-      await engine2.shutdown();
     },
-    30_000,
-  );
+    disconnect() {
+      sock?.end();
+    },
+  };
+}
+
+async function drainUntil(
+  client: Client,
+  predicate: (f: Frame) => boolean,
+  timeoutMs = 5_000,
+): Promise<Frame[]> {
+  const collected: Frame[] = [];
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const f = await client.recv(Math.max(100, deadline - Date.now())).catch(() => null);
+    if (!f) break;
+    collected.push(f);
+    if (predicate(f)) break;
+  }
+  return collected;
+}
+
+// ── Session helper ───────────────────────────────────────────────────────────
+
+let sessionCounter = 0;
+
+function nextId(): string {
+  return `daemon-test-${process.pid}-${++sessionCounter}`;
+}
+
+async function spawnSession(
+  client: Client,
+  opts: { command: string; args?: string[]; id?: string },
+): Promise<{ sessionId: string; pid: number }> {
+  const sessionId = opts.id ?? nextId();
+  client.send({
+    type: "spawn",
+    sessionId,
+    command: opts.command,
+    args: opts.args ?? [],
+    flags: [],
+    hookSocketPath: HOOKS_SOCK_PATH,
+    token: `tok-${sessionId}`,
+    cols: 80,
+    rows: 24,
+    cwd: os.tmpdir(),
+  });
+  const ack = await client.recv();
+  expect(ack.meta["type"]).toBe("spawn-ack");
+  return { sessionId, pid: ack.meta["pid"] as number };
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+describe("daemon protocol", () => {
+  test("handshake returns list-ack", async () => {
+    const client = await connect();
+    client.send({ type: "list" });
+    const f = await client.recv();
+    expect(f.meta["type"]).toBe("list-ack");
+    client.disconnect();
+  });
+
+  test("spawn session and receive PTY data", async () => {
+    const client = await connect();
+    // Use absolute path + simple arg to avoid $SHELL wrapper quoting issues.
+    const { sessionId } = await spawnSession(client, {
+      command: "/bin/echo",
+      args: ["MARKER_DATA"],
+    });
+
+    let combined = "";
+    const frames = await drainUntil(client, (f) => f.meta["type"] === "exit", 8_000);
+    for (const f of frames) {
+      if (f.meta["type"] === "data" && f.body) combined += f.body.toString("utf8");
+    }
+
+    expect(combined).toContain("MARKER_DATA");
+    const exitFrame = frames.find((f) => f.meta["type"] === "exit");
+    expect(exitFrame).toBeDefined();
+    expect(exitFrame!.meta["sessionId"]).toBe(sessionId);
+
+    client.disconnect();
+  }, 15_000);
+
+  test("list returns spawned session ID", async () => {
+    const client = await connect();
+    const { sessionId } = await spawnSession(client, {
+      command: "/bin/sleep",
+      args: ["30"],
+    });
+
+    client.send({ type: "list" });
+    const f = await client.recv();
+    expect(f.meta["type"]).toBe("list-ack");
+    expect(f.meta["ids"] as string[]).toContain(sessionId);
+
+    client.send({ type: "kill", sessionId });
+    client.disconnect();
+  }, 10_000);
+
+  test("duplicate spawn returns EEXIST", async () => {
+    const client = await connect();
+    const id = nextId();
+    await spawnSession(client, { command: "/bin/sleep", args: ["30"], id });
+
+    client.send({
+      type: "spawn",
+      sessionId: id,
+      command: "sh",
+      args: [],
+      flags: [],
+      hookSocketPath: HOOKS_SOCK_PATH,
+      token: "tok",
+      cols: 80,
+      rows: 24,
+      cwd: os.tmpdir(),
+    });
+    const err = await client.recv();
+    expect(err.meta["type"]).toBe("error");
+    expect(err.meta["code"]).toBe("EEXIST");
+
+    client.send({ type: "kill", sessionId: id });
+    client.disconnect();
+  }, 10_000);
+
+  test("subscribe to unknown session returns ENOTFOUND", async () => {
+    const client = await connect();
+    client.send({ type: "subscribe", sessionId: "nonexistent-99999" });
+    const err = await client.recv();
+    expect(err.meta["type"]).toBe("error");
+    expect(err.meta["code"]).toBe("ENOTFOUND");
+    client.disconnect();
+  }, 5_000);
+
+  test("kill delivers exit frame to subscriber", async () => {
+    const client = await connect();
+    // Spawner is auto-subscribed — kill and drain exit frame directly.
+    const { sessionId } = await spawnSession(client, {
+      command: "/bin/sleep",
+      args: ["60"],
+    });
+
+    client.send({ type: "kill", sessionId });
+
+    const frames = await drainUntil(client, (f) => f.meta["type"] === "exit", 5_000);
+    const exitFrame = frames.find((f) => f.meta["type"] === "exit");
+    expect(exitFrame).toBeDefined();
+    expect(exitFrame!.meta["sessionId"]).toBe(sessionId);
+
+    client.disconnect();
+  }, 10_000);
+
+  test("continuous PTY output delivered to subscriber", async () => {
+    // yes outputs continuously — always in kernel buffer, reliable across PTY read loop impls.
+    const client = await connect();
+    const { sessionId } = await spawnSession(client, {
+      command: "/usr/bin/yes",
+      args: ["MARKER_OUTPUT"],
+    });
+
+    let combined = "";
+    const deadline = Date.now() + 5_000;
+    while (!combined.includes("MARKER_OUTPUT") && Date.now() < deadline) {
+      const f = await client.recv(1_000).catch(() => null);
+      if (!f) continue;
+      if (f.meta["type"] === "data" && f.body) {
+        combined += f.body.toString("utf8");
+        client.send({ type: "ack", sessionId, bytes: f.body.length });
+      }
+    }
+
+    expect(combined).toContain("MARKER_OUTPUT");
+    client.send({ type: "kill", sessionId });
+    client.disconnect();
+  }, 10_000);
+
+  test("resize does not crash the daemon", async () => {
+    const client = await connect();
+    const { sessionId } = await spawnSession(client, {
+      command: "/bin/sleep",
+      args: ["30"],
+    });
+
+    client.send({ type: "resize", sessionId, cols: 120, rows: 40 });
+    client.send({ type: "list" });
+    const f = await client.recv();
+    expect(f.meta["type"]).toBe("list-ack");
+
+    client.send({ type: "kill", sessionId });
+    client.disconnect();
+  }, 10_000);
+
+  test("replay buffer delivered to late subscriber", async () => {
+    const clientA = await connect();
+    // yes outputs continuously — always buffered, reliably received.
+    const { sessionId } = await spawnSession(clientA, {
+      command: "/usr/bin/yes",
+      args: ["MARKER_REPLAY"],
+    });
+
+    let combined = "";
+    const deadline = Date.now() + 5_000;
+    while (!combined.includes("MARKER_REPLAY") && Date.now() < deadline) {
+      const f = await clientA.recv(500).catch(() => null);
+      if (!f) continue;
+      if (f.meta["type"] === "data" && f.body) {
+        combined += f.body.toString("utf8");
+        clientA.send({ type: "ack", sessionId, bytes: f.body.length });
+      }
+    }
+    expect(combined).toContain("MARKER_REPLAY");
+    clientA.disconnect();
+
+    const clientB = await connect();
+    clientB.send({ type: "subscribe", sessionId });
+
+    let replay = "";
+    const replayDeadline = Date.now() + 3_000;
+    while (!replay.includes("MARKER_REPLAY") && Date.now() < replayDeadline) {
+      const f = await clientB.recv(500).catch(() => null);
+      if (!f) break;
+      if (f.meta["type"] === "data" && f.body) replay += f.body.toString("utf8");
+    }
+    expect(replay).toContain("MARKER_REPLAY");
+
+    clientB.send({ type: "kill", sessionId });
+    clientB.disconnect();
+  }, 15_000);
+
 });

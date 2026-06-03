@@ -21,7 +21,7 @@ export interface Logger {
   error(msg: string, extra?: Record<string, unknown>): void;
 }
 
-const VALID_LEVELS = new Set(["debug", "info", "warn", "error"]);
+const VALID_LEVELS = new Set(["silent", "debug", "info", "warn", "error"]);
 
 function resolveLevel(): string {
   const env = (process.env["LOG_LEVEL"] ?? "info").toLowerCase();

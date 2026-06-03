@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "ATHING_INTEGRATION=1 bun test"
+    "e2e": "bun test"
   },
   "dependencies": {
     "@athing/engine": "workspace:*",

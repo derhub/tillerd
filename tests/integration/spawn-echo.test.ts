@@ -39,7 +39,7 @@ async function connect(sockPath: string): Promise<Client> {
           const raw =
             typeof chunk === "string"
               ? Buffer.from(chunk, "utf8")
-              : Buffer.from(chunk as ArrayBuffer);
+              : Buffer.from(chunk as unknown as Uint8Array);
           for (const f of decoder.push(raw)) {
             if ((f.meta as { type?: string }).type === "hello-ack") {
               resolve();

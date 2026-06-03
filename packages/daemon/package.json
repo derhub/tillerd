@@ -13,8 +13,8 @@
     "dev": "ATHING_DIR=$(cd ../.. && pwd)/.athing ATHING_DAEMON_BIN=$(cd ../.. && pwd)/bin/athing-daemon bun --watch src/main.ts",
     "build": "bun scripts/build-wrapper.ts",
     "postinstall": "bun scripts/fix-pty-permissions.ts",
-    "check-types": "tsc --noEmit",
-    "test": "bun test"
+    "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "LOG_LEVEL=silent bun test"
   },
   "dependencies": {
     "@athing/logger": "workspace:*",

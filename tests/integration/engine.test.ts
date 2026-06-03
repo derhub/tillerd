@@ -2,10 +2,8 @@ import { test, expect, describe } from "bun:test";
 import { createEngine } from "@athing/engine";
 import { bashAdapter } from "./fixtures/bash-adapter";
 
-const isIntegration = !!process.env.ATHING_INTEGRATION;
-
 describe("engine integration", () => {
-  test.skipIf(!isIntegration)(
+  test(
     "start → ready → onData → kill",
     async () => {
       const engine = createEngine();
@@ -32,7 +30,7 @@ describe("engine integration", () => {
     10_000,
   );
 
-  test.skipIf(!isIntegration)(
+  test(
     "two concurrent sessions are isolated",
     async () => {
       const engine = createEngine();
@@ -49,7 +47,7 @@ describe("engine integration", () => {
     15_000,
   );
 
-  test.skipIf(!isIntegration)(
+  test(
     "BinaryNotFound when binary missing",
     async () => {
       const engine = createEngine();

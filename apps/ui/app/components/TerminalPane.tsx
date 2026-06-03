@@ -42,6 +42,8 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
   const revalidator = useRevalidator();
   const { setStatus } = use(SessionContext);
   const [_connected, setConnected] = useState(false);
+  const coalesceBufRef = useRef<Uint8Array[]>([]);
+  const coalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openWs = useCallback(
     (id: string | null) => {
@@ -50,10 +52,26 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
+      const flushCoalesce = () => {
+        const chunks = coalesceBufRef.current;
+        if (chunks.length === 0) return;
+        const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+        const merged = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+        coalesceBufRef.current = [];
+        coalesceTimerRef.current = null;
+        termRef.current?.write(merged);
+      };
+
       ws.onopen = () => {
         setConnected(true);
       };
       ws.onclose = () => {
+        if (coalesceTimerRef.current !== null) {
+          clearTimeout(coalesceTimerRef.current);
+          flushCoalesce();
+        }
         setConnected(false);
         termRef.current?.write("\r\n\x1b[31m[disconnected]\x1b[0m\r\n");
       };
@@ -73,7 +91,14 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
             break;
           case "data": {
             const arr = new Uint8Array(msg["bytes"] as number[]);
-            termRef.current?.write(arr);
+            coalesceBufRef.current.push(arr);
+            const totalLen = coalesceBufRef.current.reduce((s, c) => s + c.length, 0);
+            if (totalLen >= 4096) {
+              if (coalesceTimerRef.current !== null) clearTimeout(coalesceTimerRef.current);
+              flushCoalesce();
+            } else if (coalesceTimerRef.current === null) {
+              coalesceTimerRef.current = setTimeout(flushCoalesce, 8);
+            }
             break;
           }
           case "status":

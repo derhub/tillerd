@@ -60,6 +60,7 @@ async function makeProxy(mode: "spawn" | "subscribe" = "spawn") {
     fillProxyOptions({ cwd: "/tmp", startupTimeoutMs: 500, sendQueueCapacity: 4 }),
     client as never,
     mode,
+    "/tmp/test-hooks.sock",
   );
   return { proxy, client };
 }

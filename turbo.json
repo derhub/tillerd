@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalEnv": ["ATHING_*"],
+  "globalEnv": ["ATHING_*", "LOG_LEVEL"],
   "globalDependencies": [".env"],
   "tasks": {
     "build": {
@@ -18,7 +18,11 @@
     },
     "test": {
       "outputs": ["test-results/**"]
+    },
+    "e2e": {
+      "cache": false,
+      "outputs": ["test-results/**", "playwright-report/**"],
+      "passThroughEnv": ["PLAYWRIGHT_*"]
     }
-  },
-  "globalPassThroughEnv": ["PLAYWRIGHT_*"]
+  }
 }
