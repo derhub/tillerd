@@ -1,0 +1,22 @@
+{
+  "name": "cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "athing": "src/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@athing/adapter-claude-code": "workspace:*",
+    "@athing/logger": "workspace:*",
+    "@athing/platform-bun": "workspace:*",
+    "@athing/sdk": "workspace:*",
+    "@clack/prompts": "^0.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

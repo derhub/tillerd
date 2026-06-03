@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Controller/installer CLI entry. Execs the Bun CLI app with the caller's arguments.
+set -u
+here="$(cd "$(dirname "$0")" && pwd)"
+exec bun "$here/../apps/cli/src/index.ts" "$@"

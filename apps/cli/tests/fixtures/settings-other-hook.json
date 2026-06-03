@@ -1,0 +1,11 @@
+{
+  "theme": "dark",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "some-other-tool" }]
+      }
+    ]
+  }
+}
