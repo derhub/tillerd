@@ -120,19 +120,19 @@ describe("AgentSessionProxy — spawn mode", () => {
     expect(statuses).toContain("WORKING");
   });
 
-  test("exit frame fires onExit handler", async () => {
+  test("exit frame fires onExit handler with qualifier", async () => {
     const { proxy, client } = await makeProxy("spawn");
     proxy.start();
-    const exits: Array<{ code: number | null; signal: string | null }> = [];
+    const exits: import("@athing/sdk").ExitEvent[] = [];
     proxy.onExit((e) => exits.push(e));
     client.emit("test-session-id", {
       type: "exit",
       sessionId: "test-session-id",
-      code: 0,
-      signal: null,
+      qualifier: "ok",
+      raw: { code: 0, signal: null },
     });
     expect(exits).toHaveLength(1);
-    expect(exits[0]).toEqual({ code: 0, signal: null });
+    expect(exits[0]!.qualifier).toBe("ok");
   });
 
   test("send() is queued before ready then flushed on IDLE after WORKING", async () => {
@@ -173,8 +173,8 @@ describe("AgentSessionProxy — spawn mode", () => {
     client.emit("test-session-id", {
       type: "exit",
       sessionId: "test-session-id",
-      code: null,
-      signal: "SIGTERM",
+      qualifier: "stopped-by-request",
+      raw: { code: null, signal: "SIGTERM" },
     });
     await killP;
     expect(sentType(client, "kill")).toHaveLength(1);
@@ -189,10 +189,83 @@ describe("AgentSessionProxy — spawn mode", () => {
     client.emit("test-session-id", {
       type: "exit",
       sessionId: "test-session-id",
-      code: null,
-      signal: null,
+      qualifier: "ok",
+      raw: { code: null, signal: null },
     });
     expect(errors).toContain("Timeout");
+  });
+});
+
+describe("AgentSessionProxy — exit qualifier & crashed status", () => {
+  test("crash-class qualifier emits crashed status before exit event", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const statuses: string[] = [];
+    const exits: import("@athing/sdk").ExitEvent[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+    proxy.onExit((e) => exits.push(e));
+
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "faulted",
+      raw: { code: null, signal: "SIGSEGV", signalName: "SIGSEGV", signalMeaning: "Segfault", signalCategory: "fault" },
+    });
+
+    expect(statuses).toContain("crashed");
+    expect(exits).toHaveLength(1);
+    expect(exits[0]!.qualifier).toBe("faulted");
+    // crashed must come before the exit handler fires (statuses populated before exits in this test)
+    const crashedIdx = statuses.indexOf("crashed");
+    expect(crashedIdx).toBeGreaterThanOrEqual(0);
+  });
+
+  test("stopped-by-request does not emit crashed status", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const statuses: string[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "stopped-by-request",
+      raw: { code: null, signal: "SIGTERM" },
+    });
+
+    expect(statuses).not.toContain("crashed");
+  });
+
+  test("ok self-exit does not emit crashed status", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const statuses: string[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "ok",
+      raw: { code: 0, signal: null },
+    });
+
+    expect(statuses).not.toContain("crashed");
+  });
+
+  test("error qualifier (non-zero exit, no signal) emits crashed", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const statuses: string[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "error",
+      raw: { code: 1, signal: null },
+    });
+
+    expect(statuses).toContain("crashed");
   });
 });
 

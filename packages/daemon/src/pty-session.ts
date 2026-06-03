@@ -1,5 +1,6 @@
 import type { ExitEvent } from "@athing/sdk";
-import { PtyTransport } from "./pty-transport";
+import { resolveSignal, signalCategoryToQualifier } from "@athing/sdk";
+import { PtyTransport, type RawExitEvent } from "./pty-transport";
 import { ReplayBuffer } from "./replay-buffer";
 import type { Logger } from "@athing/logger";
 import { createLogger } from "@athing/logger";
@@ -52,6 +53,7 @@ export class PtySession {
   private subscribers = new Map<unknown, Subscription>();
   private exitCallbacks = new Set<ExitCallback>();
   private logger: Logger;
+  private killedByUser = false;
 
   get pid(): number {
     if (this.pid_ === null) throw new Error("session not started");
@@ -129,12 +131,47 @@ export class PtySession {
     return this.pid_;
   }
 
+  markKilledByUser(): void {
+    this.killedByUser = true;
+  }
+
+  private translateExit(raw: RawExitEvent): ExitEvent {
+    if (this.killedByUser) {
+      return { qualifier: "stopped-by-request", raw };
+    }
+    if (!raw.signal) {
+      const qualifier = raw.code === 0 ? "ok" : "error";
+      this.logger.info("exit.qualifier", { qualifier, killedByUser: false, code: raw.code, signal: null });
+      return { qualifier, raw };
+    }
+    const resolved = resolveSignal(raw.signal);
+    const rawWithSignal = {
+      ...raw,
+      signalName: resolved.name === "unknown" ? undefined : resolved.name,
+      signalMeaning: resolved.name === "unknown" ? undefined : (resolved as { meaning: string }).meaning,
+      signalCategory: resolved.name === "unknown" ? undefined : (resolved as { category: string }).category,
+    };
+    if (resolved.name === "unknown") {
+      this.logger.info("exit.qualifier", { qualifier: "unknown", killedByUser: false, signal: raw.signal });
+      return { qualifier: "unknown", raw: rawWithSignal };
+    }
+    // SIGHUP specifically maps to hangup (graceful-termination category is shared with SIGINT/SIGQUIT)
+    if (resolved.name === "SIGHUP") {
+      this.logger.info("exit.qualifier", { qualifier: "hangup", killedByUser: false, signal: resolved.name, category: (resolved as { category: string }).category });
+      return { qualifier: "hangup", raw: rawWithSignal };
+    }
+    const qualifier = signalCategoryToQualifier((resolved as { category: Parameters<typeof signalCategoryToQualifier>[0] }).category, false);
+    this.logger.info("exit.qualifier", { qualifier, killedByUser: false, signal: resolved.name, category: (resolved as { category: string }).category });
+    return { qualifier, raw: rawWithSignal };
+  }
+
   private wireTransport(): void {
     this.transport.onData((bytes) => {
       this.replayBuffer.push(bytes);
       this.emitData(bytes);
     });
-    this.transport.onExit((event: ExitEvent) => {
+    this.transport.onExit((raw: RawExitEvent) => {
+      const event = this.translateExit(raw);
       for (const cb of this.exitCallbacks) cb(event);
     });
   }
@@ -230,7 +267,8 @@ export class PtySession {
   }
 
   async kill(): Promise<ExitEvent> {
-    return this.transport.kill();
+    const raw = await this.transport.kill();
+    return this.translateExit(raw);
   }
 
   getMasterFd(): number {

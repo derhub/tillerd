@@ -6,7 +6,7 @@ import type {
   AgentDefinition,
   SessionOptions,
 } from "@athing/sdk";
-import { AtError } from "@athing/sdk";
+import { AtError, exitToStatus } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
@@ -168,11 +168,15 @@ export class AgentSessionProxy implements AgentSession {
       }
 
       case "exit": {
-        this.exitEvent = { code: frame.code, signal: frame.signal };
+        const qualifier = (frame.qualifier ?? "unknown") as ExitEvent["qualifier"];
+        this.exitEvent = { qualifier, raw: frame.raw };
         this.transcriptReader.onExit();
         this.cancelStartupTimer();
         this.cancelIdleTimer();
         this.unsub?.();
+        if (exitToStatus(qualifier) === "crashed") {
+          for (const h of this.statusHandlers) h("crashed");
+        }
         for (const h of this.exitHandlers) h(this.exitEvent);
         break;
       }
@@ -241,7 +245,7 @@ export class AgentSessionProxy implements AgentSession {
     if (this.exitEvent) return this.exitEvent;
     // killed before proxy.start() ran — no spawn was sent, nothing to kill
     if (!this.started) {
-      const event: ExitEvent = { code: null, signal: null };
+      const event: ExitEvent = { qualifier: "stopped-by-request" };
       this.exitEvent = event;
       for (const h of this.exitHandlers) h(event);
       return event;

@@ -46,8 +46,8 @@ export class DaemonServer {
         this.send(key as BunSocket, {
           type: "exit",
           sessionId: session.sessionId,
-          code: event.code,
-          signal: event.signal,
+          qualifier: event.qualifier,
+          raw: event.raw,
         });
       });
     });
@@ -201,7 +201,10 @@ export class DaemonServer {
 
       case "kill": {
         const s = this.sessions.get(msg.sessionId);
-        if (s) await s.kill();
+        if (s) {
+          s.markKilledByUser();
+          await s.kill();
+        }
         break;
       }
 

@@ -111,11 +111,19 @@ export const DataFrameSchema = v.object({
   bodyLen: v.number(),
 });
 
+const ExitRawSchema = v.optional(v.object({
+  code: v.optional(v.nullable(v.number())),
+  signal: v.optional(v.nullable(v.string())),
+  signalName: v.optional(v.string()),
+  signalMeaning: v.optional(v.string()),
+  signalCategory: v.optional(v.string()),
+}));
+
 export const ExitFrameSchema = v.object({
   type: v.literal("exit"),
   sessionId: v.string(),
-  code: v.nullable(v.number()),
-  signal: v.nullable(v.string()),
+  qualifier: v.string(),
+  raw: ExitRawSchema,
 });
 
 export const HookFrameSchema = v.object({

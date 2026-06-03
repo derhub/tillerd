@@ -1,11 +1,14 @@
 export type {
   SessionStatus,
+  ExitQualifier,
+  SignalCategory,
   HookEventType,
   HookEvent,
   ToolUseContent,
   EditContent,
   UsageContent,
   ContentEvent,
+  ExitEventRaw,
   ExitEvent,
 } from "./events";
 export type { LaunchConfig, AgentDefinition } from "./adapter";

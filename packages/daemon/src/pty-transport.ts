@@ -1,10 +1,14 @@
 import * as pty from "node-pty";
 import type { IPty } from "node-pty";
 import * as net from "node:net";
-import type { ExitEvent } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
 import type { Logger } from "@athing/logger";
 import { resolveBinary } from "./resolve";
+
+export interface RawExitEvent {
+  code: number | null;
+  signal: string | null;
+}
 
 const INTERRUPT_KEY = "\x1b";
 
@@ -24,7 +28,7 @@ export interface PtyTransportOptions {
 }
 
 type DataHandler = (bytes: Uint8Array) => void;
-type ExitHandler = (event: ExitEvent) => void;
+type ExitHandler = (event: RawExitEvent) => void;
 
 export class PtyTransport {
   private ptyProcess: IPty | null = null;
@@ -157,7 +161,7 @@ export class PtyTransport {
     proc.onExit(({ exitCode, signal }) => {
       this.opts.logger.info("pty.exit", { exitCode, signal });
       this.cleanup();
-      const event: ExitEvent = {
+      const event: RawExitEvent = {
         code: exitCode ?? null,
         signal: signal != null ? String(signal) : null,
       };
@@ -267,7 +271,7 @@ export class PtyTransport {
     this.ptyProcess?.resize(cols, rows);
   }
 
-  async kill(): Promise<ExitEvent> {
+  async kill(): Promise<RawExitEvent> {
     if (this.adoptedPid_ !== null) {
       if (process.platform !== "win32" && this.adoptedPid_ > 0) {
         try { process.kill(-this.adoptedPid_, "SIGTERM"); } catch { /* already dead */ }
@@ -277,7 +281,7 @@ export class PtyTransport {
       } catch {
         /* already dead */
       }
-      return new Promise<ExitEvent>((resolve) => {
+      return new Promise<RawExitEvent>((resolve) => {
         const timer = setTimeout(() => {
           if (process.platform !== "win32" && this.adoptedPid_! > 0) {
             try { process.kill(-this.adoptedPid_!, "SIGKILL"); } catch { /* already dead */ }
@@ -289,7 +293,7 @@ export class PtyTransport {
           }
           resolve({ code: null, signal: "SIGKILL" });
         }, this.opts.shutdownGraceMs);
-        const handler = (event: ExitEvent) => {
+        const handler = (event: RawExitEvent) => {
           clearTimeout(timer);
           this.exitHandlers.delete(handler);
           resolve(event);
@@ -302,8 +306,8 @@ export class PtyTransport {
     }
     this.killed = true;
 
-    return new Promise<ExitEvent>((resolve) => {
-      const exitOnce = (event: ExitEvent) => {
+    return new Promise<RawExitEvent>((resolve) => {
+      const exitOnce = (event: RawExitEvent) => {
         if (this.killTimer) {
           clearTimeout(this.killTimer);
           this.killTimer = null;

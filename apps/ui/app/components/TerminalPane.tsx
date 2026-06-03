@@ -104,12 +104,23 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
           case "status":
             setStatus(String(msg["status"] ?? ""));
             break;
-          case "exit":
+          case "exit": {
+            const qualifier = String(msg["qualifier"] ?? "unknown");
+            const raw = msg["raw"] as Record<string, unknown> | undefined;
+            const signalMeaning = raw?.["signalMeaning"] as string | undefined;
+            const signalName = raw?.["signalName"] as string | undefined;
+            const detail = signalMeaning && signalName
+              ? `${signalName} — ${signalMeaning}`
+              : raw?.["code"] != null
+              ? `code ${String(raw["code"])}`
+              : qualifier;
+            const color = qualifier === "ok" || qualifier === "stopped-by-request" ? "33" : "31";
             termRef.current?.write(
-              `\r\n\x1b[33m[exited code=${msg["code"] ?? "?"} signal=${msg["signal"] ?? "none"}]\x1b[0m\r\n`,
+              `\r\n\x1b[${color}m[exited: ${qualifier}${qualifier !== detail ? ` — ${detail}` : ""}]\x1b[0m\r\n`,
             );
             revalidator.revalidate();
             break;
+          }
         }
       };
     },

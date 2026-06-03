@@ -226,8 +226,8 @@ Bun.serve<WsData>({
             // Return flow-control credit so the daemon doesn't stall.
             client.send({ type: "ack", sessionId, bytes: bytes.length });
           } else if (frame.type === "exit") {
-            console.log("[terminal] exit", sessionId.slice(0, 8), frame.code, frame.signal);
-            ws.send(JSON.stringify({ type: "exit", code: frame.code, signal: frame.signal }));
+            console.log("[terminal] exit", sessionId.slice(0, 8), frame.qualifier, frame.raw);
+            ws.send(JSON.stringify({ type: "exit", qualifier: frame.qualifier, raw: frame.raw }));
             ws.close();
           } else {
             console.log("[terminal] frame", sessionId.slice(0, 8), frame.type);
