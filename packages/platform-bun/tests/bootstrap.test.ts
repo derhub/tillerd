@@ -2,7 +2,7 @@ import { test, expect, describe, afterEach } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { checkCliVersion, resolveBinary } from "../src/resolve";
+import { checkCliVersion, resolveAgentCommand } from "../src/resolve";
 import { prepareNotifyScript } from "../src/ingress";
 
 // The host bootstrap must surface typed errors before the engine accepts sessions.
@@ -32,10 +32,25 @@ describe("startup bootstrap — typed errors", () => {
     expect(() => prepareNotifyScript(missing)).toThrow(/not found|HookInstallFailed/);
   });
 
-  test("resolveBinary throws BinaryNotFound for an unresolvable command", () => {
-    delete process.env["CLAUDE_CODE_EXECUTABLE"];
-    expect(() => resolveBinary("definitely-not-a-real-binary-xyz123")).toThrow(
-      /Cannot resolve|BinaryNotFound/,
-    );
+  test("resolveAgentCommand throws BinaryNotFound for an unresolvable command", () => {
+    expect(() =>
+      resolveAgentCommand({
+        overrideEnvVar: "NOT_A_REAL_OVERRIDE",
+        binaryName: "definitely-not-a-real-binary-xyz123",
+        commonLocations: [],
+      }),
+    ).toThrow(/Cannot resolve|BinaryNotFound/);
+  });
+
+  test("resolveAgentCommand honors the override env var", () => {
+    process.env["MY_AGENT_OVERRIDE"] = "/opt/custom/agent";
+    expect(
+      resolveAgentCommand({
+        overrideEnvVar: "MY_AGENT_OVERRIDE",
+        binaryName: "agent",
+        commonLocations: [],
+      }),
+    ).toBe("/opt/custom/agent");
+    delete process.env["MY_AGENT_OVERRIDE"];
   });
 });

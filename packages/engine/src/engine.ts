@@ -15,6 +15,8 @@ export interface EngineDeps {
   fileSource: FileSource;
   logger: Logger;
   hooksSocketPath: string;
+  agentHome: string;
+  resolvedCommand: string;
 }
 
 class EngineImpl implements IEngine {
@@ -37,6 +39,8 @@ class EngineImpl implements IEngine {
       this.deps.hooksSocketPath,
       this.deps.fileSource,
       this.deps.logger,
+      this.deps.agentHome,
+      this.deps.resolvedCommand,
     );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
@@ -66,6 +70,8 @@ class EngineImpl implements IEngine {
       this.deps.hooksSocketPath,
       this.deps.fileSource,
       this.deps.logger,
+      this.deps.agentHome,
+      this.deps.resolvedCommand,
     );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));

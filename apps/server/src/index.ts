@@ -9,7 +9,13 @@ import { homedir } from "node:os";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createLogger } from "@athing/logger";
 import type { AgentSession, DaemonTransport } from "@athing/sdk";
-import { adoptOrSpawn, BunFileSource, checkCliVersion, prepareNotifyScript } from "@athing/platform-bun";
+import {
+  adoptOrSpawn,
+  agentHome,
+  BunFileSource,
+  checkCliVersion,
+  resolveAgentCommand,
+} from "@athing/platform-bun";
 
 const ATHING_DIR = join(homedir(), ".athing");
 fs.mkdirSync(ATHING_DIR, { recursive: true });
@@ -37,10 +43,10 @@ type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
 const logger = createLogger();
 
-// Verify the agent CLI version and install the hook callback before serving.
+// Verify the agent CLI version before serving. Adapter setup (hook install) is the
+// installer's responsibility; the server assumes it is already complete.
 checkCliVersion(claudeCode.launch.command, claudeCode.cliVersionRange);
-const { command: hookCommand } = prepareNotifyScript();
-claudeCode.installHooks(hookCommand, logger);
+const resolvedCommand = resolveAgentCommand(claudeCode.binaryResolution);
 
 // One daemon connection, shared by the engine (agent sessions) and the raw
 // terminal path. The host owns its lifecycle.
@@ -60,7 +66,14 @@ transport.onClose(() => {
 });
 
 const fileSource = new BunFileSource();
-const engine = createEngine({ transport, fileSource, logger, hooksSocketPath: HOOKS_SOCK });
+const engine = createEngine({
+  transport,
+  fileSource,
+  logger,
+  hooksSocketPath: HOOKS_SOCK,
+  agentHome: agentHome(),
+  resolvedCommand,
+});
 
 function shutdownDaemon(): void {
   const pid = ownedDaemonPid;

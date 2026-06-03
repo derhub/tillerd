@@ -64,23 +64,25 @@ All errors are `AtError` instances with a `kind` discriminant:
 
 ## Writing an adapter
 
-An `AgentDefinition` is config data + three parse functions:
+An `AgentDefinition` is config data + three parse functions, with zero host I/O so it
+is import-safe in any runtime:
 
 ```ts
 const myAgent: AgentDefinition = {
   name: "my-agent",
   launch: { command: "my-cli", args: ["--session-id", "{id}"], flags: [] },
-  hookInstall: {
-    settingsPath: "~/.myagent/settings.json",
-    notifyScriptPath: "bin/athing-notify",
-    events: ["SessionStart", "Stop"],
-  },
+  interruptSequence: "\x1b",
   cliVersionRange: ">=2.0.0",
+  binaryResolution: {
+    overrideEnvVar: "MY_AGENT_EXECUTABLE",
+    binaryName: "my-cli",
+    commonLocations: ["/usr/local/bin/my-cli", "~/.local/bin/my-cli"],
+  },
   parseHook(raw) {
     /* raw payload → HookEvent */
   },
-  transcriptPath(sessionId, cwd) {
-    /* → path string */
+  transcriptPath(sessionId, cwd, agentHome) {
+    /* → path string, assembled from agentHome with pure string ops */
   },
   parseTranscriptEntry(line) {
     /* → ContentEvent | null */
@@ -88,4 +90,6 @@ const myAgent: AgentDefinition = {
 };
 ```
 
-The engine calls your parse functions; it never imports your adapter directly.
+The engine calls your parse functions; it never imports your adapter directly. Host
+setup (e.g. installing hooks) is a separate `defineSetup({ install, uninstall })` export
+the installer invokes with a `SetupContext` — the definition itself stays I/O-free.

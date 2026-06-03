@@ -36,9 +36,7 @@ function adapterWith(
     name: "mock",
     launch: { command: "mock", args: [], flags: [] },
     interruptSequence: "\x1b",
-    resolveCommand: () => "mock",
-    installHooks: () => {},
-    uninstallHooks: () => {},
+    binaryResolution: { overrideEnvVar: "MOCK_BIN", binaryName: "mock", commonLocations: [] },
     cliVersionRange: "*",
     parseHook: () => ({ sessionId: "s", type: "SessionStart", payload: {} }),
     transcriptPath: () => "/virtual/transcript.jsonl",
@@ -59,6 +57,7 @@ describe("TranscriptReader — injected FileSource", () => {
       "/cwd",
       logger,
       fileSource,
+      "/virtual-home",
     );
 
     const events: ContentEvent[] = [];
@@ -78,6 +77,7 @@ describe("TranscriptReader — injected FileSource", () => {
       "/cwd",
       logger,
       fileSource,
+      "/virtual-home",
     );
 
     const kinds: string[] = [];
@@ -100,6 +100,7 @@ describe("TranscriptReader — injected FileSource", () => {
       "/cwd",
       logger,
       fileSource,
+      "/virtual-home",
     );
 
     reader.onContent(() => {});
@@ -113,11 +114,40 @@ describe("TranscriptReader — injected FileSource", () => {
     // A non-null size with empty delta must not throw or touch node:fs — pure contract use.
     const fileSource = new FakeFileSource(0);
     const { logger } = spyLogger();
-    const reader = new TranscriptReader("s", adapterWith(() => null), "/cwd", logger, fileSource);
+    const reader = new TranscriptReader(
+      "s",
+      adapterWith(() => null),
+      "/cwd",
+      logger,
+      fileSource,
+      "/virtual-home",
+    );
     const errors: string[] = [];
     reader.onError((e) => errors.push(e.kind));
     reader.onHook(postToolUse);
     await sleep(10);
     expect(errors).toHaveLength(0);
+  });
+
+  test("threads the resolved agent-home into the adapter transcript path", async () => {
+    const seen: string[] = [];
+    const adapter: AgentDefinition = {
+      ...adapterWith(() => null),
+      transcriptPath: (sessionId, cwd, agentHome) => {
+        seen.push(agentHome);
+        return `${agentHome}/projects/${cwd}/${sessionId}.jsonl`;
+      },
+    };
+    const reader = new TranscriptReader(
+      "s",
+      adapter,
+      "/cwd",
+      spyLogger().logger,
+      new FakeFileSource(0),
+      "/substitute-home",
+    );
+    reader.onHook(postToolUse);
+    await sleep(10);
+    expect(seen).toContain("/substitute-home");
   });
 });

@@ -71,6 +71,8 @@ export class AgentSessionProxy implements AgentSession {
     private readonly hooksSockPath: string,
     fileSource: FileSource,
     logger: Logger,
+    agentHome: string,
+    private readonly resolvedCommand: string,
   ) {
     this.sessionId = sessionId;
     this.token = randomTokenHex(32);
@@ -78,7 +80,14 @@ export class AgentSessionProxy implements AgentSession {
     this.opts = opts;
     this.sendQueue = new SendQueue(opts.sendQueueCapacity);
     this.statusMapper = new StatusMapper();
-    this.transcriptReader = new TranscriptReader(sessionId, adapter, opts.cwd, this.logger, fileSource);
+    this.transcriptReader = new TranscriptReader(
+      sessionId,
+      adapter,
+      opts.cwd,
+      this.logger,
+      fileSource,
+      agentHome,
+    );
 
     this.statusMapper.onChange((status) => {
       this.cancelIdleTimer();
@@ -128,7 +137,7 @@ export class AgentSessionProxy implements AgentSession {
         type: "spawn",
         sessionId: this.sessionId,
         ...(this.opts.resume ? { resume: this.opts.resume } : {}),
-        command: this.adapter.resolveCommand(),
+        command: this.resolvedCommand,
         args: launchArgs,
         env: {
           ATHING_BRIDGE_URL: this.hooksSockPath,

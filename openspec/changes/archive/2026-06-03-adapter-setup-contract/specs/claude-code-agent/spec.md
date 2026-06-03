@@ -1,9 +1,5 @@
-# claude-code-agent
+## MODIFIED Requirements
 
-## Purpose
-
-Defines the `AgentDefinition` adapter contract and the `claudeCode` adapter that implements it. The contract keeps the engine agent-blind; all agent-specific behavior flows through config data and parse functions supplied by the adapter.
-## Requirements
 ### Requirement: Hybrid AgentDefinition contract
 
 The SDK SHALL define an `AgentDefinition` contract that an adapter implements as declarative config
@@ -101,36 +97,3 @@ host setup through the adapter-setup contract.
 
 - **WHEN** `parseTranscriptEntry` receives a transcript line describing a tool call, edit, or usage record
 - **THEN** it SHALL return the corresponding typed content value (or nothing for lines that carry no content)
-
-### Requirement: Supported CLI version range
-
-The `claudeCode` adapter SHALL declare a supported agent version range, and the engine SHALL
-detect the installed version and emit `VersionUnsupported` on mismatch. Version detection SHALL
-be performed by the engine from adapter config; the daemon SHALL NOT perform any version gate.
-
-#### Scenario: Unsupported version
-
-- **WHEN** the installed agent version falls outside the adapter's declared range
-- **THEN** the engine SHALL emit `VersionUnsupported` rather than silently risk broken
-  hook/transcript parsing
-
-#### Scenario: Daemon performs no version gate
-
-- **WHEN** a session is spawned through the daemon
-- **THEN** the daemon SHALL NOT detect or gate on any agent version; that responsibility SHALL
-  rest with the engine using adapter config
-
-### Requirement: Adapter module is import-safe in any runtime
-
-The adapter module SHALL be importable in any runtime, including a browser-class web view,
-without accessing host primitives at module load. It SHALL NOT, at import time or within any of
-its contract functions, read a filesystem, read an ambient home directory, environment, or
-current-directory global, or otherwise depend on a host-specific runtime capability.
-
-#### Scenario: Importing the adapter touches no host primitive
-
-- **WHEN** a host imports the adapter and reads its config or invokes its pure functions
-- **THEN** no filesystem access and no ambient host-global access SHALL occur as a result
-- **AND** a renderer-class host SHALL be able to import the adapter and hand it to the engine to
-  drive a session
-

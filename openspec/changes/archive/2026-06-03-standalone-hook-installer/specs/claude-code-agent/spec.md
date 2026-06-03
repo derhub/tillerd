@@ -1,29 +1,29 @@
-# claude-code-agent
+## MODIFIED Requirements
 
-## Purpose
-
-Defines the `AgentDefinition` adapter contract and the `claudeCode` adapter that implements it. The contract keeps the engine agent-blind; all agent-specific behavior flows through config data and parse functions supplied by the adapter.
-## Requirements
 ### Requirement: Hybrid AgentDefinition contract
 
-The SDK SHALL define an `AgentDefinition` contract that an adapter implements as declarative config
-data plus a small set of pure parse functions, so the engine stays agent-blind and the
-engine-facing definition performs no host I/O:
+The SDK SHALL define an `AgentDefinition` contract that an adapter implements as declarative
+config data plus a small set of pure functions, so the engine stays agent-blind and the adapter
+performs no host I/O:
 
 - config data: a launch template (command, args with placeholders, flags), an interrupt-sequence
-  datum (the raw bytes that cancel an in-progress turn), a binary-resolution policy (override
-  environment variable, binary name, common install locations), and a supported CLI version range;
-- functions: `parseHook(raw) -> HookEvent`, `parseTranscriptEntry(line) -> content`, and
-  `transcriptPath(sessionId, cwd, agentHome) -> path`.
+  datum (the raw bytes that cancel an in-progress turn), a hook-install spec (settings-file
+  location, command template, event list, hook marker, and per-event matcher rule), and a
+  supported CLI version range;
+- functions: `parseHook(raw) -> HookEvent`, `parseTranscriptEntry(line) -> content`,
+  `transcriptPath(sessionId, cwd, agentHome) -> path`, and pure hook-planning functions that,
+  given the current settings value and a notify command, compute the next settings value and
+  what changed — `planHookInstall(currentSettings, notifyCommand)` and
+  `planHookUninstall(currentSettings)`.
 
-The engine-facing definition SHALL NOT include any setup, install, or other host-I/O member; the
-adapter SHALL supply its host setup separately through the adapter-setup contract.
+The contract SHALL NOT include any method that reads, writes, or otherwise touches the
+filesystem; performing the settings file read, backup, and write is the host's responsibility.
 
 #### Scenario: Definition supplies config and functions
 
 - **WHEN** an adapter is provided to the engine
-- **THEN** it SHALL expose the launch/interrupt/binary-resolution/version config as data and the
-  parse and path operations as pure functions
+- **THEN** it SHALL expose the launch/interrupt/hook-install/version config as data and the parse
+  and hook-planning operations as pure functions
 
 #### Scenario: Engine stays agent-blind
 
@@ -31,12 +31,13 @@ adapter SHALL supply its host setup separately through the adapter-setup contrac
 - **THEN** it SHALL obtain all agent-specific behavior through the adapter's config and functions,
   never hard-coding the agent's payload, transcript, path shapes, or interrupt sequence
 
-#### Scenario: Setup is not part of the engine-facing definition
+#### Scenario: Hook planning is a pure transform
 
-- **WHEN** a host imports the engine-facing adapter definition
-- **THEN** that definition SHALL expose no setup, install, or uninstall member, and SHALL touch no
-  filesystem or ambient host primitive; setup is reached only through the separate adapter-setup
-  contract
+- **WHEN** the host installs or removes hooks
+- **THEN** it SHALL obtain the next settings value from the adapter's hook-planning function given
+  the current settings value, and the adapter SHALL neither read nor write the settings file
+- **AND** when the requested hooks are already present (or already absent for removal), the plan
+  SHALL report no change
 
 ### Requirement: Claude Code adapter
 
@@ -45,8 +46,7 @@ target agent. The adapter SHALL own the binary-resolution policy — an override
 variable, the binary name, and common install locations — as declarative data; the host SHALL
 perform the lookup I/O and supply the resolved launchable command to the engine as a
 startup-resolved value; the daemon SHALL NOT default to or search for the agent binary. The
-adapter SHALL also supply the interrupt-sequence datum used to cancel a turn, and SHALL supply its
-host setup through the adapter-setup contract.
+adapter SHALL also supply the interrupt-sequence datum used to cancel a turn.
 
 #### Scenario: Launch without credentials
 
@@ -58,9 +58,11 @@ host setup through the adapter-setup contract.
 
 - **WHEN** the host prepares a launch from the `claudeCode` config
 - **THEN** the adapter SHALL supply the resolution policy (override env var, binary name, common
-  install locations) as declarative data, the host SHALL perform the lookup and pass the resolved
-  launchable command to the engine as a startup value, and the daemon SHALL spawn it without
-  applying any agent-specific resolution of its own
+  install locations) as declarative data, the host SHALL perform the lookup — override path, then
+  login-shell PATH, then common locations — and SHALL pass the resolved launchable command to the
+  engine as a startup value, which the daemon spawns without applying any agent-specific
+  resolution of its own
+- **AND** the adapter SHALL expose no method that reads the filesystem, environment, or PATH
 
 #### Scenario: Adapter supplies the interrupt sequence
 
@@ -78,13 +80,13 @@ host setup through the adapter-setup contract.
 - **WHEN** `claudeCode` launches the agent
 - **THEN** it SHALL pass `--dangerously-skip-permissions` so the agent does not block on permission prompts
 
-#### Scenario: Setup installs the hook integration
+#### Scenario: Hook-install config
 
-- **WHEN** the host invokes the adapter's setup `install`
-- **THEN** the adapter SHALL register the notify hook in the agent settings file at
-  `<agentHome>/settings.json` for the events SessionStart, UserPromptSubmit, PostToolUse,
-  PermissionRequest, Stop, and SessionEnd, reading and persisting the file through the host
-  filesystem capability rather than touching the filesystem directly
+- **WHEN** the host installs hooks from the `claudeCode` config
+- **THEN** the config SHALL target the agent settings file at `~/.claude/settings.json` and register
+  the events SessionStart, UserPromptSubmit, PostToolUse, PermissionRequest, Stop, and SessionEnd
+- **AND** the host SHALL perform the read, backup, and write of that file using the adapter's
+  declarative spec and pure plan
 
 #### Scenario: Parse hook payloads to contract events
 
@@ -95,30 +97,15 @@ host setup through the adapter-setup contract.
 
 - **WHEN** `transcriptPath` is called with a session id, working directory, and an agent-home input
 - **THEN** it SHALL return the path under `<agentHome>/projects/<encoded-cwd>/<session-id>.jsonl`,
-  applying the agent's directory-encoding rule using pure string operations
+  applying the agent's directory-encoding rule using pure string operations and reading no ambient
+  home or path host primitive
 
 #### Scenario: Parse transcript entries to content
 
 - **WHEN** `parseTranscriptEntry` receives a transcript line describing a tool call, edit, or usage record
 - **THEN** it SHALL return the corresponding typed content value (or nothing for lines that carry no content)
 
-### Requirement: Supported CLI version range
-
-The `claudeCode` adapter SHALL declare a supported agent version range, and the engine SHALL
-detect the installed version and emit `VersionUnsupported` on mismatch. Version detection SHALL
-be performed by the engine from adapter config; the daemon SHALL NOT perform any version gate.
-
-#### Scenario: Unsupported version
-
-- **WHEN** the installed agent version falls outside the adapter's declared range
-- **THEN** the engine SHALL emit `VersionUnsupported` rather than silently risk broken
-  hook/transcript parsing
-
-#### Scenario: Daemon performs no version gate
-
-- **WHEN** a session is spawned through the daemon
-- **THEN** the daemon SHALL NOT detect or gate on any agent version; that responsibility SHALL
-  rest with the engine using adapter config
+## ADDED Requirements
 
 ### Requirement: Adapter module is import-safe in any runtime
 
@@ -133,4 +120,3 @@ current-directory global, or otherwise depend on a host-specific runtime capabil
 - **THEN** no filesystem access and no ambient host-global access SHALL occur as a result
 - **AND** a renderer-class host SHALL be able to import the adapter and hand it to the engine to
   drive a session
-

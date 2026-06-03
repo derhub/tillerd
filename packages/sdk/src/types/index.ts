@@ -11,7 +11,9 @@ export type {
   ExitEventRaw,
   ExitEvent,
 } from "./events";
-export type { LaunchConfig, AgentDefinition } from "./adapter";
+export type { LaunchConfig, AgentDefinition, BinaryResolutionSpec } from "./adapter";
+export type { SetupFs, SetupContext, SetupDefinition } from "./setup";
+export { defineSetup } from "./setup";
 export type { Logger } from "./logger";
 export type { SessionOptions, AgentSession, Engine } from "./session";
 export { AtError } from "./errors";

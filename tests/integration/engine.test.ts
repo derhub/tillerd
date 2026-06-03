@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { createEngine } from "@athing/engine";
-import { adoptOrSpawn, BunFileSource, HOOKS_SOCK } from "@athing/platform-bun";
+import { adoptOrSpawn, agentHome, BunFileSource, HOOKS_SOCK, resolveAgentCommand } from "@athing/platform-bun";
 import { createLogger } from "@athing/logger";
 import { bashAdapter } from "./fixtures/bash-adapter";
 
@@ -11,6 +11,8 @@ async function makeEngine() {
     fileSource: new BunFileSource(),
     logger: createLogger(),
     hooksSocketPath: HOOKS_SOCK,
+    agentHome: agentHome(),
+    resolvedCommand: resolveAgentCommand(bashAdapter.binaryResolution),
   });
 }
 

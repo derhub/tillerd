@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "", "hooks": [{ "type": "command", "command": "some-other-tool" }] },
+      { "matcher": "", "hooks": [{ "type": "command", "command": "/fixtures/bin/athing-notify" }] }
+    ]
+  }
+}

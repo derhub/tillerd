@@ -50,15 +50,8 @@ export const LaunchConfigSchema = v.object({
   flags: v.array(v.string()),
 });
 
-export const HookInstallSpecSchema = v.object({
-  settingsPath: v.string(),
-  notifyScriptPath: v.string(),
-  events: v.array(HookEventTypeSchema),
-});
-
 export const AdapterConfigSchema = v.object({
   name: v.string(),
   launch: LaunchConfigSchema,
-  hookInstall: HookInstallSpecSchema,
   cliVersionRange: v.string(),
 });

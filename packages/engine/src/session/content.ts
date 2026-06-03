@@ -17,6 +17,7 @@ export class TranscriptReader {
     private readonly cwd: string,
     private readonly logger: Logger,
     private readonly fileSource: FileSource,
+    private readonly agentHome: string,
   ) {}
 
   onHook(event: HookEvent): void {
@@ -30,7 +31,7 @@ export class TranscriptReader {
   }
 
   private async readDelta(): Promise<void> {
-    const filePath = this.adapter.transcriptPath(this.sessionId, this.cwd);
+    const filePath = this.adapter.transcriptPath(this.sessionId, this.cwd, this.agentHome);
 
     const size = await this.fileSource.size(filePath);
     if (size === null) {

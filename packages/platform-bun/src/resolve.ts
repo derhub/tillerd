@@ -1,5 +1,8 @@
 import { AtError } from "@athing/sdk";
+import type { BinaryResolutionSpec } from "@athing/sdk";
 import { spawnSync } from "node:child_process";
+import { statSync } from "node:fs";
+import { homedir } from "node:os";
 
 export function checkCliVersion(command: string, versionRange: string): void {
   if (!versionRange || versionRange === "*") return;
@@ -48,13 +51,6 @@ function satisfiesRange(version: string, range: string): boolean {
   }
 }
 
-const COMMON_LOCATIONS = [
-  "/usr/local/bin/claude",
-  "/usr/bin/claude",
-  `${process.env["HOME"] ?? ""}/.local/bin/claude`,
-  `${process.env["HOME"] ?? ""}/.npm-global/bin/claude`,
-];
-
 function loginShellWhich(binary: string): string | null {
   const shell = process.env["SHELL"] ?? "/bin/sh";
   const result = spawnSync(shell, ["-lc", `which ${binary}`], {
@@ -68,26 +64,34 @@ function loginShellWhich(binary: string): string | null {
   return null;
 }
 
-export function resolveBinary(command: string): string {
-  const envOverride = process.env["CLAUDE_CODE_EXECUTABLE"];
-  if (envOverride) return envOverride;
+function expandHome(location: string): string {
+  return location.startsWith("~/") ? `${homedir()}/${location.slice(2)}` : location;
+}
 
-  const fromShell = loginShellWhich(command);
+/**
+ * Resolve the agent binary to a launchable command using the adapter's declarative
+ * policy: an explicit env override, then the login-shell PATH, then the common
+ * install locations. The resolution I/O lives in the host; the adapter owns only
+ * the policy data.
+ */
+export function resolveAgentCommand(spec: BinaryResolutionSpec): string {
+  const override = process.env[spec.overrideEnvVar];
+  if (override) return override;
+
+  const fromShell = loginShellWhich(spec.binaryName);
   if (fromShell) return fromShell;
 
-  if (command === "claude") {
-    for (const loc of COMMON_LOCATIONS) {
-      try {
-        const stat = require("node:fs").statSync(loc);
-        if (stat.isFile()) return loc;
-      } catch {
-        // not found
-      }
+  for (const loc of spec.commonLocations) {
+    const abs = expandHome(loc);
+    try {
+      if (statSync(abs).isFile()) return abs;
+    } catch {
+      // not found
     }
   }
 
   throw new AtError(
     "BinaryNotFound",
-    `Cannot resolve '${command}'. Set CLAUDE_CODE_EXECUTABLE or ensure it is on PATH.`,
+    `Cannot resolve '${spec.binaryName}'. Set ${spec.overrideEnvVar} or ensure it is on PATH.`,
   );
 }

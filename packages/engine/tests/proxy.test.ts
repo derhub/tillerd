@@ -17,9 +17,7 @@ const mockAdapter: AgentDefinition = {
   name: "mock",
   launch: { command: "mock", args: [], flags: [] },
   interruptSequence: "\x1b",
-  resolveCommand: () => "mock",
-  installHooks: () => {},
-  uninstallHooks: () => {},
+  binaryResolution: { overrideEnvVar: "MOCK_BIN", binaryName: "mock", commonLocations: [] },
   cliVersionRange: "*",
   parseHook: (raw: unknown) => {
     const r = raw as Record<string, unknown>;
@@ -75,6 +73,8 @@ async function makeProxy(mode: "spawn" | "subscribe" = "spawn") {
     "/tmp/test-hooks.sock",
     nullFileSource,
     noopLogger,
+    "/virtual-home",
+    "mock",
   );
   return { proxy, client };
 }
@@ -439,6 +439,8 @@ describe("AgentSessionProxy — crash recovery routing", () => {
       "/tmp/hooks.sock",
       nullFileSource,
       noopLogger,
+      "/virtual-home",
+      "mock",
     );
     proxy2.start();
     const spawnFrames = sentType(client2, "spawn");

@@ -26,13 +26,14 @@ static hook entry and are differentiated entirely by env vars.
 
 ## Hook uninstall
 
-To remove the SDK's hooks from the agent's settings:
+To remove the SDK's hooks from the agent's settings, invoke the adapter's setup
+`uninstall` with a host-provided `SetupContext`:
 
 ```ts
-import { uninstallHooks } from "@athing/engine";
-import { claudeCode } from "@athing/adapter-claude-code";
+import { setup } from "@athing/adapter-claude-code";
+import { buildSetupContext } from "@athing/platform-bun";
 
-uninstallHooks(claudeCode.hookInstall, logger);
+await setup.uninstall(buildSetupContext(notifyCommand, logger));
 ```
 
 This removes only the SDK's entries; existing user hooks are left intact.

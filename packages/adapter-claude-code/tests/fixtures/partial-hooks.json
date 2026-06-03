@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "", "hooks": [{ "type": "command", "command": "/fixtures/bin/athing-notify" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "/fixtures/bin/athing-notify" }] }
+    ]
+  }
+}
