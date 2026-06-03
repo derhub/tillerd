@@ -3,37 +3,37 @@
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "UserPromptSubmit": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "*",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "PermissionRequest": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "Stop": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ]
   }

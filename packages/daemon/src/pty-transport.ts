@@ -4,6 +4,7 @@ import * as net from "node:net";
 import { AtError } from "@athing/sdk";
 import type { Logger } from "@athing/logger";
 import { resolveBinary } from "./resolve";
+import { captureDescendants, killPids } from "./process-tree";
 
 export interface RawExitEvent {
   code: number | null;
@@ -273,6 +274,9 @@ export class PtyTransport {
 
   async kill(): Promise<RawExitEvent> {
     if (this.adoptedPid_ !== null) {
+      // Snapshot detached descendants before any signal lands; once the leader
+      // dies they reparent to init and become unreachable by parent chain.
+      const treePids = captureDescendants(this.adoptedPid_);
       if (process.platform !== "win32" && this.adoptedPid_ > 0) {
         try { process.kill(-this.adoptedPid_, "SIGTERM"); } catch { /* already dead */ }
       }
@@ -281,6 +285,7 @@ export class PtyTransport {
       } catch {
         /* already dead */
       }
+      killPids(treePids, "SIGTERM");
       return new Promise<RawExitEvent>((resolve) => {
         const timer = setTimeout(() => {
           if (process.platform !== "win32" && this.adoptedPid_! > 0) {
@@ -291,6 +296,7 @@ export class PtyTransport {
           } catch {
             /* already dead */
           }
+          killPids(treePids, "SIGKILL");
           resolve({ code: null, signal: "SIGKILL" });
         }, this.opts.shutdownGraceMs);
         const handler = (event: RawExitEvent) => {
@@ -317,6 +323,9 @@ export class PtyTransport {
       this.exitHandlers.add(exitOnce);
 
       const pid = this.ptyProcess!.pid;
+      // Snapshot detached descendants before any signal lands; once the leader
+      // dies they reparent to init and become unreachable by parent chain.
+      const treePids = captureDescendants(pid);
       if (process.platform !== "win32" && pid > 0) {
         try { process.kill(-pid, "SIGTERM"); } catch { /* already dead */ }
       }
@@ -325,6 +334,7 @@ export class PtyTransport {
       } catch {
         // already dead
       }
+      killPids(treePids, "SIGTERM");
 
       this.killTimer = setTimeout(() => {
         this.opts.logger.warn("pty.kill: grace expired, sending SIGKILL");
@@ -336,6 +346,7 @@ export class PtyTransport {
         } catch {
           // already dead
         }
+        killPids(treePids, "SIGKILL");
       }, this.opts.shutdownGraceMs);
     });
   }

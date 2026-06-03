@@ -72,7 +72,7 @@ const myAgent: AgentDefinition = {
   launch: { command: "my-cli", args: ["--session-id", "{id}"], flags: [] },
   hookInstall: {
     settingsPath: "~/.myagent/settings.json",
-    notifyScriptPath: "~/.athing/notify.mjs",
+    notifyScriptPath: "bin/athing-notify",
     events: ["SessionStart", "Stop"],
   },
   cliVersionRange: ">=2.0.0",

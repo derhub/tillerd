@@ -120,5 +120,5 @@ export function snapshotToBytes(
 
   parts.push(`\x1b[${frame.cursor.y + 1};${frame.cursor.x + 1}H`);
 
-  return Buffer.from(parts.join("")) as unknown as Uint8Array;
+  return new TextEncoder().encode(parts.join(""));
 }

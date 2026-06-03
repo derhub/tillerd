@@ -4,7 +4,7 @@ import * as path from "node:path";
 import type { Logger } from "@athing/sdk";
 
 export const DEFAULT_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
-const HOOK_MARKER = "notify.mjs";
+const HOOK_MARKER = "athing-notify";
 const HOOK_EVENTS = [
   "SessionStart",
   "UserPromptSubmit",

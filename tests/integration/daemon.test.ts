@@ -13,7 +13,7 @@ const HOOKS_SOCK_PATH = path.join(ATHING_DIR, "hooks.sock");
 
 // ── Socket client ────────────────────────────────────────────────────────────
 
-type Frame = { meta: Record<string, unknown>; body: Buffer | null };
+type Frame = { meta: Record<string, unknown>; body: Uint8Array | null };
 
 type Client = {
   send(meta: unknown, body?: Buffer): void;
@@ -155,7 +155,7 @@ describe("daemon protocol", () => {
     let combined = "";
     const frames = await drainUntil(client, (f) => f.meta["type"] === "exit", 8_000);
     for (const f of frames) {
-      if (f.meta["type"] === "data" && f.body) combined += f.body.toString("utf8");
+      if (f.meta["type"] === "data" && f.body) combined += Buffer.from(f.body).toString("utf8");
     }
 
     expect(combined).toContain("MARKER_DATA");
@@ -248,7 +248,7 @@ describe("daemon protocol", () => {
       const f = await client.recv(1_000).catch(() => null);
       if (!f) continue;
       if (f.meta["type"] === "data" && f.body) {
-        combined += f.body.toString("utf8");
+        combined += Buffer.from(f.body).toString("utf8");
         client.send({ type: "ack", sessionId, bytes: f.body.length });
       }
     }
@@ -288,7 +288,7 @@ describe("daemon protocol", () => {
       const f = await clientA.recv(500).catch(() => null);
       if (!f) continue;
       if (f.meta["type"] === "data" && f.body) {
-        combined += f.body.toString("utf8");
+        combined += Buffer.from(f.body).toString("utf8");
         clientA.send({ type: "ack", sessionId, bytes: f.body.length });
       }
     }
@@ -303,7 +303,7 @@ describe("daemon protocol", () => {
     while (!replay.includes("MARKER_REPLAY") && Date.now() < replayDeadline) {
       const f = await clientB.recv(500).catch(() => null);
       if (!f) break;
-      if (f.meta["type"] === "data" && f.body) replay += f.body.toString("utf8");
+      if (f.meta["type"] === "data" && f.body) replay += Buffer.from(f.body).toString("utf8");
     }
     expect(replay).toContain("MARKER_REPLAY");
 

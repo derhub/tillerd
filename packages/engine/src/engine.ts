@@ -1,47 +1,43 @@
-import type { Engine as IEngine, AgentSession, AgentDefinition, SessionOptions } from "@athing/sdk";
+import type {
+  Engine as IEngine,
+  AgentSession,
+  AgentDefinition,
+  SessionOptions,
+  DaemonTransport,
+  FileSource,
+  Logger,
+} from "@athing/sdk";
 import { AtError } from "@athing/sdk";
-import { prepareNotifyScript } from "./ingress/install";
-import { createLogger } from "@athing/logger";
-import { checkCliVersion } from "./pty/resolve";
-import { randomUUID } from "node:crypto";
-import { adoptOrSpawn, HOOKS_SOCK } from "./daemon/supervisor";
 import { AgentSessionProxy, fillProxyOptions } from "./daemon/proxy";
-import type { DaemonClient } from "./daemon/client";
+
+export interface EngineDeps {
+  transport: DaemonTransport;
+  fileSource: FileSource;
+  logger: Logger;
+  hooksSocketPath: string;
+}
 
 class EngineImpl implements IEngine {
   private proxies = new Map<string, AgentSessionProxy>();
-  private logger = createLogger();
-  private installedAdapters = new Set<string>();
-  private verifiedVersions = new Set<string>();
   private shutdown_ = false;
-  private daemonClientPromise: Promise<DaemonClient> | null = null;
 
-  private getDaemonClient(): Promise<DaemonClient> {
-    if (!this.daemonClientPromise) {
-      this.daemonClientPromise = adoptOrSpawn();
-    }
-    return this.daemonClientPromise;
-  }
+  constructor(private readonly deps: EngineDeps) {}
 
   async start(adapter: AgentDefinition, options?: SessionOptions): Promise<AgentSession> {
     if (this.shutdown_) throw new AtError("TransportClosed", "Engine is shut down");
 
-    if (!this.verifiedVersions.has(adapter.name)) {
-      checkCliVersion(adapter.launch.command, adapter.cliVersionRange);
-      this.verifiedVersions.add(adapter.name);
-    }
-
-    if (!this.installedAdapters.has(adapter.name)) {
-      const { command, updated } = prepareNotifyScript();
-      if (updated) this.logger.info("notify script updated");
-      adapter.installHooks(command, this.logger);
-      this.installedAdapters.add(adapter.name);
-    }
-
-    const client = await this.getDaemonClient();
-    const sessionId = options?.resume ?? randomUUID();
+    const sessionId = options?.resume ?? crypto.randomUUID();
     const opts = fillProxyOptions(options);
-    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "spawn", HOOKS_SOCK);
+    const proxy = new AgentSessionProxy(
+      sessionId,
+      adapter,
+      opts,
+      this.deps.transport,
+      "spawn",
+      this.deps.hooksSocketPath,
+      this.deps.fileSource,
+      this.deps.logger,
+    );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
     setTimeout(() => proxy.start(), 0);
@@ -55,14 +51,22 @@ class EngineImpl implements IEngine {
   ): Promise<AgentSession> {
     if (this.shutdown_) throw new AtError("TransportClosed", "Engine is shut down");
 
-    const client = await this.getDaemonClient();
-    const knownIds = await client.list();
+    const knownIds = await this.deps.transport.list();
     if (!knownIds.includes(sessionId)) {
       throw new AtError("TransportClosed", `Session ${sessionId} not found in daemon`);
     }
 
     const opts = fillProxyOptions(options);
-    const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "subscribe", HOOKS_SOCK);
+    const proxy = new AgentSessionProxy(
+      sessionId,
+      adapter,
+      opts,
+      this.deps.transport,
+      "subscribe",
+      this.deps.hooksSocketPath,
+      this.deps.fileSource,
+      this.deps.logger,
+    );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
     setTimeout(() => proxy.start(), 0);
@@ -70,29 +74,25 @@ class EngineImpl implements IEngine {
   }
 
   async listSessions(): Promise<string[]> {
-    const client = await this.getDaemonClient();
-    return client.list();
+    return this.deps.transport.list();
   }
 
   async shutdown(): Promise<void> {
     if (this.shutdown_) return;
     this.shutdown_ = true;
 
-    if (this.daemonClientPromise) {
-      try {
-        const client = await this.daemonClientPromise;
-        for (const sessionId of this.proxies.keys()) {
-          client.send({ op: "unsubscribe", sessionId });
-        }
-        client.disconnect();
-      } catch {
-        // ignore
+    try {
+      for (const sessionId of this.proxies.keys()) {
+        this.deps.transport.send({ op: "unsubscribe", sessionId });
       }
+      this.deps.transport.disconnect();
+    } catch {
+      // ignore
     }
     this.proxies.clear();
   }
 }
 
-export function createEngine(): IEngine {
-  return new EngineImpl();
+export function createEngine(deps: EngineDeps): IEngine {
+  return new EngineImpl(deps);
 }

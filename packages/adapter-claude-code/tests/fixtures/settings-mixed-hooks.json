@@ -4,13 +4,13 @@
       { "matcher": "", "hooks": [{ "type": "command", "command": "some-other-tool" }] },
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ],
     "Stop": [
       {
         "matcher": "",
-        "hooks": [{ "type": "command", "command": "bun /home/user/.athing/notify.mjs" }]
+        "hooks": [{ "type": "command", "command": "/home/user/project/bin/athing-notify" }]
       }
     ]
   }

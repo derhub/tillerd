@@ -11,6 +11,8 @@
     "@athing/adapter-claude-code": "workspace:*",
     "@athing/daemon": "workspace:*",
     "@athing/engine": "workspace:*",
+    "@athing/logger": "workspace:*",
+    "@athing/platform-bun": "workspace:*",
     "@athing/sdk": "workspace:*",
     "valibot": "^1.4.1"
   },

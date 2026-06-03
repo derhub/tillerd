@@ -1,4 +1,4 @@
-import { createEngine, adoptOrSpawn, DaemonClient } from "@athing/engine";
+import { createEngine } from "@athing/engine";
 import { claudeCode } from "@athing/adapter-claude-code";
 import { HOOKS_SOCK } from "@athing/daemon";
 import { Database } from "bun:sqlite";
@@ -7,7 +7,9 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID, randomBytes } from "node:crypto";
-import type { AgentSession } from "@athing/sdk";
+import { createLogger } from "@athing/logger";
+import type { AgentSession, DaemonTransport } from "@athing/sdk";
+import { adoptOrSpawn, BunFileSource, checkCliVersion, prepareNotifyScript } from "@athing/platform-bun";
 
 const ATHING_DIR = join(homedir(), ".athing");
 fs.mkdirSync(ATHING_DIR, { recursive: true });
@@ -31,43 +33,44 @@ const ClientMessageSchema = v.union([
 
 type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
-// Shared daemon client for raw terminal sessions
-let terminalClient: DaemonClient | null = null;
-let terminalClientPromise: Promise<DaemonClient> | null = null;
-let ownedDaemonPid: number | null = null; // non-null if this server spawned the daemon
+// ── Startup bootstrap: resolve host concerns, then inject into the engine ─────
 
-function getTerminalClient(): Promise<DaemonClient> {
-  if (!terminalClientPromise) {
-    terminalClientPromise = adoptOrSpawn().then((c) => {
-      terminalClient = c;
-      // Track whether we spawned a new daemon (manifest written after our connect).
-      try {
-        const raw = JSON.parse(fs.readFileSync(join(ATHING_DIR, "daemon.json"), "utf8")) as {
-          pid: number;
-        };
-        ownedDaemonPid = raw.pid;
-      } catch {
-        /* manifest not readable */
-      }
-      c.onClose(() => {
-        console.log("[terminal] daemon disconnected — clearing client cache");
-        terminalClient = null;
-        terminalClientPromise = null;
-        ownedDaemonPid = null;
-      });
-      return c;
-    });
-  }
-  return terminalClientPromise;
+const logger = createLogger();
+
+// Verify the agent CLI version and install the hook callback before serving.
+checkCliVersion(claudeCode.launch.command, claudeCode.cliVersionRange);
+const { command: hookCommand } = prepareNotifyScript();
+claudeCode.installHooks(hookCommand, logger);
+
+// One daemon connection, shared by the engine (agent sessions) and the raw
+// terminal path. The host owns its lifecycle.
+const transport: DaemonTransport = await adoptOrSpawn();
+let ownedDaemonPid: number | null = null;
+try {
+  const raw = JSON.parse(fs.readFileSync(join(ATHING_DIR, "daemon.json"), "utf8")) as {
+    pid: number;
+  };
+  ownedDaemonPid = raw.pid;
+} catch {
+  /* manifest not readable */
 }
+transport.onClose(() => {
+  console.log("[daemon] disconnected");
+  ownedDaemonPid = null;
+});
+
+const fileSource = new BunFileSource();
+const engine = createEngine({ transport, fileSource, logger, hooksSocketPath: HOOKS_SOCK });
 
 function shutdownDaemon(): void {
   const pid = ownedDaemonPid;
-  if (!pid) return;
-  terminalClient?.disconnect();
-  terminalClient = null;
-  terminalClientPromise = null;
   ownedDaemonPid = null;
+  try {
+    transport.disconnect();
+  } catch {
+    /* already closed */
+  }
+  if (!pid) return;
   try {
     process.kill(pid, "SIGTERM");
     console.log("[server] sent SIGTERM to daemon", pid);
@@ -101,7 +104,6 @@ interface WsData {
   _termUnsub: (() => void) | null;
 }
 
-const engine = createEngine();
 const activeSessions = new Map<string, AgentSession>();
 
 // On startup: reconcile DB against live daemon sessions
@@ -210,11 +212,10 @@ Bun.serve<WsData>({
         const sessionId = randomUUID();
         ws.data.sessionId = sessionId;
 
-        const client = await getTerminalClient();
         const token = randomBytes(32).toString("hex");
 
         let dataFrameCount = 0;
-        const unsub = client.subscribe(sessionId, (frame, body) => {
+        const unsub = transport.subscribe(sessionId, (frame, body) => {
           if (frame.type === "data") {
             const bytes = body ? Array.from(new Uint8Array(body)) : [];
             dataFrameCount++;
@@ -226,7 +227,7 @@ Bun.serve<WsData>({
             );
             ws.send(JSON.stringify({ type: "data", bytes }));
             // Return flow-control credit so the daemon doesn't stall.
-            client.send({ type: "ack", sessionId, bytes: bytes.length });
+            transport.send({ type: "ack", sessionId, bytes: bytes.length });
           } else if (frame.type === "exit") {
             console.log("[terminal] exit", sessionId.slice(0, 8), frame.qualifier, frame.raw);
             ws.send(JSON.stringify({ type: "exit", qualifier: frame.qualifier, raw: frame.raw }));
@@ -238,7 +239,7 @@ Bun.serve<WsData>({
         ws.data._termUnsub = unsub;
 
         console.log("[terminal] spawn", sessionId.slice(0, 8), { cwd });
-        client.send({
+        transport.send({
           type: "spawn",
           sessionId,
           command: process.env["SHELL"] ?? "/bin/zsh",
@@ -252,7 +253,7 @@ Bun.serve<WsData>({
         });
 
         // Tell the daemon to start streaming output for this session.
-        client.send({ type: "subscribe", sessionId });
+        transport.send({ type: "subscribe", sessionId });
 
         ws.send(JSON.stringify({ type: "session_start", sessionId }));
         console.log("[terminal] subscribed", sessionId.slice(0, 8));
@@ -362,20 +363,19 @@ Bun.serve<WsData>({
       }
 
       if (ws.data.mode === "terminal") {
-        if (!terminalClient) return;
         const sid = ws.data.sessionId;
         switch (msg.type) {
           case "input":
-            terminalClient.send({ type: "input", sessionId: sid }, Buffer.from(msg.bytes));
+            transport.send({ type: "input", sessionId: sid }, Buffer.from(msg.bytes));
             break;
           case "resize":
-            terminalClient.send({ type: "resize", sessionId: sid, cols: msg.cols, rows: msg.rows });
+            transport.send({ type: "resize", sessionId: sid, cols: msg.cols, rows: msg.rows });
             break;
           case "interrupt":
-            terminalClient.send({ type: "interrupt", sessionId: sid });
+            transport.send({ type: "interrupt", sessionId: sid });
             break;
           case "kill":
-            terminalClient.send({ type: "kill", sessionId: sid });
+            transport.send({ type: "kill", sessionId: sid });
             break;
         }
         return;
@@ -407,28 +407,47 @@ Bun.serve<WsData>({
           // Recovery: re-bind the WebSocket to a new session resumed from the crashed one.
           const resumeId = msg.resume;
           activeSessions.delete(ws.data.sessionId);
-          try {
-            const recovered = await engine.start(claudeCode, { cwd, cols: 220, rows: 50, resume: resumeId });
-            ws.data.sessionId = recovered.sessionId;
-            activeSessions.set(recovered.sessionId, recovered);
-            db.run("INSERT OR IGNORE INTO sessions (id, cwd, created_at) VALUES (?, ?, ?)", [
-              recovered.sessionId, cwd, Date.now(),
-            ]);
-            ws.send(JSON.stringify({ type: "session_start", sessionId: recovered.sessionId }));
-            recovered.onData((bytes) => ws.send(JSON.stringify({ type: "data", bytes: Array.from(bytes) })));
-            recovered.onStatus((status) => ws.send(JSON.stringify({ type: "status", status })));
-            recovered.onContent((event) => ws.send(JSON.stringify({ type: "content", event })));
-            recovered.onError((err) => ws.send(JSON.stringify({ type: "error", kind: err.kind, message: err.message })));
-            recovered.onExit((event) => {
-              activeSessions.delete(recovered.sessionId);
-              db.run("DELETE FROM sessions WHERE id = ?", [recovered.sessionId]);
-              ws.send(JSON.stringify({ type: "exit", ...event }));
-              ws.close();
-            });
-          } catch (err) {
-            const e = err instanceof Error ? err : new Error(String(err));
-            ws.send(JSON.stringify({ type: "error", kind: (err as { kind?: string }).kind ?? "SpawnFailed", message: e.message }));
-          }
+          void (async () => {
+            try {
+              const recovered = await engine.start(claudeCode, {
+                cwd: process.cwd(),
+                cols: 220,
+                rows: 50,
+                resume: resumeId,
+              });
+              ws.data.sessionId = recovered.sessionId;
+              activeSessions.set(recovered.sessionId, recovered);
+              db.run("INSERT OR IGNORE INTO sessions (id, cwd, created_at) VALUES (?, ?, ?)", [
+                recovered.sessionId,
+                process.cwd(),
+                Date.now(),
+              ]);
+              ws.send(JSON.stringify({ type: "session_start", sessionId: recovered.sessionId }));
+              recovered.onData((bytes) =>
+                ws.send(JSON.stringify({ type: "data", bytes: Array.from(bytes) })),
+              );
+              recovered.onStatus((status) => ws.send(JSON.stringify({ type: "status", status })));
+              recovered.onContent((event) => ws.send(JSON.stringify({ type: "content", event })));
+              recovered.onError((err) =>
+                ws.send(JSON.stringify({ type: "error", kind: err.kind, message: err.message })),
+              );
+              recovered.onExit((event) => {
+                activeSessions.delete(recovered.sessionId);
+                db.run("DELETE FROM sessions WHERE id = ?", [recovered.sessionId]);
+                ws.send(JSON.stringify({ type: "exit", ...event }));
+                ws.close();
+              });
+            } catch (err) {
+              const e = err instanceof Error ? err : new Error(String(err));
+              ws.send(
+                JSON.stringify({
+                  type: "error",
+                  kind: (err as { kind?: string }).kind ?? "SpawnFailed",
+                  message: e.message,
+                }),
+              );
+            }
+          })();
           break;
         }
       }
@@ -437,9 +456,9 @@ Bun.serve<WsData>({
     close(ws) {
       if (ws.data.mode === "terminal") {
         ws.data._termUnsub?.();
-        if (terminalClient && ws.data.sessionId) {
+        if (ws.data.sessionId) {
           console.log("[terminal] close → kill", ws.data.sessionId.slice(0, 8));
-          terminalClient.send({ type: "kill", sessionId: ws.data.sessionId });
+          transport.send({ type: "kill", sessionId: ws.data.sessionId });
         }
         return;
       }

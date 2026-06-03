@@ -7,6 +7,8 @@
   },
   "dependencies": {
     "@athing/engine": "workspace:*",
+    "@athing/logger": "workspace:*",
+    "@athing/platform-bun": "workspace:*",
     "@athing/sdk": "workspace:*"
   },
   "devDependencies": {

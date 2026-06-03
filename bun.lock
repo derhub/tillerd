@@ -20,6 +20,8 @@
         "@athing/adapter-claude-code": "workspace:*",
         "@athing/daemon": "workspace:*",
         "@athing/engine": "workspace:*",
+        "@athing/logger": "workspace:*",
+        "@athing/platform-bun": "workspace:*",
         "@athing/sdk": "workspace:*",
         "valibot": "^1.4.1",
       },
@@ -91,8 +93,6 @@
       "name": "@athing/engine",
       "version": "0.0.1",
       "dependencies": {
-        "@athing/daemon": "workspace:*",
-        "@athing/logger": "workspace:*",
         "@athing/sdk": "workspace:*",
         "valibot": "^1.4.1",
       },
@@ -106,6 +106,16 @@
       "dependencies": {
         "pino": "^10.3.1",
         "pino-pretty": "^13.1.3",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/platform-bun": {
+      "name": "@athing/platform-bun",
+      "version": "0.0.1",
+      "dependencies": {
+        "@athing/sdk": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.9.2",
@@ -131,6 +141,8 @@
       "name": "@athing/integration-tests",
       "dependencies": {
         "@athing/engine": "workspace:*",
+        "@athing/logger": "workspace:*",
+        "@athing/platform-bun": "workspace:*",
         "@athing/sdk": "workspace:*",
       },
       "devDependencies": {
@@ -150,6 +162,8 @@
     "@athing/integration-tests": ["@athing/integration-tests@workspace:tests/integration"],
 
     "@athing/logger": ["@athing/logger@workspace:packages/logger"],
+
+    "@athing/platform-bun": ["@athing/platform-bun@workspace:packages/platform-bun"],
 
     "@athing/sdk": ["@athing/sdk@workspace:packages/sdk"],
 
@@ -1414,6 +1428,8 @@
     "@athing/engine/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@athing/logger/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@athing/platform-bun/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@athing/sdk/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

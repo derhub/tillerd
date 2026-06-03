@@ -2,10 +2,10 @@ import { test, expect, describe, afterEach } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { readManifest, isAlive } from "../src/supervisor";
 
-// We test the helpers that can be exercised without spawning real processes.
-// adoptOrSpawn itself requires a real daemon binary so we test the branching
-// logic by probing the manifest/socket contracts it relies on.
+// Exercises the real supervisor helpers. adoptOrSpawn itself requires a live
+// daemon binary, so we verify the manifest/liveness contracts it relies on.
 
 describe("manifest liveness contract", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-test-"));
@@ -66,9 +66,9 @@ describe("supervisor upgrade trigger (9.5)", () => {
     // verify the behaviour by observing what DaemonClient.send receives when
     // adoptOrSpawn detects a version mismatch and the socket is available.
     // The simplest unit check: the upgrade frame matches the wire contract.
-    const sent: Array<{ meta: object; body?: Buffer }> = [];
+    const sent: Array<{ meta: object; body?: Uint8Array }> = [];
     const mockClient = {
-      send(meta: object, body?: Buffer) {
+      send(meta: object, body?: Uint8Array) {
         sent.push({ meta, body });
       },
       connect: async () => {},
@@ -82,22 +82,3 @@ describe("supervisor upgrade trigger (9.5)", () => {
     expect((sent[0]!.meta as { type: string }).type).toBe("upgrade");
   });
 });
-
-// ── Helpers (mirroring supervisor internals for isolated testing) ────────────
-
-function readManifest(manifestPath: string): { pid: number; version: string } | null {
-  try {
-    return JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { pid: number; version: string };
-  } catch {
-    return null;
-  }
-}
-
-function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}

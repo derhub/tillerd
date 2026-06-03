@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { DaemonClient } from "./client";
+import { DaemonClient } from "./daemon-transport";
 
 function getAthingDir(): string {
   return process.env["ATHING_DIR"]
@@ -20,15 +20,15 @@ interface ManifestData {
   version: string;
 }
 
-function readManifest(): ManifestData | null {
+export function readManifest(manifestPath: string = MANIFEST_PATH): ManifestData | null {
   try {
-    return JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8")) as ManifestData;
+    return JSON.parse(fs.readFileSync(manifestPath, "utf8")) as ManifestData;
   } catch {
     return null;
   }
 }
 
-function isAlive(pid: number): boolean {
+export function isAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;

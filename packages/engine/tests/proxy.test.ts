@@ -1,7 +1,17 @@
 import { test, expect, describe } from "bun:test";
 import type { DaemonFrame } from "@athing/sdk";
-import type { AgentDefinition } from "@athing/sdk";
-import type { FrameHandler } from "../src/daemon/client";
+import type { AgentDefinition, FileSource, Logger } from "@athing/sdk";
+import type { FrameHandler } from "@athing/sdk";
+
+const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
+const nullFileSource: FileSource = {
+  async size() {
+    return null;
+  },
+  async read() {
+    return new Uint8Array(0);
+  },
+};
 
 const mockAdapter: AgentDefinition = {
   name: "mock",
@@ -61,9 +71,23 @@ async function makeProxy(mode: "spawn" | "subscribe" = "spawn") {
     client as never,
     mode,
     "/tmp/test-hooks.sock",
+    nullFileSource,
+    noopLogger,
   );
   return { proxy, client };
 }
+
+describe("fillProxyOptions — cwd contract", () => {
+  test("throws when cwd is missing", async () => {
+    const { fillProxyOptions } = await import("../src/daemon/proxy");
+    expect(() => fillProxyOptions({})).toThrow(/cwd is required/);
+  });
+
+  test("accepts an explicit cwd", async () => {
+    const { fillProxyOptions } = await import("../src/daemon/proxy");
+    expect(fillProxyOptions({ cwd: "/tmp" }).cwd).toBe("/tmp");
+  });
+});
 
 describe("AgentSessionProxy — spawn mode", () => {
   test("start() sends spawn frame to daemon", async () => {
@@ -153,7 +177,7 @@ describe("AgentSessionProxy — spawn mode", () => {
     const inputs = sentType(client, "input");
     expect(inputs).toHaveLength(1);
     expect(inputs[0]!.body).toBeDefined();
-    expect(inputs[0]!.body!.toString("utf8")).toContain("hello");
+    expect(new TextDecoder().decode(inputs[0]!.body!)).toContain("hello");
   });
 
   test("sendQueue throws QueueFull when over capacity", async () => {
@@ -411,6 +435,8 @@ describe("AgentSessionProxy — crash recovery routing", () => {
       client2 as never,
       "spawn",
       "/tmp/hooks.sock",
+      nullFileSource,
+      noopLogger,
     );
     proxy2.start();
     const spawnFrames = sentType(client2, "spawn");

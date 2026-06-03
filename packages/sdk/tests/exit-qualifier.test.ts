@@ -88,25 +88,19 @@ describe("resolveSignal — string names", () => {
 });
 
 describe("resolveSignal — numeric platform numbers", () => {
-  test("SIGCHLD resolves consistently: Linux=17 → SIGCHLD, macOS=20 → SIGCHLD", () => {
-    const platform = process.platform;
-    const linuxChld = 17;
-    const macosChld = 20;
-    const n = platform === "linux" ? linuxChld : macosChld;
-    const r = resolveSignal(n);
-    expect(r.name).toBe("SIGCHLD");
+  test("SIGCHLD resolves per platform: Linux=17, macOS=20", () => {
+    expect(resolveSignal(17, "linux").name).toBe("SIGCHLD");
+    expect(resolveSignal(20, "darwin").name).toBe("SIGCHLD");
   });
 
   test("SIGSEGV resolves consistently: both platforms use 11", () => {
-    const r = resolveSignal(11);
-    expect(r.name).toBe("SIGSEGV");
+    expect(resolveSignal(11, "linux").name).toBe("SIGSEGV");
+    expect(resolveSignal(11, "darwin").name).toBe("SIGSEGV");
   });
 
-  test("SIGUSR1 resolves to SIGUSR1 on current platform", () => {
-    const platform = process.platform;
-    const n = platform === "linux" ? 10 : 30;
-    const r = resolveSignal(n);
-    expect(r.name).toBe("SIGUSR1");
+  test("SIGUSR1 resolves per platform: Linux=10, macOS=30", () => {
+    expect(resolveSignal(10, "linux").name).toBe("SIGUSR1");
+    expect(resolveSignal(30, "darwin").name).toBe("SIGUSR1");
   });
 
   test("unmapped number returns unknown with raw number preserved", () => {

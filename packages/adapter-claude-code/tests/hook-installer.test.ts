@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { installHooks, uninstallHooks } from "../src/hook-installer";
 
 const FIXTURES = path.join(import.meta.dir, "fixtures");
-const NOTIFY_CMD = "bun /home/user/.athing/notify.mjs";
+const NOTIFY_CMD = "/home/user/project/bin/athing-notify";
 
 const noop = () => {};
 const logger = { debug: noop, info: noop, warn: noop, error: noop };

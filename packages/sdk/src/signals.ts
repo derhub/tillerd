@@ -60,14 +60,19 @@ const MACOS_NUMBER_TO_NAME: Record<number, string> = {
   27: "SIGPROF", 28: "SIGWINCH", 29: "SIGINFO", 30: "SIGUSR1", 31: "SIGUSR2",
 };
 
-function numberToName(n: number): string | undefined {
-  const platform = process.platform;
+export type SignalPlatform = "linux" | "darwin";
+
+function numberToName(n: number, platform: SignalPlatform): string | undefined {
   const map = platform === "linux" ? LINUX_NUMBER_TO_NAME : MACOS_NUMBER_TO_NAME;
   return map[n];
 }
 
-export function resolveSignal(signal: string | number): ResolvedSignal {
-  const name = typeof signal === "number" ? (numberToName(signal) ?? String(signal)) : signal;
+export function resolveSignal(
+  signal: string | number,
+  platform: SignalPlatform = "linux",
+): ResolvedSignal {
+  const name =
+    typeof signal === "number" ? (numberToName(signal, platform) ?? String(signal)) : signal;
   const entry = SIGNAL_TABLE[name];
   if (!entry) return { name: "unknown", raw: signal };
   return { name, meaning: entry.meaning, category: entry.category };

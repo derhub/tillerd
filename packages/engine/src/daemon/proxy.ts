@@ -6,16 +6,21 @@ import type {
   AgentDefinition,
   SessionOptions,
   SnapshotFrame,
+  DaemonFrame,
+  DaemonTransport,
+  FrameHandler,
+  FileSource,
+  Logger,
 } from "@athing/sdk";
 import { AtError, exitToStatus, snapshotToBytes } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
-import type { DaemonFrame } from "@athing/sdk";
-import type { DaemonClient, FrameHandler } from "./client";
-import type { Logger } from "@athing/logger";
-import { createLogger } from "@athing/logger";
-import { randomBytes } from "node:crypto";
+
+function randomTokenHex(byteLength: number): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 const DEFAULT_STARTUP_TIMEOUT = 30_000;
 const DEFAULT_SHUTDOWN_GRACE = 5_000;
@@ -61,17 +66,19 @@ export class AgentSessionProxy implements AgentSession {
     sessionId: string,
     private readonly adapter: AgentDefinition,
     opts: Required<SessionOptions>,
-    private readonly client: DaemonClient,
+    private readonly client: DaemonTransport,
     private readonly mode: ProxyMode,
     private readonly hooksSockPath: string,
+    fileSource: FileSource,
+    logger: Logger,
   ) {
     this.sessionId = sessionId;
-    this.token = randomBytes(32).toString("hex");
-    this.logger = createLogger(sessionId);
+    this.token = randomTokenHex(32);
+    this.logger = logger;
     this.opts = opts;
     this.sendQueue = new SendQueue(opts.sendQueueCapacity);
     this.statusMapper = new StatusMapper();
-    this.transcriptReader = new TranscriptReader(sessionId, adapter, opts.cwd, this.logger);
+    this.transcriptReader = new TranscriptReader(sessionId, adapter, opts.cwd, this.logger, fileSource);
 
     this.statusMapper.onChange((status) => {
       this.cancelIdleTimer();
@@ -132,7 +139,7 @@ export class AgentSessionProxy implements AgentSession {
     }
   }
 
-  private handleFrame(frame: DaemonFrame, body: Buffer | null): void {
+  private handleFrame(frame: DaemonFrame, body: Uint8Array | null): void {
     switch (frame.type) {
       case "data": {
         const bytes = body ? new Uint8Array(body) : new Uint8Array(0);
@@ -205,7 +212,7 @@ export class AgentSessionProxy implements AgentSession {
   }
 
   private sendText(text: string): void {
-    const bytes = Buffer.from(`\x1b[200~${text}\x1b[201~\r`, "utf8");
+    const bytes = new TextEncoder().encode(`\x1b[200~${text}\x1b[201~\r`);
     this.client.send({ type: "input", sessionId: this.sessionId }, bytes);
   }
 
@@ -245,7 +252,7 @@ export class AgentSessionProxy implements AgentSession {
   }
 
   input(bytes: Uint8Array): void {
-    this.client.send({ type: "input", sessionId: this.sessionId }, Buffer.from(bytes));
+    this.client.send({ type: "input", sessionId: this.sessionId }, bytes);
   }
 
   interrupt(): void {
@@ -333,8 +340,12 @@ function buildArgs(adapter: AgentDefinition, sessionId: string, resume?: string)
 }
 
 export function fillProxyOptions(opts?: SessionOptions): Required<SessionOptions> {
+  const cwd = opts?.cwd;
+  if (!cwd) {
+    throw new AtError("SpawnFailed", "SessionOptions.cwd is required");
+  }
   return {
-    cwd: opts?.cwd ?? process.cwd(),
+    cwd,
     cols: opts?.cols ?? DEFAULT_COLS,
     rows: opts?.rows ?? DEFAULT_ROWS,
     resume: opts?.resume ?? "",

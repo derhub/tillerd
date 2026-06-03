@@ -1,15 +1,30 @@
 import { test, expect, describe } from "bun:test";
 import { createEngine } from "@athing/engine";
+import { adoptOrSpawn, BunFileSource, HOOKS_SOCK } from "@athing/platform-bun";
+import { createLogger } from "@athing/logger";
 import { bashAdapter } from "./fixtures/bash-adapter";
+
+async function makeEngine() {
+  const transport = await adoptOrSpawn();
+  return createEngine({
+    transport,
+    fileSource: new BunFileSource(),
+    logger: createLogger(),
+    hooksSocketPath: HOOKS_SOCK,
+  });
+}
 
 describe("engine integration", () => {
   test(
     "start → ready → onData → kill",
     async () => {
-      const engine = createEngine();
+      const engine = await makeEngine();
       const dataChunks: Uint8Array[] = [];
 
-      const session = await engine.start(bashAdapter, { startupTimeoutMs: 5_000 });
+      const session = await engine.start(bashAdapter, {
+        cwd: process.cwd(),
+        startupTimeoutMs: 5_000,
+      });
       session.onData((b) => dataChunks.push(b));
 
       await new Promise<void>((resolve) => {
@@ -33,10 +48,10 @@ describe("engine integration", () => {
   test(
     "two concurrent sessions are isolated",
     async () => {
-      const engine = createEngine();
+      const engine = await makeEngine();
       const [s1, s2] = await Promise.all([
-        engine.start(bashAdapter, { startupTimeoutMs: 5_000 }),
-        engine.start(bashAdapter, { startupTimeoutMs: 5_000 }),
+        engine.start(bashAdapter, { cwd: process.cwd(), startupTimeoutMs: 5_000 }),
+        engine.start(bashAdapter, { cwd: process.cwd(), startupTimeoutMs: 5_000 }),
       ]);
 
       expect(s1.sessionId).not.toBe(s2.sessionId);
@@ -50,14 +65,17 @@ describe("engine integration", () => {
   test(
     "BinaryNotFound when binary missing",
     async () => {
-      const engine = createEngine();
+      const engine = await makeEngine();
       const badAdapter = {
         ...bashAdapter,
         launch: { ...bashAdapter.launch, command: "__athing_no_such_binary__" },
       };
 
       const errors: string[] = [];
-      const session = await engine.start(badAdapter, { startupTimeoutMs: 5_000 });
+      const session = await engine.start(badAdapter, {
+        cwd: process.cwd(),
+        startupTimeoutMs: 5_000,
+      });
       session.onError((e) => errors.push(e.kind));
 
       await new Promise((r) => setTimeout(r, 500));

@@ -1,4 +1,3 @@
 export { createEngine } from "./engine";
+export type { EngineDeps } from "./engine";
 export * from "./schemas";
-export { adoptOrSpawn } from "./daemon/supervisor";
-export { DaemonClient } from "./daemon/client";

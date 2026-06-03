@@ -1,9 +1,14 @@
-import { FrameDecoder, encodeFrame, parseDaemonFrame, type DaemonFrame } from "@athing/sdk";
-import { AtError } from "@athing/sdk";
+import {
+  FrameDecoder,
+  encodeFrame,
+  parseDaemonFrame,
+  AtError,
+  type DaemonFrame,
+  type DaemonTransport,
+  type FrameHandler,
+} from "@athing/sdk";
 
-export type FrameHandler = (frame: DaemonFrame, body: Buffer | null) => void;
-
-export class DaemonClient {
+export class DaemonClient implements DaemonTransport {
   private socket: ReturnType<typeof Bun.connect> | null = null;
   private decoder = new FrameDecoder();
   private sessionHandlers = new Map<string, Set<FrameHandler>>();
@@ -61,7 +66,7 @@ export class DaemonClient {
     });
   }
 
-  private dispatch(frame: DaemonFrame, body: Buffer | null): void {
+  private dispatch(frame: DaemonFrame, body: Uint8Array | null): void {
     if (frame.type === "list-ack") {
       for (const cb of this.pendingList.splice(0)) cb(frame.ids);
       return;
@@ -77,9 +82,9 @@ export class DaemonClient {
     for (const h of this.globalHandlers) h(frame, body);
   }
 
-  send(meta: object, body?: Buffer): void {
+  send(meta: object, body?: Uint8Array): void {
     if (!this.socket) throw new AtError("TransportClosed", "daemon not connected");
-    (this.socket as unknown as { write(data: Buffer): void }).write(encodeFrame(meta, body));
+    (this.socket as unknown as { write(data: Uint8Array): void }).write(encodeFrame(meta, body));
   }
 
   subscribe(sessionId: string, handler: FrameHandler): () => void {

@@ -1,7 +1,5 @@
-import * as fs from "node:fs";
-import type { HookEvent, ContentEvent, AgentDefinition } from "@athing/sdk";
+import type { HookEvent, ContentEvent, AgentDefinition, FileSource, Logger } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
-import type { Logger } from "@athing/logger";
 
 type ContentHandler = (event: ContentEvent) => void;
 type ErrorHandler = (err: AtError) => void;
@@ -18,73 +16,66 @@ export class TranscriptReader {
     private readonly adapter: AgentDefinition,
     private readonly cwd: string,
     private readonly logger: Logger,
+    private readonly fileSource: FileSource,
   ) {}
 
   onHook(event: HookEvent): void {
     if (event.type === "PostToolUse" || event.type === "Stop") {
-      this.readDelta();
+      void this.readDelta();
     }
   }
 
   onExit(): void {
-    this.readDelta();
+    void this.readDelta();
   }
 
-  private readDelta(): void {
+  private async readDelta(): Promise<void> {
     const filePath = this.adapter.transcriptPath(this.sessionId, this.cwd);
 
-    let stat: fs.Stats;
-    try {
-      stat = fs.statSync(filePath);
-      this.transcriptAbsent = false;
-    } catch {
+    const size = await this.fileSource.size(filePath);
+    if (size === null) {
       if (!this.transcriptAbsent) {
         this.transcriptAbsent = true;
         this.emitError(new AtError("TranscriptUnavailable", `Transcript not present: ${filePath}`));
       }
       return;
     }
+    this.transcriptAbsent = false;
 
-    if (stat.size < this.offset) {
+    if (size < this.offset) {
       this.logger.warn("transcript: truncation detected, resetting", { path: filePath });
       this.offset = 0;
       this.lastSize = 0;
     }
 
-    if (stat.size === this.lastSize) return;
+    if (size === this.lastSize) return;
 
-    let fd: number;
+    const toRead = size - this.offset;
+    if (toRead <= 0) return;
+
+    let bytes: Uint8Array;
     try {
-      fd = fs.openSync(filePath, "r");
+      bytes = await this.fileSource.read(filePath, this.offset, toRead);
     } catch (err) {
       this.emitError(new AtError("TranscriptUnavailable", String(err)));
       return;
     }
 
-    try {
-      const toRead = stat.size - this.offset;
-      if (toRead <= 0) return;
+    this.offset += bytes.length;
+    this.lastSize = size;
 
-      const buf = Buffer.alloc(toRead);
-      const bytesRead = fs.readSync(fd, buf, 0, toRead, this.offset);
-      this.offset += bytesRead;
-      this.lastSize = stat.size;
-
-      const chunk = buf.subarray(0, bytesRead).toString("utf8");
-      for (const line of chunk.split("\n")) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const content = this.adapter.parseTranscriptEntry(trimmed);
-          if (content) {
-            for (const h of this.handlers) h(content);
-          }
-        } catch (err) {
-          this.logger.debug("transcript: parse error on line", { err: String(err) });
+    const chunk = new TextDecoder().decode(bytes);
+    for (const line of chunk.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        const content = this.adapter.parseTranscriptEntry(trimmed);
+        if (content) {
+          for (const h of this.handlers) h(content);
         }
+      } catch (err) {
+        this.logger.debug("transcript: parse error on line", { err: String(err) });
       }
-    } finally {
-      fs.closeSync(fd);
     }
   }
 
