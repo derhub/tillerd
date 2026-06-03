@@ -10,10 +10,9 @@ describe("parseClientFrame", () => {
     const frame = {
       type: "spawn" as const,
       sessionId: "s1",
-      command: "claude",
-      args: [] as string[],
-      flags: [] as string[],
-      hookSocketPath: "/tmp/hooks.sock",
+      command: "/bin/fake-cli",
+      args: ["--id", "s1"] as string[],
+      env: { ATHING_BRIDGE_URL: "/tmp/hooks.sock" } as Record<string, string>,
       token: "tok",
       cols: 80,
       rows: 24,

@@ -12,10 +12,9 @@ export const SpawnSchema = v.object({
   type: v.literal("spawn"),
   sessionId: v.string(),
   resume: v.optional(v.string()),
-  command: v.string(),
+  command: v.optional(v.string()),
   args: v.array(v.string()),
-  flags: v.array(v.string()),
-  hookSocketPath: v.string(),
+  env: v.optional(v.record(v.string(), v.string())),
   token: v.string(),
   cols: v.number(),
   rows: v.number(),
@@ -58,11 +57,6 @@ export const ResizeSchema = v.object({
   rows: v.number(),
 });
 
-export const InterruptSchema = v.object({
-  type: v.literal("interrupt"),
-  sessionId: v.string(),
-});
-
 export const AckSchema = v.object({
   type: v.literal("ack"),
   sessionId: v.string(),
@@ -83,7 +77,6 @@ export const ClientFrameSchema = v.union([
   UnsubscribeSchema,
   InputSchema,
   ResizeSchema,
-  InterruptSchema,
   AckSchema,
   UpgradeSchema,
 ]);

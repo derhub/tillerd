@@ -32,7 +32,6 @@ class MockTransport extends PtyTransport {
     return 0;
   }
   override write(_bytes: Uint8Array): void {}
-  override sendInterrupt(): void {}
   override resize(_cols: number, _rows: number): void {}
   override async kill() {
     return { code: null, signal: null };

@@ -120,15 +120,21 @@ export class AgentSessionProxy implements AgentSession {
     this.unsub = this.client.subscribe(this.sessionId, handler);
 
     if (this.mode === "spawn") {
-      const launchArgs = buildArgs(this.adapter, this.sessionId, this.opts.resume);
+      const launchArgs = [
+        ...buildArgs(this.adapter, this.sessionId, this.opts.resume),
+        ...this.adapter.launch.flags,
+      ];
       this.client.send({
         type: "spawn",
         sessionId: this.sessionId,
         ...(this.opts.resume ? { resume: this.opts.resume } : {}),
-        command: this.adapter.launch.command,
+        command: this.adapter.resolveCommand(),
         args: launchArgs,
-        flags: this.adapter.launch.flags,
-        hookSocketPath: this.hooksSockPath,
+        env: {
+          ATHING_BRIDGE_URL: this.hooksSockPath,
+          ATHING_SESSION_ID: this.sessionId,
+          ATHING_SESSION_TOKEN: this.token,
+        },
         token: this.token,
         cols: this.opts.cols,
         rows: this.opts.rows,
@@ -256,7 +262,8 @@ export class AgentSessionProxy implements AgentSession {
   }
 
   interrupt(): void {
-    this.client.send({ type: "interrupt", sessionId: this.sessionId });
+    const bytes = new TextEncoder().encode(this.adapter.interruptSequence);
+    this.client.send({ type: "input", sessionId: this.sessionId }, bytes);
   }
 
   resize(cols: number, rows: number): void {

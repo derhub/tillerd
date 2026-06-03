@@ -16,6 +16,8 @@ const nullFileSource: FileSource = {
 const mockAdapter: AgentDefinition = {
   name: "mock",
   launch: { command: "mock", args: [], flags: [] },
+  interruptSequence: "\x1b",
+  resolveCommand: () => "mock",
   installHooks: () => {},
   uninstallHooks: () => {},
   cliVersionRange: "*",

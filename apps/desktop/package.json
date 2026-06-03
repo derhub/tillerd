@@ -1,0 +1,17 @@
+{
+  "name": "a-thing-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

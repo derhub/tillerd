@@ -13,10 +13,6 @@ export async function clientLoader(): Promise<{ sessions: Session[] }> {
   }
 }
 
-export function HydrateFallback() {
-  return null;
-}
-
 export default function Shell({ loaderData }: Route.ComponentProps) {
   return <AppShell sessions={loaderData?.sessions ?? []} />;
 }

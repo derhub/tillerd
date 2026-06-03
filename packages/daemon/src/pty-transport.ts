@@ -3,7 +3,7 @@ import type { IPty } from "node-pty";
 import * as net from "node:net";
 import { AtError } from "@athing/sdk";
 import type { Logger } from "@athing/logger";
-import { resolveBinary } from "./resolve";
+import { resolveCommand } from "./resolve";
 import { captureDescendants, killPids } from "./process-tree";
 
 export interface RawExitEvent {
@@ -11,13 +11,36 @@ export interface RawExitEvent {
   signal: string | null;
 }
 
-const INTERRUPT_KEY = "\x1b";
-
 const DEFAULT_COLS = 220;
 const DEFAULT_ROWS = 50;
 
+/**
+ * Compute the child environment: a generic terminal base (PATH/HOME/TERM/...)
+ * derived from the daemon's startup-installed login-shell env, with the
+ * caller-supplied environment merged on top — caller entries win. Passing the
+ * full process.env can break posix_spawnp (E2BIG, null bytes), so the base is a
+ * minimal allowlist.
+ */
+export function buildChildEnv(
+  callerEnv: Record<string, string>,
+  shellFallback: string,
+): Record<string, string> {
+  return {
+    PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+    HOME: process.env["HOME"] ?? "",
+    USER: process.env["USER"] ?? "",
+    LOGNAME: process.env["LOGNAME"] ?? process.env["USER"] ?? "",
+    SHELL: process.env["SHELL"] ?? shellFallback,
+    LANG: process.env["LANG"] ?? "en_US.UTF-8",
+    TERM: "xterm-256color",
+    COLORTERM: "truecolor",
+    ...(process.env["SSH_AUTH_SOCK"] ? { SSH_AUTH_SOCK: process.env["SSH_AUTH_SOCK"] } : {}),
+    ...callerEnv,
+  };
+}
+
 export interface PtyTransportOptions {
-  command: string;
+  command?: string;
   args: string[];
   cwd: string;
   env: Record<string, string>;
@@ -86,23 +109,10 @@ export class PtyTransport {
 
   spawn(): number {
     if (this.adoptedFd_ !== null) return this.adoptedPid_!;
-    const binary = resolveBinary(this.opts.command);
+    const binary = resolveCommand(this.opts.command);
     this.opts.logger.info("spawning pty", { binary, args: this.opts.args });
 
-    // Build a minimal safe env — passing the full process.env can cause
-    // posix_spawnp to fail (E2BIG, null bytes, or Bun-proxy artefacts).
-    const safeEnv: Record<string, string> = {
-      PATH: process.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-      HOME: process.env["HOME"] ?? "",
-      USER: process.env["USER"] ?? "",
-      LOGNAME: process.env["LOGNAME"] ?? process.env["USER"] ?? "",
-      SHELL: process.env["SHELL"] ?? binary,
-      LANG: process.env["LANG"] ?? "en_US.UTF-8",
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-      ...(process.env["SSH_AUTH_SOCK"] ? { SSH_AUTH_SOCK: process.env["SSH_AUTH_SOCK"] } : {}),
-      ...this.opts.env,
-    };
+    const safeEnv = buildChildEnv(this.opts.env, binary);
 
     this.opts.logger.info("pty spawn params", {
       binary,
@@ -123,20 +133,14 @@ export class PtyTransport {
     // Spawn the binary directly so it runs as an interactive (login) session rather
     // than nested inside a second shell via -lc, which causes posix_spawnp failures
     // on some systems and prevents proper interactive-shell initialisation.
-    // When args are present (agent CLI flags), we need the login-shell wrapper so
-    // the binary can be found via PATH even on non-login environments.
-    const proc =
-      this.opts.args.length === 0
-        ? pty.spawn(
-            binary,
-            /\/(sh|bash|zsh|fish|dash|csh|tcsh|ksh)$/.test(binary) ? ["-l"] : [],
-            ptyOpts,
-          )
-        : pty.spawn(
-            process.env["SHELL"] ?? "/bin/sh",
-            ["-lc", `exec ${binary} ${this.opts.args.join(" ")}`],
-            ptyOpts,
-          );
+    // Spawn the resolved command directly. A bare login shell (no command, no
+    // args) gets `-l` so it initialises as a login session; everything else is
+    // launched verbatim — no wrapper shell, so no prompt or echo leaks.
+    const isLoginShell =
+      !this.opts.command &&
+      this.opts.args.length === 0 &&
+      /\/(sh|bash|zsh|fish|dash|csh|tcsh|ksh)$/.test(binary);
+    const proc = pty.spawn(binary, isLoginShell ? ["-l"] : this.opts.args, ptyOpts);
 
     this.ptyProcess = proc;
 
@@ -243,15 +247,6 @@ export class PtyTransport {
       this.opts.logger.debug("pty.in", { bytes: Buffer.from(bytes).toString("hex") });
     }
     this.ptyProcess.write(Buffer.from(bytes).toString("binary"));
-  }
-
-  sendInterrupt(): void {
-    if (this.adoptedSocket) {
-      this.adoptedSocket.write(INTERRUPT_KEY);
-      return;
-    }
-    if (!this.ptyProcess) throw new AtError("TransportClosed");
-    this.ptyProcess.write(INTERRUPT_KEY);
   }
 
   resize(cols: number, rows: number): void {

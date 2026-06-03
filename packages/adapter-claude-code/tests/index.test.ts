@@ -22,6 +22,14 @@ describe("claudeCode adapter", () => {
     expect(claudeCode.cliVersionRange.length).toBeGreaterThan(0);
   });
 
+  test("interruptSequence is ESC", () => {
+    expect(claudeCode.interruptSequence).toBe("\x1b");
+  });
+
+  test("resolveCommand is a function", () => {
+    expect(typeof claudeCode.resolveCommand).toBe("function");
+  });
+
   test("installHooks is a function", () => {
     expect(typeof claudeCode.installHooks).toBe("function");
   });

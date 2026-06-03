@@ -6,7 +6,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"],
+      "outputs": ["dist/**", "build/**"],
       "env": ["ATHING_DIR"]
     },
     "check-types": {

@@ -23,10 +23,6 @@ export const ChildResizeSchema = v.object({
   rows: v.number(),
 });
 
-export const ChildInterruptSchema = v.object({
-  type: v.literal("interrupt"),
-});
-
 export const ChildGetFdSchema = v.object({
   type: v.literal("get-fd"),
 });
@@ -43,7 +39,6 @@ export const DaemonToChildSchema = v.union([
   ChildSpawnSchema,
   ChildInputSchema,
   ChildResizeSchema,
-  ChildInterruptSchema,
   ChildGetFdSchema,
   ChildAdoptSchema,
 ]);

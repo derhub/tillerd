@@ -12,10 +12,9 @@ const INITIAL_CREDIT = 65_536;
 export interface PtySessionOptions {
   sessionId: string;
   token: string;
-  command: string;
+  command?: string;
   args: string[];
-  flags: string[];
-  hookSocketPath: string;
+  env?: Record<string, string>;
   cols: number;
   rows: number;
   cwd: string;
@@ -108,17 +107,13 @@ export class PtySession {
     this.curCols = opts.cols;
     this.curRows = opts.rows;
 
-    const launchArgs = [...opts.args, ...opts.flags].filter((a) => a !== "");
+    const launchArgs = opts.args.filter((a) => a !== "");
 
     this.transport = new PtyTransport({
       command: opts.command,
       args: launchArgs,
       cwd: opts.cwd,
-      env: {
-        ATHING_BRIDGE_URL: opts.hookSocketPath,
-        ATHING_SESSION_ID: opts.sessionId,
-        ATHING_SESSION_TOKEN: opts.token,
-      },
+      env: opts.env ?? {},
       cols: opts.cols,
       rows: opts.rows,
       logger: this.logger,
@@ -270,10 +265,6 @@ export class PtySession {
 
   write(bytes: Uint8Array): void {
     this.transport.write(bytes);
-  }
-
-  interrupt(): void {
-    this.transport.sendInterrupt();
   }
 
   resize(cols: number, rows: number): void {

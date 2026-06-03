@@ -188,8 +188,7 @@ export class DaemonServer {
           token: msg.token,
           command: msg.command,
           args: msg.args,
-          flags: msg.flags,
-          hookSocketPath: msg.hookSocketPath,
+          env: msg.env,
           cols: msg.cols,
           rows: msg.rows,
           cwd: msg.cwd,
@@ -240,11 +239,6 @@ export class DaemonServer {
 
       case "input": {
         if (body) this.sessions.get(msg.sessionId)?.write(body);
-        break;
-      }
-
-      case "interrupt": {
-        this.sessions.get(msg.sessionId)?.interrupt();
         break;
       }
 
