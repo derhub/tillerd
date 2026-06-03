@@ -14,4 +14,7 @@ export type {
   ExitFrame,
   HookFrame,
   ErrorFrame,
+  SnapshotFrame,
+  SnapshotCell,
+  ClientCapability,
 } from "./messages";

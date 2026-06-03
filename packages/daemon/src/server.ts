@@ -11,6 +11,7 @@ import { HookIngress } from "./hook-ingress";
 import { createLogger } from "@athing/logger";
 import { DAEMON_VERSION } from "./version";
 import { writeSnapshot, type SnapshotRecord } from "./snapshot";
+import { StoppedSessionsStore } from "./stopped-sessions";
 
 import type { Socket } from "bun";
 type BunSocket = Socket<unknown>;
@@ -19,6 +20,7 @@ interface Connection {
   socket: BunSocket;
   decoder: FrameDecoder;
   negotiated: boolean;
+  snapshotCapable: boolean;
 }
 
 export class DaemonServer {
@@ -27,11 +29,17 @@ export class DaemonServer {
   private server: ReturnType<typeof Bun.listen> | null = null;
   private hookIngress: HookIngress | null = null;
   private logger = createLogger();
+  private stoppedSessions: StoppedSessionsStore;
 
   constructor(
     private readonly sockPath: string = DAEMON_SOCK,
     private readonly hooksSockPath: string = HOOKS_SOCK,
-  ) {}
+    stoppedSessionsPath?: string,
+  ) {
+    const filePath = stoppedSessionsPath ?? path.join(ATHING_DIR, "stopped-sessions.txt");
+    this.stoppedSessions = new StoppedSessionsStore(filePath);
+    this.stoppedSessions.load();
+  }
 
   /** Pre-populate sessions from a handoff snapshot (successor daemon only). */
   async adoptSessions(sessions: PtySession[]): Promise<void> {
@@ -80,7 +88,7 @@ export class DaemonServer {
       unix: this.sockPath,
       socket: {
         open: (socket) => {
-          connections.set(socket, { socket, decoder: new FrameDecoder(), negotiated: false });
+          connections.set(socket, { socket, decoder: new FrameDecoder(), negotiated: false, snapshotCapable: false });
         },
         data: (socket, chunk) => {
           const conn = connections.get(socket);
@@ -123,7 +131,7 @@ export class DaemonServer {
     const { socket } = conn;
 
     if (!conn.negotiated) {
-      const hello = meta as { type?: string; versions?: unknown };
+      const hello = meta as { type?: string; versions?: unknown; capabilities?: unknown };
       if (hello?.type !== "hello") {
         this.sendError(socket, "EPROTO", "expected hello");
         socket.end();
@@ -140,8 +148,10 @@ export class DaemonServer {
         socket.end();
         return;
       }
+      const clientCaps = Array.isArray(hello.capabilities) ? (hello.capabilities as string[]) : [];
+      conn.snapshotCapable = clientCaps.includes("snapshot");
       conn.negotiated = true;
-      this.send(socket, { type: "hello-ack", version: chosen, daemonVersion: DAEMON_VERSION });
+      this.send(socket, { type: "hello-ack", version: chosen, daemonVersion: DAEMON_VERSION, capabilities: ["snapshot"] });
       return;
     }
 
@@ -166,6 +176,11 @@ export class DaemonServer {
       case "spawn": {
         if (this.sessions.has(msg.sessionId)) {
           this.sendError(socket, "EEXIST", "session already exists", msg.sessionId);
+          return;
+        }
+        if (msg.resume && this.stoppedSessions.has(msg.resume)) {
+          this.logger.info("spawn rejected: session stopped", { sessionId: msg.sessionId, resume: msg.resume });
+          this.sendError(socket, "SessionStopped", `Session ${msg.resume} was intentionally stopped`, msg.sessionId);
           return;
         }
         const session = new PtySession({
@@ -208,6 +223,17 @@ export class DaemonServer {
         break;
       }
 
+      case "stop": {
+        const stopped = this.sessions.get(msg.sessionId);
+        if (stopped) {
+          stopped.markKilledByUser();
+          await stopped.kill();
+        }
+        this.stoppedSessions.add(msg.sessionId);
+        this.logger.info("session stopped", { sessionId: msg.sessionId });
+        break;
+      }
+
       case "input": {
         if (body) this.sessions.get(msg.sessionId)?.write(body);
         break;
@@ -230,23 +256,43 @@ export class DaemonServer {
           this.sendError(socket, "ENOTFOUND", "unknown session", msg.sessionId);
           return;
         }
-        const replay = s.getReplayBytes();
-        const creditBoost = Math.max(65536, replay.length + 65536);
-        this.logger.info("subscribe ok", {
-          sessionId: msg.sessionId,
-          replayBytes: replay.length,
-          credit: creditBoost,
-        });
-        s.addSubscriber(
-          socket,
-          (bytes) => {
-            this.logger.info("data →client", { sessionId: msg.sessionId, bytes: bytes.length });
-            this.sendData(socket, msg.sessionId, bytes);
-          },
-          creditBoost,
-        );
-        if (replay.length > 0) {
-          this.sendData(socket, msg.sessionId, replay);
+
+        if (conn.snapshotCapable) {
+          // Atomic seam: generate snapshot, then add subscriber, then send snapshot.
+          // All three happen synchronously so no bytes are lost or duplicated at the seam.
+          const snap = s.getSnapshot();
+          const creditBoost = 65536;
+          this.logger.info("subscribe ok (snapshot)", { sessionId: msg.sessionId, rows: snap.rows, cols: snap.cols });
+          s.addSubscriber(
+            socket,
+            (bytes) => {
+              this.logger.info("data →client", { sessionId: msg.sessionId, bytes: bytes.length });
+              this.sendData(socket, msg.sessionId, bytes);
+            },
+            creditBoost,
+          );
+          // Send snapshot after subscriber is registered (atomic prefix).
+          // Uses send() not sendData() so it goes through normal socket write (respects backpressure).
+          this.send(socket, { type: "snapshot", sessionId: msg.sessionId, ...snap });
+        } else {
+          const replay = s.getReplayBytes();
+          const creditBoost = Math.max(65536, replay.length + 65536);
+          this.logger.info("subscribe ok (replay)", {
+            sessionId: msg.sessionId,
+            replayBytes: replay.length,
+            credit: creditBoost,
+          });
+          s.addSubscriber(
+            socket,
+            (bytes) => {
+              this.logger.info("data →client", { sessionId: msg.sessionId, bytes: bytes.length });
+              this.sendData(socket, msg.sessionId, bytes);
+            },
+            creditBoost,
+          );
+          if (replay.length > 0) {
+            this.sendData(socket, msg.sessionId, replay);
+          }
         }
         break;
       }

@@ -13,14 +13,14 @@ describe("exit qualifier — resolveSignal integration", () => {
   test("code 0, no signal → ok qualifier", () => {
     // Translation rule: no killedByUser, no signal, code 0 → ok
     const noSignal = null;
-    const code = 0;
-    const isKilled = false;
+    const code: number = 0;
+    const isKilled: boolean = false;
     const qualifier = !isKilled && !noSignal ? (code === 0 ? "ok" : "error") : "stopped-by-request";
     expect(qualifier).toBe("ok");
   });
 
   test("non-zero code, no signal → error qualifier", () => {
-    const code = 1;
+    const code: number = 1;
     const qualifier = code === 0 ? "ok" : "error";
     expect(qualifier).toBe("error");
   });
@@ -34,7 +34,7 @@ describe("exit qualifier — resolveSignal integration", () => {
   test("SIGSEGV without kill → faulted", () => {
     const resolved = resolveSignal("SIGSEGV");
     expect(resolved.name).toBe("SIGSEGV");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       const qualifier = signalCategoryToQualifier(resolved.category, false);
       expect(qualifier).toBe("faulted");
     }
@@ -42,14 +42,14 @@ describe("exit qualifier — resolveSignal integration", () => {
 
   test("SIGABRT without kill → faulted", () => {
     const resolved = resolveSignal("SIGABRT");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       expect(signalCategoryToQualifier(resolved.category, false)).toBe("faulted");
     }
   });
 
   test("SIGKILL without kill frame → killed (distinct from stopped-by-request)", () => {
     const resolved = resolveSignal("SIGKILL");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       const qualifier = signalCategoryToQualifier(resolved.category, false);
       expect(qualifier).toBe("killed");
       expect(qualifier).not.toBe("stopped-by-request");
@@ -58,7 +58,7 @@ describe("exit qualifier — resolveSignal integration", () => {
 
   test("SIGKILL with killedByUser → stopped-by-request (intent wins)", () => {
     const resolved = resolveSignal("SIGKILL");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       const qualifier = signalCategoryToQualifier(resolved.category, true);
       expect(qualifier).toBe("stopped-by-request");
     }
@@ -67,14 +67,14 @@ describe("exit qualifier — resolveSignal integration", () => {
   test("SIGHUP without kill — resolves with graceful-termination category", () => {
     const resolved = resolveSignal("SIGHUP");
     expect(resolved.name).toBe("SIGHUP");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       expect(resolved.category).toBe("graceful-termination");
     }
   });
 
   test("SIGPIPE without kill → resource-exceeded", () => {
     const resolved = resolveSignal("SIGPIPE");
-    if (resolved.name !== "unknown") {
+    if ("category" in resolved) {
       const qualifier = signalCategoryToQualifier(resolved.category, false);
       expect(qualifier).toBe("resource-exceeded");
     }
@@ -83,7 +83,7 @@ describe("exit qualifier — resolveSignal integration", () => {
   test("unmapped signal → unknown qualifier", () => {
     const resolved = resolveSignal("SIGFAKE");
     expect(resolved.name).toBe("unknown");
-    if (resolved.name === "unknown") {
+    if ("raw" in resolved) {
       expect(resolved.raw).toBe("SIGFAKE");
     }
   });

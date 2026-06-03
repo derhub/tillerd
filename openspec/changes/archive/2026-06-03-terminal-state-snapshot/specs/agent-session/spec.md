@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Reconnect delivers replay buffer
+### Requirement: Reconnect to existing session
 
 The engine SHALL deliver a terminal state snapshot to the session handle immediately on reconnect, followed by the live data stream. The snapshot SHALL be emitted as a discrete frame on the data channel before any further data events, enabling the terminal renderer to restore the current screen without replaying raw byte history.
 

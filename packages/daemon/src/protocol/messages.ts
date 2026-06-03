@@ -5,11 +5,13 @@ import * as v from "valibot";
 export const HelloSchema = v.object({
   type: v.literal("hello"),
   versions: v.array(v.number()),
+  capabilities: v.optional(v.array(v.string())),
 });
 
 export const SpawnSchema = v.object({
   type: v.literal("spawn"),
   sessionId: v.string(),
+  resume: v.optional(v.string()),
   command: v.string(),
   args: v.array(v.string()),
   flags: v.array(v.string()),
@@ -22,6 +24,11 @@ export const SpawnSchema = v.object({
 
 export const KillSchema = v.object({
   type: v.literal("kill"),
+  sessionId: v.string(),
+});
+
+export const StopSchema = v.object({
+  type: v.literal("stop"),
   sessionId: v.string(),
 });
 
@@ -70,6 +77,7 @@ export const ClientFrameSchema = v.union([
   HelloSchema,
   SpawnSchema,
   KillSchema,
+  StopSchema,
   ListSchema,
   SubscribeSchema,
   UnsubscribeSchema,
@@ -83,16 +91,11 @@ export const ClientFrameSchema = v.union([
 export type ClientFrame = v.InferOutput<typeof ClientFrameSchema>;
 export type HelloFrame = v.InferOutput<typeof HelloSchema>;
 export type SpawnFrame = v.InferOutput<typeof SpawnSchema>;
+export type StopFrame = v.InferOutput<typeof StopSchema>;
 export type InputFrame = v.InferOutput<typeof InputSchema>;
 export type AckFrame = v.InferOutput<typeof AckSchema>;
 
 // ── Daemon → Client ──────────────────────────────────────────────────────────
-
-export const HelloAckSchema = v.object({
-  type: v.literal("hello-ack"),
-  version: v.number(),
-  daemonVersion: v.string(),
-});
 
 export const SpawnAckSchema = v.object({
   type: v.literal("spawn-ack"),
@@ -139,6 +142,29 @@ export const ErrorFrameSchema = v.object({
   sessionId: v.optional(v.string()),
 });
 
+const SnapshotCellSchema = v.object({
+  char: v.string(),
+  fg: v.number(),
+  bg: v.number(),
+  attrs: v.number(),
+});
+
+export const SnapshotFrameSchema = v.object({
+  type: v.literal("snapshot"),
+  sessionId: v.string(),
+  rows: v.number(),
+  cols: v.number(),
+  cells: v.array(v.array(SnapshotCellSchema)),
+  cursor: v.object({ x: v.number(), y: v.number() }),
+});
+
+export const HelloAckSchema = v.object({
+  type: v.literal("hello-ack"),
+  version: v.number(),
+  daemonVersion: v.string(),
+  capabilities: v.optional(v.array(v.string())),
+});
+
 export const DaemonFrameSchema = v.union([
   HelloAckSchema,
   SpawnAckSchema,
@@ -147,6 +173,7 @@ export const DaemonFrameSchema = v.union([
   ExitFrameSchema,
   HookFrameSchema,
   ErrorFrameSchema,
+  SnapshotFrameSchema,
 ]);
 
 export type DaemonFrame = v.InferOutput<typeof DaemonFrameSchema>;
@@ -156,6 +183,7 @@ export type DataFrameMeta = v.InferOutput<typeof DataFrameSchema>;
 export type ExitFrame = v.InferOutput<typeof ExitFrameSchema>;
 export type HookFrame = v.InferOutput<typeof HookFrameSchema>;
 export type ErrorFrame = v.InferOutput<typeof ErrorFrameSchema>;
+export type SnapshotFrame = v.InferOutput<typeof SnapshotFrameSchema>;
 
 export const SUPPORTED_VERSIONS = [1] as const;
 export const CURRENT_VERSION = 1;

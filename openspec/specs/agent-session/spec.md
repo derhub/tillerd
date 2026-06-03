@@ -176,17 +176,17 @@ The engine SHALL emit structured logs tagged with the session id, and SHALL supp
 
 ### Requirement: Reconnect to existing session
 
-The engine SHALL expose a `reconnect` operation that reattaches to a session already managed by the daemon, without spawning a new agent process, and returns an `AgentSession` handle with the same event model as a freshly started session.
+The engine SHALL deliver a terminal state snapshot to the session handle immediately on reconnect, followed by the live data stream. The snapshot SHALL be emitted as a discrete frame on the data channel before any further data events, enabling the terminal renderer to restore the current screen without replaying raw byte history.
 
 #### Scenario: Reconnect returns a working session handle
 
 - **WHEN** `reconnect(sessionId, adapter, options)` is called for a session the daemon has live
 - **THEN** the engine SHALL return an `AgentSession` that emits data, status, content, and error events identically to a session returned by `start`
 
-#### Scenario: Reconnect delivers replay buffer
+#### Scenario: Reconnect delivers state snapshot
 
 - **WHEN** `reconnect` is called for an existing session
-- **THEN** the `AgentSession` SHALL emit the replay buffer contents on the data channel before any new data events, so a terminal renderer can restore visual state
+- **THEN** the `AgentSession` SHALL emit a terminal state snapshot frame on the data channel before any new data events, so a terminal renderer can reproduce the current screen without prior history
 
 #### Scenario: Reconnect to unknown session fails
 
@@ -225,4 +225,23 @@ The engine SHALL emit a `crashed` status on the status channel when, and only wh
 
 - **WHEN** a session exits with qualifier `stopped-by-request`
 - **THEN** the engine SHALL NOT emit status `crashed`
+
+### Requirement: Stop operation distinct from kill
+
+The engine SHALL expose a `stop()` operation on the session contract. `stop()` SHALL terminate the session and mark it as intentionally stopped. A stopped session SHALL be ineligible for re-spawn via `resume`. `kill()` SHALL terminate the session without marking it as stopped.
+
+#### Scenario: Stop marks session as stopped
+
+- **WHEN** `stop()` is called on an active session
+- **THEN** the engine SHALL terminate the session and record the stopped state against that session id
+
+#### Scenario: Resume rejected for stopped session
+
+- **WHEN** `start({ resume: sessionId })` is called for a session previously stopped via `stop()`
+- **THEN** the engine SHALL reject with a typed `SessionStopped` error
+
+#### Scenario: Kill allows resume
+
+- **WHEN** `kill()` is called and the session exits
+- **THEN** a caller MAY call `start({ resume: sessionId })` to recover
 

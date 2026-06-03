@@ -42,6 +42,7 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
   const revalidator = useRevalidator();
   const { setStatus } = use(SessionContext);
   const [_connected, setConnected] = useState(false);
+  const [crashedSessionId, setCrashedSessionId] = useState<string | null>(null);
   const coalesceBufRef = useRef<Uint8Array[]>([]);
   const coalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,9 +102,14 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
             }
             break;
           }
-          case "status":
-            setStatus(String(msg["status"] ?? ""));
+          case "status": {
+            const status = String(msg["status"] ?? "");
+            setStatus(status);
+            if (status === "crashed") {
+              setCrashedSessionId(id);
+            }
             break;
+          }
           case "exit": {
             const qualifier = String(msg["qualifier"] ?? "unknown");
             const raw = msg["raw"] as Record<string, unknown> | undefined;
@@ -191,13 +197,58 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     openWsRef.current?.(sessionId);
   }, [sessionId]);
 
+  const handleRecover = useCallback(() => {
+    if (!crashedSessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "spawn", resume: crashedSessionId }));
+    setCrashedSessionId(null);
+  }, [crashedSessionId]);
+
+  const handleDismiss = useCallback(() => {
+    if (!crashedSessionId || wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "stop" }));
+    setCrashedSessionId(null);
+  }, [crashedSessionId]);
+
   return (
-    <div className="h-full w-full" style={{ background: "#0d1117" }}>
+    <div className="h-full w-full relative" style={{ background: "#0d1117" }}>
       <div
         ref={containerRef}
         className="h-full w-full"
         style={{ padding: "0.333rem 0.333rem 0" }}
       />
+      {crashedSessionId && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#21262d",
+            border: "1px solid #30363d",
+            borderRadius: "6px",
+            padding: "0.75rem 1rem",
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            color: "#e6edf3",
+            fontSize: "13px",
+          }}
+        >
+          <span style={{ color: "#ff7b72" }}>Session ended unexpectedly —</span>
+          <button
+            onClick={handleRecover}
+            style={{ background: "#238636", border: "none", borderRadius: "4px", color: "#fff", padding: "0.25rem 0.75rem", cursor: "pointer" }}
+          >
+            Resume
+          </button>
+          <button
+            onClick={handleDismiss}
+            style={{ background: "transparent", border: "1px solid #30363d", borderRadius: "4px", color: "#8b949e", padding: "0.25rem 0.75rem", cursor: "pointer" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   );
 }

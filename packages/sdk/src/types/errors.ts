@@ -8,7 +8,8 @@ export type ErrorKind =
   | "QueueFull"
   | "Timeout"
   | "VersionUnsupported"
-  | "SessionStopped";
+  | "SessionStopped"
+  | "ResumeUnavailable";
 
 export class AtError extends Error {
   readonly kind: ErrorKind;

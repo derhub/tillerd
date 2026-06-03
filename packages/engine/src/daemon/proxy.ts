@@ -5,8 +5,10 @@ import type {
   ExitEvent,
   AgentDefinition,
   SessionOptions,
+  SnapshotFrame,
 } from "@athing/sdk";
 import { AtError, exitToStatus } from "@athing/sdk";
+import { snapshotToBytes } from "../snapshot-convert";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
@@ -116,6 +118,7 @@ export class AgentSessionProxy implements AgentSession {
       this.client.send({
         type: "spawn",
         sessionId: this.sessionId,
+        ...(this.opts.resume ? { resume: this.opts.resume } : {}),
         command: this.adapter.launch.command,
         args: launchArgs,
         flags: this.adapter.launch.flags,
@@ -155,6 +158,18 @@ export class AgentSessionProxy implements AgentSession {
         break;
       }
 
+      case "snapshot": {
+        // Convert structured snapshot to escape-sequence bytes and emit on the data channel.
+        // This is the first thing emitted on subscribe for snapshot-capable connections,
+        // ensuring the terminal renders the current screen before any live data arrives.
+        const bytes = snapshotToBytes(frame as SnapshotFrame);
+        this.logger.info("proxy: snapshot received", { sessionId: this.sessionId, rows: (frame as SnapshotFrame).rows });
+        this.dataBuf.push(bytes);
+        for (const h of this.dataHandlers) h(bytes);
+        // No ack needed for snapshot — it's not a data frame from the ring buffer
+        break;
+      }
+
       case "hook": {
         this.cancelStartupTimer();
         try {
@@ -169,7 +184,8 @@ export class AgentSessionProxy implements AgentSession {
 
       case "exit": {
         const qualifier = (frame.qualifier ?? "unknown") as ExitEvent["qualifier"];
-        this.exitEvent = { qualifier, raw: frame.raw };
+        const exitEvent: ExitEvent = { qualifier, raw: frame.raw as ExitEvent["raw"] };
+        this.exitEvent = exitEvent;
         this.transcriptReader.onExit();
         this.cancelStartupTimer();
         this.cancelIdleTimer();
@@ -177,7 +193,7 @@ export class AgentSessionProxy implements AgentSession {
         if (exitToStatus(qualifier) === "crashed") {
           for (const h of this.statusHandlers) h("crashed");
         }
-        for (const h of this.exitHandlers) h(this.exitEvent);
+        for (const h of this.exitHandlers) h(exitEvent);
         break;
       }
 
@@ -257,6 +273,27 @@ export class AgentSessionProxy implements AgentSession {
       };
       this.exitHandlers.add(handler);
       this.client.send({ type: "kill", sessionId: this.sessionId });
+    });
+  }
+
+  async stop(): Promise<ExitEvent> {
+    this.killed_ = true;
+    this.cancelStartupTimer();
+    this.cancelIdleTimer();
+    if (this.exitEvent) return this.exitEvent;
+    if (!this.started) {
+      const event: ExitEvent = { qualifier: "stopped-by-request" };
+      this.exitEvent = event;
+      for (const h of this.exitHandlers) h(event);
+      return event;
+    }
+    return new Promise<ExitEvent>((resolve) => {
+      const handler: ExitHandler = (event) => {
+        this.exitHandlers.delete(handler);
+        resolve(event);
+      };
+      this.exitHandlers.add(handler);
+      this.client.send({ type: "stop", sessionId: this.sessionId });
     });
   }
 

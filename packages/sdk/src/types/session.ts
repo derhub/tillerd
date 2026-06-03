@@ -21,6 +21,7 @@ export interface AgentSession {
   interrupt(): void;
   resize(cols: number, rows: number): void;
   kill(): Promise<ExitEvent>;
+  stop(): Promise<ExitEvent>;
   onData(handler: (bytes: Uint8Array) => void): () => void;
   onStatus(handler: (status: SessionStatus) => void): () => void;
   onContent(handler: (event: ContentEvent) => void): () => void;

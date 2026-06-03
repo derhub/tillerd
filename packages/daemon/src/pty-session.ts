@@ -2,6 +2,7 @@ import type { ExitEvent } from "@athing/sdk";
 import { resolveSignal, signalCategoryToQualifier } from "@athing/sdk";
 import { PtyTransport, type RawExitEvent } from "./pty-transport";
 import { ReplayBuffer } from "./replay-buffer";
+import { VtState, type SnapshotPayload } from "./vt-state";
 import type { Logger } from "@athing/logger";
 import { createLogger } from "@athing/logger";
 
@@ -50,6 +51,7 @@ export class PtySession {
   private pid_: number | null = null;
   private transport: PtyTransport;
   private replayBuffer = new ReplayBuffer();
+  private vtState: VtState;
   private subscribers = new Map<unknown, Subscription>();
   private exitCallbacks = new Set<ExitCallback>();
   private logger: Logger;
@@ -82,7 +84,11 @@ export class PtySession {
       this.pid_ = meta!.pid;
       this.transport = transport!;
       this.logger = createLogger(sessionId!);
-      if (meta!.replayBuffer.length > 0) this.replayBuffer.push(meta!.replayBuffer);
+      this.vtState = new VtState(meta!.rows, meta!.cols);
+      if (meta!.replayBuffer.length > 0) {
+        this.replayBuffer.push(meta!.replayBuffer);
+        this.vtState.feed(meta!.replayBuffer);
+      }
       this.wireTransport();
       return;
     }
@@ -94,6 +100,7 @@ export class PtySession {
     this.cols = opts.cols;
     this.rows = opts.rows;
     this.logger = createLogger(opts.sessionId);
+    this.vtState = new VtState(opts.rows, opts.cols);
 
     const launchArgs = [...opts.args, ...opts.flags].filter((a) => a !== "");
 
@@ -145,11 +152,11 @@ export class PtySession {
       return { qualifier, raw };
     }
     const resolved = resolveSignal(raw.signal);
-    const rawWithSignal = {
+    const rawWithSignal: import("@athing/sdk").ExitEventRaw = {
       ...raw,
       signalName: resolved.name === "unknown" ? undefined : resolved.name,
       signalMeaning: resolved.name === "unknown" ? undefined : (resolved as { meaning: string }).meaning,
-      signalCategory: resolved.name === "unknown" ? undefined : (resolved as { category: string }).category,
+      signalCategory: resolved.name === "unknown" ? undefined : (resolved as import("@athing/sdk").SignalInfo).category,
     };
     if (resolved.name === "unknown") {
       this.logger.info("exit.qualifier", { qualifier: "unknown", killedByUser: false, signal: raw.signal });
@@ -167,10 +174,12 @@ export class PtySession {
 
   private wireTransport(): void {
     this.transport.onData((bytes) => {
+      this.vtState.feed(bytes);
       this.replayBuffer.push(bytes);
       this.emitData(bytes);
     });
     this.transport.onExit((raw: RawExitEvent) => {
+      this.vtState.dispose();
       const event = this.translateExit(raw);
       for (const cb of this.exitCallbacks) cb(event);
     });
@@ -263,7 +272,14 @@ export class PtySession {
   }
 
   resize(cols: number, rows: number): void {
+    this.vtState.resize(rows, cols);
     this.transport.resize(cols, rows);
+  }
+
+  getSnapshot(): SnapshotPayload {
+    const snap = this.vtState.getSnapshot();
+    this.logger.info("snapshot.generate", { sessionId: this.sessionId, rows: snap.rows, cols: snap.cols });
+    return snap;
   }
 
   async kill(): Promise<ExitEvent> {

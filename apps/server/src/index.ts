@@ -25,6 +25,8 @@ const ClientMessageSchema = v.union([
   v.object({ type: v.literal("interrupt") }),
   v.object({ type: v.literal("resize"), cols: v.number(), rows: v.number() }),
   v.object({ type: v.literal("kill") }),
+  v.object({ type: v.literal("stop") }),
+  v.object({ type: v.literal("spawn"), resume: v.string() }),
 ]);
 
 type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
@@ -398,6 +400,37 @@ Bun.serve<WsData>({
         case "kill":
           void session.kill();
           break;
+        case "stop":
+          void session.stop();
+          break;
+        case "spawn": {
+          // Recovery: re-bind the WebSocket to a new session resumed from the crashed one.
+          const resumeId = msg.resume;
+          activeSessions.delete(ws.data.sessionId);
+          try {
+            const recovered = await engine.start(claudeCode, { cwd, cols: 220, rows: 50, resume: resumeId });
+            ws.data.sessionId = recovered.sessionId;
+            activeSessions.set(recovered.sessionId, recovered);
+            db.run("INSERT OR IGNORE INTO sessions (id, cwd, created_at) VALUES (?, ?, ?)", [
+              recovered.sessionId, cwd, Date.now(),
+            ]);
+            ws.send(JSON.stringify({ type: "session_start", sessionId: recovered.sessionId }));
+            recovered.onData((bytes) => ws.send(JSON.stringify({ type: "data", bytes: Array.from(bytes) })));
+            recovered.onStatus((status) => ws.send(JSON.stringify({ type: "status", status })));
+            recovered.onContent((event) => ws.send(JSON.stringify({ type: "content", event })));
+            recovered.onError((err) => ws.send(JSON.stringify({ type: "error", kind: err.kind, message: err.message })));
+            recovered.onExit((event) => {
+              activeSessions.delete(recovered.sessionId);
+              db.run("DELETE FROM sessions WHERE id = ?", [recovered.sessionId]);
+              ws.send(JSON.stringify({ type: "exit", ...event }));
+              ws.close();
+            });
+          } catch (err) {
+            const e = err instanceof Error ? err : new Error(String(err));
+            ws.send(JSON.stringify({ type: "error", kind: (err as { kind?: string }).kind ?? "SpawnFailed", message: e.message }));
+          }
+          break;
+        }
       }
     },
 

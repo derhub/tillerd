@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import type { DaemonFrame } from "@athing/daemon/protocol";
+import type { DaemonFrame } from "@athing/sdk";
 import type { AgentDefinition } from "@athing/sdk";
 import type { FrameHandler } from "../src/daemon/client";
 
@@ -266,6 +266,165 @@ describe("AgentSessionProxy — exit qualifier & crashed status", () => {
     });
 
     expect(statuses).toContain("crashed");
+  });
+});
+
+describe("AgentSessionProxy — stop() operation", () => {
+  test("stop() sends stop frame to daemon", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const stopP = proxy.stop();
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "stopped-by-request",
+      raw: { code: null, signal: "SIGTERM" },
+    });
+    await stopP;
+    const stopFrames = client.sent.filter((s) => (s.meta as { type: string }).type === "stop");
+    expect(stopFrames).toHaveLength(1);
+  });
+
+  test("stop() does not emit crashed status", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const statuses: string[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+    const stopP = proxy.stop();
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "stopped-by-request",
+      raw: {},
+    });
+    await stopP;
+    expect(statuses).not.toContain("crashed");
+  });
+
+  test("kill() sends kill frame (not stop frame)", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const killP = proxy.kill();
+    client.emit("test-session-id", {
+      type: "exit",
+      sessionId: "test-session-id",
+      qualifier: "stopped-by-request",
+      raw: {},
+    });
+    await killP;
+    expect(sentType(client, "kill")).toHaveLength(1);
+    expect(sentType(client, "stop")).toHaveLength(0);
+  });
+});
+
+describe("AgentSessionProxy — snapshot frame handling", () => {
+  test("snapshot frame is converted to bytes and emitted on data channel", async () => {
+    const { proxy, client } = await makeProxy("subscribe");
+    proxy.start();
+    const dataChunks: Uint8Array[] = [];
+    proxy.onData((b) => dataChunks.push(b));
+
+    client.emit("test-session-id", {
+      type: "snapshot",
+      sessionId: "test-session-id",
+      rows: 3,
+      cols: 5,
+      cells: Array.from({ length: 3 }, () =>
+        Array.from({ length: 5 }, () => ({ char: " ", fg: 0, bg: 0, attrs: 0 })),
+      ),
+      cursor: { x: 0, y: 0 },
+    });
+
+    expect(dataChunks.length).toBeGreaterThan(0);
+    const allBytes = Buffer.concat(dataChunks.map((c) => Buffer.from(c)));
+    const str = allBytes.toString("utf8");
+    // Snapshot bytes begin with ED2 clear + home
+    expect(str).toContain("\x1b[2J");
+    expect(str).toContain("\x1b[H");
+  });
+
+  test("snapshot frame emitted before live data bytes (ordering)", async () => {
+    const { proxy, client } = await makeProxy("subscribe");
+    proxy.start();
+    const received: string[] = [];
+    proxy.onData((b) => received.push(Buffer.from(b).toString("utf8")));
+
+    client.emit("test-session-id", {
+      type: "snapshot",
+      sessionId: "test-session-id",
+      rows: 3,
+      cols: 5,
+      cells: Array.from({ length: 3 }, () =>
+        Array.from({ length: 5 }, () => ({ char: " ", fg: 0, bg: 0, attrs: 0 })),
+      ),
+      cursor: { x: 0, y: 0 },
+    });
+    client.emit(
+      "test-session-id",
+      { type: "data", sessionId: "test-session-id", bodyLen: 3 },
+      Buffer.from("abc"),
+    );
+
+    expect(received.length).toBeGreaterThanOrEqual(2);
+    // First chunk is the snapshot (contains ED2), second is live data
+    expect(received[0]).toContain("\x1b[2J");
+    expect(received[received.length - 1]).toBe("abc");
+  });
+
+  test("legacy engine without snapshot capability gets ring-buffer replay from daemon (unit: no snapshot frame sent)", async () => {
+    // An engine that does NOT emit snapshot frames during subscribe
+    // is already tested by the absence of snapshot handling in non-capable paths.
+    // This test verifies that when a subscribe triggers without snapshot frame, proxy works normally.
+    const { proxy, client } = await makeProxy("subscribe");
+    proxy.start();
+    const dataChunks: Uint8Array[] = [];
+    proxy.onData((b) => dataChunks.push(b));
+
+    // Daemon sends only a data frame (legacy path — ring-buffer replay, not snapshot)
+    client.emit(
+      "test-session-id",
+      { type: "data", sessionId: "test-session-id", bodyLen: 5 },
+      Buffer.from("hello"),
+    );
+
+    expect(dataChunks).toHaveLength(1);
+    expect(Buffer.from(dataChunks[0]!).toString()).toBe("hello");
+  });
+});
+
+describe("AgentSessionProxy — crash recovery routing", () => {
+  test("spawn mode proxy sends spawn frame (not subscribe) for recovery", async () => {
+    // Recovery always uses spawn mode — verified by checking the frame type sent
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    expect(sentType(client, "spawn")).toHaveLength(1);
+    expect(sentType(client, "subscribe")).toHaveLength(0);
+  });
+
+  test("spawn mode proxy sends resume field in spawn frame when opts.resume set", async () => {
+    const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+    const client2 = new MockDaemonClient();
+    const proxy2 = new AgentSessionProxy(
+      "old-session-id",
+      mockAdapter,
+      fillProxyOptions({ cwd: "/tmp", resume: "old-session-id" }),
+      client2 as never,
+      "spawn",
+      "/tmp/hooks.sock",
+    );
+    proxy2.start();
+    const spawnFrames = sentType(client2, "spawn");
+    expect(spawnFrames).toHaveLength(1);
+    expect((spawnFrames[0]!.meta as { resume?: string }).resume).toBe("old-session-id");
+  });
+
+  test("recovered session starts with blank terminal (no pre-crash data in dataBuf)", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const chunks: Uint8Array[] = [];
+    proxy.onData((b) => chunks.push(b));
+    // No data frames sent — terminal is blank
+    expect(chunks).toHaveLength(0);
   });
 });
 

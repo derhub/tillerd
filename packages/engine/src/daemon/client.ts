@@ -22,7 +22,7 @@ export class DaemonClient {
         socket: {
           open: (socket) => {
             this.socket = socket as unknown as ReturnType<typeof Bun.connect>;
-            socket.write(encodeFrame({ type: "hello", versions: [1] }));
+            socket.write(encodeFrame({ type: "hello", versions: [1], capabilities: ["snapshot"] }));
           },
           data: (_socket, chunk) => {
             const raw =

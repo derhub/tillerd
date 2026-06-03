@@ -64,7 +64,7 @@ describe("resolveSignal — string names", () => {
   test("SIGSEGV resolves with fault category", () => {
     const r = resolveSignal("SIGSEGV");
     expect(r.name).toBe("SIGSEGV");
-    if (r.name !== "unknown") {
+    if ("category" in r) {
       expect(r.category).toBe("fault");
       expect(r.meaning).toBeTruthy();
     }
@@ -73,7 +73,7 @@ describe("resolveSignal — string names", () => {
   test("SIGKILL resolves with forced-termination category", () => {
     const r = resolveSignal("SIGKILL");
     expect(r.name).toBe("SIGKILL");
-    if (r.name !== "unknown") {
+    if ("category" in r) {
       expect(r.category).toBe("forced-termination");
     }
   });
@@ -81,7 +81,7 @@ describe("resolveSignal — string names", () => {
   test("unknown signal name returns unknown shape with raw preserved", () => {
     const r = resolveSignal("SIGFAKE");
     expect(r.name).toBe("unknown");
-    if (r.name === "unknown") {
+    if ("raw" in r) {
       expect(r.raw).toBe("SIGFAKE");
     }
   });
@@ -112,7 +112,7 @@ describe("resolveSignal — numeric platform numbers", () => {
   test("unmapped number returns unknown with raw number preserved", () => {
     const r = resolveSignal(9999);
     expect(r.name).toBe("unknown");
-    if (r.name === "unknown") {
+    if ("raw" in r) {
       expect(r.raw).toBe(9999);
     }
   });

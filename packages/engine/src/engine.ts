@@ -39,7 +39,7 @@ class EngineImpl implements IEngine {
     }
 
     const client = await this.getDaemonClient();
-    const sessionId = randomUUID();
+    const sessionId = options?.resume ?? randomUUID();
     const opts = fillProxyOptions(options);
     const proxy = new AgentSessionProxy(sessionId, adapter, opts, client, "spawn", HOOKS_SOCK);
     this.proxies.set(sessionId, proxy);
