@@ -8,7 +8,8 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "bun test"
+    "test": "bun test",
+    "check-deps": "bun outdated"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

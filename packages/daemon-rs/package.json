@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "cargo build --release && ATHING_DIR=$(cd ../.. && pwd)/.athing ./target/release/athing-daemon",
     "build": "cargo build --release",
-    "test": "cargo test"
+    "test": "cargo test",
+    "check-deps": "cargo outdated"
   }
 }

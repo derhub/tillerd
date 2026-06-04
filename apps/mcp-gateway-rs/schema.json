@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "McpConfig",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Optional JSON Schema pointer for editor validation.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "writeOnly": true
+    },
+    "mcpServers": {
+      "description": "Backend MCP servers keyed by name.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/BackendSpec"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "BackendSpec": {
+      "type": "object",
+      "properties": {
+        "allowedTools": {
+          "description": "Tool names to expose; omit to expose all.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "default": null,
+          "items": {
+            "type": "string"
+          }
+        },
+        "args": {
+          "description": "Arguments passed to the process backend.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "description": "Executable for a process backend.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "env": {
+          "description": "Environment overrides for the process backend.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "headers": {
+          "description": "Headers for the remote backend.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "lazy": {
+          "description": "Defer spawning until first call.",
+          "type": "boolean",
+          "default": false
+        },
+        "url": {
+          "description": "Endpoint for a remote backend.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    }
+  }
+}

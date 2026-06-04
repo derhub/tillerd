@@ -1,13 +1,14 @@
 {
   "name": "cli",
   "version": "0.0.1",
-  "type": "module",
   "bin": {
     "athing": "src/index.ts"
   },
+  "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "bun test"
+    "test": "bun test",
+    "check-deps": "bun outdated"
   },
   "dependencies": {
     "@athing/adapter-claude-code": "workspace:*",

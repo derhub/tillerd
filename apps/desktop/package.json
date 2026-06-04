@@ -1,12 +1,14 @@
 {
   "name": "a-thing-desktop",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "cd ./src-tauri && cargo test",
+    "check-deps": "cd ./src-tauri && cargo outdated"
   },
   "dependencies": {
     "ui": "workspace:*"

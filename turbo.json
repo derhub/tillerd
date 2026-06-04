@@ -23,6 +23,10 @@
       "cache": false,
       "outputs": ["test-results/**", "playwright-report/**"],
       "passThroughEnv": ["PLAYWRIGHT_*"]
+    },
+    "check-deps": {
+      "dependsOn": ["^check-deps"],
+      "cache": false
     }
   }
 }

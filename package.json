@@ -16,7 +16,8 @@
     "test": "turbo run test --filter='!./tests/*'",
     "e2e": "turbo run e2e",
     "lint": "oxlint .",
-    "format": "oxfmt --write ."
+    "format": "oxfmt --write .",
+    "check-deps": "turbo run check-deps"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

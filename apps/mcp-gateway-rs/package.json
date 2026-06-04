@@ -1,0 +1,11 @@
+{
+  "name": "@athing/mcp-gateway-rs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone Rust MCP gateway daemon. Built with cargo, outside the Bun/turbo graph.",
+  "scripts": {
+    "build": "cargo build --release",
+    "test": "cargo test",
+    "check-deps": "cargo outdated"
+  }
+}

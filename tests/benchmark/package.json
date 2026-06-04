@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit -p tsconfig.json",
-    "bench": "bun index.ts"
+    "bench": "bun index.ts",
+    "check-deps": "bun outdated"
   },
   "dependencies": {
     "@athing/sdk": "workspace:*"
