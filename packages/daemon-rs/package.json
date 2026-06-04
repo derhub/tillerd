@@ -1,7 +1,12 @@
 {
   "name": "@athing/daemon-rs",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "bin": {
+    "athing-daemon": "./target/release/athing-daemon"
+  },
+  "type": "module",
   "scripts": {
+    "dev": "cargo build --release && ATHING_DIR=$(cd ../.. && pwd)/.athing ./target/release/athing-daemon",
     "build": "cargo build --release",
     "test": "cargo test"
   }

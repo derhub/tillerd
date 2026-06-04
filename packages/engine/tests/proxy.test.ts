@@ -3,7 +3,13 @@ import type { DaemonFrame } from "@athing/sdk";
 import type { AgentDefinition, FileSource, Logger } from "@athing/sdk";
 import type { FrameHandler } from "@athing/sdk";
 
-const noopLogger: Logger = { debug() {}, info() {}, warn() {}, error() {} };
+const noopLogger: Logger = {
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+  child: () => noopLogger,
+};
 const nullFileSource: FileSource = {
   async size() {
     return null;

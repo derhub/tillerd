@@ -6,7 +6,7 @@ use crate::exit_qualifier::translate_exit;
 use crate::hook_ingress::HookIngress;
 use crate::manifest::{daemon_sock, hooks_sock, stopped_sessions_path, Manifest};
 use crate::messages::{parse_client_frame, ClientFrame, SUPPORTED_VERSIONS};
-use crate::pty_session::{Session, SessionEvent, INITIAL_CREDIT};
+use crate::pty_session::{Session, SessionEvent, INITIAL_CREDIT, SHUTDOWN_KILL_GRACE_MS};
 use crate::signals::SignalPlatform;
 use crate::snapshot::{write_snapshot, SnapshotRecord};
 use crate::stopped_sessions::StoppedSessionsStore;
@@ -107,6 +107,7 @@ impl Daemon {
         let _ = std::fs::remove_file(&self.sock_path);
         let _ = std::fs::remove_file(&self.hooks_sock_path);
         let listener = UnixListener::bind(&self.sock_path)?;
+        tracing::info!(sock = %self.sock_path.display(), "daemon started");
 
         {
             let daemon = self.clone();
@@ -361,6 +362,7 @@ impl Daemon {
                         let pid = session.pid;
                         session.add_subscriber(conn_id, INITIAL_CREDIT);
                         st.sessions.insert(spawn.session_id.clone(), session);
+                        tracing::info!(session.id = %spawn.session_id, pid = pid, "session spawned");
                         st.send_to(conn_id, encode_frame(&json!({ "type": "spawn-ack", "sessionId": spawn.session_id, "pid": pid }), None));
                     }
                     Err(e) => {
@@ -500,9 +502,15 @@ impl Daemon {
     }
 
     pub fn shutdown(&self) {
+        for s in self.state.lock().unwrap().sessions.values_mut() {
+            s.force_kill_now();
+        }
+        // Escalate after a grace so a child that ignores SIGTERM is reaped, not
+        // orphaned. Lock released during the sleep.
+        std::thread::sleep(Duration::from_millis(SHUTDOWN_KILL_GRACE_MS));
         let mut st = self.state.lock().unwrap();
         for s in st.sessions.values_mut() {
-            s.force_kill_now();
+            s.hard_kill();
         }
         st.sessions.clear();
         let _ = std::fs::remove_file(&self.sock_path);
@@ -517,7 +525,7 @@ impl Daemon {
             let mut fds = Vec::new();
             for (i, (id, s)) in st.sessions.iter().enumerate() {
                 let Some(fd) = s.raw_master_fd() else {
-                    eprintln!("upgrade: no master fd for {id}; skipping");
+                    tracing::warn!(session.id = %id, "upgrade: no master fd; skipping");
                     continue;
                 };
                 let (cols, rows) = s.current_size();
@@ -537,7 +545,7 @@ impl Daemon {
         };
 
         if records.is_empty() {
-            eprintln!("upgrade: no live sessions to hand off; staying up");
+            tracing::info!("upgrade: no live sessions to hand off; staying up");
             return;
         }
 
@@ -548,14 +556,14 @@ impl Daemon {
             .unwrap_or_default();
         let snap_path = dir.join("snapshot-upgrade.ndjson");
         if let Err(e) = write_snapshot(&snap_path, &records) {
-            eprintln!("upgrade: snapshot write failed: {e}; staying up");
+            tracing::error!(error = %e, "upgrade: snapshot write failed; staying up");
             return;
         }
 
         let exe = match std::env::current_exe() {
             Ok(e) => e,
             Err(e) => {
-                eprintln!("upgrade: cannot resolve own binary: {e}; staying up");
+                tracing::error!(error = %e, "upgrade: cannot resolve own binary; staying up");
                 return;
             }
         };
@@ -575,7 +583,7 @@ impl Daemon {
                     child_fd: 4 + i as RawFd,
                 }),
                 Err(e) => {
-                    eprintln!("upgrade: fd dup failed: {e}; staying up");
+                    tracing::error!(error = %e, "upgrade: fd dup failed; staying up");
                     return;
                 }
             }
@@ -587,13 +595,13 @@ impl Daemon {
             .arg(format!("--snapshot={}", snap_path.display()))
             .arg(format!("--socket={}", self.sock_path.display()));
         if cmd.fd_mappings(mappings).is_err() {
-            eprintln!("upgrade: fd mapping failed; staying up");
+            tracing::error!("upgrade: fd mapping failed; staying up");
             return;
         }
         let mut child = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("upgrade: successor spawn failed: {e}; staying up");
+                tracing::error!(error = %e, "upgrade: successor spawn failed; staying up");
                 return;
             }
         };
@@ -601,7 +609,7 @@ impl Daemon {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             if Instant::now() >= deadline {
-                eprintln!("upgrade: successor did not take over in time; aborting, staying up");
+                tracing::warn!("upgrade: successor did not take over in time; aborting, staying up");
                 let _ = child.kill();
                 let _ = child.wait();
                 return;
@@ -614,10 +622,7 @@ impl Daemon {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
-        eprintln!(
-            "upgrade: successor live; handing off {} session(s)",
-            records.len()
-        );
+        tracing::info!(sessions = records.len(), "upgrade: successor live; handing off sessions");
         let _ = std::fs::remove_file(&snap_path);
         self.stop_listening();
         std::process::exit(0);

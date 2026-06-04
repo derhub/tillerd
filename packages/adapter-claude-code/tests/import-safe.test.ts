@@ -42,7 +42,15 @@ describe("adapter import-safety", () => {
     const ctx: SetupContext = {
       notifyCommand: "/bin/athing-notify",
       agentHome: "/home/user/.claude",
-      logger: { debug() {}, info() {}, warn() {}, error() {} },
+      logger: {
+        debug() {},
+        info() {},
+        warn() {},
+        error() {},
+        child() {
+          return this;
+        },
+      },
       fs: capFs,
     };
     await setup.install(ctx);

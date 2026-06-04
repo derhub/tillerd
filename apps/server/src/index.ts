@@ -1,6 +1,5 @@
 import { createEngine } from "@athing/engine";
 import { claudeCode } from "@athing/adapter-claude-code";
-import { HOOKS_SOCK } from "@athing/daemon";
 import { Database } from "bun:sqlite";
 import * as v from "valibot";
 import * as fs from "node:fs";
@@ -9,11 +8,13 @@ import { homedir } from "node:os";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createLogger } from "@athing/logger";
 import type { AgentSession, DaemonTransport } from "@athing/sdk";
+import { ATTR } from "@athing/sdk";
 import {
   adoptOrSpawn,
   agentHome,
   BunFileSource,
   checkCliVersion,
+  HOOKS_SOCK,
   resolveAgentCommand,
 } from "@athing/platform-bun";
 
@@ -41,7 +42,12 @@ type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 
 // ── Startup bootstrap: resolve host concerns, then inject into the engine ─────
 
-const logger = createLogger();
+const logger = createLogger({
+  "service.name": "athing-server",
+  "service.version": "0.0.1",
+  "process.pid": process.pid,
+});
+const log = logger.child({ [ATTR.COMPONENT]: "server" });
 
 // Verify the agent CLI version before serving. Adapter setup (hook install) is the
 // installer's responsibility; the server assumes it is already complete.
@@ -61,7 +67,7 @@ try {
   /* manifest not readable */
 }
 transport.onClose(() => {
-  console.log("[daemon] disconnected");
+  log.warn("daemon disconnected");
   ownedDaemonPid = null;
 });
 
@@ -86,7 +92,7 @@ function shutdownDaemon(): void {
   if (!pid) return;
   try {
     process.kill(pid, "SIGTERM");
-    console.log("[server] sent SIGTERM to daemon", pid);
+    log.info("sent SIGTERM to daemon", { pid });
   } catch {
     /* already dead */
   }
@@ -94,7 +100,7 @@ function shutdownDaemon(): void {
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
-    console.log(`[server] ${sig} — shutting down daemon`);
+    log.info("shutting down daemon on signal", { signal: sig });
     shutdownDaemon();
     process.exit(0);
   });
@@ -105,7 +111,7 @@ process.on("exit", () => {
 });
 
 process.on("uncaughtException", (err) => {
-  console.error("[server] uncaught exception — shutting down daemon", err);
+  log.error("uncaught exception — shutting down daemon", { err: String(err) });
   shutdownDaemon();
   process.exit(1);
 });
@@ -131,7 +137,7 @@ const activeSessions = new Map<string, AgentSession>();
       }
     }
     if (liveIds.length > 0) {
-      console.log(`Daemon has ${liveIds.length} reconnectable session(s)`);
+      log.info("daemon has reconnectable sessions", { count: liveIds.length });
     }
   } catch {
     // daemon not yet running — that's fine
@@ -226,32 +232,31 @@ Bun.serve<WsData>({
         ws.data.sessionId = sessionId;
 
         const token = randomBytes(32).toString("hex");
+        const tlog = logger.child({ [ATTR.COMPONENT]: "server", [ATTR.SESSION_ID]: sessionId });
 
         let dataFrameCount = 0;
         const unsub = transport.subscribe(sessionId, (frame, body) => {
           if (frame.type === "data") {
             const bytes = body ? Array.from(new Uint8Array(body)) : [];
             dataFrameCount++;
-            console.log(
-              "[terminal] data frame",
-              sessionId.slice(0, 8),
-              `#${dataFrameCount}`,
-              `${bytes.length}b`,
-            );
+            tlog.debug("terminal data frame", {
+              [ATTR.FRAME_SEQ]: dataFrameCount,
+              bytes: bytes.length,
+            });
             ws.send(JSON.stringify({ type: "data", bytes }));
             // Return flow-control credit so the daemon doesn't stall.
             transport.send({ type: "ack", sessionId, bytes: bytes.length });
           } else if (frame.type === "exit") {
-            console.log("[terminal] exit", sessionId.slice(0, 8), frame.qualifier, frame.raw);
+            tlog.info("terminal exit", { qualifier: frame.qualifier });
             ws.send(JSON.stringify({ type: "exit", qualifier: frame.qualifier, raw: frame.raw }));
             ws.close();
           } else {
-            console.log("[terminal] frame", sessionId.slice(0, 8), frame.type);
+            tlog.debug("terminal frame", { frameType: frame.type });
           }
         });
         ws.data._termUnsub = unsub;
 
-        console.log("[terminal] spawn", sessionId.slice(0, 8), { cwd });
+        tlog.info("terminal spawn", { cwd });
         transport.send({
           type: "spawn",
           sessionId,
@@ -269,7 +274,7 @@ Bun.serve<WsData>({
         transport.send({ type: "subscribe", sessionId });
 
         ws.send(JSON.stringify({ type: "session_start", sessionId }));
-        console.log("[terminal] subscribed", sessionId.slice(0, 8));
+        tlog.info("terminal subscribed");
         return;
       }
 
@@ -470,7 +475,7 @@ Bun.serve<WsData>({
       if (ws.data.mode === "terminal") {
         ws.data._termUnsub?.();
         if (ws.data.sessionId) {
-          console.log("[terminal] close → kill", ws.data.sessionId.slice(0, 8));
+          log.info("terminal close → kill", { [ATTR.SESSION_ID]: ws.data.sessionId });
           transport.send({ type: "kill", sessionId: ws.data.sessionId });
         }
         return;

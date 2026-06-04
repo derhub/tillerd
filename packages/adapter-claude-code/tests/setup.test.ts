@@ -11,7 +11,13 @@ const NOTIFY = "/proj/bin/athing-notify";
 const FIXTURE_NOTIFY = "/fixtures/bin/athing-notify";
 
 const noop = () => {};
-const logger: Logger = { debug: noop, info: noop, warn: noop, error: noop };
+const logger: Logger = {
+  debug: noop,
+  info: noop,
+  warn: noop,
+  error: noop,
+  child: () => logger,
+};
 
 /** Seed the in-memory filesystem with a hand-authored settings fixture. */
 function fakeFs(fixture?: string) {

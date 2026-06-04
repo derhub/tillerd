@@ -50,6 +50,8 @@ pub const INITIAL_CREDIT: i64 = 65_536;
 const DEFAULT_COLS: u16 = 220;
 const DEFAULT_ROWS: u16 = 50;
 pub const SHUTDOWN_GRACE_MS: u64 = 5_000;
+/// SIGTERM grace before shutdown escalates to SIGKILL.
+pub const SHUTDOWN_KILL_GRACE_MS: u64 = 250;
 
 /// Terminal-plane status: the OS/process view of a session, distinct from the
 /// agent's hook-derived status. Limited to `IDLE` | `WORKING` — terminal facts
@@ -617,6 +619,17 @@ impl Session {
         self.gate.set_paused(false);
         send_signal(self.pid, Signal::Term);
     }
+
+    /// SIGKILL the child's process group and the PTY child, so a SIGTERM-ignoring
+    /// child (e.g. an interactive login shell) is reaped rather than orphaned.
+    pub fn hard_kill(&mut self) {
+        self.stopped.store(true, Ordering::SeqCst);
+        self.gate.set_paused(false);
+        send_signal(self.pid, Signal::Kill);
+        if let Pty::Spawned { child_killer, .. } = &mut self.pty {
+            let _ = child_killer.kill();
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -817,5 +830,44 @@ mod tests {
         assert_eq!(env.get("TERM").map(String::as_str), Some("dumb"));
         assert_eq!(env.get("MY_VAR").map(String::as_str), Some("1"));
         assert_eq!(env.get("COLORTERM").map(String::as_str), Some("truecolor"));
+    }
+
+    #[test]
+    fn hard_kill_reaps_a_sigterm_ignoring_child() {
+        use nix::sys::signal::kill;
+        use nix::unistd::Pid;
+
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let frame = SpawnFrame {
+            session_id: "kill-test".into(),
+            resume: None,
+            command: Some("/bin/sh".into()),
+            args: vec!["-c".into(), "trap '' TERM; while :; do sleep 1; done".into()],
+            env: None,
+            token: "t".into(),
+            cols: 80,
+            rows: 24,
+            cwd: "/".into(),
+        };
+        let mut session = Session::spawn(&frame, tx).expect("spawn test session");
+        let pid = Pid::from_raw(session.pid as i32);
+
+        // Let the child install its SIGTERM trap before signalling.
+        std::thread::sleep(Duration::from_millis(200));
+
+        session.force_kill_now();
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(kill(pid, None).is_ok(), "child ignoring SIGTERM stays alive after force_kill_now");
+
+        session.hard_kill();
+        let mut reaped = false;
+        for _ in 0..100 {
+            if kill(pid, None).is_err() {
+                reaped = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(reaped, "child reaped after hard_kill");
     }
 }

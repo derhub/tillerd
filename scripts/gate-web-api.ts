@@ -7,7 +7,9 @@ const FORBIDDEN: Array<{ re: RegExp; label: string }> = [
   { re: /\bBuffer\b/, label: "Buffer" },
   { re: /\bnode:/, label: "node: import" },
   { re: /\bBun\./, label: "Bun.*" },
-  { re: /\bprocess\./, label: "process.*" },
+  // Negative lookbehind for a quote so OTel key literals/property names like
+  // "process.pid" are not mistaken for the Node `process` global.
+  { re: /(?<!["'])\bprocess\./, label: "process.*" },
   { re: /\brequire\(/, label: "require(" },
 ];
 

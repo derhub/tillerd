@@ -64,7 +64,7 @@ async function connect(): Promise<Client> {
 
   return {
     send(meta, body) {
-      sock!.write(encodeFrame(meta, body));
+      sock!.write(Buffer.from(encodeFrame(meta, body)));
     },
     recv(timeoutMs = 5_000) {
       return new Promise((resolve, reject) => {

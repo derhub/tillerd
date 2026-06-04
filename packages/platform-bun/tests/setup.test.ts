@@ -68,7 +68,15 @@ describe("SetupFs — host filesystem capability", () => {
   });
 
   test("buildSetupContext carries the notify command, agent-home, logger, and fs", () => {
-    const logger = { debug() {}, info() {}, warn() {}, error() {} };
+    const logger = {
+      debug() {},
+      info() {},
+      warn() {},
+      error() {},
+      child() {
+        return this;
+      },
+    };
     const ctx = buildSetupContext("/bin/notify", logger);
     expect(ctx.notifyCommand).toBe("/bin/notify");
     expect(ctx.agentHome.endsWith("/.claude")).toBe(true);

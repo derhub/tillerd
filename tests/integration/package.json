@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json",
     "e2e": "bun test"
   },
   "dependencies": {

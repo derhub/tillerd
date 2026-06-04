@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@athing/adapter-claude-code": "workspace:*",
-    "@athing/daemon": "workspace:*",
     "@athing/engine": "workspace:*",
     "@athing/logger": "workspace:*",
     "@athing/platform-bun": "workspace:*",

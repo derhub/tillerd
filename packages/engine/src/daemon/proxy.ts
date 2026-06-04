@@ -12,7 +12,7 @@ import type {
   FileSource,
   Logger,
 } from "@athing/sdk";
-import { AtError, exitToStatus, snapshotToBytes } from "@athing/sdk";
+import { AtError, exitToStatus, snapshotToBytes, ATTR } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
 import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
@@ -77,7 +77,7 @@ export class AgentSessionProxy implements AgentSession {
   ) {
     this.sessionId = sessionId;
     this.token = randomTokenHex(32);
-    this.logger = logger;
+    this.logger = logger.child({ [ATTR.SESSION_ID]: sessionId, [ATTR.COMPONENT]: "engine" });
     this.opts = opts;
     this.sendQueue = new SendQueue(opts.sendQueueCapacity);
     this.statusMapper = new StatusMapper();
@@ -185,7 +185,7 @@ export class AgentSessionProxy implements AgentSession {
         // This is the first thing emitted on subscribe for snapshot-capable connections,
         // ensuring the terminal renders the current screen before any live data arrives.
         const bytes = snapshotToBytes(frame as SnapshotFrame);
-        this.logger.info("proxy: snapshot received", { sessionId: this.sessionId, rows: (frame as SnapshotFrame).rows });
+        this.logger.info("proxy: snapshot received", { rows: (frame as SnapshotFrame).rows });
         this.dataBuf.push(bytes);
         for (const h of this.dataHandlers) h(bytes);
         // No ack needed for snapshot — it's not a data frame from the ring buffer

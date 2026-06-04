@@ -21,7 +21,7 @@ impl HookIngress {
         let listener = match UnixListener::bind(&socket_path) {
             Ok(l) => l,
             Err(e) => {
-                eprintln!("hook-ingress: bind failed: {e}");
+                tracing::error!(error = %e, "hook-ingress: bind failed");
                 // Return an inert handle.
                 return HookIngress {
                     task: tokio::spawn(async {}),

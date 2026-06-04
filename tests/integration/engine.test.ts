@@ -9,7 +9,7 @@ async function makeEngine() {
   return createEngine({
     transport,
     fileSource: new BunFileSource(),
-    logger: createLogger(),
+    logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
     hooksSocketPath: HOOKS_SOCK,
     agentHome: agentHome(),
     resolvedCommand: resolveAgentCommand(bashAdapter.binaryResolution),

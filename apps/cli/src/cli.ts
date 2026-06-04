@@ -44,7 +44,15 @@ function recordingLogger(sink: LogRecord[]): Logger {
   const rec = () => (msg: string, extra?: Record<string, unknown>) => {
     sink.push({ msg, extra });
   };
-  return { debug: rec(), info: rec(), warn: rec(), error: rec() };
+  const logger: Logger = {
+    debug: rec(),
+    info: rec(),
+    warn: rec(),
+    error: rec(),
+    // Setup recording is context-agnostic; child writes to the same sink.
+    child: () => logger,
+  };
+  return logger;
 }
 
 type OptionSpec = ParseArgsConfig["options"];

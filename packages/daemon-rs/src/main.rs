@@ -19,6 +19,51 @@ mod vt;
 use manifest::{athing_dir, daemon_sock, hooks_sock, Manifest};
 use server::{Daemon, DAEMON_VERSION};
 use tokio::sync::mpsc::unbounded_channel;
+use tracing::Instrument;
+
+const SERVICE_NAME: &str = "athing-daemon";
+
+// Keeps the non-blocking log writer's worker thread alive for the process lifetime.
+static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> =
+    std::sync::OnceLock::new();
+
+// Structured JSON logging to ATHING_DIR/logs/daemon.<date>.log, separate from the
+// TypeScript runtime's log file. OTLP export can be layered in later behind this same init.
+fn init_tracing(dir: &std::path::Path) {
+    use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+    let logs_dir = dir.join("logs");
+    let _ = std::fs::create_dir_all(&logs_dir);
+
+    let appender = tracing_appender::rolling::RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::DAILY)
+        .filename_prefix("daemon")
+        .filename_suffix("log")
+        .build(&logs_dir)
+        .expect("daemon log appender");
+    let (writer, guard) = tracing_appender::non_blocking(appender);
+    let _ = LOG_GUARD.set(guard);
+
+    // LOG_LEVEL mirrors the TS logger; "silent" maps to no output.
+    let level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into());
+    let directive = if level.eq_ignore_ascii_case("silent") {
+        "off".to_string()
+    } else {
+        level
+    };
+    let filter = EnvFilter::try_new(&directive).unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(
+            fmt::layer()
+                .json()
+                .with_current_span(true)
+                .with_span_list(true)
+                .with_writer(writer),
+        )
+        .init();
+}
 
 fn main() {
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -39,6 +84,14 @@ async fn async_main() {
     let dir = athing_dir();
     let _ = std::fs::create_dir_all(&dir);
 
+    init_tracing(&dir);
+    let root = tracing::info_span!(
+        "daemon",
+        service.name = SERVICE_NAME,
+        service.version = DAEMON_VERSION,
+        process.pid = std::process::id(),
+    );
+
     let sock = arg_value(&args, "--socket")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| daemon_sock(&dir));
@@ -49,15 +102,18 @@ async fn async_main() {
     let daemon = Daemon::new(&dir, events_tx).with_paths(sock, hooks);
 
     if is_handoff {
+        let _g = root.enter();
         match arg_value(&args, "--snapshot") {
             Some(snap) => match snapshot::read_snapshot(std::path::Path::new(&snap)) {
                 Ok(records) => {
                     let n = daemon.adopt_records(&records);
-                    eprintln!("athing-daemon (rust): handoff adopted {n} session(s)");
+                    tracing::info!(sessions = n, "handoff adopted sessions");
                 }
-                Err(e) => eprintln!("handoff: snapshot read failed: {e}; starting empty"),
+                Err(e) => {
+                    tracing::error!(error = %e, "handoff: snapshot read failed; starting empty")
+                }
             },
-            None => eprintln!("handoff: --snapshot missing; starting empty"),
+            None => tracing::warn!("handoff: --snapshot missing; starting empty"),
         }
     }
 
@@ -87,12 +143,15 @@ async fn async_main() {
     // bound, so a predecessor handing off to us sees our pid only once we are
     // actually serving (its handoff ack polls the manifest pid).
     let serve_daemon = daemon.clone();
-    let serve_handle = tokio::spawn(async move {
-        if let Err(e) = serve_daemon.serve(events_rx).await {
-            eprintln!("daemon serve error: {e}");
-            std::process::exit(1);
+    let serve_handle = tokio::spawn(
+        async move {
+            if let Err(e) = serve_daemon.serve(events_rx).await {
+                tracing::error!(error = %e, "daemon serve error");
+                std::process::exit(1);
+            }
         }
-    });
+        .instrument(root.clone()),
+    );
 
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     while !sock_for_poll.exists() && std::time::Instant::now() < deadline {

@@ -45,7 +45,6 @@
       "version": "0.0.1",
       "dependencies": {
         "@athing/adapter-claude-code": "workspace:*",
-        "@athing/daemon": "workspace:*",
         "@athing/engine": "workspace:*",
         "@athing/logger": "workspace:*",
         "@athing/platform-bun": "workspace:*",
@@ -103,22 +102,6 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/daemon": {
-      "name": "@athing/daemon",
-      "version": "0.1.0",
-      "bin": {
-        "athing-daemon": "./src/main.ts",
-      },
-      "dependencies": {
-        "@athing/logger": "workspace:*",
-        "@athing/sdk": "workspace:*",
-        "node-pty": "1.1.0",
-        "valibot": "^1.4.1",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.2",
-      },
-    },
     "packages/daemon-rs": {
       "name": "@athing/daemon-rs",
       "version": "0.0.1",
@@ -138,6 +121,7 @@
       "name": "@athing/logger",
       "version": "0.1.0",
       "dependencies": {
+        "@athing/sdk": "workspace:*",
         "pino": "^10.3.1",
         "pino-pretty": "^13.1.3",
       },
@@ -155,12 +139,20 @@
         "typescript": "^5.9.2",
       },
     },
+    "packages/platform-rs": {
+      "name": "@athing/platform-rs",
+      "version": "0.0.1",
+      "dependencies": {
+        "@athing/platform-bun": "workspace:*",
+        "@athing/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.2",
+      },
+    },
     "packages/sdk": {
       "name": "@athing/sdk",
       "version": "0.1.0",
-      "dependencies": {
-        "@athing/logger": "workspace:*",
-      },
       "devDependencies": {
         "typescript": "^5.9.2",
       },
@@ -170,11 +162,17 @@
       "dependencies": {
         "@athing/sdk": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
+      },
     },
     "tests/e2e": {
       "name": "@athing/e2e-test",
       "dependencies": {
         "@playwright/test": "^1.60.0",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
       },
     },
     "tests/integration": {
@@ -195,8 +193,6 @@
 
     "@athing/benchmark": ["@athing/benchmark@workspace:tests/benchmark"],
 
-    "@athing/daemon": ["@athing/daemon@workspace:packages/daemon"],
-
     "@athing/daemon-rs": ["@athing/daemon-rs@workspace:packages/daemon-rs"],
 
     "@athing/e2e-test": ["@athing/e2e-test@workspace:tests/e2e"],
@@ -208,6 +204,8 @@
     "@athing/logger": ["@athing/logger@workspace:packages/logger"],
 
     "@athing/platform-bun": ["@athing/platform-bun@workspace:packages/platform-bun"],
+
+    "@athing/platform-rs": ["@athing/platform-rs@workspace:packages/platform-rs"],
 
     "@athing/sdk": ["@athing/sdk@workspace:packages/sdk"],
 
@@ -1153,13 +1151,9 @@
 
     "negotiator": ["negotiator@0.6.4", "", {}, "sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w=="],
 
-    "node-addon-api": ["node-addon-api@7.1.1", "", {}, "sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ=="],
-
     "node-domexception": ["node-domexception@1.0.0", "", {}, "sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ=="],
 
     "node-fetch": ["node-fetch@3.3.2", "", { "dependencies": { "data-uri-to-buffer": "^4.0.0", "fetch-blob": "^3.1.4", "formdata-polyfill": "^4.0.10" } }, "sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA=="],
-
-    "node-pty": ["node-pty@1.1.0", "", { "dependencies": { "node-addon-api": "^7.1.0" } }, "sha512-20JqtutY6JPXTUnL0ij1uad7Qe1baT46lyolh2sSENDd4sTzKZ4nmAFkeAARDKwmlLjPx6XKRlwRUxwjOy+lUg=="],
 
     "node-releases": ["node-releases@2.0.46", "", {}, "sha512-GYVXHE2KnrzAfsAjl4uP++evGFCrAU1jta4ubEjIG7YWt/64Gqv66a30yKwWczVjA6j3bM4nBwH7Pk1JmDHaxQ=="],
 
@@ -1501,13 +1495,13 @@
 
     "@athing/adapter-claude-code/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
-    "@athing/daemon/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
     "@athing/engine/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@athing/logger/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@athing/platform-bun/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@athing/platform-rs/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@athing/sdk/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

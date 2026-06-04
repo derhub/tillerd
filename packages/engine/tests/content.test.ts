@@ -25,6 +25,7 @@ function spyLogger() {
     info: () => {},
     warn: (m) => warnCalls.push(m),
     error: () => {},
+    child: () => logger,
   };
   return { logger, debugCalls, warnCalls };
 }

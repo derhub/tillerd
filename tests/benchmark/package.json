@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check-types": "tsc --noEmit -p tsconfig.json",
     "bench": "bun index.ts"
   },
   "dependencies": {
     "@athing/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14"
   }
 }

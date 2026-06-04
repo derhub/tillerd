@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { DaemonClient } from "./daemon-transport";
@@ -12,7 +12,6 @@ function getAthingDir(): string {
 
 const ATHING_DIR = getAthingDir();
 const MANIFEST_PATH = join(ATHING_DIR, "daemon.json");
-const DAEMON_SOCK = join(ATHING_DIR, "daemon.sock");
 export const HOOKS_SOCK = join(ATHING_DIR, "hooks.sock");
 
 interface ManifestData {
@@ -37,12 +36,25 @@ export function isAlive(pid: number): boolean {
   }
 }
 
-export async function adoptOrSpawn(): Promise<DaemonClient> {
-  const manifest = readManifest();
+export interface AdoptOrSpawnOptions {
+  /** Resolve the daemon binary to spawn. Defaults to the reference-daemon resolver. */
+  resolveDaemonBinary?: () => string;
+  /** Milliseconds to wait for a spawned daemon's control socket. Defaults to 10000. */
+  startupTimeoutMs?: number;
+}
+
+export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<DaemonClient> {
+  // Resolve the runtime directory at call time so ATHING_DIR is honored per call
+  // (e.g. isolated test directories), not frozen at module load.
+  const athingDir = getAthingDir();
+  const manifestPath = join(athingDir, "daemon.json");
+  const daemonSock = join(athingDir, "daemon.sock");
+
+  const manifest = readManifest(manifestPath);
 
   if (manifest && isAlive(manifest.pid)) {
     try {
-      const client = new DaemonClient(DAEMON_SOCK);
+      const client = new DaemonClient(daemonSock);
       await client.connect();
       return client;
     } catch {
@@ -51,24 +63,28 @@ export async function adoptOrSpawn(): Promise<DaemonClient> {
   }
 
   try {
-    fs.rmSync(DAEMON_SOCK);
+    fs.rmSync(daemonSock);
   } catch {
     // no stale socket
   }
 
-  const daemonBin = resolveDaemonBinary();
+  const daemonBin = (options.resolveDaemonBinary ?? resolveDaemonBinary)();
   const child = Bun.spawn([daemonBin], {
     detached: true,
     stdio: ["ignore", "ignore", "ignore"],
+    // Pin the daemon to the same runtime directory the supervisor resolved, so the
+    // two agree on socket/manifest paths regardless of ambient env.
+    env: { ...process.env, ATHING_DIR: athingDir },
   });
   child.unref();
 
-  const deadline = Date.now() + 10_000;
+  const timeoutMs = options.startupTimeoutMs ?? 10_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 100));
-    if (fs.existsSync(DAEMON_SOCK)) {
+    if (fs.existsSync(daemonSock)) {
       try {
-        const client = new DaemonClient(DAEMON_SOCK);
+        const client = new DaemonClient(daemonSock);
         await client.connect();
         return client;
       } catch {
@@ -76,33 +92,54 @@ export async function adoptOrSpawn(): Promise<DaemonClient> {
       }
     }
   }
-  throw new Error("Daemon did not start within 10 seconds");
+  throw new Error(`Daemon did not start within ${timeoutMs}ms`);
 }
 
-function resolveDaemonBinary(): string {
-  const envBin = process.env["ATHING_DAEMON_BIN"];
-  if (envBin) {
-    const abs = require("node:path").resolve(envBin);
-    if (fs.existsSync(abs)) return abs;
-  }
+/** Probes the reference resolver reads; injectable so resolution order is testable. */
+export interface DaemonResolveProbes {
+  env?: Record<string, string | undefined>;
+  exists?: (path: string) => boolean;
+  cwd?: string;
+  home?: string;
+  which?: (binary: string) => string | null;
+}
 
-  const localBin = join(process.cwd(), "bin", "athing-daemon");
-  if (fs.existsSync(localBin)) return localBin;
-
-  const moduleBin = join(import.meta.dir, "../../../../bin/athing-daemon");
-  if (fs.existsSync(moduleBin)) return moduleBin;
-
+export function loginShellWhich(binary: string): string | null {
   const shell = process.env["SHELL"] ?? "/bin/sh";
-  const result = spawnSync(shell, ["-lc", "which athing-daemon"], {
+  const result = spawnSync(shell, ["-lc", `which ${binary}`], {
     encoding: "utf8",
     timeout: 5000,
   });
   if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
+  return null;
+}
 
-  const userBin = join(homedir(), ".local", "bin", "athing-daemon");
-  if (fs.existsSync(userBin)) return userBin;
+export function resolveDaemonBinary(probes: DaemonResolveProbes = {}): string {
+  const env = probes.env ?? process.env;
+  const exists = probes.exists ?? fs.existsSync;
+  const cwd = probes.cwd ?? process.cwd();
+  const home = probes.home ?? homedir();
+  const which = probes.which ?? loginShellWhich;
+
+  const envBin = env["ATHING_DAEMON_BIN"];
+  if (envBin) {
+    const abs = resolve(envBin);
+    if (exists(abs)) return abs;
+  }
+
+  const localBin = join(cwd, "bin", "athing-daemon");
+  if (exists(localBin)) return localBin;
+
+  const moduleBin = join(import.meta.dir, "../../../../bin/athing-daemon");
+  if (exists(moduleBin)) return moduleBin;
+
+  const fromShell = which("athing-daemon");
+  if (fromShell) return fromShell;
+
+  const userBin = join(home, ".local", "bin", "athing-daemon");
+  if (exists(userBin)) return userBin;
 
   throw new Error(
-    "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon or set ATHING_DAEMON_BIN.",
+    "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon-rs or set ATHING_DAEMON_BIN.",
   );
 }

@@ -3,23 +3,9 @@ import type { DestinationStream } from "pino";
 import { build as buildPretty } from "pino-pretty";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import type { Logger, LogContext, Resource } from "@athing/sdk";
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
-
-export interface LogEntry {
-  ts: number;
-  level: LogLevel;
-  sessionId?: string;
-  msg: string;
-  [key: string]: unknown;
-}
-
-export interface Logger {
-  debug(msg: string, extra?: Record<string, unknown>): void;
-  info(msg: string, extra?: Record<string, unknown>): void;
-  warn(msg: string, extra?: Record<string, unknown>): void;
-  error(msg: string, extra?: Record<string, unknown>): void;
-}
+export type { Logger, LogContext, Resource } from "@athing/sdk";
 
 const VALID_LEVELS = new Set(["silent", "debug", "info", "warn", "error"]);
 
@@ -46,25 +32,28 @@ function buildDestination(): DestinationStream {
   return pino.multistream([{ stream: stdoutStream }, { stream: fileStream }]);
 }
 
-export function createLogger(sessionId?: string): Logger {
+function wrap(p: pino.Logger): Logger {
+  return {
+    debug: (msg, extra) => p.debug(extra ?? {}, msg),
+    info: (msg, extra) => p.info(extra ?? {}, msg),
+    warn: (msg, extra) => p.warn(extra ?? {}, msg),
+    error: (msg, extra) => p.error(extra ?? {}, msg),
+    child: (context: LogContext) => wrap(p.child(context)),
+  };
+}
+
+export function createLogger(resource: Resource): Logger {
   const p = pino(
     {
       level: resolveLevel(),
       formatters: { level: (label) => ({ level: label }) },
       timestamp: () => `,"ts":${Date.now()}`,
-      base: undefined,
+      base: resource,
     },
     buildDestination(),
   );
 
-  const child = sessionId !== undefined ? p.child({ sessionId }) : p;
-
-  return {
-    debug: (msg, extra) => child.debug(extra ?? {}, msg),
-    info: (msg, extra) => child.info(extra ?? {}, msg),
-    warn: (msg, extra) => child.warn(extra ?? {}, msg),
-    error: (msg, extra) => child.error(extra ?? {}, msg),
-  };
+  return wrap(p);
 }
 
 export const noopLogger: Logger = {
@@ -72,4 +61,5 @@ export const noopLogger: Logger = {
   info: () => {},
   warn: () => {},
   error: () => {},
+  child: () => noopLogger,
 };
