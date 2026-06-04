@@ -1,0 +1,23 @@
+[package]
+name = "athing-daemon-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Native (Rust) generic terminal-backend daemon, wire-compatible with @athing/daemon"
+license = "MIT"
+
+[[bin]]
+name = "athing-daemon"
+path = "src/main.rs"
+
+[dependencies]
+portable-pty = "0.9"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "signal", "io-util", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+nix = { version = "0.31", features = ["signal", "process", "ioctl"] }
+base64 = "0.22"
+command-fds = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"

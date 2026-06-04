@@ -9,12 +9,15 @@
     "check-types": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@athing/adapter-claude-code": "workspace:*",
+    "@athing/engine": "workspace:*",
     "@athing/sdk": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@pierre/diffs": "^1.2.7",
     "@react-router/node": "7.16.0",
     "@react-router/serve": "7.16.0",
+    "@tauri-apps/api": "^2.11.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",

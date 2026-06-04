@@ -458,6 +458,57 @@ describe("AgentSessionProxy — crash recovery routing", () => {
   });
 });
 
+describe("AgentSessionProxy — terminal status routing", () => {
+  test("terminal-source status frame routes to onTerminalStatus", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const terminal: string[] = [];
+    proxy.onTerminalStatus((s) => terminal.push(s));
+    client.emit("test-session-id", {
+      type: "status",
+      sessionId: "test-session-id",
+      status: "WORKING",
+      source: "terminal",
+    });
+    client.emit("test-session-id", {
+      type: "status",
+      sessionId: "test-session-id",
+      status: "IDLE",
+      source: "terminal",
+    });
+    expect(terminal).toEqual(["WORKING", "IDLE"]);
+  });
+
+  test("terminal status does not reach onStatus (agent plane)", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    const agent: string[] = [];
+    proxy.onStatus((s) => agent.push(s));
+    client.emit("test-session-id", {
+      type: "status",
+      sessionId: "test-session-id",
+      status: "IDLE",
+      source: "terminal",
+    });
+    expect(agent).toHaveLength(0);
+  });
+
+  test("terminal IDLE does not flush the send queue (idle-timeout logic untouched)", async () => {
+    const { proxy, client } = await makeProxy("spawn");
+    proxy.start();
+    proxy.send("hello");
+    expect(sentType(client, "input")).toHaveLength(0);
+    // A terminal IDLE must NOT mark the queue ready — only a hook-derived IDLE does.
+    client.emit("test-session-id", {
+      type: "status",
+      sessionId: "test-session-id",
+      status: "IDLE",
+      source: "terminal",
+    });
+    expect(sentType(client, "input")).toHaveLength(0);
+  });
+});
+
 describe("AgentSessionProxy — subscribe mode", () => {
   test("start() sends subscribe frame, not spawn", async () => {
     const { proxy, client } = await makeProxy("subscribe");

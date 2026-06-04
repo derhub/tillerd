@@ -1,13 +1,21 @@
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { Plus } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 import { useSpawnSession } from "~/lib/useSpawnSession";
+import { useDesktopHost } from "~/lib/useDesktopHost";
 
 type Session = { id: string; cwd?: string };
 
 export function SessionSidebar({ sessions }: { sessions: Session[] }) {
-  const { spawn, spawning } = useSpawnSession();
+  const host = useDesktopHost();
+  const navigate = useNavigate();
+  const web = useSpawnSession();
+  // On desktop a new session is started by the terminal pane at /session/new; on web the existing
+  // WebSocket spawn flow drives it.
+  const desktopReady = host.status === "ready";
+  const spawn = desktopReady ? () => void navigate("/session/new") : web.spawn;
+  const spawning = desktopReady ? false : web.spawning;
 
   return (
     <div className="flex flex-col h-full">

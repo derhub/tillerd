@@ -24,6 +24,12 @@ export interface AgentSession {
   stop(): Promise<ExitEvent>;
   onData(handler: (bytes: Uint8Array) => void): () => void;
   onStatus(handler: (status: SessionStatus) => void): () => void;
+  /**
+   * Terminal-plane status (`IDLE` | `WORKING`) derived from the OS view of the
+   * session process — distinct from {@link onStatus}, the agent's hook-derived
+   * lifecycle. Co-equal signals; combine them only as a presentation choice.
+   */
+  onTerminalStatus(handler: (status: SessionStatus) => void): () => void;
   onContent(handler: (event: ContentEvent) => void): () => void;
   onError(handler: (error: AtError) => void): () => void;
   onExit(handler: (event: ExitEvent) => void): () => void;

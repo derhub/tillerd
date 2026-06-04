@@ -1,0 +1,11 @@
+{
+  "name": "@athing/benchmark",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun index.ts"
+  },
+  "dependencies": {
+    "@athing/sdk": "workspace:*"
+  }
+}

@@ -42,6 +42,7 @@ export class AgentSessionProxy implements AgentSession {
 
   private dataHandlers = new Set<DataHandler>();
   private statusHandlers = new Set<StatusHandler>();
+  private terminalStatusHandlers = new Set<StatusHandler>();
   private contentHandlers = new Set<ContentHandler>();
   private errorHandlers = new Set<ErrorHandler>();
   private exitHandlers = new Set<ExitHandler>();
@@ -218,6 +219,17 @@ export class AgentSessionProxy implements AgentSession {
         break;
       }
 
+      case "status": {
+        // Terminal-plane status is a distinct, co-equal signal — route it ONLY to
+        // terminal-status subscribers. It must never reach the hook-only
+        // StatusMapper or the idle-timeout / send-queue logic that consumes the
+        // agent status, so do not call statusMapper.apply here.
+        if (frame.source === "terminal") {
+          for (const h of this.terminalStatusHandlers) h(frame.status);
+        }
+        break;
+      }
+
       case "error": {
         const err = new AtError(frame.code as import("@athing/sdk").ErrorKind, frame.message);
         for (const h of this.errorHandlers) h(err);
@@ -331,6 +343,11 @@ export class AgentSessionProxy implements AgentSession {
   onStatus(handler: StatusHandler): () => void {
     this.statusHandlers.add(handler);
     return () => this.statusHandlers.delete(handler);
+  }
+
+  onTerminalStatus(handler: StatusHandler): () => void {
+    this.terminalStatusHandlers.add(handler);
+    return () => this.terminalStatusHandlers.delete(handler);
   }
 
   onContent(handler: ContentHandler): () => void {

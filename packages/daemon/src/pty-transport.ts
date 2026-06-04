@@ -14,6 +14,9 @@ export interface RawExitEvent {
 const DEFAULT_COLS = 220;
 const DEFAULT_ROWS = 50;
 
+// The daemon runs on Node: node-pty's native onData/write deliver PTY IO
+// directly. (It is not run under Bun, whose fd model breaks node-pty IO.)
+
 /**
  * Compute the child environment: a generic terminal base (PATH/HOME/TERM/...)
  * derived from the daemon's startup-installed login-shell env, with the
@@ -56,7 +59,6 @@ type ExitHandler = (event: RawExitEvent) => void;
 
 export class PtyTransport {
   private ptyProcess: IPty | null = null;
-  private ptyResumeSignal: (() => void) | null = null;
   private adoptedSocket: net.Socket | null = null;
   private adoptedFd_: number | null = null;
   private adoptedPid_: number | null = null;
@@ -127,6 +129,8 @@ export class PtyTransport {
       rows: this.opts.rows ?? DEFAULT_ROWS,
       cwd: this.opts.cwd,
       env: safeEnv,
+      // Raw bytes (Buffer) so output passes through untouched (raw-bytes-end-to-end).
+      encoding: null,
     };
 
     // When no args are passed the caller wants an interactive terminal (raw shell).
@@ -144,31 +148,24 @@ export class PtyTransport {
 
     this.ptyProcess = proc;
 
-    // Bun's libuv watcher and net.Socket({fd}) both fail to deliver events for
-    // node-pty master fds created by the native addon. Use Bun.file("/dev/fd/N")
-    // in an async loop instead — Bun's native file streaming works on these fds.
-    const masterFd = (proc as unknown as { _fd?: number })._fd;
-    if (typeof masterFd === "number") {
-      this.opts.logger.info("pty fd", { masterFd });
-      this.startBunReadLoop(masterFd);
-    } else {
-      this.opts.logger.warn("pty _fd not available, falling back to proc.onData");
-      proc.onData((data) => {
-        if (this.paused_) return;
-        const bytes = Buffer.from(data, "binary");
-        if (this.opts.captureRawIo) {
-          this.opts.logger.debug("pty.out", { bytes: bytes.toString("hex") });
-        }
-        for (const h of this.dataHandlers) h(bytes);
-      });
-    }
+    // node-pty's native onData delivers raw output (encoding:null).
+    proc.onData((data: string | Buffer) => {
+      if (this.paused_) return;
+      const bytes = typeof data === "string" ? Buffer.from(data, "binary") : Buffer.from(data);
+      if (this.opts.captureRawIo) {
+        this.opts.logger.debug("pty.out", { bytes: bytes.toString("hex") });
+      }
+      for (const h of this.dataHandlers) h(new Uint8Array(bytes));
+    });
 
     proc.onExit(({ exitCode, signal }) => {
       this.opts.logger.info("pty.exit", { exitCode, signal });
       this.cleanup();
       const event: RawExitEvent = {
         code: exitCode ?? null,
-        signal: signal != null ? String(signal) : null,
+        // node-pty reports signal 0 for a normal (signal-free) exit; treat it as
+        // no signal so the qualifier resolves to ok/error, not unknown.
+        signal: signal != null && signal !== 0 ? String(signal) : null,
       };
       for (const h of this.exitHandlers) h(event);
     });
@@ -180,54 +177,19 @@ export class PtyTransport {
     this.paused_ = true;
     if (this.adoptedSocket) {
       this.adoptedSocket.pause();
+    } else if (this.ptyProcess) {
+      // Stop node-pty's stream so paused output is buffered, not dropped.
+      this.ptyProcess.pause();
     }
-    // ptyResumeSignal loop: paused_ flag stops forwarding at next iteration
   }
 
   resume(): void {
     this.paused_ = false;
-    if (this.ptyResumeSignal) {
-      const signal = this.ptyResumeSignal;
-      this.ptyResumeSignal = null;
-      signal();
-    } else if (this.adoptedSocket) {
+    if (this.adoptedSocket) {
       this.adoptedSocket.resume();
+    } else if (this.ptyProcess) {
+      this.ptyProcess.resume();
     }
-  }
-
-  private startBunReadLoop(masterFd: number): void {
-    const devPath = `/dev/fd/${masterFd}`;
-    const loop = async () => {
-      while (!this.killed && this.ptyProcess) {
-        if (this.paused_) {
-          await new Promise<void>((resolve) => {
-            this.ptyResumeSignal = resolve;
-          });
-          this.ptyResumeSignal = null;
-          if (this.killed) break;
-        }
-        try {
-          const reader = Bun.file(devPath).stream().getReader();
-          try {
-            while (!this.paused_ && !this.killed) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              if (value && value.length > 0) {
-                if (this.opts.captureRawIo) {
-                  this.opts.logger.debug("pty.out", { bytes: Buffer.from(value).toString("hex") });
-                }
-                for (const h of this.dataHandlers) h(value);
-              }
-            }
-          } finally {
-            reader.cancel().catch(() => {});
-          }
-        } catch {
-          if (!this.killed) await new Promise((r) => setTimeout(r, 10));
-        }
-      }
-    };
-    loop().catch(() => {});
   }
 
   getMasterFd(): number {
@@ -273,7 +235,11 @@ export class PtyTransport {
       // dies they reparent to init and become unreachable by parent chain.
       const treePids = captureDescendants(this.adoptedPid_);
       if (process.platform !== "win32" && this.adoptedPid_ > 0) {
-        try { process.kill(-this.adoptedPid_, "SIGTERM"); } catch { /* already dead */ }
+        try {
+          process.kill(-this.adoptedPid_, "SIGTERM");
+        } catch {
+          /* already dead */
+        }
       }
       try {
         process.kill(this.adoptedPid_, "SIGTERM");
@@ -284,7 +250,11 @@ export class PtyTransport {
       return new Promise<RawExitEvent>((resolve) => {
         const timer = setTimeout(() => {
           if (process.platform !== "win32" && this.adoptedPid_! > 0) {
-            try { process.kill(-this.adoptedPid_!, "SIGKILL"); } catch { /* already dead */ }
+            try {
+              process.kill(-this.adoptedPid_!, "SIGKILL");
+            } catch {
+              /* already dead */
+            }
           }
           try {
             process.kill(this.adoptedPid_!, "SIGKILL");
@@ -322,7 +292,11 @@ export class PtyTransport {
       // dies they reparent to init and become unreachable by parent chain.
       const treePids = captureDescendants(pid);
       if (process.platform !== "win32" && pid > 0) {
-        try { process.kill(-pid, "SIGTERM"); } catch { /* already dead */ }
+        try {
+          process.kill(-pid, "SIGTERM");
+        } catch {
+          /* already dead */
+        }
       }
       try {
         this.ptyProcess!.kill("SIGTERM");
@@ -334,7 +308,11 @@ export class PtyTransport {
       this.killTimer = setTimeout(() => {
         this.opts.logger.warn("pty.kill: grace expired, sending SIGKILL");
         if (process.platform !== "win32" && pid > 0) {
-          try { process.kill(-pid, "SIGKILL"); } catch { /* already dead */ }
+          try {
+            process.kill(-pid, "SIGKILL");
+          } catch {
+            /* already dead */
+          }
         }
         try {
           this.ptyProcess?.kill("SIGKILL");
@@ -362,11 +340,5 @@ export class PtyTransport {
       this.killTimer = null;
     }
     this.ptyProcess = null;
-    // Unblock the read loop if it's waiting on a resume signal
-    if (this.ptyResumeSignal) {
-      const signal = this.ptyResumeSignal;
-      this.ptyResumeSignal = null;
-      signal();
-    }
   }
 }

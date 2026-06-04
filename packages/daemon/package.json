@@ -10,7 +10,7 @@
     "./protocol": "./src/protocol/index.ts"
   },
   "scripts": {
-    "dev": "ATHING_DIR=$(cd ../.. && pwd)/.athing ATHING_DAEMON_BIN=$(cd ../.. && pwd)/bin/athing-daemon bun --watch src/main.ts",
+    "dev": "bun run build && ATHING_DIR=$(cd ../.. && pwd)/.athing node dist/daemon.mjs",
     "build": "bun scripts/build-wrapper.ts",
     "postinstall": "bun scripts/fix-pty-permissions.ts",
     "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",

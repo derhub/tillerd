@@ -1,4 +1,5 @@
 import { AppShell } from "~/components/AppShell";
+import { DesktopHostProvider } from "~/lib/useDesktopHost";
 import type { Route } from "./+types/_shell";
 
 type Session = { id: string; cwd?: string };
@@ -14,5 +15,9 @@ export async function clientLoader(): Promise<{ sessions: Session[] }> {
 }
 
 export default function Shell({ loaderData }: Route.ComponentProps) {
-  return <AppShell sessions={loaderData?.sessions ?? []} />;
+  return (
+    <DesktopHostProvider>
+      <AppShell sessions={loaderData?.sessions ?? []} />
+    </DesktopHostProvider>
+  );
 }

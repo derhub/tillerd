@@ -14,6 +14,7 @@ export type {
   ExitFrame,
   HookFrame,
   ErrorFrame,
+  StatusFrame,
   SnapshotFrame,
   SnapshotCell,
   ClientCapability,

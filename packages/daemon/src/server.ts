@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { homedir } from "node:os";
@@ -13,11 +14,12 @@ import { DAEMON_VERSION } from "./version";
 import { writeSnapshot, type SnapshotRecord } from "./snapshot";
 import { StoppedSessionsStore } from "./stopped-sessions";
 
-import type { Socket } from "bun";
-type BunSocket = Socket<unknown>;
+// Minimal socket surface — net.Socket exposes write()/end() and serves as a
+// stable Map key for the connection registry.
+type SockLike = { write(data: Uint8Array | string): unknown; end(): unknown };
 
 interface Connection {
-  socket: BunSocket;
+  socket: SockLike;
   decoder: FrameDecoder;
   negotiated: boolean;
   snapshotCapable: boolean;
@@ -25,8 +27,8 @@ interface Connection {
 
 export class DaemonServer {
   private sessions = new Map<string, PtySession>();
-  private connections = new Map<BunSocket, Connection>();
-  private server: ReturnType<typeof Bun.listen> | null = null;
+  private connections = new Map<SockLike, Connection>();
+  private server: net.Server | null = null;
   private hookIngress: HookIngress | null = null;
   private logger = createLogger();
   private stoppedSessions: StoppedSessionsStore;
@@ -51,7 +53,7 @@ export class DaemonServer {
     session.onExit((event) => {
       this.sessions.delete(session.sessionId);
       session.emitToSubscribers((key) => {
-        this.send(key as BunSocket, {
+        this.send(key as SockLike, {
           type: "exit",
           sessionId: session.sessionId,
           qualifier: event.qualifier,
@@ -84,46 +86,50 @@ export class DaemonServer {
     });
     this.hookIngress.start();
 
-    this.server = Bun.listen<Connection>({
-      unix: this.sockPath,
-      socket: {
-        open: (socket) => {
-          connections.set(socket, { socket, decoder: new FrameDecoder(), negotiated: false, snapshotCapable: false });
-        },
-        data: (socket, chunk) => {
-          const conn = connections.get(socket);
-          if (!conn) return;
-          const raw =
-            typeof chunk === "string"
-              ? Buffer.from(chunk, "utf8")
-              : Buffer.from(chunk as unknown as ArrayBuffer);
-          for (const { meta, body } of conn.decoder.push(raw)) {
-            this.handleFrame(conn, meta, body).catch((err) =>
-              logger.warn("frame handler error", { err: String(err) }),
-            );
-          }
-        },
-        close: (socket) => {
-          const conn = connections.get(socket);
-          if (conn) {
-            for (const session of sessions.values()) session.removeSubscriber(socket);
-            connections.delete(socket);
-          }
-        },
-        error: (_socket, err) => {
-          logger.warn("socket error", { err: String(err) });
-        },
-      },
+    // Per-connection handlers, keyed by the socket object.
+    const onOpen = (socket: SockLike) => {
+      connections.set(socket, {
+        socket,
+        decoder: new FrameDecoder(),
+        negotiated: false,
+        snapshotCapable: false,
+      });
+    };
+    const onData = (socket: SockLike, raw: Buffer) => {
+      const conn = connections.get(socket);
+      if (!conn) return;
+      for (const { meta, body } of conn.decoder.push(raw)) {
+        this.handleFrame(conn, meta, body).catch((err) =>
+          logger.warn("frame handler error", { err: String(err) }),
+        );
+      }
+    };
+    const onClose = (socket: SockLike) => {
+      const conn = connections.get(socket);
+      if (conn) {
+        for (const session of sessions.values()) session.removeSubscriber(socket);
+        connections.delete(socket);
+      }
+    };
+
+    const server = net.createServer((socket) => {
+      const sock = socket as unknown as SockLike;
+      onOpen(sock);
+      socket.on("data", (chunk: Buffer) => onData(sock, chunk));
+      socket.on("close", () => onClose(sock));
+      socket.on("error", (err) => logger.warn("socket error", { err: String(err) }));
     });
+    server.listen(this.sockPath);
+    this.server = server;
 
     logger.info("daemon started", { sock: this.sockPath });
   }
 
-  private send(socket: BunSocket, meta: unknown, body?: Buffer): void {
+  private send(socket: SockLike, meta: unknown, body?: Buffer): void {
     socket.write(encodeFrame(meta, body));
   }
 
-  private sendError(socket: BunSocket, code: string, message: string, sessionId?: string): void {
+  private sendError(socket: SockLike, code: string, message: string, sessionId?: string): void {
     this.send(socket, { type: "error", code, message, ...(sessionId ? { sessionId } : {}) });
   }
 
@@ -151,7 +157,12 @@ export class DaemonServer {
       const clientCaps = Array.isArray(hello.capabilities) ? (hello.capabilities as string[]) : [];
       conn.snapshotCapable = clientCaps.includes("snapshot");
       conn.negotiated = true;
-      this.send(socket, { type: "hello-ack", version: chosen, daemonVersion: DAEMON_VERSION, capabilities: ["snapshot"] });
+      this.send(socket, {
+        type: "hello-ack",
+        version: chosen,
+        daemonVersion: DAEMON_VERSION,
+        capabilities: ["snapshot"],
+      });
       return;
     }
 
@@ -179,8 +190,16 @@ export class DaemonServer {
           return;
         }
         if (msg.resume && this.stoppedSessions.has(msg.resume)) {
-          this.logger.info("spawn rejected: session stopped", { sessionId: msg.sessionId, resume: msg.resume });
-          this.sendError(socket, "SessionStopped", `Session ${msg.resume} was intentionally stopped`, msg.sessionId);
+          this.logger.info("spawn rejected: session stopped", {
+            sessionId: msg.sessionId,
+            resume: msg.resume,
+          });
+          this.sendError(
+            socket,
+            "SessionStopped",
+            `Session ${msg.resume} was intentionally stopped`,
+            msg.sessionId,
+          );
           return;
         }
         const session = new PtySession({
@@ -260,7 +279,11 @@ export class DaemonServer {
           // All three happen synchronously so no bytes are lost or duplicated at the seam.
           const snap = s.getSnapshot();
           const creditBoost = 65536;
-          this.logger.info("subscribe ok (snapshot)", { sessionId: msg.sessionId, rows: snap.rows, cols: snap.cols });
+          this.logger.info("subscribe ok (snapshot)", {
+            sessionId: msg.sessionId,
+            rows: snap.rows,
+            cols: snap.cols,
+          });
           s.addSubscriber(
             socket,
             (bytes) => {
@@ -314,7 +337,7 @@ export class DaemonServer {
     }
   }
 
-  private sendData(socket: BunSocket, sessionId: string, bytes: Uint8Array): void {
+  private sendData(socket: SockLike, sessionId: string, bytes: Uint8Array): void {
     this.send(socket, { type: "data", sessionId, bodyLen: bytes.length }, Buffer.from(bytes));
   }
 
@@ -322,7 +345,7 @@ export class DaemonServer {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     session.emitToSubscribers((key) =>
-      this.send(key as BunSocket, { type: "hook", sessionId, payload }),
+      this.send(key as SockLike, { type: "hook", sessionId, payload }),
     );
   }
 
@@ -423,8 +446,12 @@ export class DaemonServer {
     // Successor acknowledged — hand off the manifest and exit.
     const successorPid = successor.pid!;
     new Manifest().writeForPid(successorPid, DAEMON_VERSION);
-    this.server?.stop();
+    this.stopServer();
     process.exit(0);
+  }
+
+  private stopServer(): void {
+    this.server?.close();
   }
 
   async shutdown(): Promise<void> {
@@ -432,7 +459,7 @@ export class DaemonServer {
     await Promise.allSettled(kills);
     this.sessions.clear();
     this.hookIngress?.stop();
-    this.server?.stop();
+    this.stopServer();
     for (const sock of [this.sockPath, this.hooksSockPath]) {
       try {
         fs.rmSync(sock);

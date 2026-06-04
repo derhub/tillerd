@@ -24,6 +24,19 @@ Each session scopes itself via env vars injected into the PTY at launch:
 Only one hook command is installed (not one per session), so concurrent sessions share the
 static hook entry and are differentiated entirely by env vars.
 
+### Runtime-free notify client
+
+The installed hook command is a committed standalone shell script, `bin/athing-notify`
+(`#!/usr/bin/env bash`), not a runtime-executed script. It reads the lifecycle payload from
+stdin and `curl`s it to `ATHING_BRIDGE_URL` — over a unix socket when the value begins with `/`,
+otherwise as a URL — carrying the session id and token as headers. It is fire-and-forget: bounded
+runtime (`--max-time`), all output and errors suppressed, always `exit 0`, and an exit-early when
+`ATHING_BRIDGE_URL` is unset.
+
+This relies only on `bash` and `curl` being present on the target platform (macOS/Linux for v1),
+so lifecycle callbacks fire even when no language runtime is resolvable on the agent's PATH. There
+is intentionally **no fallback runtime**.
+
 ## Hook uninstall
 
 To remove the SDK's hooks from the agent's settings, invoke the adapter's setup

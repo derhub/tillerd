@@ -1,3 +1,5 @@
+import type { SessionStatus } from "../types/events";
+
 // Client → Daemon (partial — capabilities in hello)
 export type ClientCapability = "snapshot";
 
@@ -14,6 +16,13 @@ export type ExitFrame = {
 };
 export type HookFrame = { type: "hook"; sessionId: string; payload: unknown };
 export type ErrorFrame = { type: "error"; code: string; message: string; sessionId?: string };
+/**
+ * Per-session status, tagged by the plane it was derived from. `hook` carries the
+ * agent's semantic lifecycle status; `terminal` carries the OS/process-observed
+ * status (limited to `IDLE` | `WORKING`). The two are distinct, co-equal signals —
+ * combining them into a single displayed value is a consumer/presentation concern.
+ */
+export type StatusFrame = { type: "status"; sessionId: string; status: SessionStatus; source: "hook" | "terminal" };
 
 export interface SnapshotCell { char: string; fg: number; bg: number; attrs: number }
 export type SnapshotFrame = {
@@ -33,6 +42,7 @@ export type DaemonFrame =
   | ExitFrame
   | HookFrame
   | ErrorFrame
+  | StatusFrame
   | SnapshotFrame;
 
 export const SUPPORTED_VERSIONS = [1] as const;
