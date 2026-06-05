@@ -2,7 +2,8 @@ import { test, expect, describe, afterEach } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { readManifest, isAlive } from "../src/supervisor";
+import { readManifest, isAlive, resolveDaemonBinary } from "../src/supervisor";
+import { AtError } from "@athing/sdk";
 
 // Exercises the real supervisor helpers. adoptOrSpawn itself requires a live
 // daemon binary, so we verify the manifest/liveness contracts it relies on.
@@ -57,6 +58,25 @@ describe("manifest liveness contract", () => {
       fs.rmSync(sockPath);
     } catch {}
     expect(fs.existsSync(sockPath)).toBe(false);
+  });
+});
+
+describe("daemon binary resolution", () => {
+  test("throws a typed BinaryNotFound error when no binary can be located", () => {
+    let error: unknown;
+    try {
+      resolveDaemonBinary({
+        env: {},
+        exists: () => false,
+        which: () => null,
+        cwd: "/nonexistent",
+        home: "/nonexistent",
+      });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(AtError);
+    expect((error as AtError).kind).toBe("BinaryNotFound");
   });
 });
 

@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { DaemonClient } from "./daemon-transport";
+import { AtError } from "@athing/sdk";
 
 function getAthingDir(): string {
   return process.env["ATHING_DIR"]
@@ -39,8 +40,12 @@ export function isAlive(pid: number): boolean {
 export interface AdoptOrSpawnOptions {
   /** Resolve the daemon binary to spawn. Defaults to the reference-daemon resolver. */
   resolveDaemonBinary?: () => string;
-  /** Milliseconds to wait for a spawned daemon's control socket. Defaults to 10000. */
+  /** Per-attempt milliseconds to wait for a spawned daemon's control socket. Defaults to 10000. */
   startupTimeoutMs?: number;
+  /** Spawn attempts before giving up. Defaults to 3. */
+  maxSpawnAttempts?: number;
+  /** Base backoff between spawn attempts in ms; doubles each retry. Defaults to 250. */
+  spawnBackoffMs?: number;
 }
 
 export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<DaemonClient> {
@@ -62,13 +67,41 @@ export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<D
     }
   }
 
-  try {
-    fs.rmSync(daemonSock);
-  } catch {
-    // no stale socket
-  }
-
   const daemonBin = (options.resolveDaemonBinary ?? resolveDaemonBinary)();
+  const timeoutMs = options.startupTimeoutMs ?? 10_000;
+  const maxAttempts = options.maxSpawnAttempts ?? 3;
+  const backoffMs = options.spawnBackoffMs ?? 250;
+
+  let lastError: AtError | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Clear any stale socket so the freshly spawned daemon binds cleanly.
+    try {
+      fs.rmSync(daemonSock);
+    } catch {
+      // no stale socket
+    }
+    try {
+      return await spawnAndConnect(daemonBin, athingDir, daemonSock, timeoutMs);
+    } catch (err) {
+      lastError = err instanceof AtError ? err : new AtError("SpawnFailed", String(err));
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, backoffMs * 2 ** (attempt - 1)));
+      }
+    }
+  }
+  throw new AtError(
+    "SpawnFailed",
+    `Daemon did not start after ${maxAttempts} attempt(s) (${timeoutMs}ms each): ${lastError?.message ?? "unknown error"}`,
+  );
+}
+
+/** Spawn the daemon once and wait for its control socket to accept a connection. */
+async function spawnAndConnect(
+  daemonBin: string,
+  athingDir: string,
+  daemonSock: string,
+  timeoutMs: number,
+): Promise<DaemonClient> {
   const child = Bun.spawn([daemonBin], {
     detached: true,
     stdio: ["ignore", "ignore", "ignore"],
@@ -78,7 +111,6 @@ export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<D
   });
   child.unref();
 
-  const timeoutMs = options.startupTimeoutMs ?? 10_000;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 100));
@@ -92,7 +124,13 @@ export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<D
       }
     }
   }
-  throw new Error(`Daemon did not start within ${timeoutMs}ms`);
+  // Reap the wedged child so a half-started daemon doesn't linger before the next attempt.
+  try {
+    child.kill();
+  } catch {
+    // already exited
+  }
+  throw new AtError("Timeout", `Daemon did not start within ${timeoutMs}ms`);
 }
 
 /** Probes the reference resolver reads; injectable so resolution order is testable. */
@@ -139,7 +177,8 @@ export function resolveDaemonBinary(probes: DaemonResolveProbes = {}): string {
   const userBin = join(home, ".local", "bin", "athing-daemon");
   if (exists(userBin)) return userBin;
 
-  throw new Error(
+  throw new AtError(
+    "BinaryNotFound",
     "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon-rs or set ATHING_DAEMON_BIN.",
   );
 }

@@ -17,6 +17,8 @@ import {
   HOOKS_SOCK,
   resolveAgentCommand,
 } from "@athing/platform-bun";
+import { isOriginAllowed, parseAllowedOrigins } from "./auth";
+import { pruneExpiredSessions, parseSessionTtlMs } from "./sessions";
 
 const ATHING_DIR = join(homedir(), ".athing");
 fs.mkdirSync(ATHING_DIR, { recursive: true });
@@ -27,6 +29,10 @@ db.run(`CREATE TABLE IF NOT EXISTS sessions (
   cwd TEXT NOT NULL,
   created_at INTEGER NOT NULL
 )`);
+
+const PORT = Number(process.env["PORT"] ?? 3000);
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env["ATHING_ALLOWED_ORIGINS"], PORT);
+const SESSION_TTL_MS = parseSessionTtlMs(process.env["ATHING_SESSION_TTL_MS"]);
 
 const ClientMessageSchema = v.union([
   v.object({ type: v.literal("send"), text: v.string() }),
@@ -144,8 +150,16 @@ const activeSessions = new Map<string, AgentSession>();
   }
 })();
 
+// Bound session-table growth: drop rows past the retention window at startup and daily.
+function pruneSessions(): void {
+  const pruned = pruneExpiredSessions(db, Date.now(), SESSION_TTL_MS);
+  if (pruned > 0) log.info("pruned expired sessions", { count: pruned });
+}
+pruneSessions();
+setInterval(pruneSessions, 24 * 60 * 60 * 1000).unref();
+
 Bun.serve<WsData>({
-  port: Number(process.env["PORT"] ?? 3000),
+  port: PORT,
   async fetch(req, server) {
     const url = new URL(req.url);
 
@@ -201,6 +215,14 @@ Bun.serve<WsData>({
         return new Response("", {
           headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
         });
+      }
+    }
+
+    if (url.pathname.startsWith("/ws/")) {
+      const origin = req.headers.get("origin");
+      if (!isOriginAllowed(origin, ALLOWED_ORIGINS)) {
+        log.warn("rejected websocket upgrade from disallowed origin", { origin });
+        return new Response("forbidden origin", { status: 403, headers: corsHeaders });
       }
     }
 
@@ -487,4 +509,4 @@ Bun.serve<WsData>({
   },
 });
 
-console.log(`Server on http://localhost:${process.env["PORT"] ?? 3000}`);
+console.log(`Server on http://localhost:${PORT}`);
