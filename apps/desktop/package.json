@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "tauri build --ci",
     "tauri": "tauri",
     "test": "cd ./src-tauri && cargo test",
     "check-deps": "cd ./src-tauri && cargo outdated"

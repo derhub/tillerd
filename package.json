@@ -14,6 +14,7 @@
     "gate:web-api": "bun scripts/gate-web-api.ts",
     "check-types": "bun run gate:web-api && turbo run check-types",
     "test": "turbo run test --filter='!./tests/*'",
+    "eval": "turbo run eval",
     "e2e": "turbo run e2e",
     "lint": "oxlint .",
     "format": "oxfmt --write .",

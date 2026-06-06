@@ -8,7 +8,7 @@
 //
 // Binary selection (auto):
 //   rust  -> packages/daemon-rs/target/release/athing-daemon
-//   node  -> $ATHING_REF_BIN, else ./bin/athing-daemon (if present)
+//   node  -> $ATHING_DAEMON_BIN, else ./bin/athing-daemon (if present)
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -39,7 +39,7 @@ function resolveBinaries(): Record<string, string> {
   const rust = join(ROOT, "packages/daemon-rs/target/release/athing-daemon");
   if (existsSync(rust)) map["rust"] = rust;
   // The Node daemon is the working TS incumbent (Bun can't accept PTY input).
-  const node = process.env.ATHING_REF_BIN ?? join(ROOT, "bin/athing-daemon");
+  const node = process.env.ATHING_DAEMON_BIN ?? join(ROOT, "bin/athing-daemon");
   if (existsSync(node)) map["node"] = node;
   return map;
 }
@@ -108,7 +108,7 @@ async function main() {
       "No daemon binaries found. Build the Rust daemon (cd packages/daemon-rs && cargo build --release)",
     );
     console.error(
-      "or pass explicit label=path pairs, or set ATHING_REF_BIN for the reference daemon.",
+      "or pass explicit label=path pairs, or set ATHING_DAEMON_BIN for the reference daemon.",
     );
     process.exit(1);
   }

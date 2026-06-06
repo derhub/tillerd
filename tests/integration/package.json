@@ -8,6 +8,7 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
+    "@athing/daemon-rs": "workspace:*",
     "@athing/engine": "workspace:*",
     "@athing/logger": "workspace:*",
     "@athing/platform-bun": "workspace:*",

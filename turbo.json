@@ -20,12 +20,17 @@
       "outputs": ["test-results/**"]
     },
     "e2e": {
+      "dependsOn": ["^build"],
       "cache": false,
       "outputs": ["test-results/**", "playwright-report/**"],
       "passThroughEnv": ["PLAYWRIGHT_*"]
     },
     "check-deps": {
       "dependsOn": ["^check-deps"],
+      "cache": false
+    },
+    "eval": {
+      "dependsOn": ["^eval"],
       "cache": false
     }
   }

@@ -67,14 +67,18 @@ describe("engine integration", () => {
   test(
     "BinaryNotFound when binary missing",
     async () => {
-      const engine = await makeEngine();
-      const badAdapter = {
-        ...bashAdapter,
-        launch: { ...bashAdapter.launch, command: "__athing_no_such_binary__" },
-      };
+      const transport = await adoptOrSpawn();
+      const engine = createEngine({
+        transport,
+        fileSource: new BunFileSource(),
+        logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
+        hooksSocketPath: HOOKS_SOCK,
+        agentHome: agentHome(),
+        resolvedCommand: "__athing_no_such_binary__",
+      });
 
       const errors: string[] = [];
-      const session = await engine.start(badAdapter, {
+      const session = await engine.start(bashAdapter, {
         cwd: process.cwd(),
         startupTimeoutMs: 5_000,
       });

@@ -238,7 +238,7 @@ function resolveBinaries(): Record<string, string> {
   if (existsSync(rust)) map["rust"] = rust;
   // The Node daemon is the working TS incumbent (the Bun daemon can't accept
   // input under Bun). Compare rust vs node by default.
-  const node = process.env.ATHING_REF_BIN ?? join(ROOT, "bin/athing-daemon");
+  const node = process.env.ATHING_DAEMON_BIN ?? join(ROOT, "bin/athing-daemon");
   if (existsSync(node)) map["node"] = node;
   return map;
 }

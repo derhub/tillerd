@@ -40,6 +40,10 @@
         "@tauri-apps/cli": "^2",
       },
     },
+    "apps/engram-rs": {
+      "name": "@athing/engram-rs",
+      "version": "0.0.1",
+    },
     "apps/mcp-gateway-rs": {
       "name": "@athing/mcp-gateway-rs",
       "version": "0.1.0",
@@ -174,6 +178,7 @@
     "tests/integration": {
       "name": "@athing/integration-tests",
       "dependencies": {
+        "@athing/daemon-rs": "workspace:*",
         "@athing/engine": "workspace:*",
         "@athing/logger": "workspace:*",
         "@athing/platform-bun": "workspace:*",
@@ -194,6 +199,8 @@
     "@athing/e2e-test": ["@athing/e2e-test@workspace:tests/e2e"],
 
     "@athing/engine": ["@athing/engine@workspace:packages/engine"],
+
+    "@athing/engram-rs": ["@athing/engram-rs@workspace:apps/engram-rs"],
 
     "@athing/integration-tests": ["@athing/integration-tests@workspace:tests/integration"],
 

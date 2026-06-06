@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "cargo build --release && ATHING_DIR=$(cd ../.. && pwd)/.athing ./target/release/athing-daemon",
-    "build": "cargo build --release",
+    "build": "cargo build --release && cp target/release/athing-daemon ../../bin/",
     "test": "cargo test",
     "check-deps": "cargo outdated"
   }

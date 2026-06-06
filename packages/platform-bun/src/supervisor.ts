@@ -168,7 +168,7 @@ export function resolveDaemonBinary(probes: DaemonResolveProbes = {}): string {
   const localBin = join(cwd, "bin", "athing-daemon");
   if (exists(localBin)) return localBin;
 
-  const moduleBin = join(import.meta.dir, "../../../../bin/athing-daemon");
+  const moduleBin = join(import.meta.dir, "../../../bin/athing-daemon");
   if (exists(moduleBin)) return moduleBin;
 
   const fromShell = which("athing-daemon");

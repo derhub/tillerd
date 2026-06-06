@@ -1,0 +1,10 @@
+{"query":"which database does engram store memory in","gold":[1],"category":"simple"}
+{"query":"how does engram decide which chunks to evict","gold":[4],"category":"simple"}
+{"query":"where do embeddings come from","gold":[9],"category":"simple"}
+{"query":"how are markdown documents split into chunks","gold":[6],"category":"simple"}
+{"query":"how can an agent query memory directly","gold":[11],"category":"simple"}
+{"query":"why does the active database stay small and fast as memory grows","gold":[4,5],"category":"complex"}
+{"query":"how is a contradicting fact handled without losing the old value","gold":[2],"category":"complex"}
+{"query":"why does capturing a chunk stay fast even though it needs an embedding","gold":[15],"category":"complex"}
+{"query":"how does old content leave the hot set yet remain searchable later","gold":[4,5,14],"category":"multi-hop"}
+{"query":"how does engram avoid storing files you already keep out of version control","gold":[8],"category":"multi-hop"}

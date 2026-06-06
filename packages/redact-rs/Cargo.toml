@@ -1,0 +1,17 @@
+[package]
+name = "redact-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Detect-then-transform redaction of credentials and structured PII"
+license = "MIT"
+
+[lib]
+name = "redact"
+path = "src/lib.rs"
+
+[[bin]]
+name = "redact"
+path = "src/main.rs"
+
+[dependencies]
+regex = "1"
