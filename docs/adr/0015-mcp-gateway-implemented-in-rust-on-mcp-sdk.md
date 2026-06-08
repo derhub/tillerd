@@ -7,7 +7,7 @@
 ## Context
 
 The project is Bun/TypeScript first, but the PTY daemon is already a native Rust crate
-(`packages/daemon-rs`) deliberately outside the Bun/turbo graph, because a detached background daemon
+(`packages/daemon-pty`) deliberately outside the Bun/turbo graph, because a detached background daemon
 is a delivery artifact, not application code. The gateway (ADR-0013) has the same delivery shape: a
 bundled, spawned, long-lived background process inside a desktop app that already ships a Rust
 runtime.

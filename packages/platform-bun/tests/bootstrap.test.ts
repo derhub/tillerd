@@ -20,7 +20,9 @@ describe("startup bootstrap — typed errors", () => {
 
   test("checkCliVersion throws VersionUnsupported when installed version is below range", () => {
     // `bun --version` is present and parseable; an impossible floor forces the failure path.
-    expect(() => checkCliVersion("bun", ">=999.0.0")).toThrow(/VersionUnsupported|does not satisfy/);
+    expect(() => checkCliVersion("bun", ">=999.0.0")).toThrow(
+      /VersionUnsupported|does not satisfy/,
+    );
   });
 
   test("checkCliVersion passes for an open range", () => {
@@ -28,7 +30,10 @@ describe("startup bootstrap — typed errors", () => {
   });
 
   test("prepareNotifyScript throws HookInstallFailed when the notify client is absent", () => {
-    const missing = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "athing-boot-")), "athing-notify");
+    const missing = path.join(
+      fs.mkdtempSync(path.join(os.tmpdir(), "athing-boot-")),
+      "athing-notify",
+    );
     expect(() => prepareNotifyScript(missing)).toThrow(/not found|HookInstallFailed/);
   });
 

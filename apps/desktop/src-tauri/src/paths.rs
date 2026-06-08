@@ -5,7 +5,9 @@ pub fn athing_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("ATHING_DIR") {
         PathBuf::from(dir)
     } else {
-        dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")).join(".athing")
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".athing")
     }
 }
 

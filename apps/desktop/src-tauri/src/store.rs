@@ -28,7 +28,9 @@ impl StoreState {
             .ok()
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
-        StoreState { inner: Mutex::new(data) }
+        StoreState {
+            inner: Mutex::new(data),
+        }
     }
 }
 
@@ -88,10 +90,7 @@ pub async fn registry_set(
 }
 
 #[tauri::command]
-pub async fn registry_remove(
-    session_id: String,
-    state: State<'_, StoreState>,
-) -> Result<(), ()> {
+pub async fn registry_remove(session_id: String, state: State<'_, StoreState>) -> Result<(), ()> {
     let mut data = state.inner.lock().await;
     data.registry.remove(&session_id);
     persist(&data).await;
@@ -140,10 +139,14 @@ mod tests {
     #[test]
     fn store_data_registry_round_trips_json() {
         let mut data = StoreData::default();
-        data.registry.insert("sess-1".into(), "/home/user/project".into());
+        data.registry
+            .insert("sess-1".into(), "/home/user/project".into());
         let loaded: StoreData =
             serde_json::from_slice(&serde_json::to_vec(&data).unwrap()).unwrap();
-        assert_eq!(loaded.registry.get("sess-1").map(String::as_str), Some("/home/user/project"));
+        assert_eq!(
+            loaded.registry.get("sess-1").map(String::as_str),
+            Some("/home/user/project")
+        );
     }
 
     #[test]
@@ -183,7 +186,10 @@ mod tests {
 
         let data = state.inner.blocking_lock();
         assert_eq!(data.prefs.get("lang"), Some(&serde_json::json!("en")));
-        assert_eq!(data.registry.get("sess-abc").map(String::as_str), Some("/workspace"));
+        assert_eq!(
+            data.registry.get("sess-abc").map(String::as_str),
+            Some("/workspace")
+        );
     }
 
     #[test]

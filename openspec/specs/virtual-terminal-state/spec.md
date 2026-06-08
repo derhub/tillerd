@@ -1,9 +1,11 @@
 # virtual-terminal-state Specification
 
 ## Purpose
+
 Defines the daemon-side virtual terminal: a headless VT parser that maintains the current screen state (cell grid, cursor, attributes) per session from raw PTY output, and serves a state snapshot to snapshot-capable clients on subscribe/reconnect so a renderer can restore the screen without replaying raw byte history. The ring buffer is retained as the legacy reconnect path for non-capable clients.
 
 ## Requirements
+
 ### Requirement: On-demand terminal state reconstruction
 
 The daemon SHALL NOT maintain a live virtual terminal per session. The hot output path SHALL forward raw bytes unmodified and retain them in the per-session ring buffer, with no parsing. A terminal screen state SHALL be reconstructed only when a snapshot is requested, by replaying the ring buffer through a fresh parser at the session's current dimensions, producing rendered cell content, cursor position, and active text attributes. Scroll-region control (DECSTBM) is out of scope for v1 — the full screen is treated as the scrolling area.
@@ -59,4 +61,3 @@ The daemon SHALL retain the raw ring buffer both for intra-session backpressure 
 
 - **WHEN** a non-capable client subscribes
 - **THEN** the daemon SHALL replay the ring-buffer contents as the reconnect payload
-

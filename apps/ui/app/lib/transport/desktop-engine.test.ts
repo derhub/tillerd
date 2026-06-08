@@ -17,7 +17,6 @@ const info: AgentInfo = {
   version: "1.5.0",
   hookCommand: "/x/athing-notify",
   hooksSocketPath: "/x/hooks.sock",
-  agentHome: "/home/u/.claude",
   homeDir: "/home/u",
 };
 
@@ -25,10 +24,8 @@ describe("buildDesktopEngineDeps", () => {
   test("carries the resolved hooks socket and the three native ports", () => {
     const deps = buildDesktopEngineDeps(core, info);
     expect(deps.hooksSocketPath).toBe("/x/hooks.sock");
-    expect(deps.agentHome).toBe("/home/u/.claude");
     expect(deps.resolvedCommand).toBe("/usr/bin/claude");
     expect(deps.transport).toBeDefined();
-    expect(deps.fileSource).toBeDefined();
     expect(deps.logger).toBeDefined();
   });
 });

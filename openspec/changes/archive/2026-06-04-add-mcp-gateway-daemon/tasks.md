@@ -1,8 +1,8 @@
 ## 1. Crate scaffold
 
-- [x] 1.1 Create `packages/athing-mcp-gateway-rs` Cargo crate (lib + daemon binary) outside the Bun/turbo graph, mirroring `packages/daemon-rs` layout and `package.json` stub
+- [x] 1.1 Create `packages/athing-mcp-gateway-rs` Cargo crate (lib + daemon binary) outside the Bun/turbo graph, mirroring `packages/daemon-pty` layout and `package.json` stub
 - [x] 1.2 Add dependencies: MCP Rust SDK (pinned minor) with server, client, child-process, streamable-http-client, server-side-http, macros features; async runtime; HTTP server; schema generation; error/log crates
-- [x] 1.3 Add `#![deny(unsafe_code)]`, module skeleton (config, router, registry, backend, supervisor, handler, transport, daemon), and release profile matching `daemon-rs`
+- [x] 1.3 Add `#![deny(unsafe_code)]`, module skeleton (config, router, registry, backend, supervisor, handler, transport, daemon), and release profile matching `daemon-pty`
 - [x] 1.4 Write `README.md` describing the gateway, toolchain, and how it is selected/launched
 
 ## 2. Config and schema (mcp-gateway-config)

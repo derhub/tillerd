@@ -25,7 +25,11 @@ pub struct BackendHandler {
 
 impl BackendHandler {
     pub fn new(name: String, front: FrontPeer, refresh: UnboundedSender<String>) -> Self {
-        Self { name, front, refresh }
+        Self {
+            name,
+            front,
+            refresh,
+        }
     }
 
     fn no_front() -> McpError {
@@ -99,8 +103,12 @@ pub async fn connect(
     front: FrontPeer,
     refresh: UnboundedSender<String>,
 ) -> anyhow::Result<Peer> {
+    let kind = spec.kind(name)?;
+    // The gateway spawns only external backends; first-party tools are launched by
+    // the orchestrator. URL backends are connected, not spawned, so they pass.
+    crate::firstparty::reject_first_party_spawn(name, kind.clone())?;
     let handler = BackendHandler::new(name.to_string(), front, refresh);
-    let peer = match spec.kind(name)? {
+    let peer = match kind {
         BackendKind::Stdio => {
             let command = spec
                 .command

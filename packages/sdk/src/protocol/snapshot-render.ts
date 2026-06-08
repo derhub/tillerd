@@ -4,12 +4,12 @@ import type { SnapshotFrame } from "./messages";
 // any-language daemon that emits snapshot frames must produce cells in exactly
 // this encoding. Canonical definition: the "Snapshot frame cell encoding"
 // requirement in openspec/specs/pty-daemon/spec.md. Keep the two in sync.
-export const ATTR_BOLD      = 0x01;
-export const ATTR_DIM       = 0x02;
-export const ATTR_ITALIC    = 0x04;
+export const ATTR_BOLD = 0x01;
+export const ATTR_DIM = 0x02;
+export const ATTR_ITALIC = 0x04;
 export const ATTR_UNDERLINE = 0x08;
-export const ATTR_BLINK     = 0x10;
-export const ATTR_INVERSE   = 0x20;
+export const ATTR_BLINK = 0x10;
+export const ATTR_INVERSE = 0x20;
 export const ATTR_INVISIBLE = 0x40;
 
 // SnapshotCell color encoding:
@@ -25,7 +25,9 @@ function colorToFgSGR(c: number): string {
   if (c >= 1 && c <= 8) return String(29 + c);
   if (c >= 9 && c <= 16) return String(81 + c);
   if (c >= 17 && c <= 272) return `38;5;${c - 17}`;
-  const r = (c >> 16) & 0xff; const g = (c >> 8) & 0xff; const b = c & 0xff;
+  const r = (c >> 16) & 0xff;
+  const g = (c >> 8) & 0xff;
+  const b = c & 0xff;
   return `38;2;${r};${g};${b}`;
 }
 
@@ -34,7 +36,9 @@ function colorToBgSGR(c: number): string {
   if (c >= 1 && c <= 8) return String(39 + c);
   if (c >= 9 && c <= 16) return String(91 + c);
   if (c >= 17 && c <= 272) return `48;5;${c - 17}`;
-  const r = (c >> 16) & 0xff; const g = (c >> 8) & 0xff; const b = c & 0xff;
+  const r = (c >> 16) & 0xff;
+  const g = (c >> 8) & 0xff;
+  const b = c & 0xff;
   return `48;2;${r};${g};${b}`;
 }
 
@@ -57,7 +61,8 @@ export function charDisplayWidth(cp: number): 1 | 2 {
     (cp >= 0x1c000 && cp <= 0x1cfff) ||
     (cp >= 0x20000 && cp <= 0x2fffd) ||
     (cp >= 0x30000 && cp <= 0x3fffd)
-  ) return 2;
+  )
+    return 2;
   return 1;
 }
 
@@ -84,7 +89,13 @@ export function snapshotToBytes(
       if (cell.char === "") continue;
 
       // Skip default empty spaces (common case — saves bytes)
-      if (cell.char === " " && cell.fg === COLOR_DEFAULT && cell.bg === COLOR_DEFAULT && cell.attrs === 0) continue;
+      if (
+        cell.char === " " &&
+        cell.fg === COLOR_DEFAULT &&
+        cell.bg === COLOR_DEFAULT &&
+        cell.attrs === 0
+      )
+        continue;
 
       parts.push(`\x1b[${row + 1};${col + 1}H`);
 
@@ -107,7 +118,9 @@ export function snapshotToBytes(
         if (cell.fg !== curFg) sgr.push(colorToFgSGR(cell.fg));
         if (cell.bg !== curBg) sgr.push(colorToBgSGR(cell.bg));
         if (sgr.length > 0) parts.push(`\x1b[${sgr.join(";")}m`);
-        curFg = cell.fg; curBg = cell.bg; curAttrs = cell.attrs;
+        curFg = cell.fg;
+        curBg = cell.bg;
+        curAttrs = cell.attrs;
       }
 
       parts.push(cell.char);

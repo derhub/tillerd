@@ -7,7 +7,7 @@
 //   bun tests/benchmark/index.ts rust=/path ref=/path  # explicit label=path pairs
 //
 // Binary selection (auto):
-//   rust  -> packages/daemon-rs/target/release/athing-daemon
+//   rust  -> packages/daemon-pty/target/release/athing-daemon
 //   node  -> $ATHING_DAEMON_BIN, else ./bin/athing-daemon (if present)
 
 import { existsSync } from "node:fs";
@@ -36,7 +36,7 @@ function resolveBinaries(): Record<string, string> {
     return map;
   }
   const map: Record<string, string> = {};
-  const rust = join(ROOT, "packages/daemon-rs/target/release/athing-daemon");
+  const rust = join(ROOT, "packages/daemon-pty/target/release/athing-daemon");
   if (existsSync(rust)) map["rust"] = rust;
   // The Node daemon is the working TS incumbent (Bun can't accept PTY input).
   const node = process.env.ATHING_DAEMON_BIN ?? join(ROOT, "bin/athing-daemon");
@@ -105,7 +105,7 @@ async function main() {
   const labels = Object.keys(binaries);
   if (labels.length === 0) {
     console.error(
-      "No daemon binaries found. Build the Rust daemon (cd packages/daemon-rs && cargo build --release)",
+      "No daemon binaries found. Build the Rust daemon (cd packages/daemon-pty && cargo build --release)",
     );
     console.error(
       "or pass explicit label=path pairs, or set ATHING_DAEMON_BIN for the reference daemon.",

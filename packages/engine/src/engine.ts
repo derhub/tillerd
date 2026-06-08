@@ -4,7 +4,7 @@ import type {
   AgentDefinition,
   SessionOptions,
   DaemonTransport,
-  FileSource,
+  HookSource,
   Logger,
 } from "@athing/sdk";
 import { AtError } from "@athing/sdk";
@@ -12,11 +12,10 @@ import { AgentSessionProxy, fillProxyOptions } from "./daemon/proxy";
 
 export interface EngineDeps {
   transport: DaemonTransport;
-  fileSource: FileSource;
   logger: Logger;
   hooksSocketPath: string;
-  agentHome: string;
   resolvedCommand: string;
+  hookSource?: HookSource;
 }
 
 class EngineImpl implements IEngine {
@@ -28,7 +27,7 @@ class EngineImpl implements IEngine {
   async start(adapter: AgentDefinition, options?: SessionOptions): Promise<AgentSession> {
     if (this.shutdown_) throw new AtError("TransportClosed", "Engine is shut down");
 
-    const sessionId = options?.resume ?? crypto.randomUUID();
+    const sessionId = options?.sessionId ?? options?.resume ?? crypto.randomUUID();
     const opts = fillProxyOptions(options);
     const proxy = new AgentSessionProxy(
       sessionId,
@@ -37,10 +36,9 @@ class EngineImpl implements IEngine {
       this.deps.transport,
       "spawn",
       this.deps.hooksSocketPath,
-      this.deps.fileSource,
       this.deps.logger,
-      this.deps.agentHome,
       this.deps.resolvedCommand,
+      this.deps.hookSource,
     );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));
@@ -68,10 +66,9 @@ class EngineImpl implements IEngine {
       this.deps.transport,
       "subscribe",
       this.deps.hooksSocketPath,
-      this.deps.fileSource,
       this.deps.logger,
-      this.deps.agentHome,
       this.deps.resolvedCommand,
+      this.deps.hookSource,
     );
     this.proxies.set(sessionId, proxy);
     proxy.onExit(() => this.proxies.delete(sessionId));

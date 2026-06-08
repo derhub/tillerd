@@ -1,8 +1,5 @@
 import type { AgentDefinition } from "@athing/sdk";
 import { BINARY_RESOLUTION } from "./binary-resolution";
-import { parseHook } from "./parse-hook";
-import { transcriptPath } from "./transcript-path";
-import { parseTranscriptEntry } from "./parse-entry";
 
 export const SUPPORTED_CLI_VERSION_RANGE = ">=1.0.0";
 
@@ -18,10 +15,7 @@ export const claudeCode: AgentDefinition = {
   cliVersionRange: SUPPORTED_CLI_VERSION_RANGE,
   interruptSequence: INTERRUPT_SEQUENCE,
   binaryResolution: BINARY_RESOLUTION,
-  parseHook,
-  transcriptPath,
-  parseTranscriptEntry: (line) => parseTranscriptEntry(line),
 };
 
 export { setup } from "./setup";
-export { parseHook, transcriptPath, parseTranscriptEntry, BINARY_RESOLUTION };
+export { BINARY_RESOLUTION };

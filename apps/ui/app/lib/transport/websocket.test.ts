@@ -1,9 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { encodeFrame, FrameDecoder, type DaemonFrame } from "@athing/sdk";
-import {
-  WebSocketDaemonTransport,
-  type WebSocketLike,
-} from "./websocket";
+import { WebSocketDaemonTransport, type WebSocketLike } from "./websocket";
 
 class FakeWS implements WebSocketLike {
   binaryType = "blob";

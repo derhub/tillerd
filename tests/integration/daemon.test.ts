@@ -1,5 +1,4 @@
 import { test, expect, describe } from "bun:test";
-import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { encodeFrame, FrameDecoder } from "@athing/sdk";
@@ -310,5 +309,4 @@ describe("daemon protocol", () => {
     clientB.send({ type: "kill", sessionId });
     clientB.disconnect();
   }, 15_000);
-
 });

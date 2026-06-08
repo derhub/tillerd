@@ -1,9 +1,11 @@
 # session-recovery Specification
 
 ## Purpose
+
 Defines supervised recovery for sessions that exit unexpectedly. A `stop` operation (distinct from `kill`) marks a session intentionally stopped and durably ineligible for resume; an unexpected exit surfaces a `crashed` status, after which a client may explicitly recover by spawning a new process that resumes the prior conversation. Recovery never replays the pre-crash terminal and never auto-respawns.
 
 ## Requirements
+
 ### Requirement: Stop operation
 
 The engine SHALL expose a `stop()` operation distinct from `kill()`. `stop()` SHALL terminate the session and mark it as intentionally stopped, making it ineligible for client-initiated re-spawn. `kill()` SHALL terminate the session without preventing re-spawn.
@@ -59,4 +61,3 @@ The recovered session SHALL reuse the same session id as the crashed session. Su
 
 - **WHEN** a session is recovered under the same session id after a crash
 - **THEN** subscribers of the dead session (already sent `crashed` and exit) SHALL NOT be auto-reattached; the client SHALL issue a fresh subscribe to receive the recovered session
-

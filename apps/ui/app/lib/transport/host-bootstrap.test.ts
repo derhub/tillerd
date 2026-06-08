@@ -48,7 +48,11 @@ describe("assertAgentSupported", () => {
 describe("bootstrapAgent", () => {
   test("returns agent info when version is supported", async () => {
     const core = new StubCore({
-      agent_bootstrap: { path: "/usr/bin/claude", version: "1.5.0", hookCommand: "/x/athing-notify" },
+      agent_bootstrap: {
+        path: "/usr/bin/claude",
+        version: "1.5.0",
+        hookCommand: "/x/athing-notify",
+      },
     });
     const info = await bootstrapAgent(core, RANGE);
     expect(info.path).toBe("/usr/bin/claude");

@@ -1,8 +1,11 @@
 # engine-platform-ports Specification
 
 ## Purpose
+
 TBD - created by archiving change refactor-engine-io-ports. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Daemon link obtained through an injected transport contract
 
 The engine SHALL obtain its connection to the pseudo-terminal daemon through a transport
@@ -113,4 +116,3 @@ injection seam changes no observable session behavior.
 - **WHEN** the same sequence of session operations is issued against the engine backed by the
   production contracts and against the engine backed by substitute contracts
 - **THEN** the engine produces the same sequence of session lifecycle events in the same order
-

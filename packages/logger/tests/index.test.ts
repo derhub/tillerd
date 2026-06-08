@@ -71,10 +71,7 @@ describe("child context binding", () => {
 
   test("children compose", () => {
     const lines = captureStdout(() => {
-      createLogger(RES)
-        .child({ component: "daemon" })
-        .child({ "session.id": "s1" })
-        .info("event");
+      createLogger(RES).child({ component: "daemon" }).child({ "session.id": "s1" }).info("event");
     });
 
     const entry = JSON.parse(lines[0]!);

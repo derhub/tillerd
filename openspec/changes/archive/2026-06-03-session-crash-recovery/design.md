@@ -25,7 +25,7 @@ The engine emits `crashed` and waits. Recovery requires an explicit `start({ res
 
 ### Decision 2: Snapshot serves reconnect, not crash-recovery
 
-Two scenarios must not be conflated. **Reconnect** (handled by `terminal-state-snapshot`): the process is alive; a snapshot restores the screen. **Crash-recovery** (here): the process is dead; recovery spawns a *new* process whose terminal starts blank — there is no prior state to snapshot. Continuity comes from the agent's conversation-resume, not the rendered screen. Pre-crash scrollback is not restored — an accepted limitation; the value is continuing the work, not pixel-restoring a dead terminal.
+Two scenarios must not be conflated. **Reconnect** (handled by `terminal-state-snapshot`): the process is alive; a snapshot restores the screen. **Crash-recovery** (here): the process is dead; recovery spawns a _new_ process whose terminal starts blank — there is no prior state to snapshot. Continuity comes from the agent's conversation-resume, not the rendered screen. Pre-crash scrollback is not restored — an accepted limitation; the value is continuing the work, not pixel-restoring a dead terminal.
 
 ### Decision 3: Crash-recovery routes through the spawn path, never reconnect
 

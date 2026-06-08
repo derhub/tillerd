@@ -7,18 +7,18 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID, randomBytes } from "node:crypto";
 import { createLogger } from "@athing/logger";
-import type { AgentSession, DaemonTransport } from "@athing/sdk";
+import type { AgentSession, DaemonTransport, HookSource, HookEvent } from "@athing/sdk";
 import { ATTR } from "@athing/sdk";
 import {
   adoptOrSpawn,
-  agentHome,
-  BunFileSource,
   checkCliVersion,
   HOOKS_SOCK,
   resolveAgentCommand,
 } from "@athing/platform-bun";
 import { isOriginAllowed, parseAllowedOrigins } from "./auth";
 import { pruneExpiredSessions, parseSessionTtlMs } from "./sessions";
+import { subscribeToSession } from "./gate-client";
+import { registerSession, deregisterSession } from "./gate-admin";
 
 const ATHING_DIR = join(homedir(), ".athing");
 fs.mkdirSync(ATHING_DIR, { recursive: true });
@@ -77,14 +77,73 @@ transport.onClose(() => {
   ownedDaemonPid = null;
 });
 
-const fileSource = new BunFileSource();
+// Gate URL: from env or discovered from $ATHING_DIR/gate.url at startup.
+// Used for register/deregister (admin) and daemon spawn env injection.
+const ATHING_GATE_URL = process.env["ATHING_GATE_URL"];
+const GATE_SUBSCRIBE_SOCK = join(ATHING_DIR, "gate-subscribe.sock");
+const GATE_ADMIN_SOCK = join(ATHING_DIR, "gate-admin.sock");
+
+function buildGateHookSource(subscribeSockPath: string): HookSource {
+  return {
+    subscribe(sessionId: string): AsyncIterableIterator<HookEvent> {
+      const queue: HookEvent[] = [];
+      const waiters: Array<(r: IteratorResult<HookEvent>) => void> = [];
+      let closed = false;
+
+      function enqueue(ev: HookEvent) {
+        if (waiters.length > 0) {
+          waiters.shift()!({ value: ev, done: false });
+        } else {
+          queue.push(ev);
+        }
+      }
+
+      function close() {
+        closed = true;
+        while (waiters.length > 0) {
+          waiters.shift()!({ value: undefined as unknown as HookEvent, done: true });
+        }
+      }
+
+      subscribeToSession({ socketPath: subscribeSockPath, sessionId }).then(
+        async (iter) => {
+          for await (const ev of iter) {
+            enqueue(ev);
+          }
+          close();
+        },
+        () => {
+          close();
+        },
+      );
+
+      const it: AsyncIterableIterator<HookEvent> = {
+        [Symbol.asyncIterator](): AsyncIterableIterator<HookEvent> {
+          return it;
+        },
+        async next(): Promise<IteratorResult<HookEvent>> {
+          if (queue.length > 0) return { value: queue.shift()!, done: false };
+          if (closed) return { value: undefined as unknown as HookEvent, done: true };
+          return new Promise((resolve) => {
+            waiters.push(resolve);
+          });
+        },
+      };
+      return it;
+    },
+  };
+}
+
+const hookSource: HookSource | undefined = ATHING_GATE_URL
+  ? buildGateHookSource(GATE_SUBSCRIBE_SOCK)
+  : undefined;
+
 const engine = createEngine({
   transport,
-  fileSource,
   logger,
   hooksSocketPath: HOOKS_SOCK,
-  agentHome: agentHome(),
   resolvedCommand,
+  hookSource,
 });
 
 function shutdownDaemon(): void {
@@ -130,6 +189,46 @@ interface WsData {
 }
 
 const activeSessions = new Map<string, AgentSession>();
+
+/**
+ * Mint sessionId + token, register with gate admin (HARD: before spawn, R4/D7),
+ * then start the engine session with those credentials injected into the daemon env.
+ * On exit, deregisters the session from the gate.
+ *
+ * When no gate URL is configured, falls back to a plain engine.start() with no
+ * gate registration.
+ */
+async function startGateManagedSession(opts: {
+  cwd: string;
+  cols: number;
+  rows: number;
+  resume?: string;
+}): Promise<AgentSession> {
+  const sessionId = randomUUID();
+  const token = randomBytes(32).toString("hex");
+
+  if (ATHING_GATE_URL) {
+    await registerSession(sessionId, token, { socketPath: GATE_ADMIN_SOCK });
+  }
+
+  const session = await engine.start(claudeCode, {
+    cwd: opts.cwd,
+    cols: opts.cols,
+    rows: opts.rows,
+    ...(opts.resume ? { resume: opts.resume } : {}),
+    sessionId,
+    gateUrl: ATHING_GATE_URL,
+    gateToken: ATHING_GATE_URL ? token : undefined,
+  });
+
+  if (ATHING_GATE_URL) {
+    session.onExit(() => {
+      void deregisterSession(sessionId, { socketPath: GATE_ADMIN_SOCK });
+    });
+  }
+
+  return session;
+}
 
 // On startup: reconcile DB against live daemon sessions
 (async () => {
@@ -354,7 +453,7 @@ Bun.serve<WsData>({
         return;
       }
 
-      const session = await engine.start(claudeCode, { cwd, cols: 220, rows: 50 });
+      const session = await startGateManagedSession({ cwd, cols: 220, rows: 50 });
 
       ws.data.sessionId = session.sessionId;
       activeSessions.set(session.sessionId, session);
@@ -449,7 +548,7 @@ Bun.serve<WsData>({
           activeSessions.delete(ws.data.sessionId);
           void (async () => {
             try {
-              const recovered = await engine.start(claudeCode, {
+              const recovered = await startGateManagedSession({
                 cwd: process.cwd(),
                 cols: 220,
                 rows: 50,

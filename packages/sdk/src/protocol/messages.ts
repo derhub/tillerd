@@ -4,7 +4,12 @@ import type { SessionStatus } from "../types/events";
 export type ClientCapability = "snapshot";
 
 // Daemon → Client
-export type HelloAckFrame = { type: "hello-ack"; version: number; daemonVersion: string; capabilities?: ClientCapability[] };
+export type HelloAckFrame = {
+  type: "hello-ack";
+  version: number;
+  daemonVersion: string;
+  capabilities?: ClientCapability[];
+};
 export type SpawnAckFrame = { type: "spawn-ack"; sessionId: string; pid: number };
 export type ListAckFrame = { type: "list-ack"; ids: string[] };
 export type DataFrameMeta = { type: "data"; sessionId: string; bodyLen: number };
@@ -12,7 +17,13 @@ export type ExitFrame = {
   type: "exit";
   sessionId: string;
   qualifier: string;
-  raw?: { code?: number | null; signal?: string | null; signalName?: string; signalMeaning?: string; signalCategory?: string };
+  raw?: {
+    code?: number | null;
+    signal?: string | null;
+    signalName?: string;
+    signalMeaning?: string;
+    signalCategory?: string;
+  };
 };
 export type HookFrame = { type: "hook"; sessionId: string; payload: unknown };
 export type ErrorFrame = { type: "error"; code: string; message: string; sessionId?: string };
@@ -22,9 +33,19 @@ export type ErrorFrame = { type: "error"; code: string; message: string; session
  * status (limited to `IDLE` | `WORKING`). The two are distinct, co-equal signals —
  * combining them into a single displayed value is a consumer/presentation concern.
  */
-export type StatusFrame = { type: "status"; sessionId: string; status: SessionStatus; source: "hook" | "terminal" };
+export type StatusFrame = {
+  type: "status";
+  sessionId: string;
+  status: SessionStatus;
+  source: "hook" | "terminal";
+};
 
-export interface SnapshotCell { char: string; fg: number; bg: number; attrs: number }
+export interface SnapshotCell {
+  char: string;
+  fg: number;
+  bg: number;
+  attrs: number;
+}
 export type SnapshotFrame = {
   type: "snapshot";
   sessionId: string;

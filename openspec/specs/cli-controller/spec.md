@@ -1,11 +1,13 @@
 # cli-controller Specification
 
 ## Purpose
+
 A scriptable controller/installer command-line tool. It routes a fixed set of subcommands to
 install and uninstall the agent hooks (driving the adapter's setup procedures) and to report
 daemon status, with interactive prompts on a TTY and a non-interactive path for CI.
 
 ## Requirements
+
 ### Requirement: Command routing
 
 The CLI SHALL parse its arguments with Bun's `util.parseArgs` and route to one of a fixed set

@@ -1,10 +1,6 @@
 import { test, expect, describe, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import {
-  pruneExpiredSessions,
-  parseSessionTtlMs,
-  DEFAULT_SESSION_TTL_MS,
-} from "../src/sessions";
+import { pruneExpiredSessions, parseSessionTtlMs, DEFAULT_SESSION_TTL_MS } from "../src/sessions";
 
 function makeDb(): Database {
   const db = new Database(":memory:");
@@ -26,7 +22,11 @@ describe("pruneExpiredSessions", () => {
   });
 
   test("removes rows older than the retention window", () => {
-    db.run("INSERT INTO sessions (id, cwd, created_at) VALUES (?, ?, ?)", ["old", "/x", now - ttl - 1]);
+    db.run("INSERT INTO sessions (id, cwd, created_at) VALUES (?, ?, ?)", [
+      "old",
+      "/x",
+      now - ttl - 1,
+    ]);
     const removed = pruneExpiredSessions(db, now, ttl);
     expect(removed).toBe(1);
   });

@@ -1,6 +1,7 @@
 # mcp-gateway-daemon Specification
 
 ## Purpose
+
 The standalone daemon and its MCP front: manifest, detach, reuse-or-spawn, explicit stop, and the loopback streamable-http endpoint with bearer-token and origin authentication.
 
 ## Requirements

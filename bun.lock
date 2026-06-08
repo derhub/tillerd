@@ -40,13 +40,20 @@
         "@tauri-apps/cli": "^2",
       },
     },
-    "apps/engram-rs": {
-      "name": "@athing/engram-rs",
-      "version": "0.0.1",
+    "apps/gate": {
+      "name": "@athing/gate",
+      "version": "0.1.0",
+      "bin": {
+        "athing-gate": "../../target/release/athing-gate",
+      },
     },
     "apps/mcp-gateway-rs": {
       "name": "@athing/mcp-gateway-rs",
       "version": "0.1.0",
+    },
+    "apps/memorya": {
+      "name": "@athing/memorya",
+      "version": "0.0.1",
     },
     "apps/server": {
       "name": "server",
@@ -110,12 +117,20 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/daemon-rs": {
-      "name": "@athing/daemon-rs",
+    "packages/contracts-rs": {
+      "name": "@athing/contracts-rs",
+      "version": "0.1.0",
+    },
+    "packages/daemon-pty": {
+      "name": "@athing/daemon-pty",
       "version": "0.1.0",
       "bin": {
-        "athing-daemon": "./target/release/athing-daemon",
+        "athing-daemon": "../../target/release/athing-daemon",
       },
+    },
+    "packages/daemon-pty-client": {
+      "name": "@athing/daemon-pty-client",
+      "version": "0.1.0",
     },
     "packages/engine": {
       "name": "@athing/engine",
@@ -127,6 +142,10 @@
       "devDependencies": {
         "typescript": "^5.9.2",
       },
+    },
+    "packages/gate-client": {
+      "name": "@athing/gate-client",
+      "version": "0.1.0",
     },
     "packages/logger": {
       "name": "@athing/logger",
@@ -150,12 +169,24 @@
         "typescript": "^5.9.2",
       },
     },
+    "packages/process-launch": {
+      "name": "@athing/process-launch",
+      "version": "0.1.0",
+    },
+    "packages/redact-rs": {
+      "name": "@athing/redact-rs",
+      "version": "0.1.0",
+    },
     "packages/sdk": {
       "name": "@athing/sdk",
       "version": "0.1.0",
       "devDependencies": {
         "typescript": "^5.9.2",
       },
+    },
+    "packages/service-host": {
+      "name": "@athing/service-host",
+      "version": "0.1.0",
     },
     "tests/benchmark": {
       "name": "@athing/benchmark",
@@ -170,6 +201,7 @@
       "name": "@athing/e2e-test",
       "dependencies": {
         "@playwright/test": "^1.60.0",
+        "server": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.14",
@@ -178,7 +210,7 @@
     "tests/integration": {
       "name": "@athing/integration-tests",
       "dependencies": {
-        "@athing/daemon-rs": "workspace:*",
+        "@athing/daemon-pty": "workspace:*",
         "@athing/engine": "workspace:*",
         "@athing/logger": "workspace:*",
         "@athing/platform-bun": "workspace:*",
@@ -194,13 +226,19 @@
 
     "@athing/benchmark": ["@athing/benchmark@workspace:tests/benchmark"],
 
-    "@athing/daemon-rs": ["@athing/daemon-rs@workspace:packages/daemon-rs"],
+    "@athing/contracts-rs": ["@athing/contracts-rs@workspace:packages/contracts-rs"],
+
+    "@athing/daemon-pty": ["@athing/daemon-pty@workspace:packages/daemon-pty"],
+
+    "@athing/daemon-pty-client": ["@athing/daemon-pty-client@workspace:packages/daemon-pty-client"],
 
     "@athing/e2e-test": ["@athing/e2e-test@workspace:tests/e2e"],
 
     "@athing/engine": ["@athing/engine@workspace:packages/engine"],
 
-    "@athing/engram-rs": ["@athing/engram-rs@workspace:apps/engram-rs"],
+    "@athing/gate": ["@athing/gate@workspace:apps/gate"],
+
+    "@athing/gate-client": ["@athing/gate-client@workspace:packages/gate-client"],
 
     "@athing/integration-tests": ["@athing/integration-tests@workspace:tests/integration"],
 
@@ -208,9 +246,17 @@
 
     "@athing/mcp-gateway-rs": ["@athing/mcp-gateway-rs@workspace:apps/mcp-gateway-rs"],
 
+    "@athing/memorya": ["@athing/memorya@workspace:apps/memorya"],
+
     "@athing/platform-bun": ["@athing/platform-bun@workspace:packages/platform-bun"],
 
+    "@athing/process-launch": ["@athing/process-launch@workspace:packages/process-launch"],
+
+    "@athing/redact-rs": ["@athing/redact-rs@workspace:packages/redact-rs"],
+
     "@athing/sdk": ["@athing/sdk@workspace:packages/sdk"],
+
+    "@athing/service-host": ["@athing/service-host@workspace:packages/service-host"],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 

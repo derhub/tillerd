@@ -19,9 +19,10 @@ export function notifyCommand(): string {
   return notifyScriptPath();
 }
 
-export function prepareNotifyScript(
-  target: string = notifyScriptPath(),
-): { command: string; updated: boolean } {
+export function prepareNotifyScript(target: string = notifyScriptPath()): {
+  command: string;
+  updated: boolean;
+} {
   if (!fs.existsSync(target)) {
     throw new AtError(
       "HookInstallFailed",

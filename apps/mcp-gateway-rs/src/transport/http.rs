@@ -15,7 +15,7 @@ use serde_json::json;
 
 use crate::config::McpConfig;
 use crate::handler::Gateway;
-use crate::manifest::DAEMON_VERSION;
+use crate::GATEWAY_VERSION;
 
 #[derive(Clone)]
 struct AppState {
@@ -71,7 +71,7 @@ async fn require_token(
 }
 
 async fn health() -> impl IntoResponse {
-    Json(json!({ "status": "ok", "version": DAEMON_VERSION }))
+    Json(json!({ "status": "ok", "version": GATEWAY_VERSION }))
 }
 
 async fn list_backends(State(state): State<AppState>) -> impl IntoResponse {
@@ -83,10 +83,7 @@ async fn list_backends(State(state): State<AppState>) -> impl IntoResponse {
     Json(json!({ "backends": body }))
 }
 
-async fn get_backend(
-    State(state): State<AppState>,
-    Path(name): Path<String>,
-) -> impl IntoResponse {
+async fn get_backend(State(state): State<AppState>, Path(name): Path<String>) -> impl IntoResponse {
     match state.gateway.supervisor().state(&name).await {
         Some(s) => Json(json!({ "name": name, "state": format!("{s:?}") })).into_response(),
         None => (StatusCode::NOT_FOUND, "unknown backend").into_response(),

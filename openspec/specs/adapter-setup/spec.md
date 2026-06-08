@@ -1,8 +1,11 @@
 # adapter-setup Specification
 
 ## Purpose
+
 TBD - created by archiving change adapter-setup-contract. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Adapter setup contract
 
 The SDK SHALL define a `defineSetup` contract by which an adapter declares its host setup as two
@@ -49,4 +52,3 @@ agent-home with pure string operations.
 - **THEN** the adapter SHALL invoke the host filesystem capability to back up the prior file and
   write the new contents atomically, leaving no partial or temporary file on completion, with the
   backup and atomic write owned by the host capability rather than the adapter
-

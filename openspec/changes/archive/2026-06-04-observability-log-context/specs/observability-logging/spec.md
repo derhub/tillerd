@@ -37,7 +37,7 @@ as `sessionId`; session correlation is bound as ordinary context via `child`.
 #### Scenario: Resource stamped on every record
 
 - **WHEN** a logger is constructed with resource `{ "service.name": "athing-daemon",
-  "service.version": "0.1.0" }` and emits any record
+"service.version": "0.1.0" }` and emits any record
 - **THEN** the record contains `service.name = "athing-daemon"` and
   `service.version = "0.1.0"`
 
@@ -81,7 +81,7 @@ Rust runtimes.
 
 ### Requirement: Native daemon emits structured context-bound logs
 
-The native PTY daemon (`daemon-rs`) SHALL emit leveled, structured, context-bound log records
+The native PTY daemon (`daemon-pty`) SHALL emit leveled, structured, context-bound log records
 rather than unstructured `eprintln!` text. Each record MUST carry the process resource and,
 where a record pertains to a session, the `session.id` attribute. Output MUST be JSON conforming
 to the same field semantics as the TypeScript logger.

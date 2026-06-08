@@ -3,7 +3,9 @@
 ## Purpose
 
 Defines the detached daemon process that owns PTY sessions and the hook ingress socket, so both survive engine host process restarts. The daemon exposes a Unix domain socket for IPC with engine clients and manages the full lifecycle of all agent PTY processes.
+
 ## Requirements
+
 ### Requirement: Detached daemon process with manifest
 
 The daemon SHALL run as a process independent of the engine's host process and SHALL write a manifest file to a deterministic path (`~/.athing/daemon.json`) containing its process identifier and version so the engine can detect whether a daemon is already running on startup.
@@ -103,13 +105,13 @@ A `snapshot` frame is `{ type: "snapshot", sessionId, rows, cols, cells, cursor 
 
 `fg` and `bg` SHALL be integers in this closed encoding:
 
-| Integer value | Meaning |
-| --- | --- |
-| `0` | terminal default color |
-| `1`–`8` | ANSI standard colors (black..white; SGR 30–37 map to 1–8) |
-| `9`–`16` | ANSI bright colors (SGR 90–97 map to 9–16) |
-| `17`–`272` | 256-color palette: value `= paletteIndex + 17` (palette index `0`–`255`) |
-| `0x1000000` and above | 24-bit RGB: `0x1000000 | (r << 16) | (g << 8) | b` |
+| Integer value         | Meaning                                                                  |
+| --------------------- | ------------------------------------------------------------------------ | --------- | -------- | --- |
+| `0`                   | terminal default color                                                   |
+| `1`–`8`               | ANSI standard colors (black..white; SGR 30–37 map to 1–8)                |
+| `9`–`16`              | ANSI bright colors (SGR 90–97 map to 9–16)                               |
+| `17`–`272`            | 256-color palette: value `= paletteIndex + 17` (palette index `0`–`255`) |
+| `0x1000000` and above | 24-bit RGB: `0x1000000                                                   | (r << 16) | (g << 8) | b`  |
 
 `attrs` SHALL be a bitmask: `bold = 0x01`, `dim = 0x02`, `italic = 0x04`, `underline = 0x08`, `blink = 0x10`, `inverse = 0x20`, `invisible = 0x40`.
 
@@ -240,4 +242,3 @@ The daemon registry SHALL accept re-registration of a session id it recently evi
 
 - **WHEN** a session exits and is evicted, then a spawn with that same session id arrives for recovery
 - **THEN** the daemon SHALL accept the registration and manage the new process under that session id
-

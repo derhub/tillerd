@@ -4,37 +4,55 @@ describe("StatusMapper", () => {
   test("maps SessionStart -> IDLE", async () => {
     const { StatusMapper } = await import("../src/session/status");
     const m = new StatusMapper();
-    m.apply({ sessionId: "s1", type: "SessionStart" });
+    m.apply({ sessionId: "s1", correlationId: "c1", ts: 0, type: "SessionStart", payload: {} });
     expect(m.get()).toBe("IDLE");
   });
 
   test("maps UserPromptSubmit -> WORKING", async () => {
     const { StatusMapper } = await import("../src/session/status");
     const m = new StatusMapper();
-    m.apply({ sessionId: "s1", type: "SessionStart" });
-    m.apply({ sessionId: "s1", type: "UserPromptSubmit" });
+    m.apply({ sessionId: "s1", correlationId: "c1", ts: 0, type: "SessionStart", payload: {} });
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "UserPromptSubmit",
+      payload: { content: "" },
+    });
     expect(m.get()).toBe("WORKING");
   });
 
   test("maps PermissionRequest -> WAITING_INPUT", async () => {
     const { StatusMapper } = await import("../src/session/status");
     const m = new StatusMapper();
-    m.apply({ sessionId: "s1", type: "PermissionRequest" });
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "PermissionRequest",
+      payload: { request: {} },
+    });
     expect(m.get()).toBe("WAITING_INPUT");
   });
 
   test("maps Stop -> IDLE", async () => {
     const { StatusMapper } = await import("../src/session/status");
     const m = new StatusMapper();
-    m.apply({ sessionId: "s1", type: "UserPromptSubmit" });
-    m.apply({ sessionId: "s1", type: "Stop" });
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "UserPromptSubmit",
+      payload: { content: "" },
+    });
+    m.apply({ sessionId: "s1", correlationId: "c1", ts: 0, type: "Stop", payload: {} });
     expect(m.get()).toBe("IDLE");
   });
 
   test("maps SessionEnd -> DONE", async () => {
     const { StatusMapper } = await import("../src/session/status");
     const m = new StatusMapper();
-    m.apply({ sessionId: "s1", type: "SessionEnd" });
+    m.apply({ sessionId: "s1", correlationId: "c1", ts: 0, type: "SessionEnd", payload: {} });
     expect(m.get()).toBe("DONE");
   });
 
@@ -43,8 +61,20 @@ describe("StatusMapper", () => {
     const m = new StatusMapper();
     const transitions: string[] = [];
     m.onChange((s) => transitions.push(s));
-    m.apply({ sessionId: "s1", type: "UserPromptSubmit" }); // IDLE → WORKING (emits)
-    m.apply({ sessionId: "s1", type: "UserPromptSubmit" }); // WORKING → WORKING (no change)
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "UserPromptSubmit",
+      payload: { content: "" },
+    }); // IDLE → WORKING (emits)
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "UserPromptSubmit",
+      payload: { content: "" },
+    }); // WORKING → WORKING (no change)
     expect(transitions).toHaveLength(1);
   });
 
@@ -53,8 +83,14 @@ describe("StatusMapper", () => {
     const m = new StatusMapper();
     const seen: string[] = [];
     m.onChange((s) => seen.push(s));
-    m.apply({ sessionId: "s1", type: "UserPromptSubmit" });
-    m.apply({ sessionId: "s1", type: "Stop" });
+    m.apply({
+      sessionId: "s1",
+      correlationId: "c1",
+      ts: 0,
+      type: "UserPromptSubmit",
+      payload: { content: "" },
+    });
+    m.apply({ sessionId: "s1", correlationId: "c1", ts: 0, type: "Stop", payload: {} });
     expect(seen).toEqual(["WORKING", "IDLE"]);
   });
 });

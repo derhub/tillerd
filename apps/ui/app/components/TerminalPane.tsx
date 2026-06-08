@@ -4,7 +4,7 @@ import { use } from "react";
 import { SessionContext } from "~/lib/sessionContext";
 import "@xterm/xterm/css/xterm.css";
 
-const WS_BASE = `ws://${typeof window !== "undefined" ? window.location.host : "localhost"}`;
+import { WS_BASE } from "~/lib/serverUrl";
 
 type Props = {
   sessionId: string | null;
@@ -59,7 +59,10 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
         const totalLen = chunks.reduce((s, c) => s + c.length, 0);
         const merged = new Uint8Array(totalLen);
         let offset = 0;
-        for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+        for (const chunk of chunks) {
+          merged.set(chunk, offset);
+          offset += chunk.length;
+        }
         coalesceBufRef.current = [];
         coalesceTimerRef.current = null;
         termRef.current?.write(merged);
@@ -115,11 +118,12 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
             const raw = msg["raw"] as Record<string, unknown> | undefined;
             const signalMeaning = raw?.["signalMeaning"] as string | undefined;
             const signalName = raw?.["signalName"] as string | undefined;
-            const detail = signalMeaning && signalName
-              ? `${signalName} — ${signalMeaning}`
-              : raw?.["code"] != null
-              ? `code ${String(raw["code"])}`
-              : qualifier;
+            const detail =
+              signalMeaning && signalName
+                ? `${signalName} — ${signalMeaning}`
+                : raw?.["code"] != null
+                  ? `code ${String(raw["code"])}`
+                  : qualifier;
             const color = qualifier === "ok" || qualifier === "stopped-by-request" ? "33" : "31";
             termRef.current?.write(
               `\r\n\x1b[${color}m[exited: ${qualifier}${qualifier !== detail ? ` — ${detail}` : ""}]\x1b[0m\r\n`,
@@ -242,13 +246,27 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
           <span style={{ color: "#ff7b72" }}>Session ended unexpectedly —</span>
           <button
             onClick={handleRecover}
-            style={{ background: "#238636", border: "none", borderRadius: "4px", color: "#fff", padding: "0.25rem 0.75rem", cursor: "pointer" }}
+            style={{
+              background: "#238636",
+              border: "none",
+              borderRadius: "4px",
+              color: "#fff",
+              padding: "0.25rem 0.75rem",
+              cursor: "pointer",
+            }}
           >
             Resume
           </button>
           <button
             onClick={handleDismiss}
-            style={{ background: "transparent", border: "1px solid #30363d", borderRadius: "4px", color: "#8b949e", padding: "0.25rem 0.75rem", cursor: "pointer" }}
+            style={{
+              background: "transparent",
+              border: "1px solid #30363d",
+              borderRadius: "4px",
+              color: "#8b949e",
+              padding: "0.25rem 0.75rem",
+              cursor: "pointer",
+            }}
           >
             Dismiss
           </button>

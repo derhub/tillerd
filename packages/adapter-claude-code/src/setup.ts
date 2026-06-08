@@ -49,6 +49,23 @@ function hasMarker(entries: HookEntry[]): boolean {
   return entries.some((entry) => entry.hooks.some((h) => h.command.includes(HOOK_MARKER)));
 }
 
+function hookCommand(ctx: SetupContext): string {
+  if (ctx.gateUrl) {
+    // Gate mode: inline curl with bearer auth; shell vars are resolved at hook runtime.
+    // HOOK_MARKER (-A athing-notify) enables idempotency and uninstall detection.
+    return (
+      `curl -sS --max-time 5 -A ${HOOK_MARKER}` +
+      ` -H "content-type: application/json"` +
+      ` -H "Authorization: Bearer $ATHING_SESSION_TOKEN"` +
+      ` -H "x-session-id: $ATHING_SESSION_ID"` +
+      ` --data-binary @-` +
+      ` "$ATHING_GATE_URL/hook/$ATHING_SESSION_ID"` +
+      ` >/dev/null 2>&1 || true`
+    );
+  }
+  return ctx.notifyCommand;
+}
+
 export const setup = defineSetup({
   async install(ctx) {
     const path = settingsPath(ctx.agentHome);
@@ -61,16 +78,22 @@ export const setup = defineSetup({
       return;
     }
 
+    const command = hookCommand(ctx);
+
     for (const event of pending) {
       hooks[event] = [
         ...(hooks[event] ?? []),
-        { matcher: matcherFor(event), hooks: [{ type: "command", command: ctx.notifyCommand }] },
+        { matcher: matcherFor(event), hooks: [{ type: "command", command }] },
       ];
     }
     settings.hooks = hooks;
 
     await persist(ctx, path, settings);
-    ctx.logger.info("hooks installed", { path, events: pending });
+    if (ctx.gateUrl) {
+      ctx.logger.info("hooks installed", { path, events: pending, target: "gate" });
+    } else {
+      ctx.logger.info("hooks installed", { path, events: pending });
+    }
   },
 
   async uninstall(ctx) {

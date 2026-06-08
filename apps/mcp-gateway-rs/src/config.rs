@@ -22,7 +22,9 @@ pub fn athing_dir() -> PathBuf {
 }
 
 fn home_dir() -> PathBuf {
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default()
 }
 
 pub fn config_path() -> PathBuf {
@@ -183,10 +185,9 @@ mod tests {
 
     #[test]
     fn tolerates_unknown_backend_keys() {
-        let cfg = McpConfig::from_json(
-            r#"{"mcpServers":{"gh":{"command":"x","cursorOnlyField":true}}}"#,
-        )
-        .unwrap();
+        let cfg =
+            McpConfig::from_json(r#"{"mcpServers":{"gh":{"command":"x","cursorOnlyField":true}}}"#)
+                .unwrap();
         assert!(cfg.servers["gh"]
             .unknown_keys()
             .any(|k| k == "cursorOnlyField"));
@@ -200,8 +201,7 @@ mod tests {
 
     #[test]
     fn accepts_schema_pointer() {
-        let cfg =
-            McpConfig::from_json(r#"{"$schema":"./schema.json","mcpServers":{}}"#).unwrap();
+        let cfg = McpConfig::from_json(r#"{"$schema":"./schema.json","mcpServers":{}}"#).unwrap();
         assert_eq!(cfg.schema.as_deref(), Some("./schema.json"));
     }
 

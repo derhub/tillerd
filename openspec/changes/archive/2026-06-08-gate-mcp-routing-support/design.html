@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gate-mcp-routing-support — Design</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Schibsted+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['"Bricolage Grotesque"', 'sans-serif'],
+          sans: ['"Schibsted Grotesk"', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+      },
+    },
+  }
+</script>
+<style>
+  :root {
+    --ink: #0a0a0b;
+    --panel: #121214;
+    --line: #26262b;
+    --fg: #ededef;
+    --muted: #8a8a93;
+    --accent: #ff6a3d;
+    --accent-soft: rgba(255,106,61,0.12);
+    --grid: rgba(255,255,255,0.025);
+  }
+  html.light {
+    --ink: #f4f3ef;
+    --panel: #ffffff;
+    --line: #e2e0d8;
+    --fg: #16151a;
+    --muted: #6b6a73;
+    --accent: #d8451d;
+    --accent-soft: rgba(216,69,29,0.08);
+    --grid: rgba(0,0,0,0.025);
+  }
+  * { -webkit-font-smoothing: antialiased; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink);
+    color: var(--fg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transition: background-color .4s ease, color .4s ease;
+  }
+  .panel { background: var(--panel); border-color: var(--line); }
+  .muted { color: var(--muted); }
+  .accent { color: var(--accent); }
+  .accent-bg { background: var(--accent-soft); }
+  .rule { border-color: var(--line); }
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .lift { transition: transform .35s cubic-bezier(.2,.7,.2,1), border-color .35s, box-shadow .35s; }
+  .lift:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 18px 40px -24px var(--accent); }
+  .tick { position: relative; padding-left: 1.25rem; }
+  .tick::before { content: ""; position: absolute; left: 0; top: .55em; width: 7px; height: 7px; background: var(--accent); border-radius: 1px; transform: rotate(45deg); }
+  .cross { position: relative; padding-left: 1.25rem; }
+  .cross::before { content: "\00d7"; position: absolute; left: 0; top: -.05em; color: var(--accent); font-weight: 700; }
+  .navlink { position: relative; }
+  .navlink::after { content:""; position:absolute; left:0; bottom:-4px; width:0; height:1.5px; background:var(--accent); transition:width .3s; }
+  .navlink:hover::after { width:100%; }
+  /* diagram primitives */
+  .d-box { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+  .d-box-new { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.4; }
+  .d-pill { fill: color-mix(in srgb, var(--fg) 6%, transparent); stroke: var(--line); stroke-width: 1; }
+  .d-pill-new { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+  .d-t { fill: var(--fg); font-family: "Schibsted Grotesk", sans-serif; }
+  .d-m { fill: var(--muted); font-family: "JetBrains Mono", monospace; }
+  .d-a { fill: var(--accent); font-family: "JetBrains Mono", monospace; }
+  .d-line { stroke: var(--line); stroke-width: 1.4; fill: none; }
+  .d-line-acc { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+  .d-life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 5; }
+  @media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } .lift:hover { transform: none; } }
+</style>
+</head>
+<body class="font-sans selection:bg-[var(--accent)] selection:text-black">
+
+<!-- top bar -->
+<header class="sticky top-0 z-40 backdrop-blur-md border-b rule" style="background:color-mix(in srgb, var(--ink) 82%, transparent);">
+  <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3 font-mono text-xs">
+      <span class="accent">◇</span>
+      <span class="muted">openspec / changes /</span>
+      <span class="font-semibold">gate-mcp-routing-support</span>
+    </div>
+    <nav class="hidden md:flex items-center gap-6 font-mono text-xs">
+      <a href="#context" class="navlink muted hover:opacity-100">context</a>
+      <a href="#before" class="navlink muted hover:opacity-100">before</a>
+      <a href="#after" class="navlink muted hover:opacity-100">after</a>
+      <a href="#connect" class="navlink muted hover:opacity-100">connect</a>
+      <a href="#decisions" class="navlink muted hover:opacity-100">decisions</a>
+      <a href="#open" class="navlink muted hover:opacity-100">open</a>
+      <button id="theme" class="ml-2 w-7 h-7 grid place-items-center rounded border rule hover:border-[var(--accent)] transition-colors" aria-label="Toggle theme">
+        <span class="text-[13px]">◐</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- hero -->
+<section class="max-w-6xl mx-auto px-6 pt-20 pb-12">
+  <div class="reveal flex flex-wrap items-center gap-3 font-mono text-xs mb-6">
+    <span class="accent-bg accent px-2 py-1 rounded">DESIGN</span>
+    <span class="muted">schema: spec-driven</span>
+    <span class="muted">·</span>
+    <span class="muted">artifact 2 / 4</span>
+  </div>
+  <h1 class="reveal font-display font-extrabold tracking-tight leading-[0.95] text-5xl sm:text-7xl" style="animation-delay:.05s">
+    A fifth face,<br><span class="accent">same onion.</span>
+  </h1>
+  <p class="reveal max-w-2xl mt-7 text-lg muted leading-relaxed" style="animation-delay:.12s">
+    How the MCP ingress bolts onto gate without disturbing the router, auth, or observation.
+    One new <code class="font-mono accent">Kind</code>, one new face, an <code class="font-mono">rmcp</code>-owned
+    wire — everything else is the machinery that already exists.
+  </p>
+  <div class="reveal mt-7 flex items-center gap-2 font-mono text-xs muted" style="animation-delay:.16s">
+    <svg width="22" height="14" viewBox="0 0 22 14"><rect x="1" y="2" width="20" height="10" rx="2" class="d-box-new"/></svg>
+    <span>accent = new in this change</span>
+  </div>
+</section>
+
+<!-- 01 CONTEXT -->
+<section id="context" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">01</div><div class="mt-1">CONTEXT</div></div>
+    <div class="reveal max-w-3xl">
+      <p class="text-xl sm:text-2xl font-display font-semibold leading-snug">
+        Every face funnels one <code class="font-mono">Inbound</code> into one <code class="font-mono">Router::handle</code>.
+      </p>
+      <p class="mt-5 muted leading-relaxed">
+        Gate runs as a <code class="font-mono">service-host</code> service with four transport faces — a hook
+        ingress (loopback HTTP via <code class="font-mono">axum</code>) and three loopback Unix-socket faces
+        (tool, subscribe, admin) over a 4-byte length-prefix frame codec. Each builds an
+        <code class="font-mono">Inbound&nbsp;{ kind, session, correlation, token, body }</code> and hands it to the
+        router, which mints a correlation id when absent and runs the global onion
+        (<code class="font-mono">Observe</code> → <code class="font-mono">Auth</code>) around a per-<code class="font-mono">Kind</code> route.
+      </p>
+      <div class="mt-6 grid sm:grid-cols-2 gap-3">
+        <div class="panel border rounded-lg p-4">
+          <div class="font-mono text-xs accent mb-2">TODAY'S KINDS</div>
+          <p class="font-mono text-sm muted">Hook · ToolCall · ToolResult</p>
+        </div>
+        <div class="panel border rounded-lg p-4">
+          <div class="font-mono text-xs accent mb-2">ENDPOINTS = SIDECARS</div>
+          <p class="text-sm muted leading-relaxed">The <code class="font-mono">service-host</code> manifest is <code class="font-mono">{ pid, version }</code> only. Faces publish their address as files in <code class="font-mono">~/.athing</code>: <code class="font-mono">gate.url</code>, <code class="font-mono">gate-tool.sock</code>, …</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 BEFORE -->
+<section id="before" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">02</div><div class="mt-1">ARCHITECTURE&nbsp;·&nbsp;BEFORE</div></div>
+    <div class="reveal">
+      <p class="muted leading-relaxed max-w-2xl mb-6">
+        Four faces in. One router. The agent CLI can only post hooks — it has no way to <em>call</em> gate-hosted tools.
+      </p>
+      <div class="panel border rounded-xl p-4 sm:p-6">
+        <svg viewBox="0 0 880 380" class="w-full h-auto" role="img" aria-label="Gate architecture before: four faces route through the global onion">
+          <!-- column labels -->
+          <text x="80"  y="24" class="d-m" font-size="11" text-anchor="middle">CLIENTS</text>
+          <text x="300" y="24" class="d-m" font-size="11" text-anchor="middle">TRANSPORT FACES</text>
+          <text x="560" y="24" class="d-m" font-size="11" text-anchor="middle">ROUTER</text>
+          <text x="800" y="24" class="d-m" font-size="11" text-anchor="middle">OUTCOME</text>
+
+          <!-- clients -->
+          <rect x="18" y="58"  width="124" height="46" rx="8" class="d-box"/>
+          <text x="80" y="80"  class="d-t" font-size="13" text-anchor="middle" font-weight="600">agent CLI</text>
+          <text x="80" y="96"  class="d-m" font-size="10" text-anchor="middle">hooks</text>
+          <rect x="18" y="160" width="124" height="46" rx="8" class="d-box"/>
+          <text x="80" y="182" class="d-t" font-size="13" text-anchor="middle" font-weight="600">orchestrator</text>
+          <text x="80" y="198" class="d-m" font-size="10" text-anchor="middle">admin</text>
+          <rect x="18" y="262" width="124" height="46" rx="8" class="d-box"/>
+          <text x="80" y="284" class="d-t" font-size="13" text-anchor="middle" font-weight="600">engine</text>
+          <text x="80" y="300" class="d-m" font-size="10" text-anchor="middle">subscribe</text>
+
+          <!-- faces -->
+          <rect x="226" y="46"  width="150" height="46" rx="8" class="d-box"/>
+          <text x="301" y="68"  class="d-t" font-size="13" text-anchor="middle" font-weight="600">hook</text>
+          <text x="301" y="84"  class="d-m" font-size="10" text-anchor="middle">HTTP · gate.url</text>
+          <rect x="226" y="112" width="150" height="46" rx="8" class="d-box"/>
+          <text x="301" y="134" class="d-t" font-size="13" text-anchor="middle" font-weight="600">tool</text>
+          <text x="301" y="150" class="d-m" font-size="10" text-anchor="middle">gate-tool.sock</text>
+          <rect x="226" y="178" width="150" height="46" rx="8" class="d-box"/>
+          <text x="301" y="200" class="d-t" font-size="13" text-anchor="middle" font-weight="600">subscribe</text>
+          <text x="301" y="216" class="d-m" font-size="10" text-anchor="middle">gate-subscribe.sock</text>
+          <rect x="226" y="244" width="150" height="46" rx="8" class="d-box"/>
+          <text x="301" y="266" class="d-t" font-size="13" text-anchor="middle" font-weight="600">admin</text>
+          <text x="301" y="282" class="d-m" font-size="10" text-anchor="middle">gate-admin.sock</text>
+
+          <!-- router -->
+          <rect x="452" y="56" width="216" height="252" rx="12" class="d-box"/>
+          <text x="560" y="80" class="d-m" font-size="10" text-anchor="middle">global onion</text>
+          <rect x="476" y="92"  width="168" height="34" rx="17" class="d-pill"/>
+          <text x="560" y="114" class="d-t" font-size="12" text-anchor="middle">Observe</text>
+          <rect x="476" y="134" width="168" height="34" rx="17" class="d-pill"/>
+          <text x="560" y="156" class="d-t" font-size="12" text-anchor="middle">Auth</text>
+          <line x1="476" y1="184" x2="644" y2="184" class="d-life"/>
+          <text x="560" y="202" class="d-m" font-size="10" text-anchor="middle">route by Kind</text>
+          <text x="476" y="226" class="d-m" font-size="10.5">Hook → Normalize · FanOut</text>
+          <text x="476" y="250" class="d-m" font-size="10.5">ToolCall → PassThrough</text>
+          <text x="476" y="270" class="d-m" font-size="10.5">ToolResult → PassThrough</text>
+
+          <!-- outcome -->
+          <rect x="724" y="120" width="138" height="44" rx="8" class="d-box"/>
+          <text x="793" y="140" class="d-t" font-size="12" text-anchor="middle">Accepted</text>
+          <text x="793" y="156" class="d-m" font-size="10" text-anchor="middle">/ Forward</text>
+          <rect x="724" y="210" width="138" height="44" rx="8" class="d-box"/>
+          <text x="793" y="230" class="d-t" font-size="12" text-anchor="middle">subscribers</text>
+          <text x="793" y="246" class="d-m" font-size="10" text-anchor="middle">via FanOut</text>
+
+          <!-- client → face arrows -->
+          <path d="M142 81  H226" class="d-line" marker-end="url(#arr)"/>
+          <path d="M142 183 H180 V267 H226" class="d-line" marker-end="url(#arr)"/>
+          <path d="M142 285 V201 H226" class="d-line" marker-end="url(#arr)"/>
+          <!-- faces → router -->
+          <path d="M376 69  H414 V120 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 135 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 201 H414 V160 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 267 H432 V200 H452" class="d-line" marker-end="url(#arr)"/>
+          <!-- router → outcome -->
+          <path d="M668 142 H724" class="d-line" marker-end="url(#arr)"/>
+          <path d="M668 226 H700 V232 H724" class="d-line" marker-end="url(#arr)"/>
+
+          <defs>
+            <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0 0 L8 4.5 L0 9 z" fill="var(--muted)"/>
+            </marker>
+            <marker id="arrA" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0 0 L8 4.5 L0 9 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 AFTER -->
+<section id="after" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">03</div><div class="mt-1">ARCHITECTURE&nbsp;·&nbsp;AFTER</div></div>
+    <div class="reveal">
+      <p class="muted leading-relaxed max-w-2xl mb-6">
+        A fifth face — MCP, on <code class="font-mono">rmcp</code> — and a fifth <code class="font-mono">Kind</code>. The agent CLI now
+        <em>calls</em> gate over a standard protocol. The onion is byte-for-byte unchanged.
+      </p>
+      <div class="panel border rounded-xl p-4 sm:p-6">
+        <svg viewBox="0 0 880 400" class="w-full h-auto" role="img" aria-label="Gate architecture after: a fifth MCP face routes as Kind::Mcp through the same onion">
+          <text x="80"  y="22" class="d-m" font-size="11" text-anchor="middle">CLIENTS</text>
+          <text x="300" y="22" class="d-m" font-size="11" text-anchor="middle">TRANSPORT FACES</text>
+          <text x="560" y="22" class="d-m" font-size="11" text-anchor="middle">ROUTER</text>
+          <text x="800" y="22" class="d-m" font-size="11" text-anchor="middle">OUTCOME</text>
+
+          <!-- clients -->
+          <rect x="18" y="46"  width="124" height="58" rx="8" class="d-box"/>
+          <text x="80" y="70"  class="d-t" font-size="13" text-anchor="middle" font-weight="600">agent CLI</text>
+          <text x="80" y="86"  class="d-m" font-size="10" text-anchor="middle">hooks +</text>
+          <text x="80" y="98"  class="d-a" font-size="10" text-anchor="middle">MCP client</text>
+          <rect x="18" y="160" width="124" height="46" rx="8" class="d-box"/>
+          <text x="80" y="182" class="d-t" font-size="13" text-anchor="middle" font-weight="600">orchestrator</text>
+          <text x="80" y="198" class="d-m" font-size="10" text-anchor="middle">admin · discovery</text>
+          <rect x="18" y="262" width="124" height="46" rx="8" class="d-box"/>
+          <text x="80" y="284" class="d-t" font-size="13" text-anchor="middle" font-weight="600">engine</text>
+          <text x="80" y="300" class="d-m" font-size="10" text-anchor="middle">subscribe</text>
+
+          <!-- faces -->
+          <rect x="226" y="40"  width="150" height="40" rx="8" class="d-box"/>
+          <text x="301" y="58"  class="d-t" font-size="12.5" text-anchor="middle" font-weight="600">hook</text>
+          <text x="301" y="72"  class="d-m" font-size="9.5" text-anchor="middle">HTTP · gate.url</text>
+          <rect x="226" y="92"  width="150" height="40" rx="8" class="d-box"/>
+          <text x="301" y="110" class="d-t" font-size="12.5" text-anchor="middle" font-weight="600">tool</text>
+          <text x="301" y="124" class="d-m" font-size="9.5" text-anchor="middle">gate-tool.sock</text>
+          <rect x="226" y="144" width="150" height="40" rx="8" class="d-box"/>
+          <text x="301" y="162" class="d-t" font-size="12.5" text-anchor="middle" font-weight="600">subscribe</text>
+          <text x="301" y="176" class="d-m" font-size="9.5" text-anchor="middle">gate-subscribe.sock</text>
+          <rect x="226" y="196" width="150" height="40" rx="8" class="d-box"/>
+          <text x="301" y="214" class="d-t" font-size="12.5" text-anchor="middle" font-weight="600">admin</text>
+          <text x="301" y="228" class="d-m" font-size="9.5" text-anchor="middle">gate-admin.sock</text>
+          <!-- NEW mcp face -->
+          <rect x="226" y="252" width="150" height="56" rx="8" class="d-box-new"/>
+          <text x="301" y="272" class="d-a" font-size="13" text-anchor="middle" font-weight="700">mcp · rmcp</text>
+          <text x="301" y="288" class="d-m" font-size="9.5" text-anchor="middle">HTTP gate-mcp.url</text>
+          <text x="301" y="301" class="d-m" font-size="9.5" text-anchor="middle">(+ gate-mcp.sock)</text>
+
+          <!-- router -->
+          <rect x="452" y="44" width="216" height="300" rx="12" class="d-box"/>
+          <text x="560" y="68" class="d-m" font-size="10" text-anchor="middle">global onion — unchanged</text>
+          <rect x="476" y="80"  width="168" height="32" rx="16" class="d-pill"/>
+          <text x="560" y="101" class="d-t" font-size="12" text-anchor="middle">Observe</text>
+          <rect x="476" y="120" width="168" height="32" rx="16" class="d-pill"/>
+          <text x="560" y="141" class="d-t" font-size="12" text-anchor="middle">Auth</text>
+          <line x1="476" y1="168" x2="644" y2="168" class="d-life"/>
+          <text x="560" y="186" class="d-m" font-size="10" text-anchor="middle">route by Kind</text>
+          <text x="476" y="208" class="d-m" font-size="10.5">Hook → Normalize · FanOut</text>
+          <text x="476" y="230" class="d-m" font-size="10.5">ToolCall → PassThrough</text>
+          <text x="476" y="250" class="d-m" font-size="10.5">ToolResult → PassThrough</text>
+          <rect x="470" y="262" width="180" height="30" rx="8" class="d-pill-new"/>
+          <text x="476" y="282" class="d-a" font-size="10.5">Mcp → PassThrough</text>
+
+          <!-- outcome -->
+          <rect x="724" y="96" width="138" height="44" rx="8" class="d-box"/>
+          <text x="793" y="116" class="d-t" font-size="12" text-anchor="middle">Accepted</text>
+          <text x="793" y="132" class="d-m" font-size="10" text-anchor="middle">/ Forward</text>
+          <rect x="724" y="172" width="138" height="44" rx="8" class="d-box"/>
+          <text x="793" y="192" class="d-t" font-size="12" text-anchor="middle">subscribers</text>
+          <text x="793" y="208" class="d-m" font-size="10" text-anchor="middle">via FanOut</text>
+          <rect x="724" y="262" width="138" height="46" rx="8" class="d-box-new"/>
+          <text x="793" y="282" class="d-a" font-size="11.5" text-anchor="middle" font-weight="700">empty toolset</text>
+          <text x="793" y="298" class="d-m" font-size="9.5" text-anchor="middle">tools land later</text>
+
+          <!-- client → face -->
+          <path d="M142 70  H184 V60 H226" class="d-line" marker-end="url(#arr)"/>
+          <path d="M142 90  H200 V280 H226" class="d-line-acc" marker-end="url(#arrA)"/>
+          <path d="M142 183 H214 V216 H226" class="d-line" marker-end="url(#arr)"/>
+          <path d="M142 285 V164 H226" class="d-line" marker-end="url(#arr)"/>
+          <!-- faces → router -->
+          <path d="M376 60  H414 V92  H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 112 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 164 H414 V132 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 216 H432 V148 H452" class="d-line" marker-end="url(#arr)"/>
+          <path d="M376 280 H452 V277 H452" class="d-line-acc" marker-end="url(#arrA)"/>
+          <!-- router → outcome -->
+          <path d="M668 118 H724" class="d-line" marker-end="url(#arr)"/>
+          <path d="M668 208 H700 V194 H724" class="d-line" marker-end="url(#arr)"/>
+          <path d="M668 277 H696 V285 H724" class="d-line-acc" marker-end="url(#arrA)"/>
+        </svg>
+      </div>
+      <div class="mt-5 grid sm:grid-cols-3 gap-3">
+        <div class="panel border rounded-lg p-4 lift"><div class="font-mono text-xs accent mb-1">+ Kind::Mcp</div><p class="text-sm muted">One variant. Method lives in the body, not the router.</p></div>
+        <div class="panel border rounded-lg p-4 lift"><div class="font-mono text-xs accent mb-1">+ route</div><p class="text-sm muted"><code class="font-mono">PassThrough</code> in v1 — real tools attach later.</p></div>
+        <div class="panel border rounded-lg p-4 lift"><div class="font-mono text-xs accent mb-1">+ sidecar</div><p class="text-sm muted"><code class="font-mono">gate-mcp.url</code> — no token on disk.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 CONNECT -->
+<section id="connect" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">04</div><div class="mt-1">HOW&nbsp;SERVICES&nbsp;CONNECT</div></div>
+    <div class="reveal">
+      <p class="muted leading-relaxed max-w-2xl mb-6">
+        Discovery is push, not auto-detect. The orchestrator mints the session, reads the published
+        endpoint, and injects endpoint&nbsp;+&nbsp;token into the CLI's MCP config. Only then does the CLI dial.
+      </p>
+      <div class="panel border rounded-xl p-4 sm:p-6">
+        <svg viewBox="0 0 880 470" class="w-full h-auto" role="img" aria-label="Sequence: orchestrator registers a session, gate publishes the endpoint, the orchestrator injects it, the agent CLI dials the MCP face">
+          <!-- actor heads -->
+          <rect x="40"  y="20" width="170" height="40" rx="8" class="d-box"/>
+          <text x="125" y="45" class="d-t" font-size="13" text-anchor="middle" font-weight="600">orchestrator</text>
+          <rect x="355" y="20" width="170" height="40" rx="8" class="d-box-new"/>
+          <text x="440" y="45" class="d-a" font-size="13" text-anchor="middle" font-weight="700">gate · MCP face</text>
+          <rect x="670" y="20" width="170" height="40" rx="8" class="d-box"/>
+          <text x="755" y="45" class="d-t" font-size="13" text-anchor="middle" font-weight="600">agent CLI</text>
+
+          <!-- lifelines -->
+          <line x1="125" y1="60" x2="125" y2="450" class="d-life"/>
+          <line x1="440" y1="60" x2="440" y2="450" class="d-life"/>
+          <line x1="755" y1="60" x2="755" y2="450" class="d-life"/>
+
+          <!-- 1 register -->
+          <text x="130" y="92"  class="d-m" font-size="11">① register session → admin face</text>
+          <path d="M125 100 H440" class="d-line" marker-end="url(#arr)"/>
+          <!-- 2 mint token (self) -->
+          <path d="M440 116 h44 v22 h-44" class="d-line" marker-end="url(#arr)"/>
+          <text x="494" y="132" class="d-m" font-size="11">② mint per-session Token → SessionRegistry</text>
+          <!-- 3 publish sidecar (self) -->
+          <path d="M440 160 h44 v22 h-44" class="d-line-acc" marker-end="url(#arrA)"/>
+          <text x="494" y="176" class="d-a" font-size="11">③ write &lt;base&gt;/gate-mcp.url</text>
+          <!-- 4 read sidecar -->
+          <text x="130" y="212" class="d-m" font-size="11">④ read endpoint sidecar</text>
+          <path d="M440 220 H125" class="d-line" marker-end="url(#arr)"/>
+          <!-- 5 inject -->
+          <text x="130" y="252" class="d-a" font-size="11">⑤ inject endpoint + token → CLI MCP config</text>
+          <path d="M125 260 H755" class="d-line-acc" marker-end="url(#arrA)"/>
+          <!-- 6 dial -->
+          <text x="455" y="300" class="d-a" font-size="11">⑥ dial HTTP loopback + Bearer</text>
+          <path d="M755 308 H440" class="d-line-acc" marker-end="url(#arrA)"/>
+          <!-- 7 admit + route (self, boxed note) -->
+          <rect x="300" y="330" width="280" height="86" rx="10" class="d-box-new"/>
+          <text x="440" y="352" class="d-a" font-size="11" text-anchor="middle" font-weight="700">⑦ admit connection (Token)</text>
+          <text x="440" y="372" class="d-m" font-size="10.5" text-anchor="middle">Inbound { Kind::Mcp, session, token, body }</text>
+          <text x="440" y="390" class="d-m" font-size="10.5" text-anchor="middle">Observe → Auth → PassThrough</text>
+          <text x="440" y="408" class="d-m" font-size="10.5" text-anchor="middle">→ Outbound::Forward</text>
+          <!-- 8 response -->
+          <text x="455" y="440" class="d-m" font-size="11">⑧ MCP result</text>
+          <path d="M440 446 H755" class="d-line" marker-end="url(#arr)"/>
+        </svg>
+      </div>
+      <div class="mt-5 grid sm:grid-cols-2 gap-3">
+        <div class="panel border rounded-lg p-4">
+          <div class="font-mono text-xs accent mb-2">TWO AUTH POINTS</div>
+          <p class="text-sm muted leading-relaxed">Connection admission rejects anonymous peers before the protocol loop; every routed call still passes the router's <code class="font-mono">Auth</code> global. <code class="font-mono">Reject::Unauthenticated</code> stays the single source of truth.</p>
+        </div>
+        <div class="panel border rounded-lg p-4">
+          <div class="font-mono text-xs accent mb-2">SECRET STAYS OFF DISK</div>
+          <p class="text-sm muted leading-relaxed">The sidecar carries the endpoint only. The per-session token is one the orchestrator already holds — it minted the session — so endpoint discovery and secret distribution stay separate.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 DECISIONS -->
+<section id="decisions" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">05</div><div class="mt-1">DECISIONS</div></div>
+    <div class="space-y-3">
+
+      <div class="reveal panel border rounded-lg p-5 lift">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D1</span><h3 class="font-display font-semibold text-lg">Build on <code class="font-mono">rmcp</code>; own only the request→Inbound bridge</h3></div>
+        <p class="muted leading-relaxed text-sm">The SDK owns transport, JSON-RPC framing, the <code class="font-mono">initialize</code> handshake, and version negotiation. Gate's only code is the handler that builds <code class="font-mono">Inbound { kind: Mcp }</code> and maps the <code class="font-mono">Flow</code> back.</p>
+        <p class="muted text-sm mt-2"><span class="accent font-mono text-xs">vs</span> hand-rolling JSON-RPC over the frame codec — rejected: that is a protocol library, not a framing tweak.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.03s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D2</span><h3 class="font-display font-semibold text-lg">One <code class="font-mono">Kind::Mcp</code> variant, not per-method</h3></div>
+        <p class="muted leading-relaxed text-sm">Method (<code class="font-mono">tools/call</code>, …) lives in the body; routing is by face. Method dispatch belongs to the <code class="font-mono">rmcp</code> handler above the route, keeping the router a thin kind→chain dispatcher.</p>
+        <p class="muted text-sm mt-2"><span class="accent font-mono text-xs">vs</span> <code class="font-mono">McpCall</code>/<code class="font-mono">McpList</code> variants — rejected: pushes protocol knowledge into the router for no routing benefit.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.06s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D3</span><h3 class="font-display font-semibold text-lg">v1 route is <code class="font-mono">PassThrough</code></h3></div>
+        <p class="muted leading-relaxed text-sm">The face authenticates and normalizes; the route forwards. <code class="font-mono">tools/list</code> returns <code class="font-mono">[]</code>; real dispatch attaches later by swapping <code class="font-mono">PassThrough</code> for tool-dispatch middleware.</p>
+        <p class="muted text-sm mt-2"><span class="accent font-mono text-xs">vs</span> blocking until tools exist — rejected: the proposal sequences routing first so tools ride a ready layer.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.09s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D4</span><h3 class="font-display font-semibold text-lg">Auth at admission <em>and</em> per request</h3></div>
+        <p class="muted leading-relaxed text-sm">The bearer token is read from transport metadata (HTTP <code class="font-mono">Authorization</code>; socket handshake), exactly as the hook face reads it. Anonymous connections are rejected before the loop; every routed call still passes the <code class="font-mono">Auth</code> global. Defense in depth, no extra contract surface.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.12s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D5</span><h3 class="font-display font-semibold text-lg">Streamable HTTP primary; Unix socket secondary</h3></div>
+        <p class="muted leading-relaxed text-sm">An MCP client dials a spawned stdio command or an HTTP URL — never a Unix socket — and a singleton daemon can't own one stdin/stdout per client. v1 binds loopback HTTP and publishes <code class="font-mono">gate-mcp.url</code>; the socket transport ships secondary for in-process clients.</p>
+        <p class="muted text-sm mt-2"><span class="accent font-mono text-xs">note</span> refines the proposal's "Unix socket primary, stdio first" ordering — see open questions.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.15s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D6</span><h3 class="font-display font-semibold text-lg">Endpoint is a sidecar, not the manifest, and carries no token</h3></div>
+        <p class="muted leading-relaxed text-sm">The face writes <code class="font-mono">&lt;base&gt;/gate-mcp.url</code> mirroring <code class="font-mono">hook::write_gate_url</code>; the <code class="font-mono">service-host</code> manifest stays <code class="font-mono">{ pid, version }</code>. The per-session token is never written to disk — the orchestrator holds it and injects it with the endpoint.</p>
+      </div>
+
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.18s">
+        <div class="flex items-baseline gap-3 mb-1"><span class="font-mono text-xs accent">D7</span><h3 class="font-display font-semibold text-lg">Config-selected binds via <code class="font-mono">Gate::from_env</code></h3></div>
+        <p class="muted leading-relaxed text-sm">Transport and loopback port resolve in <code class="font-mono">from_env</code> and bind in <code class="font-mono">bind_faces</code> beside the other faces; the task joins <code class="font-mono">self.tasks</code> so existing <code class="font-mono">task.abort()</code> shutdown tears it down. One wiring site, one teardown path.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 06 GOALS / NON-GOALS -->
+<section id="goals" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">06</div><div class="mt-1">GOALS&nbsp;/&nbsp;NON-GOALS</div></div>
+    <div class="grid sm:grid-cols-2 gap-6">
+      <div class="reveal">
+        <div class="font-mono text-xs muted mb-3">GOALS</div>
+        <ul class="space-y-3 text-sm leading-relaxed">
+          <li class="tick">One MCP face on <code class="font-mono">rmcp</code> — no hand-rolled wire.</li>
+          <li class="tick"><code class="font-mono">Kind::Mcp</code> through the unchanged <code class="font-mono">Observe</code> → <code class="font-mono">Auth</code> onion.</li>
+          <li class="tick">Per-session bearer auth; loopback bind only.</li>
+          <li class="tick">Publish the endpoint as a base-dir sidecar.</li>
+        </ul>
+      </div>
+      <div class="reveal" style="animation-delay:.06s">
+        <div class="font-mono text-xs muted mb-3">NON-GOALS</div>
+        <ul class="space-y-3 text-sm leading-relaxed muted">
+          <li class="cross">Tool implementations — v1 exposes an empty set.</li>
+          <li class="cross">Remote transports / any non-loopback surface.</li>
+          <li class="cross">Multi-user auth — one subscription = one user.</li>
+          <li class="cross">A new endpoint schema in the manifest.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07 RISKS + MIGRATION -->
+<section id="risks" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">07</div><div class="mt-1">RISKS&nbsp;·&nbsp;MIGRATION</div></div>
+    <div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="reveal panel border rounded-lg p-5 lift"><div class="font-mono text-xs accent mb-1">rmcp API drift</div><p class="text-sm muted">→ pin the minor version; confine all <code class="font-mono">rmcp</code> types to <code class="font-mono">endpoint/mcp.rs</code>. Router and <code class="font-mono">Kind</code> never name one.</p></div>
+        <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.04s"><div class="font-mono text-xs accent mb-1">two runtimes/transports</div><p class="text-sm muted">→ boundary stays "rmcp serves the protocol, gate builds the Inbound." No frame codec inside MCP.</p></div>
+        <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.08s"><div class="font-mono text-xs accent mb-1">empty toolset ≈ no-op</div><p class="text-sm muted">→ intended; tests prove a call is authed, routed as <code class="font-mono">Kind::Mcp</code>, observed once, forwarded — and an anon call rejected before routing.</p></div>
+        <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.12s"><div class="font-mono text-xs accent mb-1">binary size / cold start</div><p class="text-sm muted">→ gate <code class="font-mono">rmcp</code> features to those used (server, streamable-HTTP, IO); drop unused transports.</p></div>
+      </div>
+      <div class="reveal panel border border-dashed rounded-lg p-5 mt-3">
+        <div class="font-mono text-xs accent mb-2">MIGRATION — ADDITIVE</div>
+        <p class="text-sm muted leading-relaxed">No existing behavior changes. <code class="font-mono">Kind</code> gains a variant, <code class="font-mono">build_router</code> one route, <code class="font-mono">bind_faces</code> one task, <code class="font-mono">Cargo.toml</code> <code class="font-mono">rmcp</code>. The face binds only when config enables it, so gate runs unchanged until a session opts in. Rollback = remove the task and route entry; no persisted state, sidecar recreated each boot and removed on clean shutdown.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 OPEN QUESTIONS -->
+<section id="open" class="max-w-6xl mx-auto px-6 py-14 border-t rule">
+  <div class="grid sm:grid-cols-[140px_1fr] gap-8">
+    <div class="font-mono text-xs muted"><div class="accent">08</div><div class="mt-1">OPEN&nbsp;QUESTIONS</div></div>
+    <div class="space-y-3">
+      <div class="reveal panel border rounded-lg p-5 lift">
+        <div class="font-mono text-xs accent mb-1">?? stdio reachability</div>
+        <p class="text-sm muted leading-relaxed">If the target CLI only speaks stdio MCP, a thin <code class="font-mono">stdio↔gate-mcp.sock</code> bridge (the CLI spawns it; it dials the socket) is the path. Follow-up change, or does v1 HTTP cover the v1 CLI? Resolve before orchestrator injection.</p>
+      </div>
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.04s">
+        <div class="font-mono text-xs accent mb-1">?? ADR</div>
+        <p class="text-sm muted leading-relaxed">New external dependency + new face. This change is <code class="font-mono">spec-driven</code> (no ADR artifact). Confirm whether <code class="font-mono">rmcp</code> adoption warrants a standalone ADR under <code class="font-mono">docs/adr/</code> and its number.</p>
+      </div>
+      <div class="reveal panel border rounded-lg p-5 lift" style="animation-delay:.08s">
+        <div class="font-mono text-xs accent mb-1">?? session correlation</div>
+        <p class="text-sm muted leading-relaxed">A streamable-HTTP connection is long-lived and multiplexes calls. Confirm the session id binds at admission (from the injected URL/header) and stamps every <code class="font-mono">Inbound</code>, so per-call observation stays session-correlated.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- footer -->
+<footer class="max-w-6xl mx-auto px-6 py-12 border-t rule">
+  <div class="flex flex-wrap items-center justify-between gap-4 font-mono text-xs muted">
+    <span>a-thing · local-first agent orchestrator</span>
+    <span class="flex items-center gap-2"><span class="accent">◇</span> spec-driven · 2/4 · design</span>
+  </div>
+</footer>
+
+<script>
+  const root = document.documentElement;
+  const saved = localStorage.getItem('gate-design-theme');
+  if (saved) { root.classList.toggle('light', saved === 'light'); root.classList.toggle('dark', saved !== 'light'); }
+  document.getElementById('theme').addEventListener('click', () => {
+    const light = root.classList.toggle('light');
+    root.classList.toggle('dark', !light);
+    localStorage.setItem('gate-design-theme', light ? 'light' : 'dark');
+  });
+</script>
+</body>
+</html>

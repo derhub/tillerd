@@ -51,7 +51,10 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
     if let Some((pid, _version)) = read_manifest() {
         if is_alive(pid) && socket_reachable().await {
             *state.inner.lock().unwrap() = Some((pid, Ownership::Adopted));
-            return Ok(EnsureResult { ownership: "adopted", socket: sock_string() });
+            return Ok(EnsureResult {
+                ownership: "adopted",
+                socket: sock_string(),
+            });
         }
     }
 
@@ -73,7 +76,10 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
         tokio::time::sleep(Duration::from_millis(100)).await;
         if socket_reachable().await {
             *state.inner.lock().unwrap() = Some((pid, Ownership::Owned));
-            return Ok(EnsureResult { ownership: "owned", socket: sock_string() });
+            return Ok(EnsureResult {
+                ownership: "owned",
+                socket: sock_string(),
+            });
         }
     }
     Err("daemon did not become reachable within 10s".into())
@@ -111,8 +117,11 @@ mod tests {
     #[serial]
     fn read_manifest_parses_valid_json() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(tmp.path().join("daemon.json"), br#"{"pid":12345,"version":"1.2.3"}"#)
-            .unwrap();
+        std::fs::write(
+            tmp.path().join("daemon.json"),
+            br#"{"pid":12345,"version":"1.2.3"}"#,
+        )
+        .unwrap();
         std::env::set_var("ATHING_DIR", tmp.path());
         let result = read_manifest();
         std::env::remove_var("ATHING_DIR");

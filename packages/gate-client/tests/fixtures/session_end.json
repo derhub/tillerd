@@ -1,0 +1,10 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-6",
+    "ts": 1717000000005,
+    "type": "SessionEnd",
+    "payload": { "reason": "user quit" }
+  }
+}

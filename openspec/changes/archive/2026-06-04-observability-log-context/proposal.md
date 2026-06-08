@@ -52,10 +52,10 @@ language and shaped so an OpenTelemetry collector can map records without transf
   import; Web-API-only / runtime-neutral-core preserved).
 - `@athing/engine`: uses only the injected `Logger` interface (no logging library imported);
   the `.child` addition is to a type it already consumes by DI.
-- `packages/daemon-rs`: add `tracing` + `tracing-subscriber` (JSON layer to its own
+- `packages/daemon-pty`: add `tracing` + `tracing-subscriber` (JSON layer to its own
   `daemon-<date>.log`); replace every `eprintln!`; init resource + subscriber in `main.rs`.
   New Cargo dependencies.
-- `packages/daemon` (TS): **legacy, not instrumented** — `daemon-rs` is the live daemon. Only
+- `packages/daemon` (TS): **legacy, not instrumented** — `daemon-pty` is the live daemon. Only
   the exported `HOOKS_SOCK` constant remains in use by `apps/server`.
 - Honors ADR-0007 (session-correlated structured logs); sets up a future ADR for the
   context-binding + resource pattern and the per-language expression (TS child logger vs Rust

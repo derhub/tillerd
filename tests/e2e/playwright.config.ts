@@ -27,7 +27,7 @@ export default defineConfig({
     command: "bun run dev",
     cwd: path.join(rootDir, "apps/ui"),
     url: "http://localhost:5173",
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: true,
     timeout: 180_000,
   },
 });

@@ -1,0 +1,10 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-1",
+    "ts": 1717000000000,
+    "type": "SessionStart",
+    "payload": { "cwd": "/home/dev/proj", "client": "agent-cli", "cliVersion": "1.4.2" }
+  }
+}

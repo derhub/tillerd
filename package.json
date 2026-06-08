@@ -16,8 +16,8 @@
     "test": "turbo run test --filter='!./tests/*'",
     "eval": "turbo run eval",
     "e2e": "turbo run e2e",
-    "lint": "oxlint .",
-    "format": "oxfmt --write .",
+    "lint": "oxlint . && turbo run lint",
+    "format": "oxfmt --write . && turbo run fmt",
     "check-deps": "turbo run check-deps"
   },
   "devDependencies": {

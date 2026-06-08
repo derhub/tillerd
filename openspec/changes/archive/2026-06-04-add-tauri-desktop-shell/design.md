@@ -44,21 +44,21 @@ The renderer hosts the engine and adapter and constructs `createEngine(deps)`, w
 web-view host. The renderer also supplies `cwd` on every session start (the engine now requires
 it; a missing `cwd` is a typed error). There is no backend agent process.
 
-*Why:* after `refactor-engine-io-ports` the engine is platform-free, and after
+_Why:_ after `refactor-engine-io-ports` the engine is platform-free, and after
 `refactor-sdk-web-api` the sdk wire codec and snapshot renderer use Web byte APIs — so the whole
 agent loop loads in a web view. Hosting it there removes the backend server and relay.
-*Alternative:* a headless Bun agent sidecar (the earlier approach) — rejected, it reintroduces a
+_Alternative:_ a headless Bun agent sidecar (the earlier approach) — rejected, it reintroduces a
 second process and a local relay for no benefit on a single-user desktop.
 
 ### D2. The Rust core is a dumb byte bridge to the daemon socket; framing stays in the web view
 
 The web view's `DaemonTransport` implementation reuses the sdk codec to encode/decode frames and
-moves *raw bytes* across the Tauri boundary: a Tauri Channel for the daemon→renderer byte stream
+moves _raw bytes_ across the Tauri boundary: a Tauri Channel for the daemon→renderer byte stream
 and an `invoke` command for renderer→daemon writes. The Rust core simply forwards those bytes
 to/from the daemon's Unix socket — it never parses a frame.
 
-*Why:* keeps the codec single-sourced in sdk (the web-view impl differs from the Bun impl only in
-its byte carrier), and keeps the Rust core trivial — no protocol port. *Alternatives:* (a) Rust
+_Why:_ keeps the codec single-sourced in sdk (the web-view impl differs from the Bun impl only in
+its byte carrier), and keeps the Rust core trivial — no protocol port. _Alternatives:_ (a) Rust
 implements the frame codec and exposes structured messages — rejected, duplicates the codec and
 adds Rust protocol logic; (b) expose the daemon socket to the web view directly — impossible, web
 views cannot open Unix sockets.
@@ -69,7 +69,7 @@ The web view's `FileSource` implementation calls Rust commands (`size`, `read(pa
 length)`) over `invoke`; the Rust core performs the filesystem reads. Transcript reads happen on
 hooks, not on the hot byte path, so per-call IPC is acceptable.
 
-*Why:* the web view cannot read the filesystem; the native core can. *Alternative:* stream the
+_Why:_ the web view cannot read the filesystem; the native core can. _Alternative:_ stream the
 transcript over a Channel — unnecessary, reads are delta-sized and infrequent.
 
 ### D3a. `Logger` served by the native core; impls mirror `@athing/platform-bun`
@@ -80,8 +80,8 @@ web-view sibling of `@athing/platform-bun`: both implement the same sdk port con
 (`DaemonTransport`, `FileSource`, `Logger`), differing only in host (Bun socket/fs vs Tauri
 Channel/`invoke`).
 
-*Why:* the engine needs all three injected ports (the refactor added `Logger`); framing the
-Tauri impls as the parallel `platform-*` keeps one contract, two hosts. *Alternative:* a webview
+_Why:_ the engine needs all three injected ports (the refactor added `Logger`); framing the
+Tauri impls as the parallel `platform-*` keeps one contract, two hosts. _Alternative:_ a webview
 logger that writes nowhere — rejected, loses desktop diagnostics.
 
 ### D4. Rust core supervises the daemon sidecar and performs startup bootstrap
@@ -92,8 +92,8 @@ binary, verify its version, and prepare the hook command. It exposes the resolve
 web view at startup; the renderer constructs the ports and calls `createEngine(deps)`. On window
 close, the Rust core terminates the daemon it owns.
 
-*Why:* spawning/owning an OS process and probing the environment are native-host concerns (the
-ports refactor moved them out of the engine). *Alternative:* the web view shells out for these —
+_Why:_ spawning/owning an OS process and probing the environment are native-host concerns (the
+ports refactor moved them out of the engine). _Alternative:_ the web view shells out for these —
 impossible, no process/spawn access in a web view.
 
 ### D5. Sidecar packaging: ship the Bun runtime + daemon script, not a compiled binary
@@ -103,7 +103,7 @@ A compiled Bun binary breaks PTY spawn (`posix_spawnp`), documented in the daemo
 the bundled daemon script as a resource; the sidecar invocation passes the entry script to `bun`.
 Only the daemon is a sidecar now (one process).
 
-*Why:* preserves the working `node-pty` spawn path. *Alternatives:* `bun build --compile` —
+_Why:_ preserves the working `node-pty` spawn path. _Alternatives:_ `bun build --compile` —
 rejected (breaks PTY spawn); assume system Bun — rejected (environment dependence); thin native
 launcher per triple — viable fallback.
 
@@ -113,8 +113,8 @@ The Rust core owns a native local store for user preferences and the session reg
 (sessionId → cwd, used for reconnect). The renderer reads/writes it over `invoke`. This replaces
 `apps/server`'s `bun:sqlite` registry on the desktop path.
 
-*Why:* desktop persistence is a native-shell concern and removes the last reason for a Bun
-backend on desktop. *Alternative:* keep a Bun process just for sqlite — rejected, defeats the
+_Why:_ desktop persistence is a native-shell concern and removes the last reason for a Bun
+backend on desktop. _Alternative:_ keep a Bun process just for sqlite — rejected, defeats the
 no-backend goal; the web build keeps its own server-side registry.
 
 ### D7. Renderer: pluggable transport + GPU rendering
@@ -123,8 +123,8 @@ no-backend goal; the web build keeps its own server-side registry.
 transport on web behind one `Transport` abstraction; components are unchanged. Add
 `@xterm/addon-webgl` with a canvas fallback.
 
-*Why:* one renderer, two carriers; GPU glyph rendering is the largest renderer-side throughput
-lever. *Alternative:* per-message Tauri events instead of a Channel — higher overhead, no
+_Why:_ one renderer, two carriers; GPU glyph rendering is the largest renderer-side throughput
+lever. _Alternative:_ per-message Tauri events instead of a Channel — higher overhead, no
 ordering guarantee for a byte stream.
 
 ### D8. Renderer ships as a static SPA; one build serves web and desktop
@@ -135,15 +135,15 @@ view serves them directly from the bundle. The same static build serves the web 
 `apps/server` becomes the API + WebSocket backend only (no longer a render host), which the
 existing renderer already assumes (it talks to the backend over `/api` and `/ws`).
 
-*Why:* a native web view loads files over a custom protocol — it cannot run a Node server-render
+_Why:_ a native web view loads files over a custom protocol — it cannot run a Node server-render
 process, so an SSR renderer cannot be the desktop frontend. The renderer is already a client of
 `apps/server` over WebSocket; a client-only build is the natural single source and avoids a
-renderer fork. *Alternatives:* (a) keep SSR for web and emit a separate SPA build for desktop via
+renderer fork. _Alternatives:_ (a) keep SSR for web and emit a separate SPA build for desktop via
 an env-driven config — rejected, two build modes for no product benefit once the renderer is a
 pure client; (b) point the desktop frontend at a live render server even in production — rejected,
 defeats an offline-capable native app and reintroduces a backend on the desktop path.
 
-*Impact:* the web deployment stops being server-rendered. The renderer's server-serve entry and
+_Impact:_ the web deployment stops being server-rendered. The renderer's server-serve entry and
 its container image change to static asset serving; no component rewrite.
 
 ### D9. Desktop package is the native shell + build wiring only; the scaffold template is removed
@@ -159,8 +159,8 @@ renderer's static client build output; the dev URL targets the shared renderer's
 before-dev and before-build commands drive the shared renderer's dev and build, not a
 scaffold-local app.
 
-*Why:* the change's "one renderer, no fork" decision (D1/D7) means the desktop package must not
-carry a second renderer. The scaffold template is starter noise that would diverge. *Alternative:*
+_Why:_ the change's "one renderer, no fork" decision (D1/D7) means the desktop package must not
+carry a second renderer. The scaffold template is starter noise that would diverge. _Alternative:_
 keep a thin desktop renderer that imports the shared renderer as a package — rejected, adds a
 second entry tree and a fork surface for zero benefit.
 
@@ -170,8 +170,8 @@ The renderer's routing runs fully client-side; deep links and reloads resolve wi
 against the static asset origin with no server rewrite. The static build's index document is the
 single entry; unknown paths resolve through the client router.
 
-*Why:* there is no server on the desktop path to rewrite routes to the SPA entry, so routing must
-not depend on server fallbacks. *Alternative:* a custom-protocol handler in the Rust core that
+_Why:_ there is no server on the desktop path to rewrite routes to the SPA entry, so routing must
+not depend on server fallbacks. _Alternative:_ a custom-protocol handler in the Rust core that
 rewrites routes — unnecessary once the build is a client-only SPA with a single entry document.
 
 ## Risks / Trade-offs
@@ -211,7 +211,7 @@ additive. Reverting means dropping `apps/desktop` and the desktop port implement
 
 ## Open Questions
 
-- The hook command assumes a runtime is available to run the notify script when the *agent*
+- The hook command assumes a runtime is available to run the notify script when the _agent_
   fires a hook. In a packaged desktop app that runtime may not be on the user's PATH. The bundle
   must ship the notify script and a runtime (or rewrite the hook command). Resolve before release.
 - Exact Tauri `externalBin` packaging for a Bun-script sidecar: ship `bun` directly, or a thin

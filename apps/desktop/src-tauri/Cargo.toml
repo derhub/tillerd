@@ -24,8 +24,20 @@ serde_json = "1"
 tokio = { version = "1", features = ["net", "io-util", "sync", "rt", "macros", "fs", "time"] }
 dirs = "6"
 libc = "0.2"
+process-launch = { path = "../../../packages/process-launch" }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "3"
 serial_test = "3"
 
+
+[lints.rust]
+future-incompatible = "warn"
+nonstandard_style = "warn"
+
+[lints.clippy]
+all = "warn"
+redundant_clone = "warn"
+large_enum_variant = "warn"
+needless_collect = "warn"

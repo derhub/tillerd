@@ -1,9 +1,0 @@
-{
-  "name": "@athing/engram-rs",
-  "version": "0.0.1",
-  "scripts": {
-    "build": "cargo build --release",
-    "test": "cargo test",
-    "eval": "cargo run --bin engram-eval"
-  }
-}

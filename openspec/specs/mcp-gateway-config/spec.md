@@ -1,6 +1,7 @@
 # mcp-gateway-config Specification
 
 ## Purpose
+
 The mcp.json config contract: location and resolution, the mcpServers format, allowedTools and lazy extensions, loose-strictness paste compatibility, and the generated schema with drift protection.
 
 ## Requirements

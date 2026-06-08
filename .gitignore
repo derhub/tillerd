@@ -29,6 +29,9 @@ dist/
 # Keep committed: adapter notify script (built artifact shipped with package)
 !packages/adapter-claude-code/dist/notify.mjs
 
+# Rust workspace build output
+/target/
+
 # Playwright
 test-results/
 playwright-report/

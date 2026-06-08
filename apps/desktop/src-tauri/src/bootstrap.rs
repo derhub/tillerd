@@ -143,7 +143,10 @@ mod tests {
 
     #[test]
     fn picks_first_triple_when_multiple_present() {
-        assert_eq!(parse_version("tool 1.2.3 (built 4.5.6)").as_deref(), Some("1.2.3"));
+        assert_eq!(
+            parse_version("tool 1.2.3 (built 4.5.6)").as_deref(),
+            Some("1.2.3")
+        );
     }
 
     #[test]

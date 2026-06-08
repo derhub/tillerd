@@ -46,7 +46,9 @@ function ctx(cap: SetupFs): SetupContext {
   return { notifyCommand: NOTIFY, agentHome: AGENT_HOME, logger, fs: cap };
 }
 
-type Settings = { hooks?: Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>> };
+type Settings = {
+  hooks?: Record<string, Array<{ matcher: string; hooks: Array<{ command: string }> }>>;
+};
 function read(files: Map<string, string>): Settings {
   return JSON.parse(files.get(SETTINGS)!) as Settings;
 }
@@ -54,7 +56,14 @@ function commands(s: Settings, event: string): string[] {
   return (s.hooks?.[event] ?? []).flatMap((e) => e.hooks.map((h) => h.command));
 }
 
-const EVENTS = ["SessionStart", "UserPromptSubmit", "PostToolUse", "PermissionRequest", "Stop", "SessionEnd"];
+const EVENTS = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PostToolUse",
+  "PermissionRequest",
+  "Stop",
+  "SessionEnd",
+];
 
 describe("setup.install", () => {
   test("adds all hook events when settings empty", async () => {
@@ -74,9 +83,13 @@ describe("setup.install", () => {
     const f = fakeFs("empty-settings.json");
     await setup.install(ctx(f.fs));
     const s = read(f.files);
-    expect(s.hooks!["PostToolUse"]!.find((e) => e.hooks.some((h) => h.command === NOTIFY))!.matcher).toBe("*");
+    expect(
+      s.hooks!["PostToolUse"]!.find((e) => e.hooks.some((h) => h.command === NOTIFY))!.matcher,
+    ).toBe("*");
     for (const event of ["SessionStart", "Stop"]) {
-      expect(s.hooks![event]!.find((e) => e.hooks.some((h) => h.command === NOTIFY))!.matcher).toBe("");
+      expect(s.hooks![event]!.find((e) => e.hooks.some((h) => h.command === NOTIFY))!.matcher).toBe(
+        "",
+      );
     }
   });
 

@@ -1,0 +1,73 @@
+[package]
+name = "athing-gate"
+version = "0.1.0"
+edition = "2021"
+description = "Composable middleware gate: per-session auth, hook normalization and fan-out, and tool-route pass-through over loopback"
+license = "MIT"
+
+[lib]
+name = "athing_gate"
+path = "src/lib.rs"
+
+[[bin]]
+name = "athing-gate"
+path = "src/bin/main.rs"
+
+[dependencies]
+contracts-rs = { path = "../../packages/contracts-rs" }
+service-host = { path = "../../packages/service-host" }
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "sync",
+  "io-util",
+  "time",
+  "signal",
+] }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+bytes = "1"
+subtle = "2"
+axum = "0.8"
+http = "1"
+# Confined to `endpoint/mcp.rs`: gate owns only the request->Inbound bridge; the
+# router, Kind, and middleware never name an rmcp type. Minor version pinned and
+# features gated to the transports actually bound (loopback HTTP + local socket).
+rmcp = { version = "1.7", features = [
+  "server",
+  "server-side-http",
+  "transport-streamable-http-server",
+  "transport-io",
+] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+# Integration tests stand up the real bound HTTP face and drive it with an MCP
+# client over the streamable-HTTP transport; these features are test-only and are
+# excluded from the release binary, which builds the server features above alone.
+rmcp = { version = "1.7", features = [
+  "client",
+  "transport-streamable-http-client",
+  "transport-streamable-http-client-reqwest",
+] }
+axum = "0.8"
+http = "1"
+serde_json = "1"
+contracts-rs = { path = "../../packages/contracts-rs" }
+
+[lints.rust]
+future-incompatible = "warn"
+nonstandard_style = "warn"
+
+[lints.clippy]
+all = "warn"
+redundant_clone = "warn"
+large_enum_variant = "warn"
+needless_collect = "warn"

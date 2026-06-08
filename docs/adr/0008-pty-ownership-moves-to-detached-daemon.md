@@ -1,6 +1,6 @@
 # 0008. PTY ownership moves to a detached daemon process
 
-- Status: accepted
+- Status: accepted (hook-ingress clause amended by ADR-0016)
 - Date: 2026-06-02
 
 ## Context

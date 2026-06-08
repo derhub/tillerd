@@ -119,7 +119,8 @@ pub fn is_allowlisted(token: &str) -> bool {
     let uuid = UUID.get_or_init(|| {
         Regex::new(r"(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").unwrap()
     });
-    let hex = HEX.get_or_init(|| Regex::new(r"(?i)^[0-9a-f]{7}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$").unwrap());
+    let hex =
+        HEX.get_or_init(|| Regex::new(r"(?i)^[0-9a-f]{7}$|^[0-9a-f]{40}$|^[0-9a-f]{64}$").unwrap());
     let ver = VER.get_or_init(|| Regex::new(r"^v?\d+(?:\.\d+){1,}$").unwrap());
     uuid.is_match(token) || hex.is_match(token) || ver.is_match(token)
 }

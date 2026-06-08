@@ -20,6 +20,7 @@ ownership and manifest pattern. Platform scope macOS/Linux for v1.
 ## Goals / Non-Goals
 
 Goals:
+
 - One MCP endpoint aggregating many stdio and remote backends, consumable by any standard MCP client.
 - Survive the launching UI; explicit stop only.
 - Correct full-protocol behavior, including reverse-direction requests (sampling, roots,

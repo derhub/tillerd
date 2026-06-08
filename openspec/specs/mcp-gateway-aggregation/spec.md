@@ -1,6 +1,7 @@
 # mcp-gateway-aggregation Specification
 
 ## Purpose
+
 Presenting many backends as one MCP server: tool/resource/prompt namespacing and routing, capability union, the in-memory registry, the reverse-proxy relay, and notification forwarding.
 
 ## Requirements

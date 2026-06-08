@@ -234,7 +234,7 @@ function resolveBinaries(): Record<string, string> {
     return map;
   }
   const map: Record<string, string> = {};
-  const rust = join(ROOT, "packages/daemon-rs/target/release/athing-daemon");
+  const rust = join(ROOT, "packages/daemon-pty/target/release/athing-daemon");
   if (existsSync(rust)) map["rust"] = rust;
   // The Node daemon is the working TS incumbent (the Bun daemon can't accept
   // input under Bun). Compare rust vs node by default.
@@ -315,7 +315,7 @@ async function main() {
   const labels = Object.keys(binaries);
   if (labels.length === 0) {
     console.error(
-      "No daemon binaries found. Build rust (cd packages/daemon-rs && cargo build --release) or pass label=path.",
+      "No daemon binaries found. Build rust (cd packages/daemon-pty && cargo build --release) or pass label=path.",
     );
     process.exit(1);
   }

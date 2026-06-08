@@ -3,7 +3,9 @@
 ## Purpose
 
 Defines the engine's session model: factory isolation, the session lifecycle contract, event model, reliability guarantees, and observability. The engine holds no global state; all resources are instance-scoped.
+
 ## Requirements
+
 ### Requirement: Engine instances with no global state
 
 The engine SHALL be created via a factory that returns an isolated instance owning its own session registry and resources. The engine SHALL NOT hold module-level mutable state, so multiple engine instances and many concurrent sessions can coexist in one host process.
@@ -274,4 +276,3 @@ A WebSocket connection to `/ws/session` SHALL accept an optional session ID quer
 
 - **WHEN** a WebSocket connection is opened with `?id=<sessionId>` for a session not found in storage
 - **THEN** the server sends an error message and closes the connection
-

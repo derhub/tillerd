@@ -179,6 +179,6 @@ export function resolveDaemonBinary(probes: DaemonResolveProbes = {}): string {
 
   throw new AtError(
     "BinaryNotFound",
-    "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon-rs or set ATHING_DAEMON_BIN.",
+    "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon-pty or set ATHING_DAEMON_BIN.",
   );
 }

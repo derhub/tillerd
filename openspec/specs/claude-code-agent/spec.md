@@ -3,7 +3,9 @@
 ## Purpose
 
 Defines the `AgentDefinition` adapter contract and the `claudeCode` adapter that implements it. The contract keeps the engine agent-blind; all agent-specific behavior flows through config data and parse functions supplied by the adapter.
+
 ## Requirements
+
 ### Requirement: Hybrid AgentDefinition contract
 
 The SDK SHALL define an `AgentDefinition` contract that an adapter implements as declarative config
@@ -133,4 +135,3 @@ current-directory global, or otherwise depend on a host-specific runtime capabil
 - **THEN** no filesystem access and no ambient host-global access SHALL occur as a result
 - **AND** a renderer-class host SHALL be able to import the adapter and hand it to the engine to
   drive a session
-

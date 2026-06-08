@@ -1,10 +1,6 @@
 export { encodeFrame, FrameDecoder } from "./codec";
 export type { DecodedFrame } from "./codec";
-export {
-  parseDaemonFrame,
-  SUPPORTED_VERSIONS,
-  CURRENT_VERSION,
-} from "./messages";
+export { parseDaemonFrame, SUPPORTED_VERSIONS, CURRENT_VERSION } from "./messages";
 export type {
   DaemonFrame,
   HelloAckFrame,

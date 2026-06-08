@@ -6,13 +6,19 @@ import {
   isAlive,
   prepareNotifyScript,
   readManifest,
+  resolveGateUrl,
 } from "@athing/platform-bun";
 import { run, type CliDeps } from "./cli";
 
 const deps: CliDeps = {
   setup,
-  buildContext: buildSetupContext,
+  buildContext: (notifyCommand, logger, gate) => buildSetupContext(notifyCommand, logger, gate),
   resolveNotify: () => prepareNotifyScript().command,
+  resolveGate: () => ({
+    gateUrl: resolveGateUrl(),
+    sessionId: process.env["ATHING_SESSION_ID"],
+    sessionToken: process.env["ATHING_SESSION_TOKEN"],
+  }),
   readManifest: () => readManifest(),
   isAlive,
   isTTY: Boolean(process.stdin.isTTY),

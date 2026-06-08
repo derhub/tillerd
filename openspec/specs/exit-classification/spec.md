@@ -1,9 +1,11 @@
 # exit-classification Specification
 
 ## Purpose
+
 Defines the closed, platform-independent exit taxonomy. The daemon translates each raw process exit (code, signal) into a single `ExitQualifier` at its boundary; every layer above branches only on the qualifier, never on raw platform values. Includes the signal reference table with platform-stable name resolution and the qualifier-to-status mapping that determines the `crashed` status.
 
 ## Requirements
+
 ### Requirement: Platform-independent exit qualifier
 
 Every session exit SHALL be translated, at the daemon boundary, into a single value from a closed, platform-independent exit qualifier set, and that qualifier SHALL be the exit field consumers branch on. Raw platform exit code and signal SHALL be carried only as optional diagnostic data, never as the basis for downstream control flow. The qualifier set SHALL include at least: `ok`, `error`, `stopped-by-request`, `killed`, `faulted`, `hangup`, `interrupted`, `resource-exceeded`, and `unknown`.
@@ -89,4 +91,3 @@ When a session exits with a qualifier the shared mapping marks as a crash, the e
 
 - **WHEN** a session exits with qualifier `stopped-by-request`
 - **THEN** the engine SHALL NOT emit status `crashed`
-

@@ -12,8 +12,7 @@ export interface WebSocketLike {
 
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
-const defaultFactory: WebSocketFactory = (url) =>
-  new WebSocket(url) as unknown as WebSocketLike;
+const defaultFactory: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
 
 /**
  * Network `DaemonTransport`: carries raw daemon frames over a binary WebSocket to the

@@ -104,7 +104,7 @@ channel. Frames it produces SHALL be decodable by the reference framing decoder 
 
 - **WHEN** the daemon starts
 - **THEN** it SHALL write the manifest to the same deterministic path with the same `{ pid,
-  version }` shape, expose the control socket at the same deterministic path, and honor the same
+version }` shape, expose the control socket at the same deterministic path, and honor the same
   base-directory override
 
 #### Scenario: Registry supports spawn, kill, and list

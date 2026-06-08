@@ -1,6 +1,7 @@
 # mcp-gateway-control-plane Specification
 
 ## Purpose
+
 The REST management surface: health and status endpoints, targeted restart/stop/start, and reload with per-backend diff and graceful drain.
 
 ## Requirements

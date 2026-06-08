@@ -23,19 +23,20 @@ export type SignalCategory =
   | "window"
   | "info";
 
-export type HookEventType =
-  | "SessionStart"
-  | "UserPromptSubmit"
-  | "PostToolUse"
-  | "PermissionRequest"
-  | "Stop"
-  | "SessionEnd";
+export type HookKind =
+  | { type: "SessionStart"; payload: { cwd?: string; client?: string; cliVersion?: string } }
+  | { type: "UserPromptSubmit"; payload: { content: string; turnIndex?: number } }
+  | {
+      type: "PostToolUse";
+      payload: { toolName: string; toolInput: unknown; toolResponse: string; turnIndex: number };
+    }
+  | { type: "PermissionRequest"; payload: { toolName?: string; request: unknown } }
+  | { type: "Stop"; payload: { turnIndex?: number } }
+  | { type: "SessionEnd"; payload: { reason?: string } };
 
-export interface HookEvent {
-  sessionId: string;
-  type: HookEventType;
-  payload?: unknown;
-}
+export type HookEventType = HookKind["type"];
+
+export type HookEvent = { sessionId: string; correlationId: string; ts: number } & HookKind;
 
 export interface ToolUseContent {
   kind: "tool_use";

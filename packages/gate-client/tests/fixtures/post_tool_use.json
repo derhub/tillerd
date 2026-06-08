@@ -1,0 +1,15 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-3",
+    "ts": 1717000000002,
+    "type": "PostToolUse",
+    "payload": {
+      "toolName": "Read",
+      "toolInput": { "file_path": "src/auth.rs" },
+      "toolResponse": "pub fn login() {}",
+      "turnIndex": 1
+    }
+  }
+}

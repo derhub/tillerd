@@ -1,8 +1,11 @@
 # runtime-neutral-core Specification
 
 ## Purpose
+
 TBD - created by archiving change refactor-sdk-web-api. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Contract and engine layers run in a standard web runtime
 
 The contract layer and the engine layer SHALL depend only on standard web runtime APIs, so they
@@ -42,4 +45,3 @@ server-runtime-only global or module loader.
 - **WHEN** the verification step runs and either source tree references a byte-buffer object,
   process/environment object, a module-require, or a server-runtime namespace
 - **THEN** verification fails
-

@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use contracts::CorrelationId;
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, GetPromptRequestParams, GetPromptResult,
     ListPromptsResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
@@ -10,8 +11,11 @@ use rmcp::model::{
 };
 use rmcp::service::{NotificationContext, RequestContext};
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
+use serde_json::Value;
+use uuid::Uuid;
 
 use crate::front::FrontPeer;
+use crate::gate_ipc::GateToolClient;
 use crate::router;
 use crate::supervisor::Supervisor;
 
@@ -19,11 +23,20 @@ use crate::supervisor::Supervisor;
 pub struct Gateway {
     supervisor: Arc<Supervisor>,
     front: FrontPeer,
+    gate_client: Option<Arc<GateToolClient>>,
 }
 
 impl Gateway {
-    pub fn new(supervisor: Arc<Supervisor>, front: FrontPeer) -> Self {
-        Self { supervisor, front }
+    pub fn new(
+        supervisor: Arc<Supervisor>,
+        front: FrontPeer,
+        gate_client: Option<Arc<GateToolClient>>,
+    ) -> Self {
+        Self {
+            supervisor,
+            front,
+            gate_client,
+        }
     }
 
     pub fn supervisor(&self) -> &Arc<Supervisor> {
@@ -54,7 +67,7 @@ impl ServerHandler for Gateway {
 
     async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
         // Capture the front peer so backends can relay sampling/roots/elicitation.
-        self.front.set(context.peer.clone());
+        self.front.set(context.peer);
     }
 
     async fn list_tools(
@@ -85,13 +98,36 @@ impl ServerHandler for Gateway {
             .await
             .ok_or_else(|| Self::backend_error(backend, "unavailable"))?;
 
+        // One correlation id joins the call and its result through the gate.
+        let correlation = CorrelationId(Uuid::new_v4().to_string());
+        let input = request
+            .arguments
+            .clone()
+            .map(Value::Object)
+            .unwrap_or(Value::Null);
+        // Observe (and, in a later firewall, gate) the call. Fail-open: the gate
+        // forwards the input unchanged when it is absent or unreachable.
+        let input = match &self.gate_client {
+            Some(client) => client.route_call(&correlation, &request.name, input).await,
+            None => input,
+        };
+
         let mut params = CallToolRequestParams::new(tool.to_string());
-        if let Some(args) = request.arguments {
-            params = params.with_arguments(args);
+        if let Some(args) = input.as_object() {
+            params = params.with_arguments(args.clone());
         }
-        peer.call_tool(params)
+        let result = peer
+            .call_tool(params)
             .await
-            .map_err(|e| Self::backend_error(backend, e))
+            .map_err(|e| Self::backend_error(backend, e));
+
+        if let (Some(client), Ok(call_result)) = (&self.gate_client, &result) {
+            let rendered = serde_json::to_string(call_result).unwrap_or_default();
+            client
+                .observe_result(&correlation, &request.name, rendered)
+                .await;
+        }
+        result
     }
 
     async fn list_prompts(

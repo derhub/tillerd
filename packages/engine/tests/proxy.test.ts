@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
-import type { DaemonFrame } from "@athing/sdk";
-import type { AgentDefinition, FileSource, Logger } from "@athing/sdk";
+import type { DaemonFrame, HookEvent, HookSource, ContentEvent } from "@athing/sdk";
+import type { AgentDefinition, Logger } from "@athing/sdk";
 import type { FrameHandler } from "@athing/sdk";
 
 const noopLogger: Logger = {
@@ -10,14 +10,6 @@ const noopLogger: Logger = {
   error() {},
   child: () => noopLogger,
 };
-const nullFileSource: FileSource = {
-  async size() {
-    return null;
-  },
-  async read() {
-    return new Uint8Array(0);
-  },
-};
 
 const mockAdapter: AgentDefinition = {
   name: "mock",
@@ -25,16 +17,6 @@ const mockAdapter: AgentDefinition = {
   interruptSequence: "\x1b",
   binaryResolution: { overrideEnvVar: "MOCK_BIN", binaryName: "mock", commonLocations: [] },
   cliVersionRange: "*",
-  parseHook: (raw: unknown) => {
-    const r = raw as Record<string, unknown>;
-    return {
-      sessionId: String(r["session_id"] ?? ""),
-      type: (r["hook_event_name"] as "SessionStart") ?? "SessionStart",
-      payload: raw,
-    };
-  },
-  transcriptPath: () => "/dev/null",
-  parseTranscriptEntry: () => null,
 };
 
 class MockDaemonClient {
@@ -77,9 +59,7 @@ async function makeProxy(mode: "spawn" | "subscribe" = "spawn") {
     client as never,
     mode,
     "/tmp/test-hooks.sock",
-    nullFileSource,
     noopLogger,
-    "/virtual-home",
     "mock",
   );
   return { proxy, client };
@@ -139,19 +119,6 @@ describe("AgentSessionProxy — spawn mode", () => {
     expect((acks[0]!.meta as { bytes: number }).bytes).toBe(5);
   });
 
-  test("hook frame drives statusMapper → onStatus", async () => {
-    const { proxy, client } = await makeProxy("spawn");
-    proxy.start();
-    const statuses: string[] = [];
-    proxy.onStatus((s) => statuses.push(s));
-    client.emit("test-session-id", {
-      type: "hook",
-      sessionId: "test-session-id",
-      payload: { hook_event_name: "UserPromptSubmit", session_id: "test-session-id" },
-    });
-    expect(statuses).toContain("WORKING");
-  });
-
   test("exit frame fires onExit handler with qualifier", async () => {
     const { proxy, client } = await makeProxy("spawn");
     proxy.start();
@@ -165,27 +132,6 @@ describe("AgentSessionProxy — spawn mode", () => {
     });
     expect(exits).toHaveLength(1);
     expect(exits[0]!.qualifier).toBe("ok");
-  });
-
-  test("send() is queued before ready then flushed on IDLE after WORKING", async () => {
-    const { proxy, client } = await makeProxy("spawn");
-    proxy.start();
-    proxy.send("hello");
-    expect(sentType(client, "input")).toHaveLength(0);
-    client.emit("test-session-id", {
-      type: "hook",
-      sessionId: "test-session-id",
-      payload: { hook_event_name: "UserPromptSubmit", session_id: "test-session-id" },
-    });
-    client.emit("test-session-id", {
-      type: "hook",
-      sessionId: "test-session-id",
-      payload: { hook_event_name: "Stop", session_id: "test-session-id" },
-    });
-    const inputs = sentType(client, "input");
-    expect(inputs).toHaveLength(1);
-    expect(inputs[0]!.body).toBeDefined();
-    expect(new TextDecoder().decode(inputs[0]!.body!)).toContain("hello");
   });
 
   test("sendQueue throws QueueFull when over capacity", async () => {
@@ -241,7 +187,13 @@ describe("AgentSessionProxy — exit qualifier & crashed status", () => {
       type: "exit",
       sessionId: "test-session-id",
       qualifier: "faulted",
-      raw: { code: null, signal: "SIGSEGV", signalName: "SIGSEGV", signalMeaning: "Segfault", signalCategory: "fault" },
+      raw: {
+        code: null,
+        signal: "SIGSEGV",
+        signalName: "SIGSEGV",
+        signalMeaning: "Segfault",
+        signalCategory: "fault",
+      },
     });
 
     expect(statuses).toContain("crashed");
@@ -443,9 +395,7 @@ describe("AgentSessionProxy — crash recovery routing", () => {
       client2 as never,
       "spawn",
       "/tmp/hooks.sock",
-      nullFileSource,
       noopLogger,
-      "/virtual-home",
       "mock",
     );
     proxy2.start();
@@ -455,7 +405,7 @@ describe("AgentSessionProxy — crash recovery routing", () => {
   });
 
   test("recovered session starts with blank terminal (no pre-crash data in dataBuf)", async () => {
-    const { proxy, client } = await makeProxy("spawn");
+    const { proxy, client: _client } = await makeProxy("spawn");
     proxy.start();
     const chunks: Uint8Array[] = [];
     proxy.onData((b) => chunks.push(b));
@@ -535,5 +485,248 @@ describe("AgentSessionProxy — subscribe mode", () => {
     proxy.onData((b) => chunks.push(b));
     expect(chunks).toHaveLength(1);
     expect(chunks[0]).toEqual(new Uint8Array([10, 20]));
+  });
+});
+
+// ── HookSource ingress ────────────────────────────────────────────────────────
+
+function makeHookEvent(type: HookEvent["type"], sessionId = "test-session-id"): HookEvent {
+  const base = { sessionId, correlationId: "c1", ts: 1000 };
+  switch (type) {
+    case "UserPromptSubmit":
+      return { ...base, type, payload: { content: "hi", turnIndex: 0 } };
+    case "PostToolUse":
+      return {
+        ...base,
+        type,
+        payload: { toolName: "Read", toolInput: {}, toolResponse: "", turnIndex: 1 },
+      };
+    case "Stop":
+      return { ...base, type, payload: { turnIndex: 1 } };
+    case "SessionStart":
+      return { ...base, type, payload: {} };
+    case "SessionEnd":
+      return { ...base, type, payload: {} };
+    case "PermissionRequest":
+      return { ...base, type, payload: { request: {} } };
+  }
+}
+
+function fakeHookSource(events: HookEvent[]): HookSource {
+  return {
+    subscribe(_sessionId: string): AsyncIterableIterator<HookEvent> {
+      let i = 0;
+      const iter: AsyncIterableIterator<HookEvent> = {
+        [Symbol.asyncIterator]() {
+          return iter;
+        },
+        async next() {
+          if (i < events.length) {
+            return { value: events[i++]!, done: false };
+          }
+          return { value: undefined as unknown as HookEvent, done: true };
+        },
+      };
+      return iter;
+    },
+  };
+}
+
+async function makeProxyWithHookSource(hookSource: HookSource) {
+  const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+  const client = new MockDaemonClient();
+  const proxy = new AgentSessionProxy(
+    "test-session-id",
+    mockAdapter,
+    fillProxyOptions({ cwd: "/tmp", startupTimeoutMs: 500, sendQueueCapacity: 4 }),
+    client as never,
+    "spawn",
+    "/tmp/test-hooks.sock",
+    noopLogger,
+    "mock",
+    hookSource,
+  );
+  return { proxy, client };
+}
+
+describe("AgentSessionProxy — HookSource ingress", () => {
+  test("UserPromptSubmit event drives status to WORKING", async () => {
+    const source = fakeHookSource([makeHookEvent("UserPromptSubmit")]);
+    const { proxy } = await makeProxyWithHookSource(source);
+    const statuses: string[] = [];
+    proxy.onStatus((s) => statuses.push(s));
+    proxy.start();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statuses).toContain("WORKING");
+  });
+
+  test("IDLE-after-WORKING (Stop) flushes the send queue", async () => {
+    const source = fakeHookSource([makeHookEvent("UserPromptSubmit"), makeHookEvent("Stop")]);
+    const { proxy, client } = await makeProxyWithHookSource(source);
+    proxy.start();
+    proxy.send("queued-text");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(sentType(client, "input")).toHaveLength(1);
+  });
+
+  test("PostToolUse emits ToolUseContent to onContent handlers", async () => {
+    const source = fakeHookSource([makeHookEvent("PostToolUse")]);
+    const { proxy } = await makeProxyWithHookSource(source);
+    const events: ContentEvent[] = [];
+    proxy.onContent((e) => events.push(e));
+    proxy.start();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(events).toHaveLength(1);
+    expect(events[0]!.kind).toBe("tool_use");
+    if (events[0]!.kind === "tool_use") {
+      expect(events[0]!.toolName).toBe("Read");
+      expect(events[0]!.sessionId).toBe("test-session-id");
+    }
+  });
+
+  test("non-PostToolUse events do not emit content", async () => {
+    const source = fakeHookSource([makeHookEvent("UserPromptSubmit"), makeHookEvent("Stop")]);
+    const { proxy } = await makeProxyWithHookSource(source);
+    const events: ContentEvent[] = [];
+    proxy.onContent((e) => events.push(e));
+    proxy.start();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(events).toHaveLength(0);
+  });
+
+  test("per-session isolation: hookSource.subscribe called with correct sessionId", async () => {
+    const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+    const subscribedIds: string[] = [];
+    const source: HookSource = {
+      subscribe(sessionId: string): AsyncIterableIterator<HookEvent> {
+        subscribedIds.push(sessionId);
+        const iter: AsyncIterableIterator<HookEvent> = {
+          [Symbol.asyncIterator]() {
+            return iter;
+          },
+          async next() {
+            return { value: undefined as unknown as HookEvent, done: true };
+          },
+        };
+        return iter;
+      },
+    };
+
+    const client = new MockDaemonClient();
+    const proxy = new AgentSessionProxy(
+      "session-xyz",
+      mockAdapter,
+      fillProxyOptions({ cwd: "/tmp" }),
+      client as never,
+      "spawn",
+      "/tmp/hooks.sock",
+      noopLogger,
+      "mock",
+      source,
+    );
+    proxy.start();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(subscribedIds).toEqual(["session-xyz"]);
+  });
+});
+
+// ── spawn env injection (task 7.4 / step 5) ──────────────────────────────────
+
+describe("AgentSessionProxy — spawn env injection", () => {
+  test("injects ATHING_GATE_URL when gateUrl is set in options", async () => {
+    const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+    const sent: object[] = [];
+    const fakeClient = {
+      send(meta: object) {
+        sent.push(meta);
+      },
+      subscribe() {
+        return () => {};
+      },
+      async list() {
+        return [];
+      },
+      disconnect() {},
+    };
+    const proxy = new AgentSessionProxy(
+      "gate-env-session",
+      mockAdapter,
+      fillProxyOptions({ cwd: "/tmp", gateUrl: "http://127.0.0.1:9999", gateToken: "tok-abc" }),
+      fakeClient as never,
+      "spawn",
+      "/tmp/hooks.sock",
+      noopLogger,
+      "mock",
+    );
+    proxy.start();
+
+    const spawnFrame = sent.find((s) => (s as { type: string }).type === "spawn") as {
+      env: Record<string, string>;
+    };
+    expect(spawnFrame.env["ATHING_GATE_URL"]).toBe("http://127.0.0.1:9999");
+    expect(spawnFrame.env["ATHING_SESSION_ID"]).toBe("gate-env-session");
+    expect(spawnFrame.env["ATHING_SESSION_TOKEN"]).toBe("tok-abc");
+  });
+
+  test("proxy_spawn_env_omits_athing_bridge_url", async () => {
+    const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+    const sent: object[] = [];
+    const fakeClient = {
+      send(meta: object) {
+        sent.push(meta);
+      },
+      subscribe() {
+        return () => {};
+      },
+      async list() {
+        return [];
+      },
+      disconnect() {},
+    };
+    const proxy = new AgentSessionProxy(
+      "no-bridge-session",
+      mockAdapter,
+      fillProxyOptions({ cwd: "/tmp" }),
+      fakeClient as never,
+      "spawn",
+      "/tmp/hooks.sock",
+      noopLogger,
+      "mock",
+    );
+    proxy.start();
+
+    const spawnFrame = sent.find((s) => (s as { type: string }).type === "spawn") as {
+      env: Record<string, string>;
+    };
+    expect(spawnFrame.env["ATHING_BRIDGE_URL"]).toBeUndefined();
+  });
+
+  test("uses provided gateToken instead of generating a random token", async () => {
+    const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
+    const sent: object[] = [];
+    const fakeClient = {
+      send(meta: object) {
+        sent.push(meta);
+      },
+      subscribe() {
+        return () => {};
+      },
+      async list() {
+        return [];
+      },
+      disconnect() {},
+    };
+    const providedToken = "pre-minted-token-hex";
+    const proxy = new AgentSessionProxy(
+      "token-session",
+      mockAdapter,
+      fillProxyOptions({ cwd: "/tmp", gateToken: providedToken }),
+      fakeClient as never,
+      "spawn",
+      "/tmp/hooks.sock",
+      noopLogger,
+      "mock",
+    );
+    expect(proxy.token).toBe(providedToken);
   });
 });

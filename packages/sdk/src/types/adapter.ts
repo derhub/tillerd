@@ -1,5 +1,3 @@
-import type { HookEvent, ContentEvent } from "./events";
-
 export interface LaunchConfig {
   command: string;
   args: string[];
@@ -28,7 +26,4 @@ export interface AgentDefinition {
   readonly interruptSequence: string;
   /** Declarative binary-resolution policy; the host performs the lookup I/O. */
   readonly binaryResolution: BinaryResolutionSpec;
-  parseHook(raw: unknown): HookEvent;
-  transcriptPath(sessionId: string, cwd: string, agentHome: string): string;
-  parseTranscriptEntry(line: string): ContentEvent | null;
 }

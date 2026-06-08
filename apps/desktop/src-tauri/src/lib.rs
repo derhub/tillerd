@@ -2,6 +2,8 @@ mod bootstrap;
 mod bridge;
 mod diag;
 mod files;
+mod gate_admin;
+mod orchestrator;
 mod paths;
 mod store;
 mod supervisor;

@@ -12,6 +12,12 @@ export interface SessionOptions {
   idleTimeoutMs?: number;
   sendQueueCapacity?: number;
   captureRawIo?: boolean;
+  /** Pre-minted session identifier. Overrides the internally generated UUID. */
+  sessionId?: string;
+  /** Gate HTTP base URL. When present, ATHING_GATE_URL is injected into the daemon spawn env. */
+  gateUrl?: string;
+  /** Pre-minted bearer token registered with the gate admin. Overrides the internally generated token. */
+  gateToken?: string;
 }
 
 export interface AgentSession {

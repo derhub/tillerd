@@ -35,7 +35,7 @@
       `hook.event`, `component`, `frame.seq`).
 - [x] 3.5 Update affected TS tests (`engine` proxy test, server api test if logger-coupled).
 
-## 4. Native daemon (`packages/daemon-rs`)  — the only live daemon (TS `packages/daemon` is legacy, not instrumented)
+## 4. Native daemon (`packages/daemon-pty`) — the only live daemon (TS `packages/daemon` is legacy, not instrumented)
 
 - [x] 4.1 Add `tracing` and `tracing-subscriber` (JSON feature) to `Cargo.toml`.
 - [x] 4.2 In `main.rs`, init a JSON subscriber writing to
@@ -59,7 +59,7 @@
 ## 6. Verification
 
 - [x] 6.1 `bun test` green across logger, sdk, engine, server, cli.
-- [x] 6.2 `cargo test` / build green for `daemon-rs`; manual run shows JSON records with
+- [x] 6.2 `cargo test` / build green for `daemon-pty`; manual run shows JSON records with
       resource + `session.id` in `daemon-<date>.log`.
 - [x] 6.3 No operational `console.*` remains in `apps/server` / `apps/cli` (excluding the
       intentional human-facing startup line and the cli PTY passthrough).

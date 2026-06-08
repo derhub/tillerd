@@ -11,7 +11,7 @@ in-process component.
 ## What Changes
 
 - New standalone Rust daemon crate `packages/athing-mcp-gateway-rs`, outside the Bun/turbo graph
-  (same posture as `packages/daemon-rs`), built on `rmcp` 1.7.
+  (same posture as `packages/daemon-pty`), built on `rmcp` 1.7.
 - New config file `~/.athing/mcp.json` (honoring `ATHING_DIR`) in the de-facto `mcpServers`
   format, with per-backend `allowedTools` (allowlist) and `lazy` extensions, plus a generated
   `schema.json` and `$schema` pointer for editor validation.
@@ -58,7 +58,7 @@ in-process component.
 ## Impact
 
 - New crate `packages/athing-mcp-gateway-rs` (lib + daemon binary), requiring a Rust toolchain;
-  outside default `bun install` / `turbo run`, like `packages/daemon-rs`.
+  outside default `bun install` / `turbo run`, like `packages/daemon-pty`.
 - New runtime config and state files under `~/.athing/`: `mcp.json` (user-authored),
   `mcp-gateway.json` (manifest), and `schema.json` (shipped).
 - New dependency surface: `rmcp` 1.7 (`server`, `client`, `transport-child-process`,

@@ -16,13 +16,20 @@ pub async fn file_read(path: String, offset: u64, length: u64) -> Result<Respons
 }
 
 pub(crate) async fn read_bytes(path: &str, offset: u64, length: u64) -> Result<Vec<u8>, String> {
-    let mut file = tokio::fs::File::open(path).await.map_err(|e| e.to_string())?;
-    file.seek(SeekFrom::Start(offset)).await.map_err(|e| e.to_string())?;
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(offset))
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut buf = vec![0u8; length as usize];
     let mut filled = 0usize;
     while filled < buf.len() {
-        let n = file.read(&mut buf[filled..]).await.map_err(|e| e.to_string())?;
+        let n = file
+            .read(&mut buf[filled..])
+            .await
+            .map_err(|e| e.to_string())?;
         if n == 0 {
             break;
         }
@@ -40,7 +47,10 @@ mod tests {
 
     #[tokio::test]
     async fn file_size_absent_returns_none() {
-        assert_eq!(file_size("/nonexistent/path/zzz.dat".to_string()).await, None);
+        assert_eq!(
+            file_size("/nonexistent/path/zzz.dat".to_string()).await,
+            None
+        );
     }
 
     #[tokio::test]
@@ -67,7 +77,9 @@ mod tests {
     async fn read_bytes_full_read_from_zero() {
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         tmp.write_all(b"hello world").unwrap();
-        let bytes = read_bytes(tmp.path().to_str().unwrap(), 0, 11).await.unwrap();
+        let bytes = read_bytes(tmp.path().to_str().unwrap(), 0, 11)
+            .await
+            .unwrap();
         assert_eq!(bytes, b"hello world");
     }
 
@@ -75,7 +87,9 @@ mod tests {
     async fn read_bytes_reads_from_offset() {
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         tmp.write_all(b"hello world").unwrap();
-        let bytes = read_bytes(tmp.path().to_str().unwrap(), 6, 5).await.unwrap();
+        let bytes = read_bytes(tmp.path().to_str().unwrap(), 6, 5)
+            .await
+            .unwrap();
         assert_eq!(bytes, b"world");
     }
 
@@ -83,7 +97,9 @@ mod tests {
     async fn read_bytes_short_at_eof() {
         let mut tmp = tempfile::NamedTempFile::new().unwrap();
         tmp.write_all(b"hi").unwrap();
-        let bytes = read_bytes(tmp.path().to_str().unwrap(), 0, 100).await.unwrap();
+        let bytes = read_bytes(tmp.path().to_str().unwrap(), 0, 100)
+            .await
+            .unwrap();
         assert_eq!(bytes, b"hi");
     }
 }

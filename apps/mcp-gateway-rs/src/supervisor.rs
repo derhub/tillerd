@@ -33,12 +33,32 @@ pub struct ReloadReport {
     pub failed: Vec<String>,
 }
 
+fn to_spawn_spec(spec: &BackendSpec) -> process_launch::SpawnSpec {
+    process_launch::SpawnSpec {
+        command: spec.command.clone().unwrap_or_default(),
+        args: spec.args.clone(),
+        cwd: None,
+        env: spec
+            .env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+        ..Default::default()
+    }
+}
+
+// The R6 spawn-field set {command, args, cwd, env} is compared by the process-launch
+// crate; the env allowlist is the union of both specs' keys so any env change still
+// forces a restart. url/headers are HTTP-only fields outside the spawn spec.
 fn spawn_fields_differ(a: &BackendSpec, b: &BackendSpec) -> bool {
-    a.command != b.command
-        || a.args != b.args
-        || a.env != b.env
-        || a.url != b.url
-        || a.headers != b.headers
+    let (sa, sb) = (to_spawn_spec(a), to_spawn_spec(b));
+    let keys: Vec<&str> = sa
+        .env
+        .keys()
+        .chain(sb.env.keys())
+        .map(String::as_str)
+        .collect();
+    process_launch::spawn_fields_differ(&sa, &sb, &keys) || a.url != b.url || a.headers != b.headers
 }
 
 fn policy_differs(a: &BackendSpec, b: &BackendSpec) -> bool {
@@ -213,10 +233,16 @@ impl Supervisor {
     // Index a lazy backend once, then drop the connection; its tools stay
     // indexed so listings cover it without keeping the process warm.
     async fn boot_index_release(&self, name: &str, spec: &BackendSpec) -> anyhow::Result<()> {
-        let running = backend::connect(name, spec, self.front.clone(), self.refresh_tx.clone())
-            .await?;
+        let running =
+            backend::connect(name, spec, self.front.clone(), self.refresh_tx.clone()).await?;
         let client = running.peer().clone();
-        backend::index(name, &client, &self.registry, Self::allowed(spec).as_deref()).await?;
+        backend::index(
+            name,
+            &client,
+            &self.registry,
+            Self::allowed(spec).as_deref(),
+        )
+        .await?;
         let _ = running.cancel().await;
         Ok(())
     }
@@ -256,7 +282,10 @@ impl Supervisor {
                             .write()
                             .await
                             .insert(name.clone(), running.cancellation_token());
-                        this.peers.write().await.insert(name.clone(), client.clone());
+                        this.peers
+                            .write()
+                            .await
+                            .insert(name.clone(), client.clone());
                         this.set_state(&name, BackendState::Ready).await;
                         this.notify_front_tools_changed().await;
                         tracing::info!(%name, "backend ready");
@@ -314,7 +343,8 @@ impl Supervisor {
                     return;
                 }
                 let base = this.tuning.backoff_base;
-                let backoff = (base * 2u32.pow((attempt - 1).min(8))).min(this.tuning.backoff_ceiling);
+                let backoff =
+                    (base * 2u32.pow((attempt - 1).min(8))).min(this.tuning.backoff_ceiling);
                 tokio::time::sleep(backoff).await;
             }
         });
@@ -333,8 +363,12 @@ impl Supervisor {
         // Don't start a second loop if one is already supervising this backend.
         let already_supervised = matches!(
             self.state(name).await,
-            Some(BackendState::Starting | BackendState::Ready | BackendState::Restarting
-                | BackendState::Unhealthy)
+            Some(
+                BackendState::Starting
+                    | BackendState::Ready
+                    | BackendState::Restarting
+                    | BackendState::Unhealthy
+            )
         );
         if !already_supervised {
             self.spawn_supervise(name.to_string(), spec.clone());
@@ -387,8 +421,13 @@ impl Supervisor {
         let Some(client) = self.peers.read().await.get(name).cloned() else {
             return;
         };
-        if let Err(e) =
-            backend::index(name, &client, &self.registry, Self::allowed(&spec).as_deref()).await
+        if let Err(e) = backend::index(
+            name,
+            &client,
+            &self.registry,
+            Self::allowed(&spec).as_deref(),
+        )
+        .await
         {
             tracing::warn!(%name, error=%e, "reindex failed");
             return;
@@ -485,7 +524,8 @@ mod tests {
     #[tokio::test]
     async fn empty_config_starts_with_no_backends() {
         let registry = Registry::default();
-        let (sup, _rx) = Supervisor::new(McpConfig::default(), registry.clone(), FrontPeer::default());
+        let (sup, _rx) =
+            Supervisor::new(McpConfig::default(), registry.clone(), FrontPeer::default());
         sup.start().await;
         assert!(sup.states().await.is_empty());
         assert!(registry.all_tools().is_empty());
@@ -493,7 +533,11 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_backend_has_no_peer() {
-        let (sup, _rx) = Supervisor::new(McpConfig::default(), Registry::default(), FrontPeer::default());
+        let (sup, _rx) = Supervisor::new(
+            McpConfig::default(),
+            Registry::default(),
+            FrontPeer::default(),
+        );
         assert!(sup.peer("nope").await.is_none());
     }
 
@@ -505,6 +549,20 @@ mod tests {
     fn changing_a_spawn_field_is_a_spawn_diff() {
         let a = spec_from(r#"{"command":"x","args":["1"]}"#);
         let b = spec_from(r#"{"command":"x","args":["2"]}"#);
+        assert!(spawn_fields_differ(&a, &b));
+    }
+
+    #[test]
+    fn changing_an_env_value_is_a_spawn_diff() {
+        let a = spec_from(r#"{"command":"x","env":{"K":"v1"}}"#);
+        let b = spec_from(r#"{"command":"x","env":{"K":"v2"}}"#);
+        assert!(spawn_fields_differ(&a, &b));
+    }
+
+    #[test]
+    fn changing_a_url_is_a_spawn_diff() {
+        let a = spec_from(r#"{"url":"https://a/mcp"}"#);
+        let b = spec_from(r#"{"url":"https://b/mcp"}"#);
         assert!(spawn_fields_differ(&a, &b));
     }
 

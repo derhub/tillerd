@@ -1,0 +1,10 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-5",
+    "ts": 1717000000004,
+    "type": "Stop",
+    "payload": { "turnIndex": 2 }
+  }
+}

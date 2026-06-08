@@ -1,0 +1,14 @@
+{
+  "name": "@athing/redact-rs",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "cargo build",
+    "build": "cargo build --release",
+    "lint": "cargo clippy --all-targets --locked -- -D warnings",
+    "fmt": "cargo fmt",
+    "fmt:check": "cargo fmt --check",
+    "test": "cargo test",
+    "check-deps": "cargo outdated"
+  }
+}

@@ -2,7 +2,14 @@ import { test, expect, describe } from "bun:test";
 import { run } from "../src/cli";
 import { harness, NOTIFY, commandsFor, settings } from "./helpers";
 
-const EVENTS = ["SessionStart", "UserPromptSubmit", "PostToolUse", "PermissionRequest", "Stop", "SessionEnd"];
+const EVENTS = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "PostToolUse",
+  "PermissionRequest",
+  "Stop",
+  "SessionEnd",
+];
 
 describe("install", () => {
   test("writes hooks to the settings file on a fresh environment", async () => {

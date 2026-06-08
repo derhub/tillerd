@@ -2,9 +2,9 @@ import { test, expect } from "bun:test";
 import { parseDaemonFrame } from "./messages";
 import type { StatusFrame } from "./messages";
 
-// Conformance fixture shared with the daemon-rs emitter
-// (packages/daemon-rs/src/server.rs `status_frame_matches_shared_contract`).
-// This is the exact JSON daemon-rs puts on the wire for a terminal status frame.
+// Conformance fixture shared with the daemon-pty emitter
+// (packages/daemon-pty/src/server.rs `status_frame_matches_shared_contract`).
+// This is the exact JSON daemon-pty puts on the wire for a terminal status frame.
 const GOLDEN_STATUS_FRAME = {
   type: "status",
   sessionId: "s1",
@@ -12,7 +12,7 @@ const GOLDEN_STATUS_FRAME = {
   source: "terminal",
 } as const;
 
-test("daemon-rs status frame parses to the StatusFrame contract", () => {
+test("daemon-pty status frame parses to the StatusFrame contract", () => {
   const frame = parseDaemonFrame(GOLDEN_STATUS_FRAME);
   expect(frame).not.toBeNull();
   expect(frame!.type).toBe("status");

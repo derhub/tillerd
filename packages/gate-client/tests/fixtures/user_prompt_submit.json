@@ -1,0 +1,10 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-2",
+    "ts": 1717000000001,
+    "type": "UserPromptSubmit",
+    "payload": { "content": "summarize the auth module", "turnIndex": 0 }
+  }
+}

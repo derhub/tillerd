@@ -9,7 +9,6 @@ export interface AgentInfo {
   version: string;
   hookCommand: string | null;
   hooksSocketPath: string;
-  agentHome: string;
   homeDir: string;
 }
 
@@ -37,10 +36,7 @@ function comparePep(a: string, b: string): number {
 /** Throw a typed `VersionUnsupported` error before any session is accepted (§5.5). */
 export function assertAgentSupported(version: string, range: string): void {
   if (!satisfiesMinVersion(version, range)) {
-    throw new AtError(
-      "VersionUnsupported",
-      `agent version ${version} does not satisfy ${range}`,
-    );
+    throw new AtError("VersionUnsupported", `agent version ${version} does not satisfy ${range}`);
   }
 }
 

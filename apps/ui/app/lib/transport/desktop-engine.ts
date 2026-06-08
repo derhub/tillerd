@@ -1,7 +1,6 @@
 import { createEngine, type EngineDeps } from "@athing/engine";
 import type { Engine } from "@athing/sdk";
 import { TauriDaemonTransport } from "./tauri";
-import { TauriFileSource } from "./file-source";
 import { TauriLogger } from "./logger";
 import type { TauriCore } from "./tauri";
 import type { AgentInfo } from "./host-bootstrap";
@@ -19,10 +18,8 @@ export function buildDesktopEngineDeps(
 ): EngineDeps {
   return {
     transport,
-    fileSource: new TauriFileSource(core),
     logger: new TauriLogger(core),
     hooksSocketPath: info.hooksSocketPath,
-    agentHome: info.agentHome,
     resolvedCommand: info.path,
   };
 }

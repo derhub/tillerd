@@ -22,8 +22,10 @@ test("HookEventType values are valid string literals", () => {
 test("HookEvent shape is correct", () => {
   const event: HookEvent = {
     sessionId: "sess-123",
+    correlationId: "corr-1",
+    ts: 1_700_000_000_000,
     type: "SessionStart",
-    payload: { foo: "bar" },
+    payload: { cwd: "/repo" },
   };
   expect(event.sessionId).toBe("sess-123");
   expect(event.type).toBe("SessionStart");

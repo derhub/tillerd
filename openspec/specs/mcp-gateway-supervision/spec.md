@@ -1,6 +1,7 @@
 # mcp-gateway-supervision Specification
 
 ## Purpose
+
 Backend process lifecycle: the state model, eager and lazy spawn, health-watch, active-liveness healing, capped-backoff restart to a terminal Failed state, and idle-shutdown.
 
 ## Requirements

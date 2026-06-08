@@ -1,6 +1,6 @@
 # 0006. Structured content from transcript read-on-hook
 
-- Status: accepted
+- Status: superseded by ADR-0017
 - Date: 2026-06-01
 
 ## Context

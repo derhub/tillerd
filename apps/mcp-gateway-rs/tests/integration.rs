@@ -114,7 +114,11 @@ async fn a_lazy_backend_is_activated_on_first_call() {
     );
 
     // Activating on demand returns a live peer.
-    let peer = gw.supervisor().peer("lazy").await.expect("activated on demand");
+    let peer = gw
+        .supervisor()
+        .peer("lazy")
+        .await
+        .expect("activated on demand");
     let result = peer
         .call_tool(rmcp::model::CallToolRequestParams::new("echo"))
         .await
@@ -169,7 +173,9 @@ async fn reverse_proxy_relays_sampling_to_the_front_client() {
     wait_for_tools(&gw, 2).await;
 
     let token = "test-token".to_string();
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
     let port = listener.local_addr().unwrap().port();
     let router = athing_mcp_gateway::transport::http::router(gw.clone(), token.clone());
     tokio::spawn(async move {

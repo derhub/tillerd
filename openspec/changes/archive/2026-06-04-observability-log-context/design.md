@@ -5,7 +5,7 @@ only partially met. The TypeScript logger (`@athing/logger`, pino-based) produce
 JSON and can bind a single `sessionId`, but consumers re-pass correlation fields at each call
 site by hand — when a field is omitted (e.g. `pty-transport` logging `spawning pty` with no
 session), the record becomes an orphan that cannot be grouped. The native daemon
-(`packages/daemon-rs`), which per ADR-0008..0011 owns the PTY master fds and survives upgrades,
+(`packages/daemon-pty`), which per ADR-0008..0011 owns the PTY master fds and survives upgrades,
 logs exclusively through `eprintln!`: unstructured text to stderr, no level, no context.
 
 The gap is not "logging to a file" — it is **ambient context binding** (bind correlation once,
@@ -15,6 +15,7 @@ data model's `Attributes` and `Resource`. Shaping our output around them now mak
 collector-ingestible later without building any pipeline.
 
 In-force ADRs that constrain this design:
+
 - ADR-0003 (ports-and-adapters with composition-root DI): the core depends inward on
   interfaces; concrete wiring happens at the composition root.
 - ADR-0007 (reliability/operability contract): session-correlated structured logs; opt-in,
@@ -29,7 +30,7 @@ No ADR is superseded by this change.
 - Add a context-binding contract (`child`) to the `Logger` interface so correlation context is
   bound once and inherited, eliminating per-call-site field threading.
 - Introduce a per-process resource identity stamped on every record.
-- Bring `daemon-rs` to the structured-logging bar by adopting `tracing` (JSON to file).
+- Bring `daemon-pty` to the structured-logging bar by adopting `tracing` (JSON to file).
 - Standardize a small set of dotted attribute keys across both runtimes.
 - Keep the output shape mappable to the OpenTelemetry log data model.
 
@@ -54,12 +55,12 @@ so we use each language's grain rather than forcing one shape across both.
   implements this (`pino.child(bindings)`); the wrapper currently calls it internally but does
   not expose it. We surface it. Children compose (child-of-child merges context).
 - **Rust**: adopt `tracing`. A span (`info_span!(...)` + guard, or `#[instrument]`) carries
-  fields; events inside inherit them. The span *is* the child logger.
+  fields; events inside inherit them. The span _is_ the child logger.
 
 Alternative considered — a hand-rolled `Logger` trait in Rust mirroring the TS interface
 line-for-line. Rejected: it reimplements what `tracing` already provides, forgoes the
-`tracing-opentelemetry` bridge, and fights the ecosystem grain. Symmetry of *concept* matters;
-symmetry of *signature* across languages does not.
+`tracing-opentelemetry` bridge, and fights the ecosystem grain. Symmetry of _concept_ matters;
+symmetry of _signature_ across languages does not.
 
 Alternative considered — `AsyncLocalStorage` for implicit context in TS. Rejected for now: the
 codebase already threads `logger` through DI/`opts`, so explicit `.child()` fits the existing
@@ -87,8 +88,8 @@ with no transform.
 ### D4: OTel-readiness is shape, not pipeline
 
 We emit one JSON record per line with fields that map to the OTel log model
-(timestamp, severity, body, attributes, resource). Field *names* are deliberately not bikeshed:
-any collector renames on ingest. What matters is that the structured context *exists* and is
+(timestamp, severity, body, attributes, resource). Field _names_ are deliberately not bikeshed:
+any collector renames on ingest. What matters is that the structured context _exists_ and is
 consistent. The `tracing-opentelemetry` / pino-OTel bridges remain a future wiring step behind
 the same plug points, requiring no change to call sites.
 
@@ -122,8 +123,8 @@ additive to a type they already consume by DI, so the inward-pointing dependency
 2. Update live TS consumers (`apps/server`, `apps/cli`, `@athing/engine`) to construct with a
    resource and bind `session.id`/`component` via `.child()` at the right scope; route
    operational `console.*` through the logger. The TS `packages/daemon` is legacy (superseded by
-   `daemon-rs`) and is not instrumented. Compiler flags every call site.
-3. Add `tracing` + `tracing-subscriber` to `daemon-rs`; init subscriber + resource in
+   `daemon-pty`) and is not instrumented. Compiler flags every call site.
+3. Add `tracing` + `tracing-subscriber` to `daemon-pty`; init subscriber + resource in
    `main.rs` writing to its own `daemon-<date>.log`; replace every `eprintln!` with a leveled
    `tracing` event under a session span.
 4. No runtime rollout risk: logging is internal. Rollback = revert; no data migration, no wire
@@ -134,10 +135,10 @@ additive to a type they already consume by DI, so the inward-pointing dependency
 - **Attribute-key vocabulary**: exported as constants from `@athing/sdk` (e.g.
   `ATTR.SESSION_ID = "session.id"`). These are pure string-literal data — no I/O, no logging
   library — so the sdk's Web-API-only / runtime-neutral constraint holds. TypeScript consumers
-  import them, gaining compile-time typo protection. `daemon-rs` hand-mirrors the same literals
+  import them, gaining compile-time typo protection. `daemon-pty` hand-mirrors the same literals
   in Rust (no cross-language import exists); cross-runtime consistency is enforced by review and
   the shared vocabulary requirement in the spec, not by a shared type.
-- **`daemon-rs` log destination**: its own file, `ATHING_DIR/logs/daemon-<date>.log`, distinct
+- **`daemon-pty` log destination**: its own file, `ATHING_DIR/logs/daemon-<date>.log`, distinct
   from the TypeScript `ATHING_DIR/logs/<date>.log`. Avoids two processes contending on one
   file's append path and gives the native daemon independent rotation. Cross-runtime correlation
   happens downstream by `service.name` + `session.id`, which the collector groups on.

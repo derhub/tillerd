@@ -80,8 +80,8 @@ per-session callbacks; that is session identity, not agent policy.
 Today the spawn frame carries discrete agent fields (`hookSocketPath`, and the daemon injects
 `ATHING_BRIDGE_URL`/`ATHING_SESSION_ID`/`ATHING_SESSION_TOKEN` by name in `pty-session.ts`),
 while `pty-transport.ts` curates a base allowlist (PATH, HOME, USER, LOGNAME, SHELL, LANG, TERM,
-COLORTERM, SSH_AUTH_SOCK) from its startup-installed `process.env`. The daemon naming the
-`ATHING_*` vars is the env-layer leak.
+COLORTERM, SSH*AUTH_SOCK) from its startup-installed `process.env`. The daemon naming the
+`ATHING*\*` vars is the env-layer leak.
 
 Replace the discrete agent env fields with a single generic `env: Record<string,string>` on the
 spawn frame. The daemon computes the child environment as: its generic terminal base allowlist

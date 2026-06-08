@@ -1,8 +1,11 @@
 # rust-pty-daemon Specification
 
 ## Purpose
+
 Defines the native Rust implementation of the PTY daemon — a wire-compatible replacement for the Node reference daemon. Implements the same Unix-socket + binary-frame protocol, session lifecycle, upgrade handoff, and hook ingress using `portable-pty` and tokio, with no Node/Bun runtime dependency.
+
 ## Requirements
+
 ### Requirement: Generic interactive command launch
 
 The daemon SHALL spawn an interactive user command inside a pseudo-terminal from a launch
@@ -107,7 +110,7 @@ channel. Frames it produces SHALL be decodable by the reference framing decoder 
 
 - **WHEN** the daemon starts
 - **THEN** it SHALL write the manifest to the same deterministic path with the same `{ pid,
-  version }` shape, expose the control socket at the same deterministic path, and honor the same
+version }` shape, expose the control socket at the same deterministic path, and honor the same
   base-directory override
 
 #### Scenario: Registry supports spawn, kill, and list
@@ -234,4 +237,3 @@ other change.
 - **WHEN** the selection is reverted
 - **THEN** the system SHALL resume using the reference daemon with no protocol, encoding, or
   client change
-

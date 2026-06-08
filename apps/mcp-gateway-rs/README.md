@@ -5,7 +5,7 @@ MCP servers behind a single standard MCP endpoint. Any MCP client connects to on
 every backend; one supervisor owns spawn, health, and restart. The daemon outlives the desktop UI
 that launches it.
 
-It is a sibling of the PTY daemon (`packages/daemon-rs`): same lifecycle conventions (manifest,
+It is a sibling of the PTY daemon (`packages/daemon-pty`): same lifecycle conventions (manifest,
 reuse-or-spawn, `ATHING_DIR`), no code dependency. See `docs/adr/0013-0015`.
 
 ## Toolchain
@@ -29,9 +29,17 @@ cargo run --bin gen-schema  # regenerate schema.json from the config types
 {
   "$schema": "./schema.json",
   "mcpServers": {
-    "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"] },
-    "github":     { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"], "allowedTools": ["create_issue"], "lazy": true },
-    "remote":     { "url": "https://example.com/mcp", "headers": { "Authorization": "Bearer x" } }
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "allowedTools": ["create_issue"],
+      "lazy": true
+    },
+    "remote": { "url": "https://example.com/mcp", "headers": { "Authorization": "Bearer x" } }
   }
 }
 ```

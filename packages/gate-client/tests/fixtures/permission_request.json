@@ -1,0 +1,10 @@
+{
+  "frame": "event",
+  "event": {
+    "sessionId": "sess-7f3a",
+    "correlationId": "corr-4",
+    "ts": 1717000000003,
+    "type": "PermissionRequest",
+    "payload": { "toolName": "Bash", "request": { "command": "rm -rf /tmp/x" } }
+  }
+}

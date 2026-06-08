@@ -7,6 +7,9 @@
     "dev": "tauri dev",
     "build": "tauri build --ci",
     "tauri": "tauri",
+    "lint": "cd ./src-tauri && cargo clippy --all-targets --locked -- -D warnings",
+    "fmt": "cd ./src-tauri && cargo fmt",
+    "fmt:check": "cd ./src-tauri && cargo fmt --check",
     "test": "cd ./src-tauri && cargo test",
     "check-deps": "cd ./src-tauri && cargo outdated"
   },

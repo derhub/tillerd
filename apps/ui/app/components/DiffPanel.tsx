@@ -1,4 +1,5 @@
 import { useEffect, useState, use, useRef, useMemo } from "react";
+import { API_BASE } from "~/lib/serverUrl";
 import { Columns2, AlignJustify } from "lucide-react";
 import { Skeleton } from "~/components/ui/skeleton";
 import { SessionContext } from "~/lib/sessionContext";
@@ -24,7 +25,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
     if (status !== "IDLE" && status !== "DONE") return;
 
     setDiff({ phase: "loading" });
-    fetch(`/api/sessions/${sessionId}/diff`)
+    fetch(`${API_BASE}/api/sessions/${sessionId}/diff`)
       .then(async (r) => {
         const patch = await r.text();
         if (!patch.trim()) {

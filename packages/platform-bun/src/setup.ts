@@ -42,7 +42,47 @@ export const setupFs: SetupFs = {
   },
 };
 
+/**
+ * Resolve the gate URL: ATHING_GATE_URL env var, else $ATHING_DIR/gate.url file,
+ * else undefined.
+ */
+export function resolveGateUrl(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const fromEnv = env["ATHING_GATE_URL"];
+  if (fromEnv) return fromEnv;
+
+  const athingDir = env["ATHING_DIR"]
+    ? path.resolve(env["ATHING_DIR"])
+    : path.join(homedir(), ".athing");
+  const urlFile = path.join(athingDir, "gate.url");
+  try {
+    const content = fs.readFileSync(urlFile, "utf8").trim();
+    return content || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export interface BuildSetupContextOptions {
+  gateUrl?: string;
+  sessionId?: string;
+  sessionToken?: string;
+}
+
 /** Assemble the setup context the host injects into an adapter's setup procedures. */
-export function buildSetupContext(notifyCommand: string, logger: Logger): SetupContext {
-  return { notifyCommand, agentHome: agentHome(), logger, fs: setupFs };
+export function buildSetupContext(
+  notifyCommand: string,
+  logger: Logger,
+  opts: BuildSetupContextOptions = {},
+): SetupContext {
+  return {
+    notifyCommand,
+    agentHome: agentHome(),
+    logger,
+    fs: setupFs,
+    ...(opts.gateUrl !== undefined && { gateUrl: opts.gateUrl }),
+    ...(opts.sessionId !== undefined && { sessionId: opts.sessionId }),
+    ...(opts.sessionToken !== undefined && { sessionToken: opts.sessionToken }),
+  };
 }

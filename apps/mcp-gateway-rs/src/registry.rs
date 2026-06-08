@@ -38,7 +38,8 @@ impl Registry {
 
         let mut ns_tools = Vec::new();
         for mut t in tools {
-            let admit = allowed.is_none_or(|list| list.iter().any(|a| a.as_str() == t.name.as_ref()));
+            let admit =
+                allowed.is_none_or(|list| list.iter().any(|a| a.as_str() == t.name.as_ref()));
             if !admit {
                 continue;
             }
@@ -61,7 +62,8 @@ impl Registry {
         for r in &resources {
             w.resource_owner.insert(r.uri.clone(), backend.to_string());
         }
-        w.resources_by_backend.insert(backend.to_string(), resources);
+        w.resources_by_backend
+            .insert(backend.to_string(), resources);
 
         drop(w);
         self.bump();
@@ -81,15 +83,36 @@ impl Registry {
     }
 
     pub fn all_tools(&self) -> Vec<Tool> {
-        self.inner.read().unwrap().tools_by_backend.values().flatten().cloned().collect()
+        self.inner
+            .read()
+            .unwrap()
+            .tools_by_backend
+            .values()
+            .flatten()
+            .cloned()
+            .collect()
     }
 
     pub fn all_prompts(&self) -> Vec<Prompt> {
-        self.inner.read().unwrap().prompts_by_backend.values().flatten().cloned().collect()
+        self.inner
+            .read()
+            .unwrap()
+            .prompts_by_backend
+            .values()
+            .flatten()
+            .cloned()
+            .collect()
     }
 
     pub fn all_resources(&self) -> Vec<Resource> {
-        self.inner.read().unwrap().resources_by_backend.values().flatten().cloned().collect()
+        self.inner
+            .read()
+            .unwrap()
+            .resources_by_backend
+            .values()
+            .flatten()
+            .cloned()
+            .collect()
     }
 
     pub fn owner_of(&self, public: &str) -> Option<String> {
@@ -127,7 +150,13 @@ mod tests {
     #[test]
     fn namespaces_tools_and_prompts_but_keeps_resource_uris() {
         let r = Registry::default();
-        r.set_backend("gh", vec![tool("create_issue")], vec![prompt("review")], vec![resource("file:///x")], None);
+        r.set_backend(
+            "gh",
+            vec![tool("create_issue")],
+            vec![prompt("review")],
+            vec![resource("file:///x")],
+            None,
+        );
         assert_eq!(r.owner_of("gh__create_issue").as_deref(), Some("gh"));
         assert_eq!(r.all_prompts()[0].name, "gh__review");
         assert_eq!(r.all_resources()[0].uri, "file:///x");
@@ -146,7 +175,13 @@ mod tests {
     fn allowlist_filters_tools_only() {
         let r = Registry::default();
         let allowed = vec!["a".to_string()];
-        r.set_backend("gh", vec![tool("a"), tool("b")], vec![prompt("p")], vec![], Some(&allowed));
+        r.set_backend(
+            "gh",
+            vec![tool("a"), tool("b")],
+            vec![prompt("p")],
+            vec![],
+            Some(&allowed),
+        );
         assert!(r.owner_of("gh__a").is_some());
         assert!(r.owner_of("gh__b").is_none());
         assert_eq!(r.all_prompts().len(), 1);
@@ -155,7 +190,13 @@ mod tests {
     #[test]
     fn dropped_backend_disappears_everywhere() {
         let r = Registry::default();
-        r.set_backend("gh", vec![tool("a")], vec![prompt("p")], vec![resource("u")], None);
+        r.set_backend(
+            "gh",
+            vec![tool("a")],
+            vec![prompt("p")],
+            vec![resource("u")],
+            None,
+        );
         r.drop_backend("gh");
         assert!(r.all_tools().is_empty());
         assert!(r.all_prompts().is_empty());

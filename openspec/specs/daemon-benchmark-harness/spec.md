@@ -1,8 +1,11 @@
 # daemon-benchmark-harness Specification
 
 ## Purpose
+
 TBD - created by archiving change rust-pty-daemon. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Comparative benchmark over the real socket protocol
 
 The system SHALL provide a benchmark harness that drives a daemon implementation through its real control socket protocol — connecting, spawning sessions, streaming output, subscribing, and tearing down — rather than calling internal functions, so that measured cost reflects the full path including framing, fan-out, and snapshot production. The harness SHALL be able to run the same workloads against any conforming daemon binary by selecting the binary it launches.
@@ -44,4 +47,3 @@ The harness SHALL emit a report comparing the daemon implementations on resident
 
 - **WHEN** the report is produced
 - **THEN** each metric SHALL be attributed to the workload that produced it and to the daemon binary under test
-

@@ -87,12 +87,18 @@ mod tests {
 
     #[test]
     fn redacts_email() {
-        assert_eq!(redact("mail me at user@example.com ok"), "mail me at [REDACTED] ok");
+        assert_eq!(
+            redact("mail me at user@example.com ok"),
+            "mail me at [REDACTED] ok"
+        );
     }
 
     #[test]
     fn keeps_key_redacts_value() {
-        assert_eq!(redact("API_KEY=hunter2supersecretvalue"), "API_KEY=[REDACTED]");
+        assert_eq!(
+            redact("API_KEY=hunter2supersecretvalue"),
+            "API_KEY=[REDACTED]"
+        );
     }
 
     #[test]

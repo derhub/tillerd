@@ -46,8 +46,8 @@ references the wire frame/message types that already live in (or are moving to) 
   decoupling it from the node-coupled `@athing/logger` (which imports `node:fs` and reads
   `process`).
 
-*Why sdk:* contracts belong there; both the engine (consumer) and the host (implementer) can
-depend on the interface without depending on each other's package. *Alternative:* define the
+_Why sdk:_ contracts belong there; both the engine (consumer) and the host (implementer) can
+depend on the interface without depending on each other's package. _Alternative:_ define the
 ports inside `@athing/engine` (consumer-owns-port, classic hexagonal) — rejected here because
 the project centralizes contracts in sdk and points deps inward; a desktop implementer would
 otherwise depend on the engine just for the type.
@@ -59,7 +59,7 @@ wraps synchronous `fs` calls in resolved promises. `TranscriptReader.readDelta` 
 it is already invoked fire-and-forget from hook/exit handlers and emits results via its existing
 handler sets, so callers do not need to await it.
 
-*Why:* a sync-only port cannot back a web-view file read. *Alternative:* keep the port sync and
+_Why:_ a sync-only port cannot back a web-view file read. _Alternative:_ keep the port sync and
 require hosts to provide a synchronous bridge — rejected, no synchronous fs is available in a
 web view.
 
@@ -81,8 +81,8 @@ port interface):
 - `ingress/install.ts` (`prepareNotifyScript`, `notifyCommand`) → host prepares the notify
   script and installs hooks on the adapter, supplying the hook command.
 
-*Why:* these do process/filesystem work that is not agent-loop logic and cannot run in a
-web view; doing them in the host keeps the engine pure. *Alternative:* wrap them as additional
+_Why:_ these do process/filesystem work that is not agent-loop logic and cannot run in a
+web view; doing them in the host keeps the engine pure. _Alternative:_ wrap them as additional
 runtime ports — rejected as over-abstraction, since none is called during the loop.
 
 ### D4. Connection lifecycle is owned by the host; the engine only uses the transport
@@ -93,8 +93,8 @@ the engine a connected `DaemonTransport`. The engine uses `send/subscribe/list` 
 remains the host's responsibility (on web, `apps/server`'s existing SIGTERM path; on desktop,
 the native shell later).
 
-*Why:* spawning/owning an OS process is host concern (D3); the engine should not decide when the
-daemon lives or dies. *Alternative:* engine keeps lazy `adoptOrSpawn` ownership — rejected, it
+_Why:_ spawning/owning an OS process is host concern (D3); the engine should not decide when the
+daemon lives or dies. _Alternative:_ engine keeps lazy `adoptOrSpawn` ownership — rejected, it
 reintroduces the Bun coupling this change removes.
 
 ### D5. Logger is injected; engine uses no ambient host primitives
@@ -109,8 +109,8 @@ remaining ambient-runtime dependencies:
 - the working directory is **required from `SessionOptions`** rather than defaulting to
   `process.cwd()` in `fillProxyOptions`; the host (web server or native core) supplies it.
 
-*Why:* an injected logger and Web Crypto let the same engine run in a web view; requiring `cwd`
-removes the last `process` reference. *Alternatives:* a browser-safe build of `@athing/logger`
+_Why:_ an injected logger and Web Crypto let the same engine run in a web view; requiring `cwd`
+removes the last `process` reference. _Alternatives:_ a browser-safe build of `@athing/logger`
 via package export conditions — rejected in favor of an explicit injected port consistent with
 the other contracts; injecting an `IdSource` instead of using Web Crypto — unnecessary, Web
 Crypto is standard in both runtimes.
@@ -126,8 +126,8 @@ second Bun consumer that also needs these impls to construct the engine — the 
 for the promotion — so they were extracted into a dedicated `@athing/platform-bun` package
 consumed by both `apps/server` and `@athing/integration-tests`.
 
-*Why:* a second Bun consumer materialized; the shared package removes a cross-package reach into
-an app's internals. *Alternative:* keep them in `apps/server` and have the tests reach into its
+_Why:_ a second Bun consumer materialized; the shared package removes a cross-package reach into
+an app's internals. _Alternative:_ keep them in `apps/server` and have the tests reach into its
 `src/` — rejected, couples a test package to an app's private layout.
 
 ## Risks / Trade-offs
@@ -175,7 +175,7 @@ consumer and is updated atomically.
   uses it for `reconnect`/`listSessions`.)
 - Importer audit (resolved): repo-wide scan shows only `apps/server` imports the moving symbols
   (`adoptOrSpawn`/`DaemonClient`); engine tests/harness will need updating to inject fakes.
-- `ingress/notify.{ts,mjs}` is the hook callback script that runs in the *agent* process
+- `ingress/notify.{ts,mjs}` is the hook callback script that runs in the _agent_ process
   (`process.stdin`, `fetch` to the bridge). It is not engine-library runtime, so it does not
   block engine-in-web-view; it moves with the ingress relocation and its packaging for desktop
   is handled by the later desktop change.

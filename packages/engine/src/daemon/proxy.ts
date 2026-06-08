@@ -9,12 +9,11 @@ import type {
   DaemonFrame,
   DaemonTransport,
   FrameHandler,
-  FileSource,
+  HookSource,
   Logger,
 } from "@athing/sdk";
-import { AtError, exitToStatus, snapshotToBytes, ATTR } from "@athing/sdk";
+import { AtError, exitToStatus, snapshotToBytes, ATTR, hookEventToContent } from "@athing/sdk";
 import { StatusMapper } from "../session/status";
-import { TranscriptReader } from "../session/content";
 import { SendQueue } from "../session/queue";
 
 function randomTokenHex(byteLength: number): string {
@@ -48,7 +47,6 @@ export class AgentSessionProxy implements AgentSession {
   private exitHandlers = new Set<ExitHandler>();
 
   private statusMapper: StatusMapper;
-  private transcriptReader: TranscriptReader;
   private sendQueue: SendQueue;
   private logger: Logger;
 
@@ -70,25 +68,16 @@ export class AgentSessionProxy implements AgentSession {
     private readonly client: DaemonTransport,
     private readonly mode: ProxyMode,
     private readonly hooksSockPath: string,
-    fileSource: FileSource,
     logger: Logger,
-    agentHome: string,
     private readonly resolvedCommand: string,
+    private readonly hookSource?: HookSource,
   ) {
     this.sessionId = sessionId;
-    this.token = randomTokenHex(32);
+    this.token = opts.gateToken || randomTokenHex(32);
     this.logger = logger.child({ [ATTR.SESSION_ID]: sessionId, [ATTR.COMPONENT]: "engine" });
     this.opts = opts;
     this.sendQueue = new SendQueue(opts.sendQueueCapacity);
     this.statusMapper = new StatusMapper();
-    this.transcriptReader = new TranscriptReader(
-      sessionId,
-      adapter,
-      opts.cwd,
-      this.logger,
-      fileSource,
-      agentHome,
-    );
 
     this.statusMapper.onChange((status) => {
       this.cancelIdleTimer();
@@ -106,14 +95,6 @@ export class AgentSessionProxy implements AgentSession {
       }
       for (const h of this.statusHandlers) h(status);
     });
-
-    this.transcriptReader.onContent((event) => {
-      for (const h of this.contentHandlers) h(event);
-    });
-
-    this.transcriptReader.onError((err) => {
-      for (const h of this.errorHandlers) h(err);
-    });
   }
 
   start(): void {
@@ -129,6 +110,10 @@ export class AgentSessionProxy implements AgentSession {
     const handler: FrameHandler = (frame, body) => this.handleFrame(frame, body);
     this.unsub = this.client.subscribe(this.sessionId, handler);
 
+    if (this.hookSource) {
+      void this.drainHookSource(this.hookSource.subscribe(this.sessionId));
+    }
+
     if (this.mode === "spawn") {
       const launchArgs = [
         ...buildArgs(this.adapter, this.sessionId, this.opts.resume),
@@ -141,7 +126,7 @@ export class AgentSessionProxy implements AgentSession {
         command: this.resolvedCommand,
         args: launchArgs,
         env: {
-          ATHING_BRIDGE_URL: this.hooksSockPath,
+          ...(this.opts.gateUrl ? { ATHING_GATE_URL: this.opts.gateUrl } : {}),
           ATHING_SESSION_ID: this.sessionId,
           ATHING_SESSION_TOKEN: this.token,
         },
@@ -192,23 +177,10 @@ export class AgentSessionProxy implements AgentSession {
         break;
       }
 
-      case "hook": {
-        this.cancelStartupTimer();
-        try {
-          const hookEvent = this.adapter.parseHook(frame.payload);
-          this.transcriptReader.onHook(hookEvent);
-          this.statusMapper.apply(hookEvent);
-        } catch (err) {
-          this.logger.warn("proxy: parseHook failed", { err: String(err) });
-        }
-        break;
-      }
-
       case "exit": {
         const qualifier = (frame.qualifier ?? "unknown") as ExitEvent["qualifier"];
         const exitEvent: ExitEvent = { qualifier, raw: frame.raw as ExitEvent["raw"] };
         this.exitEvent = exitEvent;
-        this.transcriptReader.onExit();
         this.cancelStartupTimer();
         this.cancelIdleTimer();
         this.unsub?.();
@@ -263,6 +235,23 @@ export class AgentSessionProxy implements AgentSession {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
+    }
+  }
+
+  private async drainHookSource(
+    iter: AsyncIterableIterator<import("@athing/sdk").HookEvent>,
+  ): Promise<void> {
+    try {
+      for await (const event of iter) {
+        if (this.killed_ || this.exitEvent) break;
+        this.statusMapper.apply(event);
+        const content = hookEventToContent(event);
+        if (content) {
+          for (const h of this.contentHandlers) h(content);
+        }
+      }
+    } catch {
+      // iterator closed — no action needed
     }
   }
 
@@ -387,5 +376,8 @@ export function fillProxyOptions(opts?: SessionOptions): Required<SessionOptions
     idleTimeoutMs: opts?.idleTimeoutMs ?? 0,
     sendQueueCapacity: opts?.sendQueueCapacity ?? DEFAULT_SEND_QUEUE_CAPACITY,
     captureRawIo: opts?.captureRawIo ?? false,
+    sessionId: opts?.sessionId ?? "",
+    gateUrl: opts?.gateUrl ?? "",
+    gateToken: opts?.gateToken ?? "",
   };
 }

@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+  "packages/contracts-rs",
+  "packages/service-host",
+  "packages/process-launch",
+  "packages/daemon-pty-client",
+  "packages/gate-client",
+  "packages/daemon-pty",
+  "packages/redact-rs",
+  "apps/memorya",
+  "apps/gate",
+  "apps/mcp-gateway-rs",
+  "apps/desktop/src-tauri",
+]
+
+[profile.release]
+opt-level = 3
+lto = "thin"

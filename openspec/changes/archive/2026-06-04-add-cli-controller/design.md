@@ -63,9 +63,10 @@ Both procedures are async, so handlers `await` them.
 ### Status semantics: three states, exit codes carry the verdict
 
 `status` maps to three outcomes — running (manifest present + pid alive), stale (manifest present
-+ pid dead), absent (no manifest). Running exits zero; stale and absent exit non-zero so scripts
-can branch on exit code. `--json` emits a single object for machine consumers; without it, a
-short human line.
+
+- pid dead), absent (no manifest). Running exits zero; stale and absent exit non-zero so scripts
+  can branch on exit code. `--json` emits a single object for machine consumers; without it, a
+  short human line.
 
 ## Risks / Trade-offs
 

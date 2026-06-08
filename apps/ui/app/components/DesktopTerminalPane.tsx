@@ -98,7 +98,11 @@ export function DesktopTerminalPane({
 
   return (
     <div className="h-full w-full relative" style={{ background: "#0d1117" }}>
-      <div ref={containerRef} className="h-full w-full" style={{ padding: "0.333rem 0.333rem 0" }} />
+      <div
+        ref={containerRef}
+        className="h-full w-full"
+        style={{ padding: "0.333rem 0.333rem 0" }}
+      />
     </div>
   );
 }

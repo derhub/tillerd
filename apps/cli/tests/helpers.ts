@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Logger, SetupContext, SetupFs } from "@athing/sdk";
 import { setup } from "@athing/adapter-claude-code";
-import type { CliDeps, ManifestData } from "../src/cli";
+import type { CliDeps, GateContext, ManifestData } from "../src/cli";
 
 const FIXTURES = path.join(import.meta.dir, "fixtures");
 export const AGENT_HOME = "/agent/.claude";
@@ -35,6 +35,7 @@ export interface HarnessOverrides {
   isTTY?: boolean;
   confirmResult?: boolean;
   resolveNotify?: () => string;
+  gate?: GateContext;
 }
 
 export interface Harness {
@@ -53,13 +54,15 @@ export function harness(o: HarnessOverrides = {}): Harness {
 
   const deps: CliDeps = {
     setup,
-    buildContext: (notifyCommand: string, logger: Logger): SetupContext => ({
+    buildContext: (notifyCommand: string, logger: Logger, gate?: GateContext): SetupContext => ({
       notifyCommand,
       agentHome: AGENT_HOME,
       logger,
       fs: cap,
+      ...gate,
     }),
     resolveNotify: o.resolveNotify ?? (() => NOTIFY),
+    resolveGate: () => o.gate ?? {},
     readManifest: () => o.manifest ?? null,
     isAlive: () => o.isAlive ?? false,
     isTTY: o.isTTY ?? false,
@@ -89,9 +92,6 @@ export function settings(files: Map<string, string>): {
   return JSON.parse(files.get(SETTINGS)!);
 }
 
-export function commandsFor(
-  s: ReturnType<typeof settings>,
-  event: string,
-): string[] {
+export function commandsFor(s: ReturnType<typeof settings>, event: string): string[] {
   return (s.hooks?.[event] ?? []).flatMap((e) => e.hooks.map((h) => h.command));
 }

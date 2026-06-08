@@ -33,7 +33,7 @@ export class TauriLogger implements Logger {
   }
 
   private emit(level: Level, msg: string, extra?: Record<string, unknown>): void {
-    const merged = { ...this.bindings, ...(extra ?? {}) };
+    const merged = { ...this.bindings, ...extra };
     const hasFields = Object.keys(merged).length > 0;
     const sink = level === "debug" ? console.debug : console[level];
     if (hasFields) sink(msg, merged);

@@ -2,7 +2,7 @@ import { test, expect, describe } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { SetupContext, SetupFs } from "@athing/sdk";
-import { setup, transcriptPath, BINARY_RESOLUTION } from "../src/index";
+import { setup, BINARY_RESOLUTION } from "../src/index";
 
 const SRC = path.join(import.meta.dir, "..", "src");
 
@@ -55,10 +55,6 @@ describe("adapter import-safety", () => {
     };
     await setup.install(ctx);
     expect(files.has("/home/user/.claude/settings.json")).toBe(true);
-  });
-
-  test("transcript path assembly is pure string ops over the supplied agent-home", () => {
-    expect(transcriptPath("s", "/c", "/home")).toBe("/home/projects/c/s.jsonl");
   });
 
   test("binary-resolution policy is plain serializable data", () => {
