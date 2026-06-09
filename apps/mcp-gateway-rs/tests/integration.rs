@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use athing_mcp_gateway::{build, BackendSpec, Gateway, McpConfig};
+use tillerd_mcp_gateway::{build, BackendSpec, Gateway, McpConfig};
 
 const STUB: &str = env!("CARGO_BIN_EXE_stub-backend");
 
@@ -174,7 +174,7 @@ async fn reverse_proxy_relays_sampling_to_the_front_client() {
         .await
         .unwrap();
     let port = listener.local_addr().unwrap().port();
-    let router = athing_mcp_gateway::transport::http::router(gw.clone(), token.clone());
+    let router = tillerd_mcp_gateway::transport::http::router(gw.clone(), token.clone());
     tokio::spawn(async move {
         let _ = axum::serve(listener, router).await;
     });

@@ -1,8 +1,8 @@
-import { defineSetup } from "@athing/sdk";
-import type { SetupContext } from "@athing/sdk";
+import { defineSetup } from "@tillerd/sdk";
+import type { SetupContext } from "@tillerd/sdk";
 
 const SETTINGS_FILE = "settings.json";
-const HOOK_MARKER = "athing-notify";
+const HOOK_MARKER = "tillerd-notify";
 const HOOK_EVENTS = [
   "SessionStart",
   "UserPromptSubmit",
@@ -45,7 +45,7 @@ async function persist(ctx: SetupContext, path: string, settings: Settings): Pro
   await ctx.fs.writeAtomic(path, JSON.stringify(settings, null, 2) + "\n");
 }
 
-function isAthingEntry(entry: HookEntry): boolean {
+function isTillerdEntry(entry: HookEntry): boolean {
   return entry.hooks.some((h) => h.command.includes(HOOK_MARKER));
 }
 
@@ -65,10 +65,10 @@ export const setup = defineSetup({
     let changed = false;
     for (const event of HOOK_EVENTS) {
       const list = hooks[event] ?? [];
-      const installed = list.filter(isAthingEntry).some((entry) => !isLegacyEntry(entry));
+      const installed = list.filter(isTillerdEntry).some((entry) => !isLegacyEntry(entry));
       if (installed) continue;
       // Drop any legacy curl hook before adding the notify binary command.
-      const cleaned = list.filter((entry) => !isAthingEntry(entry));
+      const cleaned = list.filter((entry) => !isTillerdEntry(entry));
       cleaned.push({ matcher: matcherFor(event), hooks: [{ type: "command", command }] });
       hooks[event] = cleaned;
       changed = true;
@@ -92,7 +92,7 @@ export const setup = defineSetup({
     for (const event of HOOK_EVENTS) {
       const list = settings.hooks[event];
       if (!list) continue;
-      const filtered = list.filter((entry) => !isAthingEntry(entry));
+      const filtered = list.filter((entry) => !isTillerdEntry(entry));
       if (filtered.length !== list.length) {
         settings.hooks[event] = filtered;
         changed = true;

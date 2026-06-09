@@ -1,6 +1,6 @@
 //! Config fixture: contract for mcp.json format.
 
-use athing_mcp_gateway::config::{BackendKind, McpConfig};
+use tillerd_mcp_gateway::config::{BackendKind, McpConfig};
 
 fn sample() -> McpConfig {
     let raw = std::fs::read_to_string(concat!(

@@ -1,14 +1,14 @@
 import { test, expect, describe } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Logger, SetupContext, SetupFs } from "@athing/sdk";
+import type { Logger, SetupContext, SetupFs } from "@tillerd/sdk";
 import { setup } from "../src/setup";
 
 const FIXTURES = path.join(import.meta.dir, "fixtures");
 const AGENT_HOME = "/home/user/.claude";
 const SETTINGS = `${AGENT_HOME}/settings.json`;
-const NOTIFY = "/proj/bin/athing-notify";
-const FIXTURE_NOTIFY = "/fixtures/bin/athing-notify";
+const NOTIFY = "/proj/bin/tillerd-notify";
+const FIXTURE_NOTIFY = "/fixtures/bin/tillerd-notify";
 
 const noop = () => {};
 const logger: Logger = {
@@ -126,7 +126,7 @@ describe("setup.install", () => {
 });
 
 describe("setup.uninstall", () => {
-  test("removes athing-notify entries from all events", async () => {
+  test("removes tillerd-notify entries from all events", async () => {
     const f = fakeFs("empty-settings.json");
     await setup.install(ctx(f.fs));
     await setup.uninstall(ctx(f.fs));
@@ -134,7 +134,7 @@ describe("setup.uninstall", () => {
     for (const event of EVENTS) expect(commands(s, event)).not.toContain(NOTIFY);
   });
 
-  test("preserves non-athing-notify hooks", async () => {
+  test("preserves non-tillerd-notify hooks", async () => {
     const f = fakeFs("mixed-hooks.json");
     await setup.uninstall(ctx(f.fs));
     const s = read(f.files);

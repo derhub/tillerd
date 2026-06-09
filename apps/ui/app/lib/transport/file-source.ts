@@ -1,4 +1,4 @@
-import type { FileSource } from "@athing/sdk";
+import type { FileSource } from "@tillerd/sdk";
 import type { TauriCore } from "./tauri";
 
 export const FILE_SIZE = "file_size";

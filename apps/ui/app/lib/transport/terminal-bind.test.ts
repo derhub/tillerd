@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { bindSessionToTerminal, type TerminalLike } from "./terminal-bind";
-import type { AgentSession } from "@athing/sdk";
+import type { AgentSession } from "@tillerd/sdk";
 
 function fakeSession() {
   let dataCb: ((b: Uint8Array) => void) | null = null;

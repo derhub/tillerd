@@ -28,7 +28,7 @@ fn tool_runs_with_no_peers_and_serves_recall() {
 #[test]
 fn absent_gate_url_selects_standalone_mode() {
     assert_eq!(
-        resolve_capture_mode(std::path::Path::new("/run/athing"), None),
+        resolve_capture_mode(std::path::Path::new("/run/tillerd"), None),
         CaptureMode::Standalone,
         "no gate URL means standalone; tool must not crash when no peer is present"
     );
@@ -69,15 +69,15 @@ fn absent_peer_degrades_gracefully_not_crashes() {
 #[test]
 fn source_selected_by_wiring_not_hard_coded_inside_the_tool() {
     // Standalone wiring: no gate URL.
-    let standalone = resolve_capture_mode(std::path::Path::new("/run/athing"), None);
+    let standalone = resolve_capture_mode(std::path::Path::new("/run/tillerd"), None);
     assert_eq!(standalone, CaptureMode::Standalone);
 
     // Composed wiring: a session id present.
-    let composed = resolve_capture_mode(std::path::Path::new("/run/athing"), Some("sess-x"));
+    let composed = resolve_capture_mode(std::path::Path::new("/run/tillerd"), Some("sess-x"));
     assert_eq!(
         composed,
         CaptureMode::Composed {
-            subscribe_sock: std::path::PathBuf::from("/run/athing/gate.sock"),
+            subscribe_sock: std::path::PathBuf::from("/run/tillerd/gate.sock"),
             session_id: "sess-x".into(),
         }
     );

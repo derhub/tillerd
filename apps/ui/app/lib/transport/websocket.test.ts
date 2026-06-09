@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { encodeFrame, FrameDecoder, type DaemonFrame } from "@athing/sdk";
+import { encodeFrame, FrameDecoder, type DaemonFrame } from "@tillerd/sdk";
 import { WebSocketDaemonTransport, type WebSocketLike } from "./websocket";
 
 class FakeWS implements WebSocketLike {

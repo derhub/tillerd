@@ -1,5 +1,5 @@
 {
-  "name": "a-thing",
+  "name": "tillerd",
   "private": true,
   "description": "Experimental toolkit for driving coding agents.",
   "license": "MIT",
@@ -12,8 +12,8 @@
   "type": "module",
   "module": "index.ts",
   "scripts": {
-    "build": "ATHING_DIR=$(pwd)/.athing turbo run build",
-    "dev": "ATHING_DIR=$(pwd)/.athing ATHING_DAEMON_BIN=$(pwd)/bin/athing-daemon turbo run dev",
+    "build": "TILLERD_DIR=$(pwd)/.tillerd turbo run build",
+    "dev": "TILLERD_DIR=$(pwd)/.tillerd TILLERD_DAEMON_BIN=$(pwd)/bin/tillerd-daemon turbo run dev",
     "gate:web-api": "bun scripts/gate-web-api.ts",
     "check-types": "bun run gate:web-api && turbo run check-types",
     "test": "turbo run test --filter='!./tests/*'",
@@ -22,8 +22,8 @@
     "lint": "oxlint . && turbo run lint",
     "format": "oxfmt --write . && turbo run fmt",
     "format:check": "oxfmt --check . && cargo fmt --check",
-    "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@athing/integration-tests",
-    "e2e:ui": "turbo run e2e --filter=@athing/e2e-test",
+    "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@tillerd/integration-tests",
+    "e2e:ui": "turbo run e2e --filter=@tillerd/e2e-test",
     "check-deps": "turbo run check-deps"
   },
   "devDependencies": {

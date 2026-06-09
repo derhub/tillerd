@@ -14,7 +14,7 @@ import {
   countLeaves,
 } from "./panelTree";
 
-const STORAGE_KEY = "athing:panel-tree";
+const STORAGE_KEY = "tillerd:panel-tree";
 
 function loadTree(): PanelNode {
   try {

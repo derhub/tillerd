@@ -48,10 +48,12 @@ yarn-error.log*
 *.pem
 
 # Local daemon state (dev mode)
-.athing/
+.tillerd/
 
 # Compiled daemon binary
-bin/athing-daemon
+bin/tillerd-daemon
+packages/daemon-pty/tillerd-daemon
+packages/daemon-pty/athing-daemon
 
 # Include openspec (overrides global ignore)
 !openspec/

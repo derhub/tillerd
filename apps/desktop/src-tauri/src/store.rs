@@ -6,7 +6,7 @@ use serde_json::Value;
 use tauri::State;
 use tokio::sync::Mutex;
 
-use crate::paths::athing_dir;
+use crate::paths::tillerd_dir;
 
 /// Native app-data store: user preferences plus the session registry (sessionId -> cwd). Replaces
 /// the server-side sqlite registry on the desktop path (design D6). Persisted as JSON.
@@ -35,7 +35,7 @@ impl StoreState {
 }
 
 fn store_path() -> PathBuf {
-    athing_dir().join("desktop-store.json")
+    tillerd_dir().join("desktop-store.json")
 }
 
 async fn persist(data: &StoreData) {
@@ -160,9 +160,9 @@ mod tests {
     #[serial]
     fn store_state_load_returns_default_when_file_absent() {
         let tmp = tempfile::tempdir().unwrap();
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let state = StoreState::load();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
 
         let data = state.inner.blocking_lock();
         assert!(data.prefs.is_empty());
@@ -180,9 +180,9 @@ mod tests {
         )
         .unwrap();
 
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let state = StoreState::load();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
 
         let data = state.inner.blocking_lock();
         assert_eq!(data.prefs.get("lang"), Some(&serde_json::json!("en")));
@@ -198,9 +198,9 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("desktop-store.json"), b"not json").unwrap();
 
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let state = StoreState::load();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
 
         let data = state.inner.blocking_lock();
         assert!(data.prefs.is_empty());

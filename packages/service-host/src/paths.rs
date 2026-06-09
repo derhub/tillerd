@@ -1,4 +1,4 @@
-//! Path resolution: ATHING_DIR override parity to TS + Rust. Defaults to ~/.athing.
+//! Path resolution: TILLERD_DIR override parity to TS + Rust. Defaults to ~/.tillerd.
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,7 @@ pub struct Paths {
 
 impl Paths {
     /// Build paths for a tool `name`, resolving the base directory from an
-    /// optional override (`ATHING_DIR`-style) or the default `~/.athing`.
+    /// optional override (`TILLERD_DIR`-style) or the default `~/.tillerd`.
     pub fn resolve(name: &str, base_override: Option<&str>) -> Self {
         Self {
             base: resolve_base_dir(base_override),
@@ -35,10 +35,10 @@ impl Paths {
     }
 }
 
-/// Resolve a base directory honoring an `ATHING_DIR`-style override.
+/// Resolve a base directory honoring an `TILLERD_DIR`-style override.
 ///
 /// Parity rule: absolute passes through, relative resolves against cwd, absent
-/// falls back to `~/.athing`.
+/// falls back to `~/.tillerd`.
 pub fn resolve_base_dir(base_override: Option<&str>) -> PathBuf {
     match base_override.filter(|v| !v.is_empty()) {
         Some(v) => {
@@ -49,7 +49,7 @@ pub fn resolve_base_dir(base_override: Option<&str>) -> PathBuf {
                 std::env::current_dir().unwrap_or_default().join(p)
             }
         }
-        None => home_dir().join(".athing"),
+        None => home_dir().join(".tillerd"),
     }
 }
 
@@ -77,14 +77,14 @@ mod tests {
 
     #[test]
     fn all_paths_rooted_at_base_directory() {
-        let paths = Paths::resolve("daemon", Some("/srv/athing"));
-        assert!(paths.manifest_path().starts_with("/srv/athing"));
-        assert!(paths.socket_path().starts_with("/srv/athing"));
-        assert_eq!(paths.base_dir(), Path::new("/srv/athing"));
+        let paths = Paths::resolve("daemon", Some("/srv/tillerd"));
+        assert!(paths.manifest_path().starts_with("/srv/tillerd"));
+        assert!(paths.socket_path().starts_with("/srv/tillerd"));
+        assert_eq!(paths.base_dir(), Path::new("/srv/tillerd"));
     }
 
     #[test]
-    fn base_dir_override_honored_via_athing_dir_env() {
+    fn base_dir_override_honored_via_tillerd_dir_env() {
         let paths = Paths::resolve("daemon", Some("/override/here"));
         assert_eq!(paths.base_dir(), Path::new("/override/here"));
     }

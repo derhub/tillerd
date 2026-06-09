@@ -42,9 +42,9 @@ as `sessionId`; session correlation is bound as ordinary context via `child`.
 
 #### Scenario: Resource stamped on every record
 
-- **WHEN** a logger is constructed with resource `{ "service.name": "athing-daemon",
+- **WHEN** a logger is constructed with resource `{ "service.name": "tillerd-daemon",
 "service.version": "0.1.0" }` and emits any record
-- **THEN** the record contains `service.name = "athing-daemon"` and
+- **THEN** the record contains `service.name = "tillerd-daemon"` and
   `service.version = "0.1.0"`
 
 #### Scenario: Resource inherited through children
@@ -107,7 +107,7 @@ to the same field semantics as the TypeScript logger.
 
 ### Requirement: Core packages remain logging-library-agnostic
 
-The `@athing/sdk` and `@athing/engine` packages SHALL depend only on the injected `Logger`
+The `@tillerd/sdk` and `@tillerd/engine` packages SHALL depend only on the injected `Logger`
 interface and MUST NOT import any concrete logging library. The context-binding additions MUST
 preserve the inward-pointing dependency rule so the core remains runtime-neutral.
 

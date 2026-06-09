@@ -15,10 +15,10 @@ const ENV_NAMES: &[&str] = &[
 ];
 
 fn start_marker(name: &str) -> String {
-    format!("__ATHING_ENV_{name}_START__")
+    format!("__TILLERD_ENV_{name}_START__")
 }
 fn end_marker(name: &str) -> String {
-    format!("__ATHING_ENV_{name}_END__")
+    format!("__TILLERD_ENV_{name}_END__")
 }
 
 fn build_capture_command() -> String {

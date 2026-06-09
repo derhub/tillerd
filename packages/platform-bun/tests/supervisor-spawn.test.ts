@@ -2,14 +2,14 @@ import { test, expect, describe, afterEach } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 // Exercises adoptOrSpawn's spawn-retry loop without a real daemon. A binary that never
-// exposes a control socket drives each attempt to its timeout. ATHING_DIR is set before a
+// exposes a control socket drives each attempt to its timeout. TILLERD_DIR is set before a
 // dynamic import so the supervisor resolves the isolated directory.
 
 describe("adoptOrSpawn spawn path", () => {
-  const prevAthingDir = process.env["ATHING_DIR"];
+  const prevTillerdDir = process.env["TILLERD_DIR"];
   let dir: string | null = null;
 
   afterEach(() => {
@@ -21,13 +21,13 @@ describe("adoptOrSpawn spawn path", () => {
       }
       dir = null;
     }
-    if (prevAthingDir === undefined) delete process.env["ATHING_DIR"];
-    else process.env["ATHING_DIR"] = prevAthingDir;
+    if (prevTillerdDir === undefined) delete process.env["TILLERD_DIR"];
+    else process.env["TILLERD_DIR"] = prevTillerdDir;
   });
 
   test("throws a typed SpawnFailed error after exhausting spawn attempts", async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-spawn-"));
-    process.env["ATHING_DIR"] = dir;
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-spawn-"));
+    process.env["TILLERD_DIR"] = dir;
 
     const { adoptOrSpawn } = await import("../src/supervisor");
 
@@ -44,8 +44,8 @@ describe("adoptOrSpawn spawn path", () => {
   });
 
   test("reports the configured attempt ceiling when every spawn fails", async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-spawn-"));
-    process.env["ATHING_DIR"] = dir;
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-spawn-"));
+    process.env["TILLERD_DIR"] = dir;
 
     const { adoptOrSpawn } = await import("../src/supervisor");
 

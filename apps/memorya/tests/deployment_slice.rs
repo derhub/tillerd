@@ -16,12 +16,12 @@ use memorya::Engram;
 
 #[test]
 #[ignore = "requires a live gate; run with \
-            ATHING_DIR + ATHING_SESSION_ID set and --ignored"]
+            TILLERD_DIR + TILLERD_SESSION_ID set and --ignored"]
 fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
-    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let base = std::env::var("TILLERD_DIR").expect("TILLERD_DIR points at the runtime directory");
     let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
-        std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the session to capture");
+        std::env::var("TILLERD_SESSION_ID").expect("TILLERD_SESSION_ID names the session to capture");
 
     let dir = tempfile::tempdir().expect("temp dir");
     let memorya = Arc::new(Mutex::new(
@@ -58,22 +58,22 @@ fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
 /// The correlation id must be present on the stored chunk (see task 8.3).
 ///
 /// Requirements:
-/// - A running daemon at `ATHING_DAEMON_SOCK`
-/// - A running gate (its sockets under `ATHING_DIR`)
-/// - A running gateway connected to the gate via `ATHING_SESSION_ID` + `ATHING_SESSION_TOKEN`
-/// - A session generating hook events at `ATHING_SESSION_ID`
+/// - A running daemon at `TILLERD_DAEMON_SOCK`
+/// - A running gate (its sockets under `TILLERD_DIR`)
+/// - A running gateway connected to the gate via `TILLERD_SESSION_ID` + `TILLERD_SESSION_TOKEN`
+/// - A session generating hook events at `TILLERD_SESSION_ID`
 ///
 /// Run with:
-///   ATHING_DIR=… ATHING_SESSION_ID=… \
+///   TILLERD_DIR=… TILLERD_SESSION_ID=… \
 ///   cargo test -p memorya --test deployment_slice \
 ///     full_slice_daemon_gate_gateway_memory -- --ignored
 #[test]
-#[ignore = "requires live daemon + gate + gateway; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires live daemon + gate + gateway; set TILLERD_DIR + TILLERD_SESSION_ID and run with --ignored"]
 fn full_slice_daemon_gate_gateway_memory() {
-    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let base = std::env::var("TILLERD_DIR").expect("TILLERD_DIR points at the runtime directory");
     let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
-        std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the session");
+        std::env::var("TILLERD_SESSION_ID").expect("TILLERD_SESSION_ID names the session");
 
     let dir = tempfile::tempdir().expect("temp dir");
     let memorya = Arc::new(Mutex::new(

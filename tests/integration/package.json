@@ -1,5 +1,5 @@
 {
-  "name": "@athing/integration-tests",
+  "name": "@tillerd/integration-tests",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,11 +8,11 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/daemon-pty": "workspace:*",
-    "@athing/engine": "workspace:*",
-    "@athing/logger": "workspace:*",
-    "@athing/platform-bun": "workspace:*",
-    "@athing/sdk": "workspace:*"
+    "@tillerd/daemon-pty": "workspace:*",
+    "@tillerd/engine": "workspace:*",
+    "@tillerd/logger": "workspace:*",
+    "@tillerd/platform-bun": "workspace:*",
+    "@tillerd/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

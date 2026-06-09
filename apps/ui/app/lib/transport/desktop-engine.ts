@@ -1,5 +1,5 @@
-import { createEngine, type EngineDeps } from "@athing/engine";
-import type { Engine } from "@athing/sdk";
+import { createEngine, type EngineDeps } from "@tillerd/engine";
+import type { Engine } from "@tillerd/sdk";
 import { TauriDaemonTransport } from "./tauri";
 import { TauriLogger } from "./logger";
 import type { TauriCore } from "./tauri";
@@ -19,7 +19,7 @@ export function buildDesktopEngineDeps(
   return {
     transport,
     logger: new TauriLogger(core),
-    athingDir: info.athingDir,
+    tillerdDir: info.tillerdDir,
     resolvedCommand: info.path,
   };
 }

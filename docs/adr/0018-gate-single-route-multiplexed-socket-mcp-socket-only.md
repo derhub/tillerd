@@ -13,7 +13,7 @@ A route preamble is a small generalization of the admission handshake the MCP fa
 
 ## Decision
 
-The gate SHALL present exactly one named Unix domain socket at a path derived from the runtime directory (`$ATHING_DIR/gate.sock`). Every connection SHALL open with one length-prefixed route preamble — `{ route, session, token?, wireVersion }` — encoded with the shared frame codec; the gate demultiplexes on `route` (`Hook`, `Tool`, `Subscribe`, `Admin`, `Mcp`) to the existing per-face behavior. Each route keeps its post-admission lifecycle; the `Mcp` route, after verifying the preamble token, upgrades the connection to the MCP protocol over a maintained protocol library and stops framing.
+The gate SHALL present exactly one named Unix domain socket at a path derived from the runtime directory (`$TILLERD_DIR/gate.sock`). Every connection SHALL open with one length-prefixed route preamble — `{ route, session, token?, wireVersion }` — encoded with the shared frame codec; the gate demultiplexes on `route` (`Hook`, `Tool`, `Subscribe`, `Admin`, `Mcp`) to the existing per-face behavior. Each route keeps its post-admission lifecycle; the `Mcp` route, after verifying the preamble token, upgrades the connection to the MCP protocol over a maintained protocol library and stops framing.
 
 A single centralized policy maps each route to its required credential: `Hook`/`Tool`/`Mcp` require a valid per-session token; `Admin` requires the admin token, distinct from any session token; `Subscribe` requires none. The privileged registry-mutate face (`Admin`) is thus separated by credential rather than by socket file — trading a physical wall for a single front door, on the condition that the route-to-credential mapping lives in one place and is guarded by a test asserting a session token cannot reach `Admin`.
 
@@ -24,7 +24,7 @@ Gate-native client peers share a client library (connect, write preamble, frame 
 ## Consequences
 
 - One trust boundary becomes one socket: a single bind, a single accept loop, a single discovery path, and one place to add cross-cutting admission policy. ADR-0016's intent is realized literally.
-- The gate is fully Unix-socket and port-free: no ephemeral TCP port, no loopback-origin check, no published address files; every path derives from `$ATHING_DIR`, so a host restart needs no re-resolution.
+- The gate is fully Unix-socket and port-free: no ephemeral TCP port, no loopback-origin check, no published address files; every path derives from `$TILLERD_DIR`, so a host restart needs no re-resolution.
 - The wire envelope (route, session, token) converges with the gate's internal inbound shape, eliminating the per-face envelope drift the codec consolidation began removing.
 - The `Admin` face loses its physical-socket isolation; its protection now rests entirely on the centralized credential policy, which becomes a required, tested invariant. `Subscribe` remaining credential-free is now an explicit, audited choice on a shared socket.
 - Adding a future face is adding a `route` value and a credential rule, not a new socket and a new discovery artifact.

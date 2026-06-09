@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "@tillerd/server",
   "version": "0.0.1",
   "type": "module",
   "scripts": {
@@ -9,11 +9,11 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/adapter-claude-code": "workspace:*",
-    "@athing/engine": "workspace:*",
-    "@athing/logger": "workspace:*",
-    "@athing/platform-bun": "workspace:*",
-    "@athing/sdk": "workspace:*",
+    "@tillerd/adapter-claude-code": "workspace:*",
+    "@tillerd/engine": "workspace:*",
+    "@tillerd/logger": "workspace:*",
+    "@tillerd/platform-bun": "workspace:*",
+    "@tillerd/sdk": "workspace:*",
     "valibot": "^1.4.1"
   },
   "devDependencies": {

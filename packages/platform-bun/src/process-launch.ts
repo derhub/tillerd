@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 /** The manifest written by a managed tool: pid + version. */
 export interface ToolManifest {
@@ -18,7 +18,7 @@ export interface SpawnSpec {
 }
 
 /** The env keys compared when deciding whether to restart (R6). */
-export const ENV_ALLOWLIST = ["ATHING_DIR", "ATHING_SESSION_ID", "ATHING_SESSION_TOKEN"] as const;
+export const ENV_ALLOWLIST = ["TILLERD_DIR", "TILLERD_SESSION_ID", "TILLERD_SESSION_TOKEN"] as const;
 
 /**
  * Returns true when `a` and `b` differ in any spawn-affecting field.
@@ -35,11 +35,11 @@ export function spawnFieldsDiffer(
   return envAllowlist.some((key) => (a.env[key] ?? undefined) !== (b.env[key] ?? undefined));
 }
 
-/** Resolve the ATHING_DIR honoring the env var (R7). */
-export function resolveAthingDir(env: Record<string, string | undefined> = process.env): string {
-  const raw = env["ATHING_DIR"];
+/** Resolve the TILLERD_DIR honoring the env var (R7). */
+export function resolveTillerdDir(env: Record<string, string | undefined> = process.env): string {
+  const raw = env["TILLERD_DIR"];
   if (raw) return resolve(raw);
-  return join(homedir(), ".athing");
+  return join(homedir(), ".tillerd");
 }
 
 function readManifest(manifestPath: string): ToolManifest | null {
@@ -80,7 +80,7 @@ export interface LaunchResult {
 
 /**
  * Adopt a running tool instance if it matches the exact version (R3), or spawn
- * a new one. Uses bounded exponential backoff (R6) and ATHING_DIR parity (R7).
+ * a new one. Uses bounded exponential backoff (R6) and TILLERD_DIR parity (R7).
  */
 export async function adoptOrSpawnTool(
   spec: SpawnSpec,

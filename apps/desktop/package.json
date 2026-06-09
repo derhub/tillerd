@@ -1,5 +1,5 @@
 {
-  "name": "a-thing-desktop",
+  "name": "tillerd-desktop",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "check-deps": "cd ./src-tauri && cargo outdated"
   },
   "dependencies": {
-    "ui": "workspace:*"
+    "@tillerd/ui": "workspace:*"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

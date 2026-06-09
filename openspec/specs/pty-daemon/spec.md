@@ -8,7 +8,7 @@ Defines the detached daemon process that owns PTY sessions and the hook ingress 
 
 ### Requirement: Detached daemon process with manifest
 
-The daemon SHALL run as a process independent of the engine's host process and SHALL write a manifest file to a deterministic path (`~/.athing/daemon.json`) containing its process identifier and version so the engine can detect whether a daemon is already running on startup.
+The daemon SHALL run as a process independent of the engine's host process and SHALL write a manifest file to a deterministic path (`~/.tillerd/daemon.json`) containing its process identifier and version so the engine can detect whether a daemon is already running on startup.
 
 #### Scenario: Daemon survives engine host process exit
 
@@ -18,12 +18,12 @@ The daemon SHALL run as a process independent of the engine's host process and S
 #### Scenario: Manifest written on start
 
 - **WHEN** the daemon starts
-- **THEN** it SHALL write `{ "pid": <pid>, "version": <daemon-version> }` to `~/.athing/daemon.json` during startup
+- **THEN** it SHALL write `{ "pid": <pid>, "version": <daemon-version> }` to `~/.tillerd/daemon.json` during startup
 
 #### Scenario: Manifest cleaned on stop
 
 - **WHEN** the daemon stops gracefully
-- **THEN** it SHALL remove `~/.athing/daemon.json`
+- **THEN** it SHALL remove `~/.tillerd/daemon.json`
 
 ### Requirement: Manifest includes daemon version
 
@@ -36,7 +36,7 @@ The manifest file SHALL include the daemon's own semver string in addition to th
 
 ### Requirement: IPC control channel
 
-The daemon SHALL expose a Unix domain socket at `~/.athing/daemon.sock` for binary-framed message exchange with engine clients. All messages SHALL use the length-prefixed binary frame format defined in the `daemon-wire-protocol` spec. Clients SHALL complete the `hello` / `hello-ack` version negotiation handshake before sending any other frame type.
+The daemon SHALL expose a Unix domain socket at `~/.tillerd/daemon.sock` for binary-framed message exchange with engine clients. All messages SHALL use the length-prefixed binary frame format defined in the `daemon-wire-protocol` spec. Clients SHALL complete the `hello` / `hello-ack` version negotiation handshake before sending any other frame type.
 
 #### Scenario: Engine adopts running daemon
 
@@ -127,7 +127,7 @@ A `snapshot` frame is `{ type: "snapshot", sessionId, rows, cols, cells, cursor 
 
 ### Requirement: Hook ingress on stable socket
 
-The daemon SHALL run the loopback hook receiver on a Unix domain socket at `~/.athing/hooks.sock`, so the receiver address is stable across engine host process restarts.
+The daemon SHALL run the loopback hook receiver on a Unix domain socket at `~/.tillerd/hooks.sock`, so the receiver address is stable across engine host process restarts.
 
 #### Scenario: Hook delivery after server restart
 

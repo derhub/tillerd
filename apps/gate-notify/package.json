@@ -1,13 +1,13 @@
 {
-  "name": "@athing/gate-notify",
+  "name": "@tillerd/gate-notify",
   "version": "0.1.0",
   "bin": {
-    "athing-notify": "../../bin/athing-notify"
+    "tillerd-notify": "../../bin/tillerd-notify"
   },
   "type": "module",
   "scripts": {
     "dev": "cargo build --release",
-    "build": "cargo build --release && mkdir -p \"$(dirname \"${ATHING_NOTIFY_BIN:-../../bin/athing-notify}\")\" && cp ../../target/release/gate-notify \"${ATHING_NOTIFY_BIN:-../../bin/athing-notify}\"",
+    "build": "cargo build --release && mkdir -p \"$(dirname \"${TILLERD_NOTIFY_BIN:-../../bin/tillerd-notify}\")\" && cp ../../target/release/gate-notify \"${TILLERD_NOTIFY_BIN:-../../bin/tillerd-notify}\"",
     "lint": "cargo clippy --all-targets --locked -- -D warnings",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",

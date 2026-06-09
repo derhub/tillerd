@@ -1,4 +1,4 @@
-import type { BinaryResolutionSpec } from "@athing/sdk";
+import type { BinaryResolutionSpec } from "@tillerd/sdk";
 
 export const BINARY_RESOLUTION: BinaryResolutionSpec = {
   overrideEnvVar: "CLAUDE_CODE_EXECUTABLE",

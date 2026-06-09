@@ -1,24 +1,24 @@
-import { createEngine } from "@athing/engine";
-import { claudeCode } from "@athing/adapter-claude-code";
+import { createEngine } from "@tillerd/engine";
+import { claudeCode } from "@tillerd/adapter-claude-code";
 import { Database } from "bun:sqlite";
 import * as v from "valibot";
 import * as fs from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID, randomBytes } from "node:crypto";
-import { createLogger } from "@athing/logger";
-import type { AgentSession, DaemonTransport, HookSource, HookEvent } from "@athing/sdk";
-import { ATTR } from "@athing/sdk";
-import { adoptOrSpawn, checkCliVersion, resolveAgentCommand } from "@athing/platform-bun";
+import { createLogger } from "@tillerd/logger";
+import type { AgentSession, DaemonTransport, HookSource, HookEvent } from "@tillerd/sdk";
+import { ATTR } from "@tillerd/sdk";
+import { adoptOrSpawn, checkCliVersion, resolveAgentCommand } from "@tillerd/platform-bun";
 import { isOriginAllowed, parseAllowedOrigins } from "./auth";
 import { pruneExpiredSessions, parseSessionTtlMs } from "./sessions";
 import { subscribeToSession } from "./gate-client";
 import { registerSession, deregisterSession } from "./gate-admin";
 
-const ATHING_DIR = join(homedir(), ".athing");
-fs.mkdirSync(ATHING_DIR, { recursive: true });
+const TILLERD_DIR = join(homedir(), ".tillerd");
+fs.mkdirSync(TILLERD_DIR, { recursive: true });
 
-const db = new Database(join(ATHING_DIR, "server.db"));
+const db = new Database(join(TILLERD_DIR, "server.db"));
 db.run(`CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   cwd TEXT NOT NULL,
@@ -26,8 +26,8 @@ db.run(`CREATE TABLE IF NOT EXISTS sessions (
 )`);
 
 const PORT = Number(process.env["PORT"] ?? 3000);
-const ALLOWED_ORIGINS = parseAllowedOrigins(process.env["ATHING_ALLOWED_ORIGINS"], PORT);
-const SESSION_TTL_MS = parseSessionTtlMs(process.env["ATHING_SESSION_TTL_MS"]);
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env["TILLERD_ALLOWED_ORIGINS"], PORT);
+const SESSION_TTL_MS = parseSessionTtlMs(process.env["TILLERD_SESSION_TTL_MS"]);
 
 const ClientMessageSchema = v.union([
   v.object({ type: v.literal("send"), text: v.string() }),
@@ -44,7 +44,7 @@ type ClientMessage = v.InferOutput<typeof ClientMessageSchema>;
 // ── Startup bootstrap: resolve host concerns, then inject into the engine ─────
 
 const logger = createLogger({
-  "service.name": "athing-server",
+  "service.name": "tillerd-server",
   "service.version": "0.0.1",
   "process.pid": process.pid,
 });
@@ -60,7 +60,7 @@ const resolvedCommand = resolveAgentCommand(claudeCode.binaryResolution);
 const transport: DaemonTransport = await adoptOrSpawn();
 let ownedDaemonPid: number | null = null;
 try {
-  const raw = JSON.parse(fs.readFileSync(join(ATHING_DIR, "daemon.json"), "utf8")) as {
+  const raw = JSON.parse(fs.readFileSync(join(TILLERD_DIR, "daemon.json"), "utf8")) as {
     pid: number;
   };
   ownedDaemonPid = raw.pid;
@@ -72,10 +72,10 @@ transport.onClose(() => {
   ownedDaemonPid = null;
 });
 
-// The gate's single socket derives from $ATHING_DIR; its presence signals the gate
+// The gate's single socket derives from $TILLERD_DIR; its presence signals the gate
 // is up. The subscribe and admin faces are reached over their routes on this socket.
-const GATE_SUBSCRIBE_SOCK = join(ATHING_DIR, "gate.sock");
-const GATE_ADMIN_SOCK = join(ATHING_DIR, "gate.sock");
+const GATE_SUBSCRIBE_SOCK = join(TILLERD_DIR, "gate.sock");
+const GATE_ADMIN_SOCK = join(TILLERD_DIR, "gate.sock");
 
 function buildGateHookSource(subscribeSockPath: string): HookSource {
   return {
@@ -135,7 +135,7 @@ const hookSource: HookSource | undefined = fs.existsSync(GATE_SUBSCRIBE_SOCK)
 const engine = createEngine({
   transport,
   logger,
-  athingDir: ATHING_DIR,
+  tillerdDir: TILLERD_DIR,
   resolvedCommand,
   hookSource,
 });

@@ -1,5 +1,5 @@
 {
-  "name": "@athing/benchmark",
+  "name": "@tillerd/benchmark",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/sdk": "workspace:*"
+    "@tillerd/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

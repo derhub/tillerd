@@ -3,10 +3,10 @@
 use std::path::{Path, PathBuf};
 
 /// Environment variable carrying the runtime directory the gate sockets live under.
-pub const ATHING_DIR_ENV: &str = "ATHING_DIR";
+pub const TILLERD_DIR_ENV: &str = "TILLERD_DIR";
 
 /// Canonical environment variable carrying the session id to subscribe to.
-pub const SESSION_ID_ENV: &str = "ATHING_SESSION_ID";
+pub const SESSION_ID_ENV: &str = "TILLERD_SESSION_ID";
 
 /// The face a subcommand serves.
 #[derive(Debug, PartialEq, Eq)]
@@ -44,7 +44,7 @@ pub enum CaptureMode {
 
 /// Resolve the capture mode from the environment.
 pub fn capture_mode_from_env() -> CaptureMode {
-    let base = std::env::var(ATHING_DIR_ENV)
+    let base = std::env::var(TILLERD_DIR_ENV)
         .ok()
         .filter(|d| !d.is_empty())
         .map(PathBuf::from)
@@ -69,8 +69,8 @@ fn default_base() -> PathBuf {
     std::env::var("HOME")
         .ok()
         .filter(|h| !h.is_empty())
-        .map(|h| PathBuf::from(h).join(".athing"))
-        .unwrap_or_else(|| PathBuf::from(".athing"))
+        .map(|h| PathBuf::from(h).join(".tillerd"))
+        .unwrap_or_else(|| PathBuf::from(".tillerd"))
 }
 
 #[cfg(test)]
@@ -90,9 +90,9 @@ mod tests {
     #[test]
     fn a_session_id_selects_gate_subscription_source() {
         assert_eq!(
-            resolve_capture_mode(Path::new("/run/athing"), Some("s1")),
+            resolve_capture_mode(Path::new("/run/tillerd"), Some("s1")),
             CaptureMode::Composed {
-                subscribe_sock: PathBuf::from("/run/athing/gate.sock"),
+                subscribe_sock: PathBuf::from("/run/tillerd/gate.sock"),
                 session_id: "s1".to_string(),
             }
         );
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn no_session_id_selects_stub_source() {
         assert_eq!(
-            resolve_capture_mode(Path::new("/run/athing"), None),
+            resolve_capture_mode(Path::new("/run/tillerd"), None),
             CaptureMode::Standalone
         );
     }

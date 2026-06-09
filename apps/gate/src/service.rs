@@ -30,7 +30,7 @@ const SERVICE_NAME: &str = "gate";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Environment source of the admin token (distinct from any session token).
-const ADMIN_TOKEN_ENV: &str = "ATHING_GATE_ADMIN_TOKEN";
+const ADMIN_TOKEN_ENV: &str = "TILLERD_GATE_ADMIN_TOKEN";
 
 /// The single front-door socket file, derived from the runtime directory.
 const GATE_SOCKET: &str = "gate.sock";
@@ -90,7 +90,7 @@ impl Gate {
         );
         Self {
             version: VERSION.to_string(),
-            base_override: std::env::var("ATHING_DIR").ok(),
+            base_override: std::env::var("TILLERD_DIR").ok(),
             registry,
             subscriptions,
             admin,

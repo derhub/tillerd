@@ -1,17 +1,17 @@
 [package]
-name = "athing-daemon-pty"
+name = "tillerd"
 version = "0.1.0"
 edition = "2021"
-description = "Native (Rust) generic terminal-backend daemon, wire-compatible with @athing/daemon"
+description = "Native (Rust) generic terminal-backend daemon, wire-compatible with @tillerd/daemon"
 license = "MIT"
 
 [[bin]]
-name = "athing-daemon"
+name = "tillerd-daemon"
 path = "src/main.rs"
 
 [dependencies]
-contracts-rs = { path = "../contracts-rs" }
-service-host = { path = "../service-host" }
+contracts = { path = "../contracts-rs", package = "tillerd-contracts-rs" }
+service-host = { path = "../service-host", package = "tillerd-service-host" }
 portable-pty = "0.9"
 tokio = { version = "1", features = [
   "rt-multi-thread",

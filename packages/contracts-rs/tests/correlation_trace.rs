@@ -134,21 +134,21 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
 /// must be observable in the gate subscriber stream.
 ///
 /// Requirements: live daemon + gate + an active session generating hook events.
-///   ATHING_DIR=… ATHING_SESSION_ID=… \
+///   TILLERD_DIR=… TILLERD_SESSION_ID=… \
 ///   cargo test -p contracts-rs --test correlation_trace \
 ///     correlation_id_threads_daemon_to_gate_in_live_stack -- --ignored
 #[test]
-#[ignore = "requires live daemon + gate; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires live daemon + gate; set TILLERD_DIR + TILLERD_SESSION_ID and run with --ignored"]
 fn correlation_id_threads_daemon_to_gate_in_live_stack() {
     // Validate that every HookEvent received from the gate carries a non-empty
     // correlation id — which proves the daemon minted one and the gate preserved it.
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 
-    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let base = std::env::var("TILLERD_DIR").expect("TILLERD_DIR points at the runtime directory");
     let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
-        std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the active session");
+        std::env::var("TILLERD_SESSION_ID").expect("TILLERD_SESSION_ID names the active session");
 
     // The gate wire: open the single socket on the Subscribe route via one preamble
     // frame, then read back a frame. Raw bytes keep contracts-rs dep-free here.

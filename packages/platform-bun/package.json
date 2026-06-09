@@ -1,5 +1,5 @@
 {
-  "name": "@athing/platform-bun",
+  "name": "@tillerd/platform-bun",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/sdk": "workspace:*"
+    "@tillerd/sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.2"

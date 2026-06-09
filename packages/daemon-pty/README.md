@@ -1,6 +1,6 @@
-# athing-daemon (Rust)
+# tillerd-daemon (Rust)
 
-A native, drop-in alternative to `@athing/daemon`: a generic terminal-backend
+A native, drop-in alternative to `@tillerd/daemon`: a generic terminal-backend
 daemon that spawns and drives an interactive user command (default: the login
 shell) inside a pseudo-terminal, reusing the existing daemon wire surface
 unchanged — same Unix sockets, manifest, length-prefixed framing, and snapshot
@@ -17,18 +17,18 @@ do not require Rust. Build it explicitly:
 
 ```sh
 cd packages/daemon-pty
-cargo build --release        # produces target/release/athing-daemon
+cargo build --release        # produces target/release/tillerd-daemon
 cargo test                   # unit + parity tests
 ```
 
 ## Selecting it
 
-The engine resolves the daemon binary via `ATHING_DAEMON_BIN` (then `./bin/athing-daemon`,
+The engine resolves the daemon binary via `TILLERD_DAEMON_BIN` (then `./bin/tillerd-daemon`,
 PATH, `~/.local/bin`). Point it at the Rust binary — no engine code or protocol
 change:
 
 ```sh
-export ATHING_DAEMON_BIN=$(pwd)/packages/daemon-pty/target/release/athing-daemon
+export TILLERD_DAEMON_BIN=$(pwd)/packages/daemon-pty/target/release/tillerd-daemon
 ```
 
 Reverting the env value returns the system to the reference daemon with no other
@@ -36,8 +36,8 @@ change.
 
 ## What it reuses (wire contract)
 
-- **Sockets/paths**: `~/.athing/daemon.sock`, optional `~/.athing/hooks.sock`,
-  `~/.athing/daemon.json` (manifest), honoring `ATHING_DIR`.
+- **Sockets/paths**: `~/.tillerd/daemon.sock`, optional `~/.tillerd/hooks.sock`,
+  `~/.tillerd/daemon.json` (manifest), honoring `TILLERD_DIR`.
 - **Framing**: 4-byte big-endian length prefix, UTF-8 JSON meta, optional
   `0x0a`-separated raw body.
 - **Manifest**: `{ "pid", "version" }`, atomic tmp + rename, removed on clean stop.

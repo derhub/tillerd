@@ -11,8 +11,8 @@ import type {
   FrameHandler,
   HookSource,
   Logger,
-} from "@athing/sdk";
-import { AtError, exitToStatus, snapshotToBytes, ATTR, hookEventToContent } from "@athing/sdk";
+} from "@tillerd/sdk";
+import { AtError, exitToStatus, snapshotToBytes, ATTR, hookEventToContent } from "@tillerd/sdk";
 import { StatusMapper } from "../session/status";
 import { SendQueue } from "../session/queue";
 
@@ -67,7 +67,7 @@ export class AgentSessionProxy implements AgentSession {
     opts: Required<SessionOptions>,
     private readonly client: DaemonTransport,
     private readonly mode: ProxyMode,
-    private readonly athingDir: string,
+    private readonly tillerdDir: string,
     logger: Logger,
     private readonly resolvedCommand: string,
     private readonly hookSource?: HookSource,
@@ -126,9 +126,9 @@ export class AgentSessionProxy implements AgentSession {
         command: this.resolvedCommand,
         args: launchArgs,
         env: {
-          ATHING_DIR: this.athingDir,
-          ATHING_SESSION_ID: this.sessionId,
-          ATHING_SESSION_TOKEN: this.token,
+          TILLERD_DIR: this.tillerdDir,
+          TILLERD_SESSION_ID: this.sessionId,
+          TILLERD_SESSION_TOKEN: this.token,
         },
         token: this.token,
         cols: this.opts.cols,
@@ -203,7 +203,7 @@ export class AgentSessionProxy implements AgentSession {
       }
 
       case "error": {
-        const err = new AtError(frame.code as import("@athing/sdk").ErrorKind, frame.message);
+        const err = new AtError(frame.code as import("@tillerd/sdk").ErrorKind, frame.message);
         for (const h of this.errorHandlers) h(err);
         break;
       }
@@ -239,7 +239,7 @@ export class AgentSessionProxy implements AgentSession {
   }
 
   private async drainHookSource(
-    iter: AsyncIterableIterator<import("@athing/sdk").HookEvent>,
+    iter: AsyncIterableIterator<import("@tillerd/sdk").HookEvent>,
   ): Promise<void> {
     try {
       for await (const event of iter) {

@@ -11,7 +11,7 @@ use tokio::sync::broadcast;
 const DEFAULT_QUEUE_CAP: usize = 256;
 
 /// Environment override for the per-session queue depth.
-const QUEUE_CAP_ENV: &str = "ATHING_GATE_QUEUE_CAP";
+const QUEUE_CAP_ENV: &str = "TILLERD_GATE_QUEUE_CAP";
 
 /// The gate hook-subscription wire version (R9: sourced from `contracts-rs`,
 /// independent of the daemon session-event wire).

@@ -1,7 +1,7 @@
 //! The gateway binary: run under the `service-host` lifecycle (path resolution,
 //! manifest, signals, graceful shutdown).
 
-use athing_mcp_gateway::service::GatewayService;
+use tillerd_mcp_gateway::service::GatewayService;
 
 fn main() {
     tracing_subscriber::fmt()

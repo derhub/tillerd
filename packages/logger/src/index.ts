@@ -3,9 +3,9 @@ import type { DestinationStream } from "pino";
 import { build as buildPretty } from "pino-pretty";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Logger, LogContext, Resource } from "@athing/sdk";
+import type { Logger, LogContext, Resource } from "@tillerd/sdk";
 
-export type { Logger, LogContext, Resource } from "@athing/sdk";
+export type { Logger, LogContext, Resource } from "@tillerd/sdk";
 
 const VALID_LEVELS = new Set(["silent", "debug", "info", "warn", "error"]);
 
@@ -15,16 +15,16 @@ function resolveLevel(): string {
 }
 
 function buildDestination(): DestinationStream {
-  const athingDir = process.env["ATHING_DIR"];
+  const tillerdDir = process.env["TILLERD_DIR"];
   const usePretty = process.env["LOG_PRETTY"] === "1";
 
   const stdoutStream: DestinationStream = usePretty
     ? buildPretty({ colorize: true, sync: true, destination: 1 })
     : (process.stdout as unknown as DestinationStream);
 
-  if (!athingDir) return stdoutStream;
+  if (!tillerdDir) return stdoutStream;
 
-  const logsDir = join(athingDir, "logs");
+  const logsDir = join(tillerdDir, "logs");
   mkdirSync(logsDir, { recursive: true });
   const date = new Date().toISOString().slice(0, 10);
   const fileStream = pino.destination({ dest: join(logsDir, `${date}.log`), sync: true });

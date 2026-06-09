@@ -9,7 +9,7 @@ PTY (raw bidirectional bytes, interactive, resize) and a future headless stream-
 
 ## Decision
 
-Ship a single `@athing/engine`. Transport is selected per session — PTY now, a headless stream-json mode later — implemented as separate internal code paths, not as implementations of a shared `Transport` interface. The two paths converge only on the canonical event model (data/status/content). The engine is created via a factory (`createEngine()`) returning an isolated instance with no module-level mutable state, so one instance hosts many concurrent sessions (mixed modes) and a host may run more than one instance.
+Ship a single `@tillerd/engine`. Transport is selected per session — PTY now, a headless stream-json mode later — implemented as separate internal code paths, not as implementations of a shared `Transport` interface. The two paths converge only on the canonical event model (data/status/content). The engine is created via a factory (`createEngine()`) returning an isolated instance with no module-level mutable state, so one instance hosts many concurrent sessions (mixed modes) and a host may run more than one instance.
 
 ## Consequences
 

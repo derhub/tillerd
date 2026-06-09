@@ -1,5 +1,5 @@
 [package]
-name = "service-host"
+name = "tillerd-service-host"
 version = "0.1.0"
 edition = "2021"
 description = "Uniform run-me lifecycle for long-lived tools: path resolution, atomic manifest, signal-driven graceful shutdown, and an unauthenticated liveness probe"

@@ -21,13 +21,13 @@ use service_host::paths::resolve_base_dir;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tracing::Instrument;
 
-const SERVICE_NAME: &str = "athing-daemon";
+const SERVICE_NAME: &str = "tillerd-daemon";
 
 // Keeps the non-blocking log writer's worker thread alive for the process lifetime.
 static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> =
     std::sync::OnceLock::new();
 
-// Structured JSON logging to ATHING_DIR/logs/daemon.<date>.log, separate from the
+// Structured JSON logging to TILLERD_DIR/logs/daemon.<date>.log, separate from the
 // TypeScript runtime's log file. OTLP export can be layered in later behind this same init.
 fn init_tracing(dir: &std::path::Path) {
     use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -83,7 +83,7 @@ impl DaemonService {
             shell_env::install_login_shell_env();
         }
 
-        let dir = resolve_base_dir(std::env::var("ATHING_DIR").ok().as_deref());
+        let dir = resolve_base_dir(std::env::var("TILLERD_DIR").ok().as_deref());
         let _ = std::fs::create_dir_all(&dir);
 
         init_tracing(&dir);
@@ -124,7 +124,7 @@ impl DaemonService {
 impl Service for DaemonService {
     fn config(&self) -> ServiceConfig {
         ServiceConfig::new("daemon", DAEMON_VERSION)
-            .with_base_override(std::env::var("ATHING_DIR").ok())
+            .with_base_override(std::env::var("TILLERD_DIR").ok())
     }
 
     async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {

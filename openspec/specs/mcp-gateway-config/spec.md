@@ -9,19 +9,19 @@ The mcp.json config contract: location and resolution, the mcpServers format, al
 ### Requirement: Config file location and resolution
 
 The gateway SHALL read its backend configuration from a file named `mcp.json` in the application
-data directory. The data directory SHALL be resolved from the `ATHING_DIR` environment variable
+data directory. The data directory SHALL be resolved from the `TILLERD_DIR` environment variable
 when set and non-empty (relative values resolved against the current working directory), otherwise
-from `~/.athing`. A missing config file SHALL NOT be an error: the gateway SHALL start with zero
+from `~/.tillerd`. A missing config file SHALL NOT be an error: the gateway SHALL start with zero
 backends.
 
 #### Scenario: Default location
 
-- **WHEN** `ATHING_DIR` is unset
-- **THEN** the gateway SHALL read `~/.athing/mcp.json`
+- **WHEN** `TILLERD_DIR` is unset
+- **THEN** the gateway SHALL read `~/.tillerd/mcp.json`
 
 #### Scenario: Overridden location
 
-- **WHEN** `ATHING_DIR` is set to an absolute directory path
+- **WHEN** `TILLERD_DIR` is set to an absolute directory path
 - **THEN** the gateway SHALL read `mcp.json` from that directory
 
 #### Scenario: Missing file starts empty

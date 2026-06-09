@@ -1,4 +1,4 @@
-import type { Logger, LogContext } from "@athing/sdk";
+import type { Logger, LogContext } from "@tillerd/sdk";
 import type { TauriCore } from "./tauri";
 
 export const LOG_FORWARD = "log_forward";

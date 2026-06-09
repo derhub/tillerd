@@ -1,8 +1,8 @@
 {
-  "name": "cli",
+  "name": "@tillerd/cli",
   "version": "0.0.1",
   "bin": {
-    "athing": "src/index.ts"
+    "tillerd": "src/index.ts"
   },
   "type": "module",
   "scripts": {
@@ -11,10 +11,10 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/adapter-claude-code": "workspace:*",
-    "@athing/logger": "workspace:*",
-    "@athing/platform-bun": "workspace:*",
-    "@athing/sdk": "workspace:*",
+    "@tillerd/adapter-claude-code": "workspace:*",
+    "@tillerd/logger": "workspace:*",
+    "@tillerd/platform-bun": "workspace:*",
+    "@tillerd/sdk": "workspace:*",
     "@clack/prompts": "^0.11.0"
   },
   "devDependencies": {

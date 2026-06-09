@@ -84,14 +84,14 @@ impl GateToolClient {
     /// session identity is absent (standalone, no gate): the gateway then forwards
     /// every tool call without observation.
     pub fn from_env() -> Option<Self> {
-        let session_id = std::env::var("ATHING_SESSION_ID")
+        let session_id = std::env::var("TILLERD_SESSION_ID")
             .ok()
             .filter(|s| !s.is_empty())?;
-        let token = std::env::var("ATHING_SESSION_TOKEN")
+        let token = std::env::var("TILLERD_SESSION_TOKEN")
             .ok()
             .filter(|s| !s.is_empty())?;
         let base =
-            service_host::paths::resolve_base_dir(std::env::var("ATHING_DIR").ok().as_deref());
+            service_host::paths::resolve_base_dir(std::env::var("TILLERD_DIR").ok().as_deref());
         Some(Self::new(
             base.join("gate.sock"),
             SessionId(session_id),

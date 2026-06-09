@@ -3,7 +3,7 @@
 //! slice that also exercises the HTTP face with a real MCP client, see
 //! `integration.rs`.
 
-use athing_mcp_gateway::{build, McpConfig};
+use tillerd_mcp_gateway::{build, McpConfig};
 
 /// An empty-config gateway builds and exposes a live supervisor with no tools.
 /// This is the minimal gateway-only slice: no backends, no daemon, no gate.

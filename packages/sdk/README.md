@@ -1,4 +1,4 @@
-# @athing/sdk
+# @tillerd/sdk
 
 Ports and types only — zero deps, zero implementation.
 
@@ -15,8 +15,8 @@ import type {
   SessionStatus,
   ContentEvent,
   ExitEvent,
-} from "@athing/sdk";
-import { AtError } from "@athing/sdk";
+} from "@tillerd/sdk";
+import { AtError } from "@tillerd/sdk";
 ```
 
 ### `Engine`
@@ -28,7 +28,7 @@ interface Engine {
 }
 ```
 
-Create via `createEngine()` from `@athing/engine`. One engine hosts many concurrent sessions.
+Create via `createEngine()` from `@tillerd/engine`. One engine hosts many concurrent sessions.
 
 ### `AgentSession`
 

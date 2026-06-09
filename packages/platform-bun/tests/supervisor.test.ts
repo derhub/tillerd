@@ -3,13 +3,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { readManifest, isAlive, resolveDaemonBinary } from "../src/supervisor";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 // Exercises the real supervisor helpers. adoptOrSpawn itself requires a live
 // daemon binary, so we verify the manifest/liveness contracts it relies on.
 
 describe("manifest liveness contract", () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-test-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-test-"));
   const manifestPath = path.join(tmpDir, "daemon.json");
 
   afterEach(() => {

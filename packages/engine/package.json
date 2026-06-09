@@ -1,5 +1,5 @@
 {
-  "name": "@athing/engine",
+  "name": "@tillerd/engine",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/sdk": "workspace:*",
+    "@tillerd/sdk": "workspace:*",
     "valibot": "^1.4.1"
   },
   "devDependencies": {

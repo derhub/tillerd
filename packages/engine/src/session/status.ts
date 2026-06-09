@@ -1,4 +1,4 @@
-import type { HookEvent, HookEventType, SessionStatus } from "@athing/sdk";
+import type { HookEvent, HookEventType, SessionStatus } from "@tillerd/sdk";
 
 const STATUS_MAP: Record<HookEventType, SessionStatus> = {
   SessionStart: "IDLE",

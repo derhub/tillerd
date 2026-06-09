@@ -8,7 +8,7 @@ const FIXTURES = path.join(import.meta.dir, "fixtures");
 
 const dirs: string[] = [];
 function tempDir(): string {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), "athing-setupfs-"));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-setupfs-"));
   dirs.push(d);
   return d;
 }
@@ -30,7 +30,7 @@ describe("SetupFs — host filesystem capability", () => {
     const p = path.join(dir, "settings.json");
     await setupFs.writeAtomic(p, "data\n");
     expect(fs.readFileSync(p, "utf8")).toBe("data\n");
-    expect(fs.readdirSync(dir).filter((f) => f.endsWith(".athing-tmp"))).toHaveLength(0);
+    expect(fs.readdirSync(dir).filter((f) => f.endsWith(".tillerd-tmp"))).toHaveLength(0);
   });
 
   test("writeAtomic creates missing parent directories", async () => {
@@ -44,7 +44,7 @@ describe("SetupFs — host filesystem capability", () => {
     const p = path.join(dir, "settings.json");
     fs.writeFileSync(p, "before\n", "utf8");
     await setupFs.backup(p);
-    const backups = fs.readdirSync(dir).filter((f) => f.includes("athing-backup"));
+    const backups = fs.readdirSync(dir).filter((f) => f.includes("tillerd-backup"));
     expect(backups).toHaveLength(1);
     expect(fs.readFileSync(path.join(dir, backups[0]!), "utf8")).toBe("before\n");
   });
@@ -63,7 +63,7 @@ describe("SetupFs — host filesystem capability", () => {
     await setupFs.backup(p);
     await setupFs.writeAtomic(p, '{"updated":true}\n');
     expect(fs.readFileSync(p, "utf8")).toBe('{"updated":true}\n');
-    const backup = fs.readdirSync(dir).find((f) => f.includes("athing-backup"))!;
+    const backup = fs.readdirSync(dir).find((f) => f.includes("tillerd-backup"))!;
     expect(fs.readFileSync(path.join(dir, backup), "utf8")).toBe(prior);
   });
 

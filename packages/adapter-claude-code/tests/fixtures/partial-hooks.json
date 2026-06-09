@@ -1,10 +1,10 @@
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "", "hooks": [{ "type": "command", "command": "/fixtures/bin/athing-notify" }] }
+      { "matcher": "", "hooks": [{ "type": "command", "command": "/fixtures/bin/tillerd-notify" }] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "/fixtures/bin/athing-notify" }] }
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "/fixtures/bin/tillerd-notify" }] }
     ]
   }
 }

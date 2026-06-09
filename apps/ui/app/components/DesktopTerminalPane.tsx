@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { AgentSession } from "@athing/sdk";
+import type { AgentSession } from "@tillerd/sdk";
 import { bindSessionToTerminal } from "~/lib/transport";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import "@xterm/xterm/css/xterm.css";

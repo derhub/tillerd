@@ -105,7 +105,7 @@ fn memorya_lib_has_no_daemon_pty_or_socket_dependency() {
     // daemon -> the daemon crate; pty -> the daemon PTY client; socket -> the
     // async socket stack memorya (sync, blocking std sockets) must never pull in.
     let forbidden = [
-        "athing-daemon-pty",
+        "tillerd-daemon-pty",
         "daemon-pty-client",
         "tokio",
         "mio",
@@ -138,8 +138,8 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
         "contracts-rs",
         "gate-client",
         "daemon-pty-client",
-        "athing-daemon-pty",
-        "athing-gate",
+        "tillerd-daemon-pty",
+        "tillerd-gate",
     ]
     .into();
 
@@ -161,41 +161,41 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
 #[test]
 fn gate_has_no_memorya_or_gateway_or_pty_client_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "athing-gate");
-    let forbidden = ["memorya", "athing-mcp-gateway-rs", "daemon-pty-client"];
+    let closure = normal_closure(&meta, "tillerd-gate");
+    let forbidden = ["memorya", "tillerd-mcp-gateway-rs", "daemon-pty-client"];
 
     assert_eq!(
         leaked(&closure, &forbidden),
         Vec::<&str>::new(),
-        "athing-gate must not depend on memorya, the mcp-gateway, or the PTY client"
+        "tillerd-gate must not depend on memorya, the mcp-gateway, or the PTY client"
     );
 }
 
 #[test]
 fn gateway_has_no_memorya_or_gate_or_daemon_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "athing-mcp-gateway-rs");
+    let closure = normal_closure(&meta, "tillerd-mcp-gateway-rs");
     let forbidden = [
         "memorya",
-        "athing-gate",
-        "athing-daemon-pty",
+        "tillerd-gate",
+        "tillerd-daemon-pty",
         "daemon-pty-client",
     ];
 
     assert_eq!(
         leaked(&closure, &forbidden),
         Vec::<&str>::new(),
-        "athing-mcp-gateway-rs must not depend on memorya, the gate process, the daemon, or the PTY client"
+        "tillerd-mcp-gateway-rs must not depend on memorya, the gate process, the daemon, or the PTY client"
     );
 }
 
 #[test]
 fn daemon_has_no_downstream_tool_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "athing-daemon-pty");
+    let closure = normal_closure(&meta, "tillerd-daemon-pty");
     let forbidden = [
-        "athing-gate",
-        "athing-mcp-gateway-rs",
+        "tillerd-gate",
+        "tillerd-mcp-gateway-rs",
         "memorya",
         "gate-client",
     ];
@@ -203,7 +203,7 @@ fn daemon_has_no_downstream_tool_dependency() {
     assert_eq!(
         leaked(&closure, &forbidden),
         Vec::<&str>::new(),
-        "athing-daemon-pty must not depend on any downstream tool (gate / gateway / memorya)"
+        "tillerd-daemon-pty must not depend on any downstream tool (gate / gateway / memorya)"
     );
 }
 
@@ -213,9 +213,9 @@ fn contracts_rs_has_no_tool_dependency() {
     let closure = normal_closure(&meta, "contracts-rs");
     let forbidden = [
         "memorya",
-        "athing-gate",
-        "athing-mcp-gateway-rs",
-        "athing-daemon-pty",
+        "tillerd-gate",
+        "tillerd-mcp-gateway-rs",
+        "tillerd-daemon-pty",
         "gate-client",
         "daemon-pty-client",
     ];
@@ -231,7 +231,7 @@ fn contracts_rs_has_no_tool_dependency() {
 fn only_daemon_and_pty_client_know_the_pty_wire() {
     // gate, gateway, and memorya must not pull in daemon-pty-client transitively.
     let meta = metadata();
-    let tools = ["athing-gate", "athing-mcp-gateway-rs", "memorya"];
+    let tools = ["tillerd-gate", "tillerd-mcp-gateway-rs", "memorya"];
 
     for tool in tools {
         let closure = normal_closure(&meta, tool);

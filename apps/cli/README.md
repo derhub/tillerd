@@ -6,9 +6,9 @@ Bun's `util.parseArgs`) over the existing setup contract and daemon manifest.
 ## Usage
 
 ```
-athing install [--yes]    Install agent hooks into the agent settings file
-athing uninstall          Remove the hooks this tool installed
-athing status [--json]    Report whether the daemon is running
+tillerd install [--yes]    Install agent hooks into the agent settings file
+tillerd uninstall          Remove the hooks this tool installed
+tillerd status [--json]    Report whether the daemon is running
 ```
 
 ### Flags
@@ -28,5 +28,5 @@ athing status [--json]    Report whether the daemon is running
 ## How it works
 
 - `install` / `uninstall` resolve the notify command (the same path the server uses) and drive
-  the adapter's `setup` procedures with a host-built `SetupContext` from `@athing/platform-bun`.
-- `status` reads `~/.athing/daemon.json` and probes process liveness.
+  the adapter's `setup` procedures with a host-built `SetupContext` from `@tillerd/platform-bun`.
+- `status` reads `~/.tillerd/daemon.json` and probes process liveness.

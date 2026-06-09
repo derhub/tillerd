@@ -64,17 +64,17 @@ fn pty_only_slice_hello_ack_decodes_to_typed_frame() {
 /// the ack negotiates the wire version.
 ///
 /// Requires a live daemon:
-///   ATHING_DAEMON_SOCK=~/.athing/daemon.sock \
+///   TILLERD_DAEMON_SOCK=~/.tillerd/daemon.sock \
 ///   cargo test -p daemon-pty-client --test deployment_slice \
 ///     pty_only_slice_live_daemon -- --ignored
 #[test]
-#[ignore = "requires a live daemon; set ATHING_DAEMON_SOCK and run with --ignored"]
+#[ignore = "requires a live daemon; set TILLERD_DAEMON_SOCK and run with --ignored"]
 fn pty_only_slice_live_daemon_negotiates_wire_version() {
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 
-    let sock = std::env::var("ATHING_DAEMON_SOCK")
-        .expect("ATHING_DAEMON_SOCK points at a running daemon socket");
+    let sock = std::env::var("TILLERD_DAEMON_SOCK")
+        .expect("TILLERD_DAEMON_SOCK points at a running daemon socket");
 
     let mut stream = UnixStream::connect(&sock).expect("connect to daemon");
     stream

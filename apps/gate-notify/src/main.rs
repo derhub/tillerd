@@ -19,8 +19,8 @@ fn main() {
 }
 
 fn run() -> Option<()> {
-    let session_id = non_empty_env("ATHING_SESSION_ID")?;
-    let token = non_empty_env("ATHING_SESSION_TOKEN")?;
+    let session_id = non_empty_env("TILLERD_SESSION_ID")?;
+    let token = non_empty_env("TILLERD_SESSION_TOKEN")?;
     let socket = base_dir()?.join("gate.sock");
 
     let mut payload = Vec::new();
@@ -56,10 +56,10 @@ fn non_empty_env(key: &str) -> Option<String> {
 }
 
 fn base_dir() -> Option<PathBuf> {
-    if let Some(dir) = non_empty_env("ATHING_DIR") {
+    if let Some(dir) = non_empty_env("TILLERD_DIR") {
         return Some(PathBuf::from(dir));
     }
-    Some(PathBuf::from(non_empty_env("HOME")?).join(".athing"))
+    Some(PathBuf::from(non_empty_env("HOME")?).join(".tillerd"))
 }
 
 #[cfg(test)]

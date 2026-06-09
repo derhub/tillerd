@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { homedir } from "node:os";
-import type { Logger, SetupContext, SetupFs } from "@athing/sdk";
+import type { Logger, SetupContext, SetupFs } from "@tillerd/sdk";
 
 /** The agent-home location the host resolves once at startup. */
 export function agentHome(): string {
@@ -23,7 +23,7 @@ export const setupFs: SetupFs = {
 
   async writeAtomic(p, text) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
-    const tmp = `${p}.athing-tmp`;
+    const tmp = `${p}.tillerd-tmp`;
     fs.writeFileSync(tmp, text, "utf8");
     fs.renameSync(tmp, p);
   },
@@ -34,7 +34,7 @@ export const setupFs: SetupFs = {
       .toISOString()
       .replace(/:/g, "-")
       .replace(/\.\d+Z$/, "Z");
-    fs.copyFileSync(p, `${p}.athing-backup-${ts}`);
+    fs.copyFileSync(p, `${p}.tillerd-backup-${ts}`);
   },
 
   async exists(p) {

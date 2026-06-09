@@ -8,12 +8,12 @@ import { prepareNotifyScript } from "../src/ingress";
 // The host bootstrap must surface typed errors before the engine accepts sessions.
 
 describe("startup bootstrap — typed errors", () => {
-  const savedAthingDir = process.env["ATHING_DIR"];
+  const savedTillerdDir = process.env["TILLERD_DIR"];
   const savedExec = process.env["CLAUDE_CODE_EXECUTABLE"];
 
   afterEach(() => {
-    if (savedAthingDir === undefined) delete process.env["ATHING_DIR"];
-    else process.env["ATHING_DIR"] = savedAthingDir;
+    if (savedTillerdDir === undefined) delete process.env["TILLERD_DIR"];
+    else process.env["TILLERD_DIR"] = savedTillerdDir;
     if (savedExec === undefined) delete process.env["CLAUDE_CODE_EXECUTABLE"];
     else process.env["CLAUDE_CODE_EXECUTABLE"] = savedExec;
   });
@@ -31,8 +31,8 @@ describe("startup bootstrap — typed errors", () => {
 
   test("prepareNotifyScript throws HookInstallFailed when the notify client is absent", () => {
     const missing = path.join(
-      fs.mkdtempSync(path.join(os.tmpdir(), "athing-boot-")),
-      "athing-notify",
+      fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-boot-")),
+      "tillerd-notify",
     );
     expect(() => prepareNotifyScript(missing)).toThrow(/not found|HookInstallFailed/);
   });

@@ -29,7 +29,7 @@ not apply here, and the gateway does not reuse that framing.
 
 ## Consequences
 
-- UI integration reduces to "point an MCP client at the endpoint with the token" — no athing-specific
+- UI integration reduces to "point an MCP client at the endpoint with the token" — no tillerd-specific
   protocol code in any consumer.
 - Third-party MCP clients on the same machine can use the gateway unchanged.
 - The gateway owns no codec, framing, or version negotiation of its own; it inherits all of that from

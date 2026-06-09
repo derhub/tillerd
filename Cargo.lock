@@ -3,24 +3,6 @@
 version = 4
 
 [[package]]
-name = "a-thing-desktop"
-version = "0.1.0"
-dependencies = [
- "contracts-rs",
- "dirs",
- "libc",
- "process-launch",
- "serde",
- "serde_json",
- "serial_test",
- "tauri",
- "tauri-build",
- "tempfile",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -138,63 +120,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "athing-daemon-pty"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "command-fds",
- "contracts-rs",
- "nix 0.31.3",
- "portable-pty",
- "serde",
- "serde_json",
- "service-host",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "athing-gate"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "contracts-rs",
- "rmcp",
- "serde",
- "serde_json",
- "service-host",
- "subtle",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "athing-mcp-gateway-rs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "contracts-rs",
- "process-launch",
- "rmcp",
- "schemars 1.2.1",
- "serde",
- "serde_json",
- "service-host",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -666,15 +591,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "contracts-rs"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -839,15 +755,6 @@ name = "ctor-proc-macro"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
-
-[[package]]
-name = "daemon-pty-client"
-version = "0.1.0"
-dependencies = [
- "contracts-rs",
- "serde",
- "serde_json",
-]
 
 [[package]]
 name = "darling"
@@ -1421,25 +1328,6 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
-]
-
-[[package]]
-name = "gate-client"
-version = "0.1.0"
-dependencies = [
- "contracts-rs",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "gate-notify"
-version = "0.1.0"
-dependencies = [
- "contracts-rs",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]
@@ -2464,17 +2352,17 @@ name = "memorya"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "contracts-rs",
- "gate-client",
  "ignore",
  "model2vec-rs",
- "redact-rs",
  "rusqlite",
  "serde",
  "serde_json",
  "sha2",
  "strsim",
  "tempfile",
+ "tillerd-contracts-rs",
+ "tillerd-gate-client",
+ "tillerd-redact-rs",
 ]
 
 [[package]]
@@ -3253,16 +3141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "process-launch"
-version = "0.1.0"
-dependencies = [
- "nix 0.31.3",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "process-wrap"
 version = "9.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3393,13 +3271,6 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "redact-rs"
-version = "0.1.0"
-dependencies = [
- "regex",
 ]
 
 [[package]]
@@ -3980,16 +3851,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "service-host"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -4630,6 +4491,145 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "tillerd"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "command-fds",
+ "nix 0.31.3",
+ "portable-pty",
+ "serde",
+ "serde_json",
+ "tillerd-contracts-rs",
+ "tillerd-service-host",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "tillerd-contracts-rs"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tillerd-daemon-pty-client"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tillerd-contracts-rs",
+]
+
+[[package]]
+name = "tillerd-desktop"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "libc",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "tauri",
+ "tauri-build",
+ "tempfile",
+ "tillerd-contracts-rs",
+ "tillerd-process-launch",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "tillerd-gate"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tillerd-contracts-rs",
+ "tillerd-service-host",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "tillerd-gate-client"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tillerd-contracts-rs",
+]
+
+[[package]]
+name = "tillerd-gate-notify"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tempfile",
+ "tillerd-contracts-rs",
+]
+
+[[package]]
+name = "tillerd-mcp-gateway-rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "rmcp",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tillerd-contracts-rs",
+ "tillerd-process-launch",
+ "tillerd-service-host",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "tillerd-process-launch"
+version = "0.1.0"
+dependencies = [
+ "nix 0.31.3",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tillerd-redact-rs"
+version = "0.1.0"
+dependencies = [
+ "regex",
+]
+
+[[package]]
+name = "tillerd-service-host"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -1,13 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Logger, SetupContext, SetupFs } from "@athing/sdk";
-import { setup } from "@athing/adapter-claude-code";
+import type { Logger, SetupContext, SetupFs } from "@tillerd/sdk";
+import { setup } from "@tillerd/adapter-claude-code";
 import type { CliDeps, ManifestData } from "../src/cli";
 
 const FIXTURES = path.join(import.meta.dir, "fixtures");
 export const AGENT_HOME = "/agent/.claude";
 export const SETTINGS = `${AGENT_HOME}/settings.json`;
-export const NOTIFY = "/fake/bin/athing-notify";
+export const NOTIFY = "/fake/bin/tillerd-notify";
 
 /** In-memory SetupFs seeded from a hand-authored fixture — never the real settings file. */
 export function fakeFs(fixture?: string): { fs: SetupFs; files: Map<string, string> } {

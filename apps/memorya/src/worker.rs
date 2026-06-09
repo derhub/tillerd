@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::Engram;
 
 /// Environment override for the drain interval, in milliseconds.
-pub const DRAIN_INTERVAL_ENV: &str = "ATHING_EMBED_DRAIN_INTERVAL_MS";
+pub const DRAIN_INTERVAL_ENV: &str = "TILLERD_EMBED_DRAIN_INTERVAL_MS";
 
 /// The drain interval when the override is unset or invalid.
 const DEFAULT_DRAIN_INTERVAL_MS: u64 = 5_000;

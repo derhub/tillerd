@@ -1,4 +1,4 @@
-import type { AgentDefinition } from "@athing/sdk";
+import type { AgentDefinition } from "@tillerd/sdk";
 import { BINARY_RESOLUTION } from "./binary-resolution";
 
 export const SUPPORTED_CLI_VERSION_RANGE = ">=1.0.0";

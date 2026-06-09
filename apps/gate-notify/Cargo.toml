@@ -1,5 +1,5 @@
 [package]
-name = "gate-notify"
+name = "tillerd-gate-notify"
 version = "0.1.0"
 edition = "2021"
 description = "Hook callback client: frames the agent lifecycle payload to the gate's hook socket"
@@ -10,7 +10,7 @@ name = "gate-notify"
 path = "src/main.rs"
 
 [dependencies]
-contracts-rs = { path = "../../packages/contracts-rs" }
+contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
 serde_json = "1"
 
 [dev-dependencies]

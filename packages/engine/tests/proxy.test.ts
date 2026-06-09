@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
-import type { DaemonFrame, HookEvent, HookSource, ContentEvent } from "@athing/sdk";
-import type { AgentDefinition, Logger } from "@athing/sdk";
-import type { FrameHandler } from "@athing/sdk";
+import type { DaemonFrame, HookEvent, HookSource, ContentEvent } from "@tillerd/sdk";
+import type { AgentDefinition, Logger } from "@tillerd/sdk";
+import type { FrameHandler } from "@tillerd/sdk";
 
 const noopLogger: Logger = {
   debug() {},
@@ -122,7 +122,7 @@ describe("AgentSessionProxy — spawn mode", () => {
   test("exit frame fires onExit handler with qualifier", async () => {
     const { proxy, client } = await makeProxy("spawn");
     proxy.start();
-    const exits: import("@athing/sdk").ExitEvent[] = [];
+    const exits: import("@tillerd/sdk").ExitEvent[] = [];
     proxy.onExit((e) => exits.push(e));
     client.emit("test-session-id", {
       type: "exit",
@@ -179,7 +179,7 @@ describe("AgentSessionProxy — exit qualifier & crashed status", () => {
     const { proxy, client } = await makeProxy("spawn");
     proxy.start();
     const statuses: string[] = [];
-    const exits: import("@athing/sdk").ExitEvent[] = [];
+    const exits: import("@tillerd/sdk").ExitEvent[] = [];
     proxy.onStatus((s) => statuses.push(s));
     proxy.onExit((e) => exits.push(e));
 
@@ -633,7 +633,7 @@ describe("AgentSessionProxy — HookSource ingress", () => {
 // ── spawn env injection (task 7.4 / step 5) ──────────────────────────────────
 
 describe("AgentSessionProxy — spawn env injection", () => {
-  test("injects ATHING_DIR so the agent's hook client derives the gate socket", async () => {
+  test("injects TILLERD_DIR so the agent's hook client derives the gate socket", async () => {
     const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
     const sent: object[] = [];
     const fakeClient = {
@@ -654,7 +654,7 @@ describe("AgentSessionProxy — spawn env injection", () => {
       fillProxyOptions({ cwd: "/tmp", gateToken: "tok-abc" }),
       fakeClient as never,
       "spawn",
-      "/run/athing",
+      "/run/tillerd",
       noopLogger,
       "mock",
     );
@@ -663,12 +663,12 @@ describe("AgentSessionProxy — spawn env injection", () => {
     const spawnFrame = sent.find((s) => (s as { type: string }).type === "spawn") as {
       env: Record<string, string>;
     };
-    expect(spawnFrame.env["ATHING_DIR"]).toBe("/run/athing");
-    expect(spawnFrame.env["ATHING_SESSION_ID"]).toBe("gate-env-session");
-    expect(spawnFrame.env["ATHING_SESSION_TOKEN"]).toBe("tok-abc");
+    expect(spawnFrame.env["TILLERD_DIR"]).toBe("/run/tillerd");
+    expect(spawnFrame.env["TILLERD_SESSION_ID"]).toBe("gate-env-session");
+    expect(spawnFrame.env["TILLERD_SESSION_TOKEN"]).toBe("tok-abc");
   });
 
-  test("proxy_spawn_env_omits_athing_bridge_url", async () => {
+  test("proxy_spawn_env_omits_tillerd_bridge_url", async () => {
     const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
     const sent: object[] = [];
     const fakeClient = {
@@ -698,7 +698,7 @@ describe("AgentSessionProxy — spawn env injection", () => {
     const spawnFrame = sent.find((s) => (s as { type: string }).type === "spawn") as {
       env: Record<string, string>;
     };
-    expect(spawnFrame.env["ATHING_BRIDGE_URL"]).toBeUndefined();
+    expect(spawnFrame.env["TILLERD_BRIDGE_URL"]).toBeUndefined();
   });
 
   test("uses provided gateToken instead of generating a random token", async () => {

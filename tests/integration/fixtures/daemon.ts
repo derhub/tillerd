@@ -6,13 +6,13 @@ import * as path from "node:path";
 import * as os from "node:os";
 import * as fs from "node:fs";
 
-/** The release binary the `e2e` turbo task builds via `@athing/daemon-pty#build`. */
-export const DAEMON_BIN = path.resolve(import.meta.dir, "../../../target/release/athing-daemon");
+/** The release binary the `e2e` turbo task builds via `@tillerd/daemon-pty#build`. */
+export const DAEMON_BIN = path.resolve(import.meta.dir, "../../../target/release/tillerd-daemon");
 
 export interface DaemonHandle {
   /** Isolated runtime directory for this daemon (removed on stop). */
-  athingDir: string;
-  /** The daemon control socket inside `athingDir`. */
+  tillerdDir: string;
+  /** The daemon control socket inside `tillerdDir`. */
   sockPath: string;
   /** The resolved daemon binary path. */
   bin: string;
@@ -40,9 +40,9 @@ async function waitForSocket(sockPath: string, timeoutMs = 8_000): Promise<void>
 }
 
 /**
- * Spawn the daemon against a fresh temp `ATHING_DIR` and wait for its socket.
+ * Spawn the daemon against a fresh temp `TILLERD_DIR` and wait for its socket.
  * Throws a clear error if the binary is absent (run via `bun run e2e`, which
- * builds it through the turbo `@athing/daemon-pty#build` dependency).
+ * builds it through the turbo `@tillerd/daemon-pty#build` dependency).
  */
 export async function startDaemon(): Promise<DaemonHandle> {
   if (!fs.existsSync(DAEMON_BIN)) {
@@ -51,13 +51,13 @@ export async function startDaemon(): Promise<DaemonHandle> {
         `daemon-pty build dependency) or \`cargo build --release\` first.`,
     );
   }
-  const athingDir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-e2e-"));
+  const tillerdDir = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-e2e-"));
   const proc = Bun.spawn([DAEMON_BIN], {
-    env: { ...process.env, ATHING_DIR: athingDir },
+    env: { ...process.env, TILLERD_DIR: tillerdDir },
     stdout: "ignore",
     stderr: "ignore",
   });
-  const sockPath = path.join(athingDir, "daemon.sock");
+  const sockPath = path.join(tillerdDir, "daemon.sock");
   try {
     await waitForSocket(sockPath);
   } catch (err) {
@@ -65,14 +65,14 @@ export async function startDaemon(): Promise<DaemonHandle> {
     throw err;
   }
   return {
-    athingDir,
+    tillerdDir,
     sockPath,
     bin: DAEMON_BIN,
     async stop() {
       proc.kill();
       await proc.exited;
       try {
-        fs.rmSync(athingDir, { recursive: true, force: true });
+        fs.rmSync(tillerdDir, { recursive: true, force: true });
       } catch {
         /* best effort */
       }

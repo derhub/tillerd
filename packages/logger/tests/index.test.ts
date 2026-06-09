@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { createLogger, noopLogger } from "../src/index";
 import type { Resource } from "../src/index";
 
-const RES: Resource = { "service.name": "athing-test", "service.version": "0.0.0" };
+const RES: Resource = { "service.name": "tillerd-test", "service.version": "0.0.0" };
 
 function captureStdout(fn: () => void): string[] {
   const lines: string[] = [];
@@ -36,7 +36,7 @@ describe("createLogger", () => {
 
     const entry = JSON.parse(lines[0]!);
     expect(entry.level).toBe("warn");
-    expect(entry["service.name"]).toBe("athing-test");
+    expect(entry["service.name"]).toBe("tillerd-test");
     expect(entry["service.version"]).toBe("0.0.0");
   });
 
@@ -66,7 +66,7 @@ describe("child context binding", () => {
     expect(entry["pty.pid"]).toBe(42);
     expect(entry.binary).toBe("claude");
     // resource still present through the child
-    expect(entry["service.name"]).toBe("athing-test");
+    expect(entry["service.name"]).toBe("tillerd-test");
   });
 
   test("children compose", () => {
@@ -89,17 +89,17 @@ describe("child context binding", () => {
   });
 });
 
-describe("file logging via ATHING_DIR", () => {
+describe("file logging via TILLERD_DIR", () => {
   let tmpDir: string;
 
   afterEach(() => {
-    delete process.env["ATHING_DIR"];
+    delete process.env["TILLERD_DIR"];
     if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   test("writes one JSON record per line to the dated log file", () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "athing-logger-test-"));
-    process.env["ATHING_DIR"] = tmpDir;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tillerd-logger-test-"));
+    process.env["TILLERD_DIR"] = tmpDir;
 
     captureStdout(() =>
       createLogger(RES).child({ "session.id": "file-test" }).info("written to file", { val: 42 }),
@@ -115,7 +115,7 @@ describe("file logging via ATHING_DIR", () => {
     expect(entry.msg).toBe("written to file");
     expect(entry.val).toBe(42);
     expect(entry["session.id"]).toBe("file-test");
-    expect(entry["service.name"]).toBe("athing-test");
+    expect(entry["service.name"]).toBe("tillerd-test");
   });
 });
 

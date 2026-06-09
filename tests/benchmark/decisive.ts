@@ -234,11 +234,11 @@ function resolveBinaries(): Record<string, string> {
     return map;
   }
   const map: Record<string, string> = {};
-  const rust = join(ROOT, "packages/daemon-pty/target/release/athing-daemon");
+  const rust = join(ROOT, "packages/daemon-pty/target/release/tillerd-daemon");
   if (existsSync(rust)) map["rust"] = rust;
   // The Node daemon is the working TS incumbent (the Bun daemon can't accept
   // input under Bun). Compare rust vs node by default.
-  const node = process.env.ATHING_DAEMON_BIN ?? join(ROOT, "bin/athing-daemon");
+  const node = process.env.TILLERD_DAEMON_BIN ?? join(ROOT, "bin/tillerd-daemon");
   if (existsSync(node)) map["node"] = node;
   return map;
 }

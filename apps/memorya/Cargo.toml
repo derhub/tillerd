@@ -18,8 +18,8 @@ name = "memorya"
 path = "src/lib.rs"
 
 [dependencies]
-contracts-rs = { path = "../../packages/contracts-rs" }
-gate-client = { path = "../../packages/gate-client" }
+contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
+gate-client = { path = "../../packages/gate-client", package = "tillerd-gate-client" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -27,7 +27,7 @@ anyhow = "1"
 sha2 = "0.10"
 strsim = "0.11"
 ignore = "0.4"
-redact = { path = "../../packages/redact-rs", package = "redact-rs" }
+redact = { path = "../../packages/redact-rs", package = "tillerd-redact-rs" }
 # Static embedding model (default features include the model hub, so the model is
 # downloaded on first use and cached for offline reuse).
 model2vec-rs = "0.2"

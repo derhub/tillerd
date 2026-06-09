@@ -8,7 +8,7 @@ export { agentHome, setupFs, buildSetupContext } from "./setup";
 export {
   adoptOrSpawnTool,
   spawnFieldsDiffer,
-  resolveAthingDir,
+  resolveTillerdDir,
   ENV_ALLOWLIST,
 } from "./process-launch";
 export type { SpawnSpec, ToolManifest, LaunchOptions, LaunchResult } from "./process-launch";

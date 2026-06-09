@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeAll, afterAll } from "bun:test";
-import { createEngine } from "@athing/engine";
-import { adoptOrSpawn, resolveAthingDir, resolveAgentCommand } from "@athing/platform-bun";
-import { createLogger } from "@athing/logger";
+import { createEngine } from "@tillerd/engine";
+import { adoptOrSpawn, resolveTillerdDir, resolveAgentCommand } from "@tillerd/platform-bun";
+import { createLogger } from "@tillerd/logger";
 import { bashAdapter } from "./fixtures/bash-adapter";
 import { startDaemon, type DaemonHandle } from "./fixtures/daemon";
 
@@ -13,9 +13,9 @@ const priorEnv: Record<string, string | undefined> = {};
 
 beforeAll(async () => {
   daemon = await startDaemon();
-  for (const k of ["ATHING_DIR", "ATHING_DAEMON_BIN"]) priorEnv[k] = process.env[k];
-  process.env["ATHING_DIR"] = daemon.athingDir;
-  process.env["ATHING_DAEMON_BIN"] = daemon.bin;
+  for (const k of ["TILLERD_DIR", "TILLERD_DAEMON_BIN"]) priorEnv[k] = process.env[k];
+  process.env["TILLERD_DIR"] = daemon.tillerdDir;
+  process.env["TILLERD_DAEMON_BIN"] = daemon.bin;
 });
 
 afterAll(async () => {
@@ -30,8 +30,8 @@ async function makeEngine() {
   const transport = await adoptOrSpawn();
   return createEngine({
     transport,
-    logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
-    athingDir: resolveAthingDir(),
+    logger: createLogger({ "service.name": "tillerd-integration-test", "service.version": "0" }),
+    tillerdDir: resolveTillerdDir(),
     resolvedCommand: resolveAgentCommand(bashAdapter.binaryResolution),
   });
 }
@@ -80,9 +80,9 @@ describe("engine integration", () => {
     const transport = await adoptOrSpawn();
     const engine = createEngine({
       transport,
-      logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
-      athingDir: resolveAthingDir(),
-      resolvedCommand: "__athing_no_such_binary__",
+      logger: createLogger({ "service.name": "tillerd-integration-test", "service.version": "0" }),
+      tillerdDir: resolveTillerdDir(),
+      resolvedCommand: "__tillerd_no_such_binary__",
     });
 
     const errors: string[] = [];

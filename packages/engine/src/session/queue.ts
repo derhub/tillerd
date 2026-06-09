@@ -1,4 +1,4 @@
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 export class SendQueue {
   private queue: string[] = [];

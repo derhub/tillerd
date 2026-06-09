@@ -58,7 +58,7 @@ mod tests {
 
     #[test]
     fn roundtrip_ndjson_and_base64() {
-        let dir = std::env::temp_dir().join(format!("athing-snap-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("tillerd-snap-{}", std::process::id()));
         let _ = fs::create_dir_all(&dir);
         let path = dir.join("snap.ndjson");
         let recs = vec![

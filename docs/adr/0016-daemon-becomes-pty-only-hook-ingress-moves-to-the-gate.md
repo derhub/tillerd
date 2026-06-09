@@ -6,7 +6,7 @@
 ## Context
 
 ADR-0008 moved PTY ownership into a detached daemon and, at the time, co-located the hook ingress
-there (a named Unix domain socket at `~/.athing/hooks.sock`, with the daemon relaying hook events to
+there (a named Unix domain socket at `~/.tillerd/hooks.sock`, with the daemon relaying hook events to
 subscribers). The system has since grown several long-running tools (PTY daemon, memory layer, MCP
 gateway) plus thin orchestrators, and two independent hook ingresses emerged (the daemon's and the
 memory layer's). There is no single trust boundary for agent-facing traffic, and the daemon — which

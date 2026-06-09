@@ -1,5 +1,5 @@
 {
-  "name": "@athing/daemon-pty-client",
+  "name": "@tillerd/daemon-pty-client",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

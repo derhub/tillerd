@@ -2,7 +2,7 @@
 // measured cost reflects the full path (framing, fan-out, snapshot production),
 // not internal function calls.
 
-import { encodeFrame, FrameDecoder } from "@athing/sdk/protocol";
+import { encodeFrame, FrameDecoder } from "@tillerd/sdk/protocol";
 
 export type Frame = { meta: any; body: Uint8Array | null };
 type Handler = (f: Frame) => void;

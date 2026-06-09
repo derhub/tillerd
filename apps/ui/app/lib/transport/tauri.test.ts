@@ -1,5 +1,5 @@
 import { test, expect, describe, mock } from "bun:test";
-import { encodeFrame } from "@athing/sdk";
+import { encodeFrame } from "@tillerd/sdk";
 import { TauriDaemonTransport, type TauriCore, type TauriChannelLike } from "./tauri";
 import { TauriFileSource } from "./file-source";
 import { TauriLogger } from "./logger";

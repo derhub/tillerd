@@ -2,7 +2,7 @@ import { test, expect, describe, afterEach } from "bun:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { unlinkSync } from "node:fs";
-import { HOOK_SUBSCRIPTION_WIRE_VERSION, encodeSubscriptionFrame } from "@athing/sdk";
+import { HOOK_SUBSCRIPTION_WIRE_VERSION, encodeSubscriptionFrame } from "@tillerd/sdk";
 import { subscribeToSession, GateNegotiationError } from "../src/gate-client";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

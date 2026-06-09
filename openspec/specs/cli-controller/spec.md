@@ -15,7 +15,7 @@ of subcommands. Unknown or missing subcommands SHALL print usage and exit non-ze
 
 #### Scenario: Known subcommand routes
 
-- **WHEN** the CLI is invoked as `athing <subcommand>` where `<subcommand>` is one of
+- **WHEN** the CLI is invoked as `tillerd <subcommand>` where `<subcommand>` is one of
   `install`, `uninstall`, or `status`
 - **THEN** the CLI runs that subcommand's handler
 
@@ -73,27 +73,27 @@ the adapter's hook installer, and SHALL be idempotent.
 
 #### Scenario: Install on a fresh environment
 
-- **WHEN** `athing install` is run and no agent hooks are present
+- **WHEN** `tillerd install` is run and no agent hooks are present
 - **THEN** the hooks are written to the agent settings file
 - **AND** the CLI reports which hook events were installed
 - **AND** exits zero
 
 #### Scenario: Install when already installed
 
-- **WHEN** `athing install` is run and the hooks are already present
+- **WHEN** `tillerd install` is run and the hooks are already present
 - **THEN** no duplicate hooks are written
 - **AND** the CLI reports that hooks are already installed
 - **AND** exits zero
 
 #### Scenario: Interactive confirmation on a TTY
 
-- **WHEN** `athing install` is run attached to a TTY without a confirmation flag
+- **WHEN** `tillerd install` is run attached to a TTY without a confirmation flag
 - **THEN** the CLI prompts for confirmation before writing
 - **AND** declining the prompt makes no changes and exits non-zero
 
 #### Scenario: Non-interactive install
 
-- **WHEN** `athing install --yes` is run, or stdin is not a TTY
+- **WHEN** `tillerd install --yes` is run, or stdin is not a TTY
 - **THEN** the CLI installs without prompting
 
 ### Requirement: Hook uninstallation
@@ -103,14 +103,14 @@ settings file, leaving unrelated hook entries intact, and SHALL be idempotent.
 
 #### Scenario: Uninstall removes managed hooks
 
-- **WHEN** `athing uninstall` is run and managed hooks are present
+- **WHEN** `tillerd uninstall` is run and managed hooks are present
 - **THEN** only the managed hook entries are removed from the settings file
 - **AND** unrelated hook entries are preserved
 - **AND** exits zero
 
 #### Scenario: Uninstall when nothing installed
 
-- **WHEN** `athing uninstall` is run and no managed hooks are present
+- **WHEN** `tillerd uninstall` is run and no managed hooks are present
 - **THEN** the settings file is unchanged
 - **AND** the CLI reports there was nothing to remove
 - **AND** exits zero
@@ -122,19 +122,19 @@ manifest and probing process liveness, and SHALL distinguish running, stale, and
 
 #### Scenario: Daemon running
 
-- **WHEN** `athing status` is run and the manifest exists and its pid is alive
+- **WHEN** `tillerd status` is run and the manifest exists and its pid is alive
 - **THEN** the CLI reports the daemon as running with its pid and version
 - **AND** exits zero
 
 #### Scenario: Stale manifest
 
-- **WHEN** `athing status` is run and the manifest exists but its pid is not alive
+- **WHEN** `tillerd status` is run and the manifest exists but its pid is not alive
 - **THEN** the CLI reports the daemon as not running (stale manifest)
 - **AND** exits non-zero
 
 #### Scenario: No manifest
 
-- **WHEN** `athing status` is run and no manifest exists
+- **WHEN** `tillerd status` is run and no manifest exists
 - **THEN** the CLI reports the daemon as not running
 - **AND** exits non-zero
 
@@ -145,6 +145,6 @@ object instead of human-formatted text.
 
 #### Scenario: JSON output
 
-- **WHEN** `athing status --json` is run
+- **WHEN** `tillerd status --json` is run
 - **THEN** the CLI prints one JSON object describing daemon state (running, pid, version)
 - **AND** prints no human-formatted decoration

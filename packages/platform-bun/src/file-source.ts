@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import type { FileSource } from "@athing/sdk";
+import type { FileSource } from "@tillerd/sdk";
 
 export class BunFileSource implements FileSource {
   async size(path: string): Promise<number | null> {

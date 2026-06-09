@@ -6,8 +6,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub fn athing_dir() -> PathBuf {
-    match std::env::var_os("ATHING_DIR") {
+pub fn tillerd_dir() -> PathBuf {
+    match std::env::var_os("TILLERD_DIR") {
         Some(v) if !v.is_empty() => {
             let p = PathBuf::from(v);
             if p.is_absolute() {
@@ -16,7 +16,7 @@ pub fn athing_dir() -> PathBuf {
                 std::env::current_dir().unwrap_or_default().join(p)
             }
         }
-        _ => home_dir().join(".athing"),
+        _ => home_dir().join(".tillerd"),
     }
 }
 
@@ -27,7 +27,7 @@ fn home_dir() -> PathBuf {
 }
 
 pub fn config_path() -> PathBuf {
-    athing_dir().join("mcp.json")
+    tillerd_dir().join("mcp.json")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn default_location_is_under_home() {
-        std::env::remove_var("ATHING_DIR");
-        assert!(config_path().ends_with(".athing/mcp.json"));
+        std::env::remove_var("TILLERD_DIR");
+        assert!(config_path().ends_with(".tillerd/mcp.json"));
     }
 }

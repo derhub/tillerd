@@ -17,7 +17,7 @@ detached daemon.
 
 Run the MCP gateway as a standalone, long-lived, detached daemon — a sibling of the PTY daemon, not
 a component of the desktop app and not a dependant of the PTY daemon. It follows the ADR-0008
-lifecycle pattern: detach from its launcher's session, write a manifest at `~/.athing/mcp-gateway.json`
+lifecycle pattern: detach from its launcher's session, write a manifest at `~/.tillerd/mcp-gateway.json`
 (`pid`/`port`/`token`/`version`) atomically, support reuse-or-spawn so a launcher connects to a
 running matching-version instance instead of starting a second one, and remove the manifest on clean
 stop. It honors the ADR-0007 reliability contract: graceful shutdown, bounded interactions, typed

@@ -1,21 +1,21 @@
 [package]
-name = "athing-gate"
+name = "tillerd-gate"
 version = "0.1.0"
 edition = "2021"
 description = "Composable middleware gate: per-session auth, hook normalization and fan-out, and tool-route pass-through over loopback"
 license = "MIT"
 
 [lib]
-name = "athing_gate"
+name = "tillerd_gate"
 path = "src/lib.rs"
 
 [[bin]]
-name = "athing-gate"
+name = "tillerd-gate"
 path = "src/bin/main.rs"
 
 [dependencies]
-contracts-rs = { path = "../../packages/contracts-rs" }
-service-host = { path = "../../packages/service-host" }
+contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
+service-host = { path = "../../packages/service-host", package = "tillerd-service-host" }
 tokio = { version = "1", features = [
   "rt-multi-thread",
   "macros",
@@ -45,7 +45,7 @@ tempfile = "3"
 # socket/stream transport the server uses; no HTTP client transport is needed.
 rmcp = { version = "1.7", features = ["client", "transport-io"] }
 serde_json = "1"
-contracts-rs = { path = "../../packages/contracts-rs" }
+contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
 
 [lints.rust]
 future-incompatible = "warn"

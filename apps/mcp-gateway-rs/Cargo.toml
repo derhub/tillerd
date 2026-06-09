@@ -1,16 +1,16 @@
 [package]
-name = "athing-mcp-gateway-rs"
+name = "tillerd-mcp-gateway-rs"
 version = "0.1.0"
 edition = "2021"
 description = "Lightweight local-first MCP gateway: aggregates many MCP servers behind one MCP face"
 license = "MIT"
 
 [lib]
-name = "athing_mcp_gateway"
+name = "tillerd_mcp_gateway"
 path = "src/lib.rs"
 
 [[bin]]
-name = "athing-mcp-gateway"
+name = "tillerd-mcp-gateway"
 path = "src/bin/gateway.rs"
 
 [[bin]]
@@ -54,9 +54,9 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 uuid = { version = "1", features = ["v4"] }
-contracts-rs = { path = "../../packages/contracts-rs" }
-service-host = { path = "../../packages/service-host" }
-process-launch = { path = "../../packages/process-launch" }
+contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
+service-host = { path = "../../packages/service-host", package = "tillerd-service-host" }
+process-launch = { path = "../../packages/process-launch", package = "tillerd-process-launch" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }

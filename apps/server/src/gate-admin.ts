@@ -1,12 +1,12 @@
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { HOOK_SUBSCRIPTION_WIRE_VERSION } from "@athing/sdk";
+import { HOOK_SUBSCRIPTION_WIRE_VERSION } from "@tillerd/sdk";
 
-/** Resolve the gate's single socket path from ATHING_DIR; the admin face is reached
+/** Resolve the gate's single socket path from TILLERD_DIR; the admin face is reached
  * over its `Admin` route. */
 function gateAdminSock(): string {
-  const raw = process.env["ATHING_DIR"];
-  const dir = raw ? resolve(raw) : join(homedir(), ".athing");
+  const raw = process.env["TILLERD_DIR"];
+  const dir = raw ? resolve(raw) : join(homedir(), ".tillerd");
   return join(dir, "gate.sock");
 }
 
@@ -105,15 +105,15 @@ async function sendAdminCommand(
 }
 
 export interface GateAdminOptions {
-  /** Path to the gate socket. Defaults to $ATHING_DIR/gate.sock. */
+  /** Path to the gate socket. Defaults to $TILLERD_DIR/gate.sock. */
   socketPath?: string;
-  /** Admin token. Reads ATHING_GATE_ADMIN_TOKEN from env when absent. */
+  /** Admin token. Reads TILLERD_GATE_ADMIN_TOKEN from env when absent. */
   adminToken?: string;
 }
 
 function resolveAdminToken(opts: GateAdminOptions): string {
-  const tok = opts.adminToken ?? process.env["ATHING_GATE_ADMIN_TOKEN"];
-  if (!tok) throw new Error("gate-admin: ATHING_GATE_ADMIN_TOKEN is not set");
+  const tok = opts.adminToken ?? process.env["TILLERD_GATE_ADMIN_TOKEN"];
+  if (!tok) throw new Error("gate-admin: TILLERD_GATE_ADMIN_TOKEN is not set");
   return tok;
 }
 

@@ -16,7 +16,7 @@ pub use adopt::{AdoptMiss, Adoption};
 pub use backoff::BackoffPolicy;
 pub use diffing::{spawn_fields_differ, SpawnSpec};
 pub use error::LaunchError;
-pub use manifest::{athing_dir, ManifestData};
+pub use manifest::{tillerd_dir, ManifestData};
 pub use probes::{OsProbes, Probes};
 pub use spawn::{spawn_and_wait, SpawnTiming};
 

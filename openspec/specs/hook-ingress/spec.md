@@ -32,12 +32,12 @@ The engine SHALL install the agent's lifecycle hook a single time (non-destructi
 
 ### Requirement: Loopback receiver
 
-The hook receiver SHALL be the `Hook` route of the gate's single named Unix domain socket at a deterministic path (`$ATHING_DIR/gate.sock`). A hook connection SHALL open with the gate's route preamble selecting the `Hook` route, after which the receiver SHALL read length-prefixed payload frames using the gate's shared frame codec. The receiver SHALL NOT use an HTTP transport or an ephemeral TCP port, SHALL NOT bind a face-specific socket, and SHALL NOT publish a separate address file, because the path is derivable from the runtime directory. The receiver SHALL be owned by the gate — a long-lived service — so it remains available across engine host process restarts.
+The hook receiver SHALL be the `Hook` route of the gate's single named Unix domain socket at a deterministic path (`$TILLERD_DIR/gate.sock`). A hook connection SHALL open with the gate's route preamble selecting the `Hook` route, after which the receiver SHALL read length-prefixed payload frames using the gate's shared frame codec. The receiver SHALL NOT use an HTTP transport or an ephemeral TCP port, SHALL NOT bind a face-specific socket, and SHALL NOT publish a separate address file, because the path is derivable from the runtime directory. The receiver SHALL be owned by the gate — a long-lived service — so it remains available across engine host process restarts.
 
 #### Scenario: Receiver at a derivable path
 
 - **WHEN** the receiver starts
-- **THEN** it SHALL accept hook callbacks on the `Hook` route of `$ATHING_DIR/gate.sock`, and that path SHALL be usable as long as the gate is running, with no per-face socket and no address file to publish or read
+- **THEN** it SHALL accept hook callbacks on the `Hook` route of `$TILLERD_DIR/gate.sock`, and that path SHALL be usable as long as the gate is running, with no per-face socket and no address file to publish or read
 
 #### Scenario: Receiver survives engine restart
 

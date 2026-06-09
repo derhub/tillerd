@@ -13,7 +13,7 @@ Get the dev stack running locally.
 
 ```bash
 git clone <repo-url>
-cd a-thing
+cd tillerd
 bun install
 ```
 

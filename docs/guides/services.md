@@ -29,10 +29,10 @@ stop), which it normalizes and fans out to whoever subscribed.
 
 ---
 
-## Source of truth: the `~/.athing/` directory
+## Source of truth: the `~/.tillerd/` directory
 
 There is **no central registry**. Services discover each other by reading
-well-known files in `$ATHING_DIR` (default `~/.athing/`). That directory _is_
+well-known files in `$TILLERD_DIR` (default `~/.tillerd/`). That directory _is_
 the source of truth.
 
 | File          | Written by | Read by                                             | Holds                                                                                              |
@@ -100,8 +100,8 @@ second one.
   - **Normalize** — calls the adapter's `parse_hook()` → canonical `HookEvent`.
   - **FanOut** — publishes the event to every subscriber for that session.
 
-- **Config** — environment variables only (`ATHING_GATE_ADMIN_TOKEN`,
-  `ATHING_GATE_QUEUE_CAP`, …). No config file, no port.
+- **Config** — environment variables only (`TILLERD_GATE_ADMIN_TOKEN`,
+  `TILLERD_GATE_QUEUE_CAP`, …). No config file, no port.
 - **Today's limits** — the pipeline is hardcoded in `build_router()`; adding a
   middleware (e.g. redact, firewall) is a code change, not config. Authorization
   is allow-all (`AllowPolicy::All`); per-session or per-tool rules are a reserved
@@ -122,10 +122,10 @@ second one.
   lifecycle event (not a daemon — one shot per hook, then exits).
 - **Why** — `curl` can't write length-prefixed frames; a small fast binary keeps
   the agent's hot path cheap (~1-2 ms spawn).
-- **Does** — reads the hook payload on stdin, opens `$ATHING_DIR/gate.sock` on the
+- **Does** — reads the hook payload on stdin, opens `$TILLERD_DIR/gate.sock` on the
   `hook` route (a preamble frame carrying the session id + token), then writes the
   raw payload as one frame, fire-and-forget. Derives the socket path from
-  `ATHING_DIR`; no env URL. Producer peer of `gate-client`.
+  `TILLERD_DIR`; no env URL. Producer peer of `gate-client`.
 
 ---
 
@@ -138,9 +138,9 @@ orchestrator                gate                 daemon
      │ 2. register ─────────▶│ gate.sock (admin)  │
      │                       │  now knows session │
      │ 3. spawn daemon w/ env ───────────────────▶│
-     │      ATHING_DIR                             │
-     │      ATHING_SESSION_ID                       │ 4. runs agent
-     │      ATHING_SESSION_TOKEN                     │    in PTY
+     │      TILLERD_DIR                             │
+     │      TILLERD_SESSION_ID                       │ 4. runs agent
+     │      TILLERD_SESSION_TOKEN                     │    in PTY
      │                       │                     │
      │                       │◀── 5. agent fires hook
      │                       │     gate.sock (hook route)
@@ -239,4 +239,4 @@ the agent can send its first hook, or that hook fails authentication.
 | service-host   | library | "Run me as a long-lived process" wrapper.                        |
 | process-launch | library | Adopt-or-spawn a managed backend.                                |
 | gate-client    | library | Decode the gate's subscribe wire.                                |
-| `~/.athing/`   | data    | Well-known files; the discovery source of truth.                 |
+| `~/.tillerd/`   | data    | Well-known files; the discovery source of truth.                 |

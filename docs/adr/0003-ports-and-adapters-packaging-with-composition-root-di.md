@@ -11,9 +11,9 @@ The goal is "support all agents" over time while keeping the engine agent-agnost
 
 Adopt a ports-and-adapters layout with a strict inward dependency direction:
 
-- `@athing/sdk` — ports and types only (`AgentSession`, `AgentDefinition`, `HookEvent`, event model, status enum, option types); zero deps, zero impl.
-- `@athing/engine` — the machinery; depends only on the sdk; never imports a specific adapter.
-- `@athing/adapter-<agent>` — implements `AgentDefinition`; depends on the sdk.
+- `@tillerd/sdk` — ports and types only (`AgentSession`, `AgentDefinition`, `HookEvent`, event model, status enum, option types); zero deps, zero impl.
+- `@tillerd/engine` — the machinery; depends only on the sdk; never imports a specific adapter.
+- `@tillerd/adapter-<agent>` — implements `AgentDefinition`; depends on the sdk.
 - `apps/server` — the composition root: imports the engine and injects a concrete adapter; exposes a session over WS + HTTP.
 - `apps/ui` — SPA depending on sdk types and the network only.
 

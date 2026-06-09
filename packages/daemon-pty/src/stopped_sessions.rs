@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn add_persists_and_survives_reload() {
-        let path = std::env::temp_dir().join(format!("athing-stopped-{}.txt", std::process::id()));
+        let path = std::env::temp_dir().join(format!("tillerd-stopped-{}.txt", std::process::id()));
         let _ = fs::remove_file(&path);
         let mut store = StoppedSessionsStore::new(path.clone());
         store.load();

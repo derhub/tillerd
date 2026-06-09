@@ -6,15 +6,15 @@ import type {
   DaemonTransport,
   HookSource,
   Logger,
-} from "@athing/sdk";
-import { AtError } from "@athing/sdk";
+} from "@tillerd/sdk";
+import { AtError } from "@tillerd/sdk";
 import { AgentSessionProxy, fillProxyOptions } from "./daemon/proxy";
 
 export interface EngineDeps {
   transport: DaemonTransport;
   logger: Logger;
-  /** Runtime directory ($ATHING_DIR) injected into the agent so its hook client derives the gate socket. */
-  athingDir: string;
+  /** Runtime directory ($TILLERD_DIR) injected into the agent so its hook client derives the gate socket. */
+  tillerdDir: string;
   resolvedCommand: string;
   hookSource?: HookSource;
 }
@@ -36,7 +36,7 @@ class EngineImpl implements IEngine {
       opts,
       this.deps.transport,
       "spawn",
-      this.deps.athingDir,
+      this.deps.tillerdDir,
       this.deps.logger,
       this.deps.resolvedCommand,
       this.deps.hookSource,
@@ -66,7 +66,7 @@ class EngineImpl implements IEngine {
       opts,
       this.deps.transport,
       "subscribe",
-      this.deps.athingDir,
+      this.deps.tillerdDir,
       this.deps.logger,
       this.deps.resolvedCommand,
       this.deps.hookSource,

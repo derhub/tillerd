@@ -101,7 +101,7 @@ fn non_spawn_change_does_not_restart_env_outside_allowlist() {
     b.env.insert("LOG_LEVEL".into(), "trace".into());
 
     assert!(
-        !spawn_fields_differ(&a, &b, &["ATHING_DIR"]),
+        !spawn_fields_differ(&a, &b, &["TILLERD_DIR"]),
         "an env-var outside the allowlist must not trigger a restart"
     );
 }

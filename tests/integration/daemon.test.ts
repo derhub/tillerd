@@ -1,6 +1,6 @@
 import { test, expect, describe, beforeAll, afterAll } from "bun:test";
 import * as os from "node:os";
-import { encodeFrame, FrameDecoder } from "@athing/sdk";
+import { encodeFrame, FrameDecoder } from "@tillerd/sdk";
 import { startDaemon, type DaemonHandle } from "./fixtures/daemon";
 
 // The suite provisions its own daemon against an isolated temp runtime dir.

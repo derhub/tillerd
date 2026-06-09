@@ -15,21 +15,21 @@ merge** — existing user hooks are preserved.
 
 Each session scopes itself via env vars injected into the PTY at launch:
 
-- `ATHING_BRIDGE_URL` — the loopback receiver URL
-- `ATHING_SESSION_ID` — the session UUID
-- `ATHING_SESSION_TOKEN` — per-session secret for authenticating callbacks
+- `TILLERD_BRIDGE_URL` — the loopback receiver URL
+- `TILLERD_SESSION_ID` — the session UUID
+- `TILLERD_SESSION_TOKEN` — per-session secret for authenticating callbacks
 
 Only one hook command is installed (not one per session), so concurrent sessions share the
 static hook entry and are differentiated entirely by env vars.
 
 ### Runtime-free notify client
 
-The installed hook command is a committed standalone shell script, `bin/athing-notify`
+The installed hook command is a committed standalone shell script, `bin/tillerd-notify`
 (`#!/usr/bin/env bash`), not a runtime-executed script. It reads the lifecycle payload from
-stdin and `curl`s it to `ATHING_BRIDGE_URL` — over a unix socket when the value begins with `/`,
+stdin and `curl`s it to `TILLERD_BRIDGE_URL` — over a unix socket when the value begins with `/`,
 otherwise as a URL — carrying the session id and token as headers. It is fire-and-forget: bounded
 runtime (`--max-time`), all output and errors suppressed, always `exit 0`, and an exit-early when
-`ATHING_BRIDGE_URL` is unset.
+`TILLERD_BRIDGE_URL` is unset.
 
 This relies only on `bash` and `curl` being present on the target platform (macOS/Linux for v1),
 so lifecycle callbacks fire even when no language runtime is resolvable on the agent's PATH. There
@@ -41,8 +41,8 @@ To remove the SDK's hooks from the agent's settings, invoke the adapter's setup
 `uninstall` with a host-provided `SetupContext`:
 
 ```ts
-import { setup } from "@athing/adapter-claude-code";
-import { buildSetupContext } from "@athing/platform-bun";
+import { setup } from "@tillerd/adapter-claude-code";
+import { buildSetupContext } from "@tillerd/platform-bun";
 
 await setup.uninstall(buildSetupContext(notifyCommand, logger));
 ```

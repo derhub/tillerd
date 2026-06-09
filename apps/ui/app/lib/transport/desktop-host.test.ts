@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { encodeFrame, FrameDecoder, parseDaemonFrame } from "@athing/sdk";
+import { encodeFrame, FrameDecoder, parseDaemonFrame } from "@tillerd/sdk";
 import { bootDesktopHost } from "./desktop-host";
 import type { TauriCore, TauriChannelLike } from "./tauri";
 
@@ -24,8 +24,8 @@ function makeCore(version: string, liveIds: string[] = []): { core: TauriCore; c
           return {
             path: "/usr/bin/claude",
             version,
-            hookCommand: "/x/bin/athing-notify",
-            athingDir: "/x/athing",
+            hookCommand: "/x/bin/tillerd-notify",
+            tillerdDir: "/x/tillerd",
             agentHome: "/home/u/.claude",
             homeDir: "/home/u",
           } as T;

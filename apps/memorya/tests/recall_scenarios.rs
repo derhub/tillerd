@@ -59,7 +59,7 @@ fn mcp_subcommand_selects_standalone_mcp_with_viewer_face() {
 #[test]
 fn standalone_mode_selected_when_gate_url_absent() {
     assert_eq!(
-        resolve_capture_mode(std::path::Path::new("/run/athing"), None),
+        resolve_capture_mode(std::path::Path::new("/run/tillerd"), None),
         CaptureMode::Standalone,
         "absent session id must select standalone mode"
     );
@@ -134,9 +134,9 @@ fn composed_mode_recall_tool_behavior_identical_to_standalone() {
 #[test]
 fn composed_mode_selected_when_session_id_present() {
     assert_eq!(
-        resolve_capture_mode(std::path::Path::new("/run/athing"), Some("session-1")),
+        resolve_capture_mode(std::path::Path::new("/run/tillerd"), Some("session-1")),
         CaptureMode::Composed {
-            subscribe_sock: std::path::PathBuf::from("/run/athing/gate.sock"),
+            subscribe_sock: std::path::PathBuf::from("/run/tillerd/gate.sock"),
             session_id: "session-1".into(),
         },
         "a session id must select composed mode"
@@ -149,7 +149,7 @@ fn composed_mode_selected_when_session_id_present() {
 ///
 /// Requires a live gate + gateway; skipped in CI.
 #[test]
-#[ignore = "requires a live gate and gateway; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires a live gate and gateway; set TILLERD_DIR + TILLERD_SESSION_ID and run with --ignored"]
 fn composed_recall_reachable_through_gateway_with_no_special_casing() {
     // When this runs (--ignored), the test confirms that the `recall` tool
     // advertised by the memorya MCP server is visible and callable through the
@@ -159,5 +159,5 @@ fn composed_recall_reachable_through_gateway_with_no_special_casing() {
     // Manual verification: run `tools/list` against the gateway and confirm
     // `recall` appears; run `tools/call recall` and confirm the response is
     // the same format the standalone MCP server produces.
-    unimplemented!("live gateway test: subscribe via the Subscribe route on $ATHING_DIR/gate.sock and verify recall is reachable");
+    unimplemented!("live gateway test: subscribe via the Subscribe route on $TILLERD_DIR/gate.sock and verify recall is reachable");
 }

@@ -10,15 +10,15 @@ echo "Setting up development environment..."
 if [ ! -f .env ]; then
   echo "Creating .env from .env.example..."
   sed \
-    -e "s|ATHING_DIR=\.\/\.athing|ATHING_DIR=$REPO_ROOT/.athing|" \
-    -e "s|ATHING_DAEMON_BIN=\.\/bin\/athing-daemon|ATHING_DAEMON_BIN=$REPO_ROOT/bin/athing-daemon|" \
+    -e "s|TILLERD_DIR=\.\/\.tillerd|TILLERD_DIR=$REPO_ROOT/.tillerd|" \
+    -e "s|TILLERD_DAEMON_BIN=\.\/bin\/tillerd-daemon|TILLERD_DAEMON_BIN=$REPO_ROOT/bin/tillerd-daemon|" \
     .env.example > .env
 else
   echo ".env exists, skipping..."
 fi
 
 # Create necessary directories
-mkdir -p .athing bin
+mkdir -p .tillerd bin
 
 # Install dependencies
 echo "Installing dependencies..."

@@ -40,7 +40,7 @@ Browser ── HTTP ──▶ viewer (127.0.0.1:port) ───────┘
 ## Files on disk
 
 ```
-~/.athing/
+~/.tillerd/
   memorya.db              active DB (always queried, stays small)
   archive-YYYY.db        year shards (sealed → read-only)
   archive-index.json     shard registry

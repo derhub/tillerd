@@ -1,5 +1,5 @@
 {
-  "name": "@athing/sdk",
+  "name": "@tillerd/sdk",
   "version": "0.1.0",
   "type": "module",
   "exports": {

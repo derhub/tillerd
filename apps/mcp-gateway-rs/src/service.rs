@@ -19,10 +19,10 @@ pub struct GatewayService {
 }
 
 impl GatewayService {
-    /// Build the service from the environment (the `ATHING_DIR` base override).
+    /// Build the service from the environment (the `TILLERD_DIR` base override).
     pub fn from_env() -> Self {
         Self {
-            base_override: std::env::var("ATHING_DIR").ok(),
+            base_override: std::env::var("TILLERD_DIR").ok(),
             gateway: None,
         }
     }

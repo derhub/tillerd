@@ -1,6 +1,6 @@
 import { parseArgs, type ParseArgsConfig } from "util";
-import type { Logger } from "@athing/logger";
-import type { SetupContext, SetupDefinition } from "@athing/sdk";
+import type { Logger } from "@tillerd/logger";
+import type { SetupContext, SetupDefinition } from "@tillerd/sdk";
 
 export interface ManifestData {
   pid: number;
@@ -23,12 +23,12 @@ export interface CliDeps {
   err(line: string): void;
 }
 
-export const USAGE = `athing — controller/installer
+export const USAGE = `tillerd — controller/installer
 
 Usage:
-  athing install [--yes]    Install agent hooks into the agent settings file
-  athing uninstall          Remove the hooks this tool installed
-  athing status [--json]    Report whether the daemon is running
+  tillerd install [--yes]    Install agent hooks into the agent settings file
+  tillerd uninstall          Remove the hooks this tool installed
+  tillerd status [--json]    Report whether the daemon is running
 
 Flags:
   --yes         Skip interactive confirmation (also implied when not a TTY)

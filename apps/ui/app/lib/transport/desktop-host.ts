@@ -1,6 +1,6 @@
-import { createEngine } from "@athing/engine";
-import type { AgentDefinition, Engine } from "@athing/sdk";
-import { claudeCode, SUPPORTED_CLI_VERSION_RANGE } from "@athing/adapter-claude-code";
+import { createEngine } from "@tillerd/engine";
+import type { AgentDefinition, Engine } from "@tillerd/sdk";
+import { claudeCode, SUPPORTED_CLI_VERSION_RANGE } from "@tillerd/adapter-claude-code";
 import type { TauriCore } from "./tauri";
 import { TauriDaemonTransport } from "./tauri";
 import type { AgentInfo } from "./host-bootstrap";

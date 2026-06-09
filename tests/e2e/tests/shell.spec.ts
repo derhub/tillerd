@@ -5,7 +5,7 @@ test.describe("shell layout", () => {
     await page.route("**/api/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
     await page.route("**/ws/session**", (route) => route.abort());
     // Clear panel tree localStorage so each test starts with the default layout
-    await page.addInitScript(() => localStorage.removeItem("athing:panel-tree"));
+    await page.addInitScript(() => localStorage.removeItem("tillerd:panel-tree"));
   });
 
   test("default layout: three panels visible", async ({ page }) => {

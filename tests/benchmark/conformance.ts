@@ -4,7 +4,7 @@
 // without the engine distinguishing it.
 //
 // Usage: bun tests/benchmark/conformance.ts [binPath]
-//   default binPath: packages/daemon-pty/target/release/athing-daemon
+//   default binPath: packages/daemon-pty/target/release/tillerd-daemon
 
 import { join } from "node:path";
 import { existsSync } from "node:fs";
@@ -12,7 +12,7 @@ import { BenchClient } from "./client.ts";
 import { launchDaemon } from "./daemon.ts";
 
 const ROOT = join(import.meta.dir, "../..");
-const binPath = process.argv[2] ?? join(ROOT, "packages/daemon-pty/target/release/athing-daemon");
+const binPath = process.argv[2] ?? join(ROOT, "packages/daemon-pty/target/release/tillerd-daemon");
 
 let pass = 0;
 let fail = 0;

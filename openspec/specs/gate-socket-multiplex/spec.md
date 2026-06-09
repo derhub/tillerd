@@ -8,12 +8,12 @@ The gate's single front-door socket: one named Unix domain socket, demultiplexed
 
 ### Requirement: Single front-door socket at a derived path
 
-The gate SHALL expose exactly one named Unix domain socket at a deterministic path derived from the runtime directory (`$ATHING_DIR/gate.sock`). It SHALL NOT bind a separate socket per face, SHALL NOT open any TCP port, and SHALL NOT publish an address file, because the path is derivable from the runtime directory. The socket SHALL remain valid for as long as the gate runs, across engine host process restarts.
+The gate SHALL expose exactly one named Unix domain socket at a deterministic path derived from the runtime directory (`$TILLERD_DIR/gate.sock`). It SHALL NOT bind a separate socket per face, SHALL NOT open any TCP port, and SHALL NOT publish an address file, because the path is derivable from the runtime directory. The socket SHALL remain valid for as long as the gate runs, across engine host process restarts.
 
 #### Scenario: One socket at a derivable path
 
 - **WHEN** the gate starts
-- **THEN** it SHALL bind only `$ATHING_DIR/gate.sock`, and that path SHALL be usable while the gate runs, with no per-face socket and no address file to publish or read
+- **THEN** it SHALL bind only `$TILLERD_DIR/gate.sock`, and that path SHALL be usable while the gate runs, with no per-face socket and no address file to publish or read
 
 #### Scenario: No network port
 

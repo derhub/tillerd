@@ -38,7 +38,7 @@ dependency. Concretely:
 - Output is structured JSON whose field semantics map to the OpenTelemetry log data model
   (timestamp, severity, body, attributes, resource). OTel-readiness means the shape is correct,
   not that any exporter, collector, or pipeline is wired.
-- The core (`@athing/sdk`, `@athing/engine`) sees only the injected `Logger` interface and
+- The core (`@tillerd/sdk`, `@tillerd/engine`) sees only the injected `Logger` interface and
   imports no logging library, preserving the ADR-0003 inward-pointing dependency rule and the
   runtime-neutral-core constraint.
 

@@ -1,13 +1,13 @@
 {
-  "name": "@athing/daemon-pty",
+  "name": "@tillerd/daemon-pty",
   "version": "0.1.0",
   "bin": {
-    "athing-daemon": "../../target/release/athing-daemon"
+    "tillerd-daemon": "../../target/release/tillerd-daemon"
   },
   "type": "module",
   "scripts": {
-    "dev": "cargo build --release && ../../target/release/athing-daemon",
-    "build": "cargo build --release && { [ -z \"$ATHING_DAEMON_BIN\" ] || { mkdir -p \"$(dirname \"$ATHING_DAEMON_BIN\")\" && cp ../../target/release/athing-daemon \"$ATHING_DAEMON_BIN\"; }; }",
+    "dev": "cargo build --release && ../../target/release/tillerd-daemon",
+    "build": "cargo build --release && { [ -z \"$TILLERD_DAEMON_BIN\" ] || { mkdir -p \"$(dirname \"$TILLERD_DAEMON_BIN\")\" && cp ../../target/release/tillerd-daemon \"$TILLERD_DAEMON_BIN\"; }; }",
     "lint": "cargo clippy --all-targets --locked -- -D warnings",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",

@@ -1,5 +1,5 @@
 {
-  "name": "@athing/e2e-test",
+  "name": "@tillerd/e2e-test",
   "private": true,
   "scripts": {
     "check-types": "tsc --noEmit -p tsconfig.json",
@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@playwright/test": "^1.60.0",
-    "server": "workspace:*"
+    "@tillerd/server": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

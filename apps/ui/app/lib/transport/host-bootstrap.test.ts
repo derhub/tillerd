@@ -51,7 +51,7 @@ describe("bootstrapAgent", () => {
       agent_bootstrap: {
         path: "/usr/bin/claude",
         version: "1.5.0",
-        hookCommand: "/x/athing-notify",
+        hookCommand: "/x/tillerd-notify",
       },
     });
     const info = await bootstrapAgent(core, RANGE);

@@ -15,7 +15,7 @@ pub struct ServiceConfig {
     pub name: String,
     /// The tool's version, recorded in the manifest.
     pub version: String,
-    /// Optional base-directory override (`ATHING_DIR`-style); `None` resolves to
+    /// Optional base-directory override (`TILLERD_DIR`-style); `None` resolves to
     /// the default base.
     pub base_override: Option<String>,
     /// Grace period before a child that ignores `SIGTERM` is forced.

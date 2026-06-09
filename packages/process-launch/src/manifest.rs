@@ -13,13 +13,13 @@ pub struct ManifestData {
     pub version: String,
 }
 
-/// Resolve the base runtime directory honoring `ATHING_DIR` (R7).
+/// Resolve the base runtime directory honoring `TILLERD_DIR` (R7).
 ///
-/// Parity with the existing TypeScript and Rust behavior: a set `ATHING_DIR` is
+/// Parity with the existing TypeScript and Rust behavior: a set `TILLERD_DIR` is
 /// resolved against the current working directory (absolute values pass
-/// through); when unset the default is `~/.athing`.
-pub fn athing_dir() -> PathBuf {
-    match std::env::var_os("ATHING_DIR") {
+/// through); when unset the default is `~/.tillerd`.
+pub fn tillerd_dir() -> PathBuf {
+    match std::env::var_os("TILLERD_DIR") {
         Some(v) if !v.is_empty() => {
             let p = PathBuf::from(v);
             if p.is_absolute() {
@@ -28,7 +28,7 @@ pub fn athing_dir() -> PathBuf {
                 std::env::current_dir().unwrap_or_default().join(p)
             }
         }
-        _ => home_dir().join(".athing"),
+        _ => home_dir().join(".tillerd"),
     }
 }
 

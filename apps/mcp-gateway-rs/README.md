@@ -1,4 +1,4 @@
-# athing-mcp-gateway (Rust)
+# tillerd-mcp-gateway (Rust)
 
 A lightweight local-first MCP gateway: a standalone, long-lived daemon that aggregates many backend
 MCP servers behind a single standard MCP endpoint. Any MCP client connects to one address and reaches
@@ -6,7 +6,7 @@ every backend; one supervisor owns spawn, health, and restart. The daemon outliv
 that launches it.
 
 It is a sibling of the PTY daemon (`packages/daemon-pty`): same lifecycle conventions (manifest,
-reuse-or-spawn, `ATHING_DIR`), no code dependency. See `docs/adr/0013-0015`.
+reuse-or-spawn, `TILLERD_DIR`), no code dependency. See `docs/adr/0013-0015`.
 
 ## Toolchain
 
@@ -14,15 +14,15 @@ Requires a Rust toolchain (cargo). This crate lives **outside** the Bun/turbo wo
 default `bun install` / `turbo run` are unaffected and do not require Rust.
 
 ```sh
-cd packages/athing-mcp-gateway-rs
-cargo build --release     # produces target/release/athing-mcp-gateway
+cd packages/tillerd-mcp-gateway-rs
+cargo build --release     # produces target/release/tillerd-mcp-gateway
 cargo test                # unit + fixture + drift tests
 cargo run --bin gen-schema  # regenerate schema.json from the config types
 ```
 
 ## Config
 
-`~/.athing/mcp.json` (honoring `ATHING_DIR`), in the de-facto `mcpServers` format. See
+`~/.tillerd/mcp.json` (honoring `TILLERD_DIR`), in the de-facto `mcpServers` format. See
 `fixtures/mcp.sample.json` and `schema.json`.
 
 ```json

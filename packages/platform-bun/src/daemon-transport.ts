@@ -6,7 +6,7 @@ import {
   type DaemonFrame,
   type DaemonTransport,
   type FrameHandler,
-} from "@athing/sdk";
+} from "@tillerd/sdk";
 
 export class DaemonClient implements DaemonTransport {
   private socket: ReturnType<typeof Bun.connect> | null = null;

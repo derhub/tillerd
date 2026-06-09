@@ -1,5 +1,5 @@
-import { AtError } from "@athing/sdk";
-import type { BinaryResolutionSpec } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
+import type { BinaryResolutionSpec } from "@tillerd/sdk";
 import { spawnSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { homedir } from "node:os";

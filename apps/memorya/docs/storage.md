@@ -1,6 +1,6 @@
 # Storage
 
-One embedded SQLite database (`~/.athing/memorya.db`), single writer. The warm
+One embedded SQLite database (`~/.tillerd/memorya.db`), single writer. The warm
 tier is the temporal knowledge graph; the cold tier is the session archive.
 Embeddings are kept out-of-band and brute-force cosine is used for vector search
 (no ANN index — sub-millisecond at memorya's scale).

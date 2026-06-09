@@ -6,9 +6,9 @@ const noWhich = () => null;
 
 describe("reference daemon resolution order", () => {
   test("explicit override wins when it exists", () => {
-    const override = "/opt/athing-daemon";
+    const override = "/opt/tillerd-daemon";
     const resolved = resolveDaemonBinary({
-      env: { ATHING_DAEMON_BIN: override },
+      env: { TILLERD_DAEMON_BIN: override },
       exists: (p) => p === resolve(override),
       which: noWhich,
     });
@@ -19,20 +19,20 @@ describe("reference daemon resolution order", () => {
     const resolved = resolveDaemonBinary({
       env: {},
       cwd: "/work",
-      exists: (p) => p === "/work/bin/athing-daemon",
+      exists: (p) => p === "/work/bin/tillerd-daemon",
       which: noWhich,
     });
-    expect(resolved).toBe("/work/bin/athing-daemon");
+    expect(resolved).toBe("/work/bin/tillerd-daemon");
   });
 
   test("falls back to the module-relative bin when local is absent", () => {
     const resolved = resolveDaemonBinary({
       env: {},
       cwd: "/nope",
-      exists: (p) => p.endsWith("bin/athing-daemon") && !p.startsWith("/nope"),
+      exists: (p) => p.endsWith("bin/tillerd-daemon") && !p.startsWith("/nope"),
       which: noWhich,
     });
-    expect(resolved.endsWith("bin/athing-daemon")).toBe(true);
+    expect(resolved.endsWith("bin/tillerd-daemon")).toBe(true);
     expect(resolved.startsWith("/nope")).toBe(false);
   });
 
@@ -41,9 +41,9 @@ describe("reference daemon resolution order", () => {
       env: {},
       cwd: "/nope",
       exists: () => false,
-      which: (binary) => (binary === "athing-daemon" ? "/usr/local/bin/athing-daemon" : null),
+      which: (binary) => (binary === "tillerd-daemon" ? "/usr/local/bin/tillerd-daemon" : null),
     });
-    expect(resolved).toBe("/usr/local/bin/athing-daemon");
+    expect(resolved).toBe("/usr/local/bin/tillerd-daemon");
   });
 
   test("falls back to the user-local install location", () => {
@@ -51,10 +51,10 @@ describe("reference daemon resolution order", () => {
       env: {},
       cwd: "/nope",
       home: "/home/me",
-      exists: (p) => p === "/home/me/.local/bin/athing-daemon",
+      exists: (p) => p === "/home/me/.local/bin/tillerd-daemon",
       which: noWhich,
     });
-    expect(resolved).toBe("/home/me/.local/bin/athing-daemon");
+    expect(resolved).toBe("/home/me/.local/bin/tillerd-daemon");
   });
 });
 
@@ -68,7 +68,7 @@ describe("reference daemon resolution failure", () => {
     }
     expect(thrown).toBeInstanceOf(Error);
     expect((thrown as Error).message).toContain("bun run build");
-    expect((thrown as Error).message).toContain("ATHING_DAEMON_BIN");
+    expect((thrown as Error).message).toContain("TILLERD_DAEMON_BIN");
   });
 });
 

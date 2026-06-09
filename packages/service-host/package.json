@@ -1,5 +1,5 @@
 {
-  "name": "@athing/service-host",
+  "name": "@tillerd/service-host",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

@@ -14,7 +14,7 @@ runtime.
 
 ## Decision
 
-Implement the gateway as a Rust crate `packages/athing-mcp-gateway-rs`, built on the MCP Rust SDK,
+Implement the gateway as a Rust crate `packages/tillerd-mcp-gateway-rs`, built on the MCP Rust SDK,
 outside the Bun/turbo workspace graph — the same posture as the PTY daemon. The crate keeps a
 ports-and-adapters shape mirroring the sdk/engine split: namespacing/routing and the registry are
 pure and unit-testable without I/O, while process and network side effects are confined to the

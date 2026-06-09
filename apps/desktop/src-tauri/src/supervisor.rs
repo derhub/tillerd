@@ -62,7 +62,7 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
     let _ = std::fs::remove_file(daemon_sock());
 
     let bin = resolve_daemon_bin()
-        .ok_or_else(|| "cannot resolve athing-daemon binary (set ATHING_DAEMON_BIN)".to_string())?;
+        .ok_or_else(|| "cannot resolve tillerd-daemon binary (set TILLERD_DAEMON_BIN)".to_string())?;
     let child = Command::new(&bin)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -107,9 +107,9 @@ mod tests {
     #[serial]
     fn read_manifest_returns_none_when_absent() {
         let tmp = tempfile::tempdir().unwrap();
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let result = read_manifest();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
         assert!(result.is_none());
     }
 
@@ -122,9 +122,9 @@ mod tests {
             br#"{"pid":12345,"version":"1.2.3"}"#,
         )
         .unwrap();
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let result = read_manifest();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
         assert_eq!(result, Some((12345, "1.2.3".to_string())));
     }
 
@@ -133,9 +133,9 @@ mod tests {
     fn read_manifest_returns_none_for_invalid_json() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("daemon.json"), b"not json").unwrap();
-        std::env::set_var("ATHING_DIR", tmp.path());
+        std::env::set_var("TILLERD_DIR", tmp.path());
         let result = read_manifest();
-        std::env::remove_var("ATHING_DIR");
+        std::env::remove_var("TILLERD_DIR");
         assert!(result.is_none());
     }
 

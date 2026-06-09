@@ -72,7 +72,7 @@ in one transaction, `DETACH`.
 ## Archive sharding
 
 ```
-~/.athing/
+~/.tillerd/
   archive-2025.db    sealed, read-only
   archive-2026.db    current write target
   archive-index.json [{ "file": "archive-2026.db", "year": 2026, "sealed": false }]

@@ -14,11 +14,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn default_db_path() -> PathBuf {
-    let base = std::env::var_os("ATHING_DIR")
+    let base = std::env::var_os("TILLERD_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(home).join(".athing")
+            PathBuf::from(home).join(".tillerd")
         });
     base.join("memorya.db")
 }

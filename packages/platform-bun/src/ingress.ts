@@ -1,18 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 export function notifyScriptPath(): string {
-  const envBin = process.env["ATHING_NOTIFY_BIN"];
+  const envBin = process.env["TILLERD_NOTIFY_BIN"];
   if (envBin) {
     const abs = path.resolve(envBin);
     if (fs.existsSync(abs)) return abs;
   }
 
-  const localBin = path.join(process.cwd(), "bin", "athing-notify");
+  const localBin = path.join(process.cwd(), "bin", "tillerd-notify");
   if (fs.existsSync(localBin)) return localBin;
 
-  return path.join(import.meta.dir, "../../../../bin/athing-notify");
+  return path.join(import.meta.dir, "../../../../bin/tillerd-notify");
 }
 
 export function notifyCommand(): string {
@@ -26,7 +26,7 @@ export function prepareNotifyScript(target: string = notifyScriptPath()): {
   if (!fs.existsSync(target)) {
     throw new AtError(
       "HookInstallFailed",
-      `notify client not found at ${target} — expected the committed bin/athing-notify`,
+      `notify client not found at ${target} — expected the committed bin/tillerd-notify`,
     );
   }
   try {

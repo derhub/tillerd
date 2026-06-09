@@ -13,7 +13,7 @@ export function isOriginAllowed(origin: string | null, allowed: ReadonlySet<stri
 
 /**
  * Trusted origins: always the server's own loopback origins, plus any comma-separated
- * extras from `ATHING_ALLOWED_ORIGINS` (e.g. a dev UI on another port).
+ * extras from `TILLERD_ALLOWED_ORIGINS` (e.g. a dev UI on another port).
  */
 export function parseAllowedOrigins(raw: string | undefined, port: number): Set<string> {
   const origins = new Set([`http://localhost:${port}`, `http://127.0.0.1:${port}`]);

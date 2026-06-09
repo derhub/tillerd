@@ -1,5 +1,5 @@
 {
-  "name": "@athing/logger",
+  "name": "@tillerd/logger",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@athing/sdk": "workspace:*",
+    "@tillerd/sdk": "workspace:*",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3"
   },

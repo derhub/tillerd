@@ -1,4 +1,4 @@
-# a-thing
+# tillerd
 
 Experimental toolkit for driving coding agents.
 

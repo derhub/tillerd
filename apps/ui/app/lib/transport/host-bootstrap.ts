@@ -1,4 +1,4 @@
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 import type { TauriCore } from "./tauri";
 
 export const AGENT_BOOTSTRAP = "agent_bootstrap";
@@ -8,7 +8,7 @@ export interface AgentInfo {
   path: string;
   version: string;
   hookCommand: string | null;
-  athingDir: string;
+  tillerdDir: string;
   homeDir: string;
 }
 

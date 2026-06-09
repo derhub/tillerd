@@ -1,4 +1,4 @@
-import type { AgentSession } from "@athing/sdk";
+import type { AgentSession } from "@tillerd/sdk";
 
 /** The slice of `@xterm/xterm`'s `Terminal` the binder touches. */
 export interface TerminalLike {

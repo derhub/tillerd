@@ -1,4 +1,4 @@
-import type { AgentDefinition } from "@athing/sdk";
+import type { AgentDefinition } from "@tillerd/sdk";
 
 export const bashAdapter: AgentDefinition = {
   name: "bash",

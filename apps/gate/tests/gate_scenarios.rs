@@ -3,17 +3,17 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use athing_gate::agent_adapter::{AgentAdapter, ParseError, V1Adapter};
-use athing_gate::middleware::auth::Auth;
-use athing_gate::middleware::fanout::FanOut;
-use athing_gate::middleware::normalize::Normalize;
-use athing_gate::middleware::observe::{ObservationRecord, Observe, ObserveSink};
-use athing_gate::middleware::passthrough::PassThrough;
-use athing_gate::middleware::{seq, Middleware};
-use athing_gate::registry::SessionRegistry;
-use athing_gate::router::{Inbound, Router};
-use athing_gate::subscription::Subscriptions;
-use athing_gate::{Kind, Outbound, Reject, Token};
+use tillerd_gate::agent_adapter::{AgentAdapter, ParseError, V1Adapter};
+use tillerd_gate::middleware::auth::Auth;
+use tillerd_gate::middleware::fanout::FanOut;
+use tillerd_gate::middleware::normalize::Normalize;
+use tillerd_gate::middleware::observe::{ObservationRecord, Observe, ObserveSink};
+use tillerd_gate::middleware::passthrough::PassThrough;
+use tillerd_gate::middleware::{seq, Middleware};
+use tillerd_gate::registry::SessionRegistry;
+use tillerd_gate::router::{Inbound, Router};
+use tillerd_gate::subscription::Subscriptions;
+use tillerd_gate::{Kind, Outbound, Reject, Token};
 use bytes::Bytes;
 use contracts::{CorrelationId, HookEvent, HookKind, SessionId};
 

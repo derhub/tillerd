@@ -15,15 +15,15 @@ const core: TauriCore = {
 const info: AgentInfo = {
   path: "/usr/bin/claude",
   version: "1.5.0",
-  hookCommand: "/x/athing-notify",
-  athingDir: "/x/athing",
+  hookCommand: "/x/tillerd-notify",
+  tillerdDir: "/x/tillerd",
   homeDir: "/home/u",
 };
 
 describe("buildDesktopEngineDeps", () => {
   test("carries the runtime directory and the three native ports", () => {
     const deps = buildDesktopEngineDeps(core, info);
-    expect(deps.athingDir).toBe("/x/athing");
+    expect(deps.tillerdDir).toBe("/x/tillerd");
     expect(deps.resolvedCommand).toBe("/usr/bin/claude");
     expect(deps.transport).toBeDefined();
     expect(deps.logger).toBeDefined();

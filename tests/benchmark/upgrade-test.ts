@@ -8,8 +8,8 @@ import { join } from "node:path";
 import { BenchClient } from "./client.ts";
 
 const bin =
-  process.argv[2] ?? join(import.meta.dir, "../../packages/daemon-rs/target/release/athing-daemon");
-const dir = mkdtempSync(join(tmpdir(), "athing-upgrade-"));
+  process.argv[2] ?? join(import.meta.dir, "../../packages/daemon-rs/target/release/tillerd-daemon");
+const dir = mkdtempSync(join(tmpdir(), "tillerd-upgrade-"));
 const sock = join(dir, "daemon.sock");
 const manifestPath = join(dir, "daemon.json");
 
@@ -56,7 +56,7 @@ function check(name: string, ok: boolean) {
 
 // Launch the predecessor daemon directly (we manage the handoff ourselves).
 const proc = Bun.spawn([bin], {
-  env: { ...process.env, ATHING_DIR: dir },
+  env: { ...process.env, TILLERD_DIR: dir },
   stdio: ["ignore", "inherit", "inherit"],
 });
 {

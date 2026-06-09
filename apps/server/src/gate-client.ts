@@ -1,11 +1,11 @@
-import type { HookEvent } from "@athing/sdk";
+import type { HookEvent } from "@tillerd/sdk";
 import {
   SubscriptionFrameDecoder,
   encodeSubscribePreamble,
   decodeSubscriptionFrame,
   negotiateReady,
   RawFrame,
-} from "@athing/sdk";
+} from "@tillerd/sdk";
 
 export interface GateSubscribeOptions {
   socketPath: string;

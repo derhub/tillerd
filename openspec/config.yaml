@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Project: a-thing — an SDK that drives coding-agent CLIs (Claude Code first) so any UI can
+  Project: tillerd — an SDK that drives coding-agent CLIs (Claude Code first) so any UI can
   integrate them without reimplementing the agent loop or holding credentials.
 
   Runtime & tooling: Bun (Bun-first — prefer Bun.serve, Bun.file, Bun.spawn, native WebSocket,
@@ -10,9 +10,9 @@ context: |
   PTY binding, confined to the engine. Platform scope: macOS/Linux for v1.
 
   Packages (ports-and-adapters; deps point inward to sdk):
-    @athing/sdk                 contracts/types only, zero deps, zero impl
-    @athing/engine              the machinery (depends on sdk; never imports a specific adapter)
-    @athing/adapter-claude-code a hybrid AgentDefinition: config data + parse functions
+    @tillerd/sdk                 contracts/types only, zero deps, zero impl
+    @tillerd/engine              the machinery (depends on sdk; never imports a specific adapter)
+    @tillerd/adapter-claude-code a hybrid AgentDefinition: config data + parse functions
     apps/server                 composition root — injects adapter into engine; WebSocket + HTTP
     apps/ui                     react-router SPA (depends on sdk types + network)
 

@@ -1,5 +1,5 @@
 [package]
-name = "process-launch"
+name = "tillerd-process-launch"
 version = "0.1.0"
 edition = "2021"
 description = "Adopt-or-spawn launcher for managed tool backends: manifest adoption, spawn-field diffing, bounded-backoff restart"

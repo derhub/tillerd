@@ -1,7 +1,7 @@
 import { test, expect, describe } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { SetupContext, SetupFs } from "@athing/sdk";
+import type { SetupContext, SetupFs } from "@tillerd/sdk";
 import { setup, BINARY_RESOLUTION } from "../src/index";
 
 const SRC = path.join(import.meta.dir, "..", "src");
@@ -40,7 +40,7 @@ describe("adapter import-safety", () => {
       },
     };
     const ctx: SetupContext = {
-      notifyCommand: "/bin/athing-notify",
+      notifyCommand: "/bin/tillerd-notify",
       agentHome: "/home/user/.claude",
       logger: {
         debug() {},

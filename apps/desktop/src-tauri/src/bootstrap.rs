@@ -3,7 +3,7 @@ use std::process::Command;
 
 use serde::Serialize;
 
-use crate::paths::{athing_dir, resolve_notify_bin};
+use crate::paths::{tillerd_dir, resolve_notify_bin};
 
 /// Startup values the host resolves for the renderer (design D4): the agent binary, its version,
 /// the prepared hook command, and the runtime directory the engine injects so the agent's hook
@@ -15,7 +15,7 @@ pub struct AgentInfo {
     path: String,
     version: String,
     hook_command: Option<String>,
-    athing_dir: String,
+    tillerd_dir: String,
     agent_home: String,
     home_dir: String,
 }
@@ -36,7 +36,7 @@ pub fn agent_bootstrap() -> Result<AgentInfo, String> {
         path: path.to_string_lossy().into_owned(),
         version,
         hook_command,
-        athing_dir: athing_dir().to_string_lossy().into_owned(),
+        tillerd_dir: tillerd_dir().to_string_lossy().into_owned(),
         agent_home,
         home_dir: home.to_string_lossy().into_owned(),
     })

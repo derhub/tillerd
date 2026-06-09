@@ -1,13 +1,13 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalEnv": ["ATHING_*", "LOG_LEVEL", "VITE_*"],
+  "globalEnv": ["TILLERD_*", "LOG_LEVEL", "VITE_*"],
   "globalDependencies": [".env"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**"],
-      "env": ["ATHING_DIR"]
+      "env": ["TILLERD_DIR"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
@@ -20,7 +20,7 @@
       "outputs": ["test-results/**"]
     },
     "e2e": {
-      "dependsOn": ["@athing/daemon-pty#build"],
+      "dependsOn": ["@tillerd/daemon-pty#build"],
       "cache": false,
       "outputs": ["test-results/**", "playwright-report/**"],
       "passThroughEnv": ["PLAYWRIGHT_*"]

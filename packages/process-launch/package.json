@@ -1,5 +1,5 @@
 {
-  "name": "@athing/process-launch",
+  "name": "@tillerd/process-launch",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

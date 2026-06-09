@@ -46,10 +46,10 @@ mod tests {
 
     fn base() -> SpawnSpec {
         SpawnSpec {
-            command: "athing-daemon".into(),
+            command: "tillerd-daemon".into(),
             args: vec!["--serve".into()],
             cwd: Some("/work".into()),
-            env: BTreeMap::from([("ATHING_DIR".to_string(), "/run".to_string())]),
+            env: BTreeMap::from([("TILLERD_DIR".to_string(), "/run".to_string())]),
             ..SpawnSpec::default()
         }
     }
@@ -59,7 +59,7 @@ mod tests {
         let a = base();
         let mut b = base();
         b.command = "other-daemon".into();
-        assert!(spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
@@ -67,15 +67,15 @@ mod tests {
         let a = base();
         let mut b = base();
         b.args = vec!["--serve".into(), "--verbose".into()];
-        assert!(spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
     fn spawn_fields_differ_detects_env_var_change() {
         let a = base();
         let mut b = base();
-        b.env.insert("ATHING_DIR".into(), "/elsewhere".into());
-        assert!(spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        b.env.insert("TILLERD_DIR".into(), "/elsewhere".into());
+        assert!(spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
@@ -83,7 +83,7 @@ mod tests {
         let a = base();
         let mut b = base();
         b.metadata.insert("label".into(), "blue".into());
-        assert!(!spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(!spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
@@ -91,7 +91,7 @@ mod tests {
         let a = base();
         let mut b = base();
         b.logging_level = Some("debug".into());
-        assert!(!spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(!spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
         let a = base();
         let mut b = base();
         b.observer = Some("otlp://collector".into());
-        assert!(!spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(!spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 
     #[test]
@@ -107,6 +107,6 @@ mod tests {
         let a = base();
         let mut b = base();
         b.env.insert("LOG_LEVEL".into(), "trace".into());
-        assert!(!spawn_fields_differ(&a, &b, &["ATHING_DIR"]));
+        assert!(!spawn_fields_differ(&a, &b, &["TILLERD_DIR"]));
     }
 }

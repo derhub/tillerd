@@ -12,10 +12,10 @@ use process_launch::{adopt_or_spawn, LaunchError, OsProbes, SpawnTiming};
 use uuid::Uuid;
 
 use crate::gate_admin;
-use crate::paths::athing_dir;
+use crate::paths::tillerd_dir;
 
 /// Env-var allowlist for spawn-field diffing (R6).
-pub const ENV_ALLOWLIST: &[&str] = &["ATHING_DIR", "ATHING_SESSION_ID", "ATHING_SESSION_TOKEN"];
+pub const ENV_ALLOWLIST: &[&str] = &["TILLERD_DIR", "TILLERD_SESSION_ID", "TILLERD_SESSION_TOKEN"];
 
 /// A successfully established daemon session: the launched daemon pid plus the
 /// minted session credentials injected into the daemon's environment.
@@ -23,7 +23,7 @@ pub struct DaemonSession {
     pub pid: u32,
     pub session_id: String,
     pub session_token: String,
-    pub athing_dir: PathBuf,
+    pub tillerd_dir: PathBuf,
 }
 
 /// Mint a random session token: 32 bytes rendered as lowercase hex.
@@ -62,11 +62,11 @@ pub fn admin_sock(base: &Path) -> PathBuf {
 /// reachable, the registration step is skipped and the session credentials are
 /// still injected so the daemon can propagate them if the gate appears later.
 pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, String> {
-    let base = athing_dir();
+    let base = tillerd_dir();
 
     let session_id = Uuid::new_v4().to_string();
     let session_token = mint_token();
-    let admin_token = std::env::var("ATHING_GATE_ADMIN_TOKEN").unwrap_or_default();
+    let admin_token = std::env::var("TILLERD_GATE_ADMIN_TOKEN").unwrap_or_default();
 
     // Register-before-spawn: gate must know the session before the daemon sends
     // any hook. The desktop does not block on gate absence (soft dependency): the
@@ -80,9 +80,9 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
     }
 
     let mut env: BTreeMap<String, String> = BTreeMap::new();
-    env.insert("ATHING_DIR".into(), base.to_string_lossy().into_owned());
-    env.insert("ATHING_SESSION_ID".into(), session_id.clone());
-    env.insert("ATHING_SESSION_TOKEN".into(), session_token.clone());
+    env.insert("TILLERD_DIR".into(), base.to_string_lossy().into_owned());
+    env.insert("TILLERD_SESSION_ID".into(), session_id.clone());
+    env.insert("TILLERD_SESSION_TOKEN".into(), session_token.clone());
 
     let bin = daemon_bin.to_path_buf();
     let env_clone = env.clone();
@@ -106,7 +106,7 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
         pid: launched.pid(),
         session_id,
         session_token,
-        athing_dir: base,
+        tillerd_dir: base,
     })
 }
 
@@ -114,9 +114,9 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
 ///
 /// Best-effort: logs but does not propagate errors. Late hooks will fail auth.
 pub fn deregister_session(session: &DaemonSession) {
-    let admin_token = std::env::var("ATHING_GATE_ADMIN_TOKEN").unwrap_or_default();
+    let admin_token = std::env::var("TILLERD_GATE_ADMIN_TOKEN").unwrap_or_default();
     if !admin_token.is_empty() {
-        let sock = admin_sock(&session.athing_dir);
+        let sock = admin_sock(&session.tillerd_dir);
         if sock.exists() {
             let _ = gate_admin::deregister(&sock, &admin_token, &session.session_id);
         }
@@ -206,8 +206,8 @@ mod tests {
     #[serial]
     fn registers_session_before_bootstrap() {
         let dir = temp_dir("reg-before");
-        std::env::set_var("ATHING_DIR", &dir);
-        std::env::set_var("ATHING_GATE_ADMIN_TOKEN", "test-admin-token");
+        std::env::set_var("TILLERD_DIR", &dir);
+        std::env::set_var("TILLERD_GATE_ADMIN_TOKEN", "test-admin-token");
 
         let sock_path = admin_sock(&dir);
         let rx = fake_admin_socket(&sock_path);
@@ -235,8 +235,8 @@ mod tests {
         assert_eq!(command["sessionId"], session.session_id);
         assert_eq!(command["token"], session.session_token);
 
-        std::env::remove_var("ATHING_DIR");
-        std::env::remove_var("ATHING_GATE_ADMIN_TOKEN");
+        std::env::remove_var("TILLERD_DIR");
+        std::env::remove_var("TILLERD_GATE_ADMIN_TOKEN");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -244,8 +244,8 @@ mod tests {
     #[serial]
     fn deregisters_session_on_daemon_exit() {
         let dir = temp_dir("dereg-exit");
-        std::env::set_var("ATHING_DIR", &dir);
-        std::env::set_var("ATHING_GATE_ADMIN_TOKEN", "test-admin-token");
+        std::env::set_var("TILLERD_DIR", &dir);
+        std::env::set_var("TILLERD_GATE_ADMIN_TOKEN", "test-admin-token");
 
         let sock_path = admin_sock(&dir);
         let rx = fake_admin_socket(&sock_path);
@@ -254,7 +254,7 @@ mod tests {
             pid: 0,
             session_id: "test-session-42".to_string(),
             session_token: "test-token-42".to_string(),
-            athing_dir: dir.clone(),
+            tillerd_dir: dir.clone(),
         };
 
         deregister_session(&session);
@@ -265,8 +265,8 @@ mod tests {
         assert_eq!(command["command"], "deregister");
         assert_eq!(command["sessionId"], "test-session-42");
 
-        std::env::remove_var("ATHING_DIR");
-        std::env::remove_var("ATHING_GATE_ADMIN_TOKEN");
+        std::env::remove_var("TILLERD_DIR");
+        std::env::remove_var("TILLERD_GATE_ADMIN_TOKEN");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

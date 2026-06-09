@@ -4,15 +4,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   spawnFieldsDiffer,
-  resolveAthingDir,
+  resolveTillerdDir,
   adoptOrSpawnTool,
   type SpawnSpec,
   type ToolManifest,
 } from "../src/process-launch";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
 function tempDir(tag: string): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `athing-pl-${tag}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `tillerd-pl-${tag}-`));
 }
 
 function writeManifest(dir: string, data: ToolManifest): string {
@@ -25,60 +25,60 @@ function writeManifest(dir: string, data: ToolManifest): string {
 
 describe("spawnFieldsDiffer", () => {
   const base: SpawnSpec = {
-    command: "athing-daemon",
+    command: "tillerd-daemon",
     args: ["--serve"],
     cwd: "/work",
-    env: { ATHING_DIR: "/run" },
+    env: { TILLERD_DIR: "/run" },
   };
 
   test("spawn_fields_differ_table_R6: detects command change", () => {
-    expect(spawnFieldsDiffer(base, { ...base, command: "other-daemon" }, ["ATHING_DIR"])).toBe(
+    expect(spawnFieldsDiffer(base, { ...base, command: "other-daemon" }, ["TILLERD_DIR"])).toBe(
       true,
     );
   });
 
   test("spawn_fields_differ_table_R6: detects args change", () => {
     expect(
-      spawnFieldsDiffer(base, { ...base, args: ["--serve", "--verbose"] }, ["ATHING_DIR"]),
+      spawnFieldsDiffer(base, { ...base, args: ["--serve", "--verbose"] }, ["TILLERD_DIR"]),
     ).toBe(true);
   });
 
   test("spawn_fields_differ_table_R6: detects allowlisted env var change", () => {
-    const b = { ...base, env: { ATHING_DIR: "/elsewhere" } };
-    expect(spawnFieldsDiffer(base, b, ["ATHING_DIR"])).toBe(true);
+    const b = { ...base, env: { TILLERD_DIR: "/elsewhere" } };
+    expect(spawnFieldsDiffer(base, b, ["TILLERD_DIR"])).toBe(true);
   });
 
   test("spawn_fields_differ_table_R6: ignores env var outside allowlist", () => {
     const b = { ...base, env: { ...base.env, LOG_LEVEL: "trace" } };
-    expect(spawnFieldsDiffer(base, b, ["ATHING_DIR"])).toBe(false);
+    expect(spawnFieldsDiffer(base, b, ["TILLERD_DIR"])).toBe(false);
   });
 
   test("spawn_fields_differ_table_R6: detects cwd change", () => {
-    expect(spawnFieldsDiffer(base, { ...base, cwd: "/other" }, ["ATHING_DIR"])).toBe(true);
+    expect(spawnFieldsDiffer(base, { ...base, cwd: "/other" }, ["TILLERD_DIR"])).toBe(true);
   });
 
   test("spawn_fields_differ_table_R6: equal specs are not different", () => {
-    expect(spawnFieldsDiffer(base, { ...base }, ["ATHING_DIR"])).toBe(false);
+    expect(spawnFieldsDiffer(base, { ...base }, ["TILLERD_DIR"])).toBe(false);
   });
 });
 
-// --- R7: ATHING_DIR resolution parity ---
+// --- R7: TILLERD_DIR resolution parity ---
 
-describe("athing_dir_resolution_parity_R7", () => {
-  test("uses ATHING_DIR env when set (absolute path passes through)", () => {
-    const dir = resolveAthingDir({ ATHING_DIR: "/custom/dir" });
+describe("tillerd_dir_resolution_parity_R7", () => {
+  test("uses TILLERD_DIR env when set (absolute path passes through)", () => {
+    const dir = resolveTillerdDir({ TILLERD_DIR: "/custom/dir" });
     expect(dir).toBe("/custom/dir");
   });
 
-  test("resolves relative ATHING_DIR against cwd via path.resolve", () => {
-    const dir = resolveAthingDir({ ATHING_DIR: "relative/dir" });
+  test("resolves relative TILLERD_DIR against cwd via path.resolve", () => {
+    const dir = resolveTillerdDir({ TILLERD_DIR: "relative/dir" });
     expect(path.isAbsolute(dir)).toBe(true);
     expect(dir.endsWith("relative/dir")).toBe(true);
   });
 
-  test("falls back to ~/.athing when ATHING_DIR is unset", () => {
-    const dir = resolveAthingDir({});
-    expect(dir.endsWith(".athing")).toBe(true);
+  test("falls back to ~/.tillerd when TILLERD_DIR is unset", () => {
+    const dir = resolveTillerdDir({});
+    expect(dir.endsWith(".tillerd")).toBe(true);
     expect(path.isAbsolute(dir)).toBe(true);
   });
 });
@@ -128,7 +128,7 @@ describe("adoptOrSpawnTool", () => {
     const manifestPath = path.join(dir, "tool.json");
     try {
       await adoptOrSpawnTool(
-        { command: "/no/such/binary", args: ["--test"], cwd: dir, env: { ATHING_DIR: dir } },
+        { command: "/no/such/binary", args: ["--test"], cwd: dir, env: { TILLERD_DIR: dir } },
         { version: "1.0.0", manifestPath, maxAttempts: 1, backoffMs: 0, startupTimeoutMs: 50 },
       );
       expect(true).toBe(false);

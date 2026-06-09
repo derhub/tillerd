@@ -1,4 +1,4 @@
-// Launch a daemon binary in isolation (own ATHING_DIR + socket) and wait until
+// Launch a daemon binary in isolation (own TILLERD_DIR + socket) and wait until
 // it is accepting connections. Works for any conforming binary — reference or
 // Rust — selected purely by the path passed in.
 
@@ -14,11 +14,11 @@ export interface LaunchedDaemon {
 }
 
 export async function launchDaemon(binPath: string, label: string): Promise<LaunchedDaemon> {
-  const dir = mkdtempSync(join(tmpdir(), `athing-bench-${label}-`));
+  const dir = mkdtempSync(join(tmpdir(), `tillerd-bench-${label}-`));
   const sockPath = join(dir, "daemon.sock");
 
   const proc = Bun.spawn([binPath], {
-    env: { ...process.env, ATHING_DIR: dir },
+    env: { ...process.env, TILLERD_DIR: dir },
     stdio: ["ignore", "ignore", "ignore"],
   });
 

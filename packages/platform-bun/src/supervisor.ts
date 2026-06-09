@@ -3,16 +3,16 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { DaemonClient } from "./daemon-transport";
-import { AtError } from "@athing/sdk";
+import { AtError } from "@tillerd/sdk";
 
-function getAthingDir(): string {
-  return process.env["ATHING_DIR"]
-    ? require("node:path").resolve(process.env["ATHING_DIR"])
-    : join(homedir(), ".athing");
+function getTillerdDir(): string {
+  return process.env["TILLERD_DIR"]
+    ? require("node:path").resolve(process.env["TILLERD_DIR"])
+    : join(homedir(), ".tillerd");
 }
 
-const ATHING_DIR = getAthingDir();
-const MANIFEST_PATH = join(ATHING_DIR, "daemon.json");
+const TILLERD_DIR = getTillerdDir();
+const MANIFEST_PATH = join(TILLERD_DIR, "daemon.json");
 
 interface ManifestData {
   pid: number;
@@ -48,11 +48,11 @@ export interface AdoptOrSpawnOptions {
 }
 
 export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<DaemonClient> {
-  // Resolve the runtime directory at call time so ATHING_DIR is honored per call
+  // Resolve the runtime directory at call time so TILLERD_DIR is honored per call
   // (e.g. isolated test directories), not frozen at module load.
-  const athingDir = getAthingDir();
-  const manifestPath = join(athingDir, "daemon.json");
-  const daemonSock = join(athingDir, "daemon.sock");
+  const tillerdDir = getTillerdDir();
+  const manifestPath = join(tillerdDir, "daemon.json");
+  const daemonSock = join(tillerdDir, "daemon.sock");
 
   const manifest = readManifest(manifestPath);
 
@@ -80,7 +80,7 @@ export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<D
       // no stale socket
     }
     try {
-      return await spawnAndConnect(daemonBin, athingDir, daemonSock, timeoutMs);
+      return await spawnAndConnect(daemonBin, tillerdDir, daemonSock, timeoutMs);
     } catch (err) {
       lastError = err instanceof AtError ? err : new AtError("SpawnFailed", String(err));
       if (attempt < maxAttempts) {
@@ -97,7 +97,7 @@ export async function adoptOrSpawn(options: AdoptOrSpawnOptions = {}): Promise<D
 /** Spawn the daemon once and wait for its control socket to accept a connection. */
 async function spawnAndConnect(
   daemonBin: string,
-  athingDir: string,
+  tillerdDir: string,
   daemonSock: string,
   timeoutMs: number,
 ): Promise<DaemonClient> {
@@ -106,7 +106,7 @@ async function spawnAndConnect(
     stdio: ["ignore", "ignore", "ignore"],
     // Pin the daemon to the same runtime directory the supervisor resolved, so the
     // two agree on socket/manifest paths regardless of ambient env.
-    env: { ...process.env, ATHING_DIR: athingDir },
+    env: { ...process.env, TILLERD_DIR: tillerdDir },
   });
   child.unref();
 
@@ -158,26 +158,26 @@ export function resolveDaemonBinary(probes: DaemonResolveProbes = {}): string {
   const home = probes.home ?? homedir();
   const which = probes.which ?? loginShellWhich;
 
-  const envBin = env["ATHING_DAEMON_BIN"];
+  const envBin = env["TILLERD_DAEMON_BIN"];
   if (envBin) {
     const abs = resolve(envBin);
     if (exists(abs)) return abs;
   }
 
-  const localBin = join(cwd, "bin", "athing-daemon");
+  const localBin = join(cwd, "bin", "tillerd-daemon");
   if (exists(localBin)) return localBin;
 
-  const moduleBin = join(import.meta.dir, "../../../bin/athing-daemon");
+  const moduleBin = join(import.meta.dir, "../../../bin/tillerd-daemon");
   if (exists(moduleBin)) return moduleBin;
 
-  const fromShell = which("athing-daemon");
+  const fromShell = which("tillerd-daemon");
   if (fromShell) return fromShell;
 
-  const userBin = join(home, ".local", "bin", "athing-daemon");
+  const userBin = join(home, ".local", "bin", "tillerd-daemon");
   if (exists(userBin)) return userBin;
 
   throw new AtError(
     "BinaryNotFound",
-    "Cannot resolve athing-daemon binary. Run `bun run build` in packages/daemon-pty or set ATHING_DAEMON_BIN.",
+    "Cannot resolve tillerd-daemon binary. Run `bun run build` in packages/daemon-pty or set TILLERD_DAEMON_BIN.",
   );
 }

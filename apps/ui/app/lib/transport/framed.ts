@@ -6,7 +6,7 @@ import {
   type DaemonFrame,
   type DaemonTransport,
   type FrameHandler,
-} from "@athing/sdk";
+} from "@tillerd/sdk";
 
 /**
  * Carrier-agnostic `DaemonTransport`. Owns the single-sourced sdk framing codec, the daemon
