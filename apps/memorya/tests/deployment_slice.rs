@@ -20,8 +20,8 @@ use memorya::Engram;
 fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
     let base = std::env::var("TILLERD_DIR").expect("TILLERD_DIR points at the runtime directory");
     let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
-    let session_id =
-        std::env::var("TILLERD_SESSION_ID").expect("TILLERD_SESSION_ID names the session to capture");
+    let session_id = std::env::var("TILLERD_SESSION_ID")
+        .expect("TILLERD_SESSION_ID names the session to capture");
 
     let dir = tempfile::tempdir().expect("temp dir");
     let memorya = Arc::new(Mutex::new(

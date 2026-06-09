@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { BenchClient } from "./client.ts";
 
 const bin =
-  process.argv[2] ?? join(import.meta.dir, "../../packages/daemon-rs/target/release/tillerd-daemon");
+  process.argv[2] ??
+  join(import.meta.dir, "../../packages/daemon-rs/target/release/tillerd-daemon");
 const dir = mkdtempSync(join(tmpdir(), "tillerd-upgrade-"));
 const sock = join(dir, "daemon.sock");
 const manifestPath = join(dir, "daemon.json");

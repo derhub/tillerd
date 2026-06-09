@@ -10,15 +10,15 @@
     "check-deps": "bun outdated"
   },
   "dependencies": {
-    "@tillerd/adapter-claude-code": "workspace:*",
-    "@tillerd/engine": "workspace:*",
-    "@tillerd/sdk": "workspace:*",
     "@base-ui/react": "^1.5.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@pierre/diffs": "^1.2.7",
     "@react-router/node": "7.17.0",
     "@react-router/serve": "7.17.0",
     "@tauri-apps/api": "^2.11.0",
+    "@tillerd/adapter-claude-code": "workspace:*",
+    "@tillerd/engine": "workspace:*",
+    "@tillerd/sdk": "workspace:*",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",

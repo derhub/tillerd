@@ -105,8 +105,8 @@ fn memorya_lib_has_no_daemon_pty_or_socket_dependency() {
     // daemon -> the daemon crate; pty -> the daemon PTY client; socket -> the
     // async socket stack memorya (sync, blocking std sockets) must never pull in.
     let forbidden = [
-        "tillerd-daemon-pty",
-        "daemon-pty-client",
+        "tillerd",
+        "tillerd-daemon-pty-client",
         "tokio",
         "mio",
         "socket2",
@@ -121,8 +121,8 @@ fn memorya_lib_has_no_daemon_pty_or_socket_dependency() {
 
 #[test]
 fn gate_client_has_no_memorya_or_daemon_pty_client_dependency() {
-    let closure = normal_closure(&metadata(), "gate-client");
-    let forbidden = ["memorya", "daemon-pty-client"];
+    let closure = normal_closure(&metadata(), "tillerd-gate-client");
+    let forbidden = ["memorya", "tillerd-daemon-pty-client"];
 
     assert_eq!(
         leaked(&closure, &forbidden),
@@ -135,10 +135,10 @@ fn gate_client_has_no_memorya_or_daemon_pty_client_dependency() {
 fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
     let closure = normal_closure(&metadata(), "memorya");
     let wire_family: BTreeSet<&str> = [
-        "contracts-rs",
-        "gate-client",
-        "daemon-pty-client",
-        "tillerd-daemon-pty",
+        "tillerd-contracts-rs",
+        "tillerd-gate-client",
+        "tillerd-daemon-pty-client",
+        "tillerd",
         "tillerd-gate",
     ]
     .into();
@@ -151,7 +151,7 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
 
     assert_eq!(
         wire_deps,
-        BTreeSet::from(["contracts-rs", "gate-client"]),
+        BTreeSet::from(["tillerd-contracts-rs", "tillerd-gate-client"]),
         "memorya's only gate-wire deps must be the contract types and the codec"
     );
 }
@@ -162,7 +162,11 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
 fn gate_has_no_memorya_or_gateway_or_pty_client_dependency() {
     let meta = metadata();
     let closure = normal_closure(&meta, "tillerd-gate");
-    let forbidden = ["memorya", "tillerd-mcp-gateway-rs", "daemon-pty-client"];
+    let forbidden = [
+        "memorya",
+        "tillerd-mcp-gateway-rs",
+        "tillerd-daemon-pty-client",
+    ];
 
     assert_eq!(
         leaked(&closure, &forbidden),
@@ -178,8 +182,8 @@ fn gateway_has_no_memorya_or_gate_or_daemon_dependency() {
     let forbidden = [
         "memorya",
         "tillerd-gate",
-        "tillerd-daemon-pty",
-        "daemon-pty-client",
+        "tillerd",
+        "tillerd-daemon-pty-client",
     ];
 
     assert_eq!(
@@ -192,12 +196,12 @@ fn gateway_has_no_memorya_or_gate_or_daemon_dependency() {
 #[test]
 fn daemon_has_no_downstream_tool_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "tillerd-daemon-pty");
+    let closure = normal_closure(&meta, "tillerd");
     let forbidden = [
         "tillerd-gate",
         "tillerd-mcp-gateway-rs",
         "memorya",
-        "gate-client",
+        "tillerd-gate-client",
     ];
 
     assert_eq!(
@@ -210,14 +214,14 @@ fn daemon_has_no_downstream_tool_dependency() {
 #[test]
 fn contracts_rs_has_no_tool_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "contracts-rs");
+    let closure = normal_closure(&meta, "tillerd-contracts-rs");
     let forbidden = [
         "memorya",
         "tillerd-gate",
         "tillerd-mcp-gateway-rs",
-        "tillerd-daemon-pty",
-        "gate-client",
-        "daemon-pty-client",
+        "tillerd",
+        "tillerd-gate-client",
+        "tillerd-daemon-pty-client",
     ];
 
     assert_eq!(
@@ -236,7 +240,7 @@ fn only_daemon_and_pty_client_know_the_pty_wire() {
     for tool in tools {
         let closure = normal_closure(&meta, tool);
         assert_eq!(
-            leaked(&closure, &["daemon-pty-client"]),
+            leaked(&closure, &["tillerd-daemon-pty-client"]),
             Vec::<&str>::new(),
             "{tool} must not reach daemon-pty-client (PTY wire is daemon-only)"
         );

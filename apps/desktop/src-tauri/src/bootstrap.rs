@@ -3,7 +3,7 @@ use std::process::Command;
 
 use serde::Serialize;
 
-use crate::paths::{tillerd_dir, resolve_notify_bin};
+use crate::paths::{resolve_notify_bin, tillerd_dir};
 
 /// Startup values the host resolves for the renderer (design D4): the agent binary, its version,
 /// the prepared hook command, and the runtime directory the engine injects so the agent's hook

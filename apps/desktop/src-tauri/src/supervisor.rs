@@ -61,8 +61,9 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
     // Stale socket from a dead daemon blocks bind; remove best-effort.
     let _ = std::fs::remove_file(daemon_sock());
 
-    let bin = resolve_daemon_bin()
-        .ok_or_else(|| "cannot resolve tillerd-daemon binary (set TILLERD_DAEMON_BIN)".to_string())?;
+    let bin = resolve_daemon_bin().ok_or_else(|| {
+        "cannot resolve tillerd-daemon binary (set TILLERD_DAEMON_BIN)".to_string()
+    })?;
     let child = Command::new(&bin)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
