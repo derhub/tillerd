@@ -1,5 +1,4 @@
-//! In-memory namespaced index of tools/prompts/resources per backend, with a
-//! generation counter. No disk persistence.
+//! Registry: in-memory, generation counter, no persistence.
 
 use rmcp::model::{Prompt, Resource, Tool};
 use std::collections::HashMap;

@@ -1,7 +1,4 @@
-//! Dedicated scenario coverage for the memorya-capture spec (task 8.1).
-//!
-//! Each test maps 1-to-1 to a named spec scenario. Inline module tests in
-//! capture.rs, queue.rs, and worker.rs cover the remaining scenarios.
+//! Capture scenarios: 1-to-1 mapping. Remaining in capture/queue/worker modules.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

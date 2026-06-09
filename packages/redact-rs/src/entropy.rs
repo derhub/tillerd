@@ -1,4 +1,4 @@
-//! Shannon-entropy heuristic for unknown high-randomness secrets.
+//! Entropy fallback for unknown secrets.
 
 const MIN_LEN: usize = 20;
 const MIN_ENTROPY: f64 = 3.5;

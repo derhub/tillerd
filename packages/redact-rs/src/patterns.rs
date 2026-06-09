@@ -1,5 +1,4 @@
-//! Pattern catalog (credentials + structured PII), vendored from a
-//! Presidio-compatible set, plus the checksum/context gates and the allowlist.
+//! Pattern catalog with gates and allowlist.
 
 use regex::Regex;
 use std::sync::OnceLock;

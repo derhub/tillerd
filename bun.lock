@@ -47,6 +47,13 @@
         "athing-gate": "../../target/release/athing-gate",
       },
     },
+    "apps/gate-notify": {
+      "name": "@athing/gate-notify",
+      "version": "0.1.0",
+      "bin": {
+        "athing-notify": "../../bin/athing-notify",
+      },
+    },
     "apps/mcp-gateway-rs": {
       "name": "@athing/mcp-gateway-rs",
       "version": "0.1.0",
@@ -239,6 +246,8 @@
     "@athing/gate": ["@athing/gate@workspace:apps/gate"],
 
     "@athing/gate-client": ["@athing/gate-client@workspace:packages/gate-client"],
+
+    "@athing/gate-notify": ["@athing/gate-notify@workspace:apps/gate-notify"],
 
     "@athing/integration-tests": ["@athing/integration-tests@workspace:tests/integration"],
 

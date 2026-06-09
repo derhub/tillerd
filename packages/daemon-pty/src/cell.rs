@@ -1,4 +1,4 @@
-//! Snapshot cell encoding — the language-neutral wire contract.
+//! Cell encoding: language-neutral wire contract.
 
 use serde::Serialize;
 

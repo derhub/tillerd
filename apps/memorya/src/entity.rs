@@ -1,5 +1,4 @@
-//! Entity resolution: map a name to an entity id, matching exact names,
-//! aliases, and close fuzzy matches before creating a new entity.
+//! Entity resolution: exact, aliases, fuzzy match, or create.
 
 use crate::store::Store;
 use rusqlite::params;

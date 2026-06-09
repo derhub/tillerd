@@ -1,4 +1,4 @@
-//! Storage layer — the only component that opens the database.
+//! Store: sole database owner.
 
 use crate::NewChunk;
 use rusqlite::{params, Connection, OptionalExtension};

@@ -1,12 +1,11 @@
-//! Shared wire types for the composable tools: the canonical [`HookEvent`], its identifiers,
-//! and the gate hook-subscription + tool-route message shapes.
-//!
-//! Pure contract types — no I/O, no side effects. The encodings here are mirrored by
-//! `@athing/sdk` (TypeScript) and pinned by a cross-language golden fixture.
+//! Wire types: pure contracts, no I/O or side effects.
+//! Encodings mirrored by SDK (TypeScript) with cross-language golden fixture.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
+
+pub mod framing;
 
 /// Wire version of the daemon session-event subscription, negotiated per connection.
 pub const SESSION_EVENT_WIRE_VERSION: u32 = 1;
@@ -23,6 +22,43 @@ pub struct SessionId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CorrelationId(pub String);
+
+/// Which face an inbound connection selects on the gate's single front-door socket.
+/// The gate demultiplexes on this after reading the connection's route preamble.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Route {
+    /// Agent lifecycle hook callbacks; fire-and-forget, no reply.
+    Hook,
+    /// Tool-call / tool-result IPC; request/response.
+    Tool,
+    /// Session hook-event subscription; ready then server-push stream.
+    Subscribe,
+    /// Session registry mutation (register/deregister); request/response.
+    Admin,
+    /// MCP protocol requests; the connection upgrades to MCP after admission.
+    Mcp,
+}
+
+/// The first frame on every connection to the gate's single socket: it selects the
+/// route, names the session (absent for the non-session-scoped admin route), carries
+/// the route's bearer token (the per-session token, the admin token, or none for the
+/// tokenless subscribe route), and declares the gate wire version. One length-prefixed
+/// JSON frame; subsequent frames are the route's bare payload.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoutePreamble {
+    /// The face this connection drives.
+    pub route: Route,
+    /// The session this connection is attributed to; absent for the admin route.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// The route's bearer token; absent for the tokenless subscribe route.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    /// The gate wire version the client speaks.
+    pub wire_version: u32,
+}
 
 /// A normalized agent lifecycle event. Flat on the wire:
 /// `{ sessionId, correlationId, ts, type, payload }`.
@@ -102,16 +138,6 @@ pub enum HookKind {
         #[serde(skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
-}
-
-/// A request to subscribe to a session's hook-event stream (gate hook-subscription wire).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HookSubscribeRequest {
-    /// Session to subscribe to.
-    pub session_id: SessionId,
-    /// Wire version the consumer speaks.
-    pub wire_version: u32,
 }
 
 /// A tool-route inbound the gate observes and passes through. Adjacently tagged.

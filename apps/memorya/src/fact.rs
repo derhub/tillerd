@@ -1,4 +1,4 @@
-//! Temporal fact operations: learn, supersede, soft-remove, currently-valid.
+//! Fact operations: learn, supersede, soft-remove, valid.
 
 use crate::entity;
 use crate::store::Store;

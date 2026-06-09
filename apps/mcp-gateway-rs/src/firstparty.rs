@@ -1,8 +1,4 @@
-//! First-party tool names the gateway must never spawn as a backend.
-//!
-//! The first-party tools are launched and supervised by the orchestrator (via the
-//! process-launch crate), not by the gateway. The gateway only spawns external
-//! (third-party) MCP backends. A reachable first-party tool — composed memory, for
+//! First-party tools: orchestrator-supervised, never spawned by gateway.
 //! instance — is configured as an ordinary URL backend, which the gateway connects
 //! to rather than spawns, so it is never rejected here.
 

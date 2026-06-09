@@ -1,5 +1,4 @@
-//! Upgrade-handoff snapshot: one record per live session, written by the outgoing
-//! daemon and read by the successor. Replay buffer is base64-encoded.
+//! Snapshot: one record per live session. Upgrade handoff mechanism.
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};

@@ -1,8 +1,4 @@
-//! Gateway-only deployment slice (rule 8.2): the gateway starts, supervises
-//! backends, and serves tools — with no daemon, no gate, and no memorya in the
-//! path.
-//!
-//! The in-process test drives `build()` directly, which is the same entry point
+//! Deployment slice: gateway only (no daemon, gate, or memorya).
 //! the binary uses. It proves the slice boots and is ready to serve. For a
 //! slice that also exercises the HTTP face with a real MCP client, see
 //! `integration.rs`.

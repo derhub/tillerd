@@ -1,5 +1,4 @@
-//! Hybrid retrieval: brute-force vector cosine (no ANN index — sub-millisecond
-//! at memorya's scale) fused with FTS5 lexical search.
+//! Search: hybrid brute-force cosine + FTS5. No ANN index (sub-millisecond).
 
 use crate::embed::{cosine, Embedder};
 use crate::store::Store;

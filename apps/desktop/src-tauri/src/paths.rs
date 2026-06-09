@@ -19,10 +19,6 @@ pub fn manifest_path() -> PathBuf {
     athing_dir().join("daemon.json")
 }
 
-pub fn hooks_sock() -> PathBuf {
-    athing_dir().join("hooks.sock")
-}
-
 /// Resolve the generic PTY daemon binary: `ATHING_DAEMON_BIN`, then a cwd/bundled `bin/athing-daemon`,
 /// then `~/.local/bin`. (Packaged-bundle sidecar resolution is §7.)
 pub fn resolve_daemon_bin() -> Option<PathBuf> {
@@ -80,18 +76,8 @@ mod tests {
     }
 
     #[test]
-    fn hooks_sock_has_correct_filename() {
-        assert_eq!(hooks_sock().file_name().unwrap(), "hooks.sock");
-    }
-
-    #[test]
     fn daemon_sock_and_manifest_share_parent() {
         assert_eq!(daemon_sock().parent(), manifest_path().parent());
-    }
-
-    #[test]
-    fn daemon_sock_and_hooks_sock_share_parent() {
-        assert_eq!(daemon_sock().parent(), hooks_sock().parent());
     }
 
     #[test]

@@ -25,7 +25,7 @@ function makeCore(version: string, liveIds: string[] = []): { core: TauriCore; c
             path: "/usr/bin/claude",
             version,
             hookCommand: "/x/bin/athing-notify",
-            hooksSocketPath: "/x/hooks.sock",
+            athingDir: "/x/athing",
             agentHome: "/home/u/.claude",
             homeDir: "/home/u",
           } as T;

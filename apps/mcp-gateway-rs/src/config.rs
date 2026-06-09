@@ -1,5 +1,4 @@
-//! `mcp.json` config: de-facto `mcpServers` format, loose at the backend level
-//! (unknown keys tolerated) and strict at the root.
+//! mcp.json config: mcpServers format. Loose at backend, strict at root.
 
 use schemars::JsonSchema;
 use serde::Deserialize;

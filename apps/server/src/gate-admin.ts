@@ -1,11 +1,13 @@
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { HOOK_SUBSCRIPTION_WIRE_VERSION } from "@athing/sdk";
 
-/** Resolve the gate admin socket path from ATHING_DIR. */
+/** Resolve the gate's single socket path from ATHING_DIR; the admin face is reached
+ * over its `Admin` route. */
 function gateAdminSock(): string {
   const raw = process.env["ATHING_DIR"];
   const dir = raw ? resolve(raw) : join(homedir(), ".athing");
-  return join(dir, "gate-admin.sock");
+  return join(dir, "gate.sock");
 }
 
 /**
@@ -31,8 +33,18 @@ async function sendAdminCommand(
   command: object,
 ): Promise<AdminResponse> {
   return new Promise((resolve, reject) => {
-    const payload = new TextEncoder().encode(JSON.stringify({ adminToken, request: command }));
-    const frame = encodeFrame(payload);
+    // Open the gate socket on the Admin route: one preamble frame carrying the admin
+    // token, then one bare command frame.
+    const preambleFrame = encodeFrame(
+      new TextEncoder().encode(
+        JSON.stringify({
+          route: "admin",
+          token: adminToken,
+          wireVersion: HOOK_SUBSCRIPTION_WIRE_VERSION,
+        }),
+      ),
+    );
+    const commandFrame = encodeFrame(new TextEncoder().encode(JSON.stringify(command)));
 
     let headerBuf: Uint8Array | null = null;
     let payloadBuf: Uint8Array | null = null;
@@ -70,7 +82,8 @@ async function sendAdminCommand(
       unix: socketPath,
       socket: {
         open(socket) {
-          socket.write(frame);
+          socket.write(preambleFrame);
+          socket.write(commandFrame);
         },
         data(_socket, data: Buffer) {
           const chunk = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
@@ -92,7 +105,7 @@ async function sendAdminCommand(
 }
 
 export interface GateAdminOptions {
-  /** Path to the gate-admin.sock. Defaults to $ATHING_DIR/gate-admin.sock. */
+  /** Path to the gate socket. Defaults to $ATHING_DIR/gate.sock. */
   socketPath?: string;
   /** Admin token. Reads ATHING_GATE_ADMIN_TOKEN from env when absent. */
   adminToken?: string;

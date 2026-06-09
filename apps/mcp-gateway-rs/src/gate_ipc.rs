@@ -1,12 +1,8 @@
-//! Local client for the gate's tool-route IPC face.
+//! Gate tool-route IPC client: observe traffic via Forward/Reject responses.
 //!
-//! The gateway observes tool traffic by sending `ToolCall`/`ToolResult` inbounds
-//! to the gate's loopback `gate-tool.sock` and reading back a `Forward` (the
-//! possibly-rewritten inbound) or a `Reject`.
-//!
-//! D9: the length-prefix frame codec is reimplemented here rather than imported
-//! from the PTY client or the gate crate. The wire is a 4-byte big-endian payload
-//! length followed by a JSON payload, matching the gate's `endpoint` codec.
+//! The length-prefix framing is the shared [`contracts::framing`] codec; only the
+//! async `tokio` stream adapters live here, because the shared codec is
+//! runtime-free.
 //!
 //! R8 fail-open: any failure to reach the gate, a rejection, or a malformed reply
 //! is logged and the inbound is forwarded unchanged — the gate is observe-only in
@@ -14,27 +10,13 @@
 
 use std::path::PathBuf;
 
-use contracts::{CorrelationId, SessionId, ToolInbound};
-use serde_json::{json, Value};
+use contracts::framing::{encode_frame, HEADER_SIZE, MAX_FRAME_SIZE};
+use contracts::{
+    CorrelationId, Route, RoutePreamble, SessionId, ToolInbound, HOOK_SUBSCRIPTION_WIRE_VERSION,
+};
+use serde_json::Value;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::UnixStream;
-
-/// Bytes of the big-endian length prefix every frame carries.
-const HEADER_SIZE: usize = 4;
-
-/// The largest reply frame this client accepts, aligned with the gate's body cap.
-/// Enforced before allocation so a hostile length prefix cannot force a giant
-/// allocation.
-const MAX_FRAME_SIZE: usize = 1 << 20;
-
-/// Encode a length-prefixed frame: a 4-byte big-endian payload length, then the
-/// payload.
-pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(HEADER_SIZE + payload.len());
-    out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-    out.extend_from_slice(payload);
-    out
-}
 
 /// Read one length-prefixed frame, or `None` at a clean end of stream.
 pub async fn read_frame<R: AsyncRead + Unpin>(reader: &mut R) -> std::io::Result<Option<Vec<u8>>> {
@@ -111,7 +93,7 @@ impl GateToolClient {
         let base =
             service_host::paths::resolve_base_dir(std::env::var("ATHING_DIR").ok().as_deref());
         Some(Self::new(
-            base.join("gate-tool.sock"),
+            base.join("gate.sock"),
             SessionId(session_id),
             token,
         ))
@@ -174,13 +156,18 @@ impl GateToolClient {
     }
 
     async fn try_route(&self, inbound: &ToolInbound) -> Result<ToolInbound, GateError> {
-        let request = json!({
-            "token": self.token,
-            "inbound": serde_json::to_value(inbound)?,
-        });
+        // Open the gate's single socket on the Tool route: the preamble carries the
+        // session and token, then one bare ToolInbound frame is the request.
+        let preamble = RoutePreamble {
+            route: Route::Tool,
+            session_id: Some(self.session_id.clone()),
+            token: Some(self.token.clone()),
+            wire_version: HOOK_SUBSCRIPTION_WIRE_VERSION,
+        };
 
         let mut stream = UnixStream::connect(&self.socket_path).await?;
-        write_frame(&mut stream, &serde_json::to_vec(&request)?).await?;
+        write_frame(&mut stream, &serde_json::to_vec(&preamble)?).await?;
+        write_frame(&mut stream, &serde_json::to_vec(inbound)?).await?;
         let frame = read_frame(&mut stream).await?.ok_or(GateError::Closed)?;
 
         let value: Value = serde_json::from_slice(&frame)?;
@@ -204,8 +191,12 @@ impl GateToolClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::sync::atomic::{AtomicU64, Ordering};
     use tokio::net::UnixListener;
+
+    /// The (preamble frame, command frame) pair the fake gate captures for assertions.
+    type Captured = (Vec<u8>, Vec<u8>);
 
     // A process-wide counter guarantees distinct socket paths even when parallel
     // tests read the same wall-clock nanosecond.
@@ -229,21 +220,24 @@ mod tests {
     }
 
     // A one-shot fake gate: binds synchronously (so the client always connects to a
-    // live socket), then replies to the first frame with `respond(frame)`. The
-    // received request frame is sent back over the channel for assertions. When
-    // `respond` returns `None` the connection is dropped without a reply.
+    // live socket), reads the Tool route preamble then the bare ToolInbound frame,
+    // and replies to the inbound with `respond(inbound)`. Both received frames are
+    // sent back over the channel for assertions. When `respond` returns `None` the
+    // connection is dropped without a reply.
     fn spawn_fake_gate(
         respond: impl Fn(&[u8]) -> Option<Vec<u8>> + Send + 'static,
-    ) -> (PathBuf, tokio::sync::oneshot::Receiver<Vec<u8>>) {
+    ) -> (PathBuf, tokio::sync::oneshot::Receiver<Captured>) {
         let sock = temp_sock("gate");
         let listener = UnixListener::bind(&sock).unwrap();
         let (tx, rx) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             if let Ok((stream, _)) = listener.accept().await {
                 let (mut rd, mut wr) = stream.into_split();
-                if let Ok(Some(frame)) = read_frame(&mut rd).await {
-                    let _ = tx.send(frame.clone());
-                    if let Some(reply) = respond(&frame) {
+                if let (Ok(Some(preamble)), Ok(Some(inbound))) =
+                    (read_frame(&mut rd).await, read_frame(&mut rd).await)
+                {
+                    let _ = tx.send((preamble, inbound.clone()));
+                    if let Some(reply) = respond(&inbound) {
                         let _ = write_frame(&mut wr, &reply).await;
                     }
                 }
@@ -252,9 +246,8 @@ mod tests {
         (sock, rx)
     }
 
-    fn forward_echo(frame: &[u8]) -> Option<Vec<u8>> {
-        let req: Value = serde_json::from_slice(frame).unwrap();
-        let inbound = req.get("inbound").unwrap().clone();
+    fn forward_echo(inbound_frame: &[u8]) -> Option<Vec<u8>> {
+        let inbound: Value = serde_json::from_slice(inbound_frame).unwrap();
         Some(serde_json::to_vec(&json!({ "result": "forward", "inbound": inbound })).unwrap())
     }
 
@@ -271,16 +264,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sends_the_session_token_and_inbound_to_the_gate() {
+    async fn sends_the_tool_preamble_and_bare_inbound_to_the_gate() {
         let (sock, received) = spawn_fake_gate(forward_echo);
         let client = GateToolClient::new(sock.clone(), SessionId("sess-1".into()), "secret".into());
 
         let _ = client.route(tool_call("corr-1")).await;
 
-        let frame = received.await.unwrap();
-        let req: Value = serde_json::from_slice(&frame).unwrap();
-        assert_eq!(req["token"], "secret");
-        let inbound: ToolInbound = serde_json::from_value(req["inbound"].clone()).unwrap();
+        let (preamble_frame, inbound_frame) = received.await.unwrap();
+        let preamble: RoutePreamble = serde_json::from_slice(&preamble_frame).unwrap();
+        assert_eq!(preamble.route, Route::Tool);
+        assert_eq!(preamble.session_id, Some(SessionId("sess-1".into())));
+        assert_eq!(preamble.token.as_deref(), Some("secret"));
+        let inbound: ToolInbound = serde_json::from_slice(&inbound_frame).unwrap();
         assert_eq!(inbound, tool_call("corr-1"));
         let _ = std::fs::remove_file(&sock);
     }
@@ -314,9 +309,8 @@ mod tests {
 
     #[tokio::test]
     async fn route_call_applies_the_gate_rewritten_input() {
-        let (sock, _rx) = spawn_fake_gate(|frame| {
-            let req: Value = serde_json::from_slice(frame).unwrap();
-            let mut inbound = req["inbound"].clone();
+        let (sock, _rx) = spawn_fake_gate(|inbound_frame| {
+            let mut inbound: Value = serde_json::from_slice(inbound_frame).unwrap();
             inbound["payload"]["toolInput"] = json!({ "title": "rewritten" });
             Some(serde_json::to_vec(&json!({ "result": "forward", "inbound": inbound })).unwrap())
         });

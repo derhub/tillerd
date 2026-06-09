@@ -1,8 +1,4 @@
-//! Deployment slice integration tests (rule 8.2).
-//!
-//! This file covers:
-//! - Memory-only slice: memorya + gate-client + a live gate, no daemon, no gateway.
-//! - Full slice: daemon + gate + gateway + memorya all live; the richest integration
+//! Deployment slices: memory-only and full.
 //!   test but requires all four processes running.
 //!
 //! For the gateway-only slice see `apps/mcp-gateway-rs/tests/deployment_slice.rs`.
@@ -19,11 +15,11 @@ use memorya::hook_source::{GateSubscriptionSource, HookSource};
 use memorya::Engram;
 
 #[test]
-#[ignore = "requires a live gate (gate task 5.9); run via task 8.2 with \
-            ATHING_GATE_URL + ATHING_SESSION_ID set and --ignored"]
+#[ignore = "requires a live gate; run with \
+            ATHING_DIR + ATHING_SESSION_ID set and --ignored"]
 fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
-    let gate_url =
-        std::env::var("ATHING_GATE_URL").expect("ATHING_GATE_URL points at a live gate socket");
+    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
         std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the session to capture");
 
@@ -33,7 +29,7 @@ fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
     ));
     let capturer = HookCapturer::new(memorya.clone());
 
-    let mut source = GateSubscriptionSource::connect(&gate_url, SessionId(session_id))
+    let mut source = GateSubscriptionSource::connect(&subscribe_sock, SessionId(session_id))
         .expect("subscribe to the live gate");
 
     let event = source
@@ -63,19 +59,19 @@ fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
 ///
 /// Requirements:
 /// - A running daemon at `ATHING_DAEMON_SOCK`
-/// - A running gate at `ATHING_GATE_URL`
+/// - A running gate (its sockets under `ATHING_DIR`)
 /// - A running gateway connected to the gate via `ATHING_SESSION_ID` + `ATHING_SESSION_TOKEN`
 /// - A session generating hook events at `ATHING_SESSION_ID`
 ///
 /// Run with:
-///   ATHING_GATE_URL=… ATHING_SESSION_ID=… \
+///   ATHING_DIR=… ATHING_SESSION_ID=… \
 ///   cargo test -p memorya --test deployment_slice \
 ///     full_slice_daemon_gate_gateway_memory -- --ignored
 #[test]
-#[ignore = "requires live daemon + gate + gateway; set ATHING_GATE_URL + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires live daemon + gate + gateway; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
 fn full_slice_daemon_gate_gateway_memory() {
-    let gate_url =
-        std::env::var("ATHING_GATE_URL").expect("ATHING_GATE_URL points at a live gate socket");
+    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
         std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the session");
 
@@ -85,7 +81,7 @@ fn full_slice_daemon_gate_gateway_memory() {
     ));
     let capturer = HookCapturer::new(memorya.clone());
 
-    let mut source = GateSubscriptionSource::connect(&gate_url, SessionId(session_id))
+    let mut source = GateSubscriptionSource::connect(&subscribe_sock, SessionId(session_id))
         .expect("subscribe to the live gate");
 
     let event = source

@@ -6,7 +6,7 @@ export {
   RawFrame,
   SubscriptionFrameDecoder,
   encodeSubscriptionFrame,
-  encodeSubscribeRequest,
+  encodeSubscribePreamble,
   decodeSubscriptionFrame,
   negotiateReady,
 } from "./types/index";

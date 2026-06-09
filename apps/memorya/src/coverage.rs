@@ -1,4 +1,4 @@
-//! Eviction scoring: age + staleness, scaled by coverage, minus access frequency.
+//! Eviction scoring: age, staleness, coverage, access frequency.
 
 const DAY_SECS: f32 = 86_400.0;
 

@@ -1,5 +1,4 @@
-//! The MCP face clients talk to: aggregate listings + call routing to the
-//! owning backend.
+//! MCP face: aggregate listings, route calls to owning backend.
 
 use std::sync::Arc;
 

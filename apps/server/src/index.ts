@@ -9,12 +9,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { createLogger } from "@athing/logger";
 import type { AgentSession, DaemonTransport, HookSource, HookEvent } from "@athing/sdk";
 import { ATTR } from "@athing/sdk";
-import {
-  adoptOrSpawn,
-  checkCliVersion,
-  HOOKS_SOCK,
-  resolveAgentCommand,
-} from "@athing/platform-bun";
+import { adoptOrSpawn, checkCliVersion, resolveAgentCommand } from "@athing/platform-bun";
 import { isOriginAllowed, parseAllowedOrigins } from "./auth";
 import { pruneExpiredSessions, parseSessionTtlMs } from "./sessions";
 import { subscribeToSession } from "./gate-client";
@@ -77,11 +72,10 @@ transport.onClose(() => {
   ownedDaemonPid = null;
 });
 
-// Gate URL: from env or discovered from $ATHING_DIR/gate.url at startup.
-// Used for register/deregister (admin) and daemon spawn env injection.
-const ATHING_GATE_URL = process.env["ATHING_GATE_URL"];
-const GATE_SUBSCRIBE_SOCK = join(ATHING_DIR, "gate-subscribe.sock");
-const GATE_ADMIN_SOCK = join(ATHING_DIR, "gate-admin.sock");
+// The gate's single socket derives from $ATHING_DIR; its presence signals the gate
+// is up. The subscribe and admin faces are reached over their routes on this socket.
+const GATE_SUBSCRIBE_SOCK = join(ATHING_DIR, "gate.sock");
+const GATE_ADMIN_SOCK = join(ATHING_DIR, "gate.sock");
 
 function buildGateHookSource(subscribeSockPath: string): HookSource {
   return {
@@ -134,14 +128,14 @@ function buildGateHookSource(subscribeSockPath: string): HookSource {
   };
 }
 
-const hookSource: HookSource | undefined = ATHING_GATE_URL
+const hookSource: HookSource | undefined = fs.existsSync(GATE_SUBSCRIBE_SOCK)
   ? buildGateHookSource(GATE_SUBSCRIBE_SOCK)
   : undefined;
 
 const engine = createEngine({
   transport,
   logger,
-  hooksSocketPath: HOOKS_SOCK,
+  athingDir: ATHING_DIR,
   resolvedCommand,
   hookSource,
 });
@@ -206,8 +200,9 @@ async function startGateManagedSession(opts: {
 }): Promise<AgentSession> {
   const sessionId = randomUUID();
   const token = randomBytes(32).toString("hex");
+  const gatePresent = fs.existsSync(GATE_ADMIN_SOCK);
 
-  if (ATHING_GATE_URL) {
+  if (gatePresent) {
     await registerSession(sessionId, token, { socketPath: GATE_ADMIN_SOCK });
   }
 
@@ -217,11 +212,10 @@ async function startGateManagedSession(opts: {
     rows: opts.rows,
     ...(opts.resume ? { resume: opts.resume } : {}),
     sessionId,
-    gateUrl: ATHING_GATE_URL,
-    gateToken: ATHING_GATE_URL ? token : undefined,
+    gateToken: gatePresent ? token : undefined,
   });
 
-  if (ATHING_GATE_URL) {
+  if (gatePresent) {
     session.onExit(() => {
       void deregisterSession(sessionId, { socketPath: GATE_ADMIN_SOCK });
     });
@@ -384,7 +378,6 @@ Bun.serve<WsData>({
           command: process.env["SHELL"] ?? "/bin/zsh",
           args: [], // empty → pty-transport uses direct interactive spawn
           flags: [],
-          hookSocketPath: HOOKS_SOCK,
           token,
           cols: 220,
           rows: 50,

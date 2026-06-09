@@ -1,8 +1,4 @@
-//! Dedicated scenario coverage for the memorya-recall spec (task 8.1).
-//!
-//! Each test maps 1-to-1 to a named spec scenario.
-//!
-//! Scenarios that require a live gate subscribe socket are `#[ignore]`d.
+//! Recall scenarios: 1-to-1 mapping. Gate-dependent tests #[ignore]d.
 
 use std::sync::{Arc, Mutex};
 
@@ -63,9 +59,9 @@ fn mcp_subcommand_selects_standalone_mcp_with_viewer_face() {
 #[test]
 fn standalone_mode_selected_when_gate_url_absent() {
     assert_eq!(
-        resolve_capture_mode(None, None),
+        resolve_capture_mode(std::path::Path::new("/run/athing"), None),
         CaptureMode::Standalone,
-        "absent gate URL must select standalone mode"
+        "absent session id must select standalone mode"
     );
 }
 
@@ -133,17 +129,17 @@ fn composed_mode_recall_tool_behavior_identical_to_standalone() {
     );
 }
 
-/// When `ATHING_GATE_URL` is set, composed capture mode is selected — the tool
+/// When a session id is present, composed capture mode is selected — the tool
 /// subscribes to the gate rather than using a stub source.
 #[test]
-fn composed_mode_selected_when_gate_url_present() {
+fn composed_mode_selected_when_session_id_present() {
     assert_eq!(
-        resolve_capture_mode(Some("/run/gate.sock"), Some("session-1")),
+        resolve_capture_mode(std::path::Path::new("/run/athing"), Some("session-1")),
         CaptureMode::Composed {
-            gate_url: "/run/gate.sock".into(),
+            subscribe_sock: std::path::PathBuf::from("/run/athing/gate.sock"),
             session_id: "session-1".into(),
         },
-        "a non-empty gate URL must select composed mode"
+        "a session id must select composed mode"
     );
 }
 
@@ -153,7 +149,7 @@ fn composed_mode_selected_when_gate_url_present() {
 ///
 /// Requires a live gate + gateway; skipped in CI.
 #[test]
-#[ignore = "requires a live gate and gateway; set ATHING_GATE_URL + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires a live gate and gateway; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
 fn composed_recall_reachable_through_gateway_with_no_special_casing() {
     // When this runs (--ignored), the test confirms that the `recall` tool
     // advertised by the memorya MCP server is visible and callable through the
@@ -163,5 +159,5 @@ fn composed_recall_reachable_through_gateway_with_no_special_casing() {
     // Manual verification: run `tools/list` against the gateway and confirm
     // `recall` appears; run `tools/call recall` and confirm the response is
     // the same format the standalone MCP server produces.
-    unimplemented!("live gateway test: connect to ATHING_GATE_URL and verify recall is reachable");
+    unimplemented!("live gateway test: subscribe via the Subscribe route on $ATHING_DIR/gate.sock and verify recall is reachable");
 }

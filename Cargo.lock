@@ -6,6 +6,7 @@ version = 4
 name = "a-thing-desktop"
 version = "0.1.0"
 dependencies = [
+ "contracts-rs",
  "dirs",
  "libc",
  "process-launch",
@@ -162,10 +163,8 @@ name = "athing-gate"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "axum",
  "bytes",
  "contracts-rs",
- "http",
  "rmcp",
  "serde",
  "serde_json",
@@ -174,7 +173,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "tower",
  "tracing",
  "uuid",
 ]
@@ -673,6 +671,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1432,6 +1431,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "gate-notify"
+version = "0.1.0"
+dependencies = [
+ "contracts-rs",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

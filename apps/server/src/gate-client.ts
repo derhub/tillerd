@@ -1,8 +1,7 @@
 import type { HookEvent } from "@athing/sdk";
 import {
-  HOOK_SUBSCRIPTION_WIRE_VERSION,
   SubscriptionFrameDecoder,
-  encodeSubscribeRequest,
+  encodeSubscribePreamble,
   decodeSubscriptionFrame,
   negotiateReady,
   RawFrame,
@@ -87,11 +86,7 @@ export async function subscribeToSession(
       unix: socketPath,
       socket: {
         open(socket) {
-          const req = encodeSubscribeRequest({
-            sessionId,
-            wireVersion: HOOK_SUBSCRIPTION_WIRE_VERSION,
-          });
-          socket.write(req);
+          socket.write(encodeSubscribePreamble(sessionId));
           resolveConn();
         },
         data(_socket, data: Buffer) {

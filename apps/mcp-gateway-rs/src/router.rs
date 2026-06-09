@@ -1,4 +1,4 @@
-//! Pure namespace codec: `<backend>__<tool>`. No state, no I/O.
+//! Namespace codec: pure, no state/I/O.
 
 pub const SEP: &str = "__";
 

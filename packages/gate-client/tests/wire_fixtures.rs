@@ -1,13 +1,11 @@
-//! Golden wire tests for the gate hook-subscription codec. The fixtures under
-//! `fixtures/` are the exact frame payloads the gate's subscribe face emits; the
-//! decoder must turn them back into the contract types.
+//! Golden wire tests: decoder must round-trip real hook-subscription codec payloads.
 
 use contracts::{
-    CorrelationId, HookEvent, HookKind, HookSubscribeRequest, SessionId,
+    CorrelationId, HookEvent, HookKind, Route, RoutePreamble, SessionId,
     HOOK_SUBSCRIPTION_WIRE_VERSION,
 };
 use gate_client::{
-    decode_subscription_frame, encode_frame, encode_subscribe_request, negotiate_ready,
+    decode_subscription_frame, encode_frame, encode_subscribe_preamble, negotiate_ready,
     DecodeError, FrameDecoder, RawFrame, SubscriptionFrame, WIRE_VERSION,
 };
 use serde_json::{json, Value};
@@ -63,8 +61,8 @@ fn frame_decoder_holds_partial_frame_across_pushes() {
     let mid = bytes.len() / 2;
     let mut decoder = FrameDecoder::new();
 
-    assert_eq!(decoder.push(&bytes[..mid]).len(), 0);
-    assert_eq!(decoder.push(&bytes[mid..]).len(), 1);
+    assert_eq!(decoder.push(&bytes[..mid]).unwrap().len(), 0);
+    assert_eq!(decoder.push(&bytes[mid..]).unwrap().len(), 1);
 }
 
 #[test]
@@ -72,7 +70,7 @@ fn frame_decoder_extracts_multiple_frames_in_one_push() {
     let mut stream = encode_frame(b"first");
     stream.extend_from_slice(&encode_frame(b"second"));
 
-    let frames = FrameDecoder::new().push(&stream);
+    let frames = FrameDecoder::new().push(&stream).unwrap();
 
     assert_eq!(
         frames,
@@ -89,36 +87,39 @@ fn frame_decoder_extracts_multiple_frames_in_one_push() {
 
 #[test]
 fn encode_frame_round_trips_through_frame_decoder() {
-    let frames = FrameDecoder::new().push(&encode_frame(b"payload"));
+    let frames = FrameDecoder::new().push(&encode_frame(b"payload")).unwrap();
 
     assert_eq!(frames[0].payload, b"payload");
 }
 
 #[test]
-fn encode_subscribe_request_carries_session_id_and_wire_version() {
-    let bytes = encode_subscribe_request(&HookSubscribeRequest {
-        session_id: SessionId("s1".into()),
-        wire_version: WIRE_VERSION,
-    });
-    let frames = FrameDecoder::new().push(&bytes);
+fn encode_subscribe_preamble_carries_route_session_id_and_wire_version() {
+    let bytes = encode_subscribe_preamble(&SessionId("s1".into()));
+    let frames = FrameDecoder::new().push(&bytes).unwrap();
     let meta: Value = serde_json::from_slice(&frames[0].payload).unwrap();
 
     assert_eq!(
         meta,
-        json!({ "sessionId": "s1", "wireVersion": WIRE_VERSION })
+        json!({ "route": "subscribe", "sessionId": "s1", "wireVersion": WIRE_VERSION })
     );
 }
 
 #[test]
-fn encode_subscribe_request_round_trips_through_frame_decoder() {
-    let request = HookSubscribeRequest {
-        session_id: SessionId("s1".into()),
-        wire_version: WIRE_VERSION,
-    };
-    let frames = FrameDecoder::new().push(&encode_subscribe_request(&request));
-    let decoded: HookSubscribeRequest = serde_json::from_slice(&frames[0].payload).unwrap();
+fn encode_subscribe_preamble_round_trips_through_frame_decoder() {
+    let frames = FrameDecoder::new()
+        .push(&encode_subscribe_preamble(&SessionId("s1".into())))
+        .unwrap();
+    let decoded: RoutePreamble = serde_json::from_slice(&frames[0].payload).unwrap();
 
-    assert_eq!(decoded, request);
+    assert_eq!(
+        decoded,
+        RoutePreamble {
+            route: Route::Subscribe,
+            session_id: Some(SessionId("s1".into())),
+            token: None,
+            wire_version: WIRE_VERSION,
+        }
+    );
 }
 
 #[test]

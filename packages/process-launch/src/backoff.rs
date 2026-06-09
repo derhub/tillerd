@@ -1,8 +1,4 @@
-//! Bounded exponential restart backoff.
-//!
-//! A managed child that exits is restarted with a delay that doubles each
-//! attempt but is clamped to a fixed cap, so a child that fails persistently
-//! does not spin.
+//! Backoff: exponential with cap. Prevents spinning.
 
 use std::time::Duration;
 

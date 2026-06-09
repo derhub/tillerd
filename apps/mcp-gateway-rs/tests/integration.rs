@@ -1,7 +1,4 @@
-//! End-to-end tests against a real backend MCP server (the `stub-backend`
-//! binary) over the actual stdio path, plus a reverse-proxy test that drives the
-//! real HTTP front with a real MCP client. The backend/transport are the
-//! boundaries we exercise for real; only the test's own client logic is fake.
+//! Integration: real backend/transport, fake client.
 
 use std::time::Duration;
 

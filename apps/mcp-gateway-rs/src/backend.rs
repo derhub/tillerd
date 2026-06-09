@@ -1,5 +1,4 @@
-//! Connecting a backend, and the client handler that relays reverse requests
-//! (sampling/roots/elicitation) to the front client.
+//! Backend connection and reverse-request relay to front client.
 
 use rmcp::model::{
     CreateElicitationRequestParams, CreateElicitationResult, CreateMessageRequestParams,

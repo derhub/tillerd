@@ -1,6 +1,4 @@
-//! The router: the single entry point every transport face funnels inbounds
-//! through. It assigns the correlation id exactly once (when absent), then runs
-//! the global onion (observe, auth) wrapped around the route chosen by kind.
+//! Router: assigns correlation id exactly once (when absent), then runs auth.
 
 use std::collections::HashMap;
 use std::sync::Arc;

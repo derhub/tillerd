@@ -1,6 +1,5 @@
-//! memorya — a local-first memory layer: capture, hybrid recall, consolidation,
-//! year-sharded archive. The fact-graph schema exists but is populated by the
-//! deferred curation change.
+//! memorya: local-first memory with capture, recall, consolidation, year-sharded archive.
+//! Fact-graph schema ready; population deferred.
 
 pub mod archive;
 pub mod capture;

@@ -28,12 +28,6 @@ export interface SetupContext {
   readonly agentHome: string;
   readonly logger: Logger;
   readonly fs: SetupFs;
-  /** Gate HTTP base URL (e.g. http://127.0.0.1:<port>). Present when a gate is running. */
-  readonly gateUrl?: string;
-  /** Session identifier minted by the orchestrator. Present with gateUrl. */
-  readonly sessionId?: string;
-  /** Per-session bearer token. Present with gateUrl. */
-  readonly sessionToken?: string;
 }
 
 /**

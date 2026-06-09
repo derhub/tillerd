@@ -1,6 +1,4 @@
-//! Year-sharded archive. Evicted chunks live in `archive-YYYY.db` files
-//! recorded in `archive-index.json`. Sealed shards are opened read-only and
-//! searched newest-first on demand.
+//! Archive: year-sharded, sealed shards read-only, newest-first search.
 
 use crate::embed::{cosine, decode_vec, Embedder};
 use crate::RecallHit;

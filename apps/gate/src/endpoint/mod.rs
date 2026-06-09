@@ -1,34 +1,15 @@
-//! The transport faces and the local length-prefix frame codec the loopback
-//! IPC faces share.
-//!
-//! D9: the codec is reimplemented here rather than imported from the PTY client.
-//! That crate owns a different wire (JSON meta plus an optional raw body); these
-//! faces carry only length-prefixed JSON, so they keep their own trivial framing.
+//! Endpoint faces (hook, tool, admin, subscribe) over loopback.
+//! Async read/write adapters for the shared contracts::framing codec.
 
 pub mod admin;
+pub mod dispatch;
 pub mod hook;
 pub mod mcp;
 pub mod subscribe;
 pub mod tool;
 
+use contracts::framing::{encode_frame, HEADER_SIZE, MAX_FRAME_SIZE};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-
-/// Bytes of the big-endian length prefix every frame carries.
-const HEADER_SIZE: usize = 4;
-
-/// The largest payload these loopback faces accept, aligned with the hook face
-/// body cap. Enforced before allocation so a hostile length prefix cannot force
-/// a multi-gigabyte allocation.
-const MAX_FRAME_SIZE: usize = 1 << 20;
-
-/// Encode a length-prefixed frame: a 4-byte big-endian payload length, then the
-/// payload.
-pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(HEADER_SIZE + payload.len());
-    out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-    out.extend_from_slice(payload);
-    out
-}
 
 /// Read one length-prefixed frame, or `None` at a clean end of stream.
 pub async fn read_frame<R: AsyncRead + Unpin>(reader: &mut R) -> std::io::Result<Option<Vec<u8>>> {

@@ -1,14 +1,8 @@
-//! Session-aware daemon orchestrator for the desktop.
+//! Daemon orchestrator (desktop). Gate registration HARD: must precede spawn.
+//! Deregister on exit so late hooks fail auth. Desktop installs no per-project hooks.
+// Not yet invoked from the Tauri command layer; until it is, these entry points are
+// reached only by tests, so dead-code analysis would otherwise flag them.
 #![allow(dead_code)]
-//!
-//! Uses the process-launch crate directly (no FFI). Before spawning the daemon:
-//! - reads ATHING_GATE_URL (or $ATHING_DIR/gate.url) to locate the gate
-//! - mints a session id (UUID v4) and a session token (32 random bytes hex)
-//! - registers the session with the gate admin face (HARD: must precede spawn)
-//!
-//! After the daemon PTY session exits the caller deregisters the session so
-//! late hooks fail auth. The desktop does NOT install per-project hooks; that
-//! is the CLI's responsibility.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -21,12 +15,7 @@ use crate::gate_admin;
 use crate::paths::athing_dir;
 
 /// Env-var allowlist for spawn-field diffing (R6).
-pub const ENV_ALLOWLIST: &[&str] = &[
-    "ATHING_DIR",
-    "ATHING_GATE_URL",
-    "ATHING_SESSION_ID",
-    "ATHING_SESSION_TOKEN",
-];
+pub const ENV_ALLOWLIST: &[&str] = &["ATHING_DIR", "ATHING_SESSION_ID", "ATHING_SESSION_TOKEN"];
 
 /// A successfully established daemon session: the launched daemon pid plus the
 /// minted session credentials injected into the daemon's environment.
@@ -35,7 +24,6 @@ pub struct DaemonSession {
     pub session_id: String,
     pub session_token: String,
     pub athing_dir: PathBuf,
-    pub gate_url: Option<String>,
 }
 
 /// Mint a random session token: 32 bytes rendered as lowercase hex.
@@ -61,23 +49,10 @@ fn rand_byte() -> u8 {
     h.finish() as u8 ^ (h.finish() >> 8) as u8
 }
 
-/// Read the gate URL: first from `ATHING_GATE_URL`, then from `$ATHING_DIR/gate.url`.
-pub fn resolve_gate_url(base: &Path) -> Option<String> {
-    if let Ok(url) = std::env::var("ATHING_GATE_URL") {
-        if !url.is_empty() {
-            return Some(url);
-        }
-    }
-    let path = base.join("gate.url");
-    std::fs::read_to_string(&path)
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
-/// Resolve the gate admin socket path.
+/// Resolve the gate's single socket path; the orchestrator reaches the admin face
+/// over its `Admin` route. Its presence is the signal the gate is up.
 pub fn admin_sock(base: &Path) -> PathBuf {
-    base.join("gate-admin.sock")
+    base.join("gate.sock")
 }
 
 /// Adopt-or-spawn the daemon, registering the session with the gate admin face
@@ -91,12 +66,12 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
 
     let session_id = Uuid::new_v4().to_string();
     let session_token = mint_token();
-    let gate_url = resolve_gate_url(&base);
     let admin_token = std::env::var("ATHING_GATE_ADMIN_TOKEN").unwrap_or_default();
 
     // Register-before-spawn: gate must know the session before the daemon sends
-    // any hook. The desktop does not block on gate absence (soft dependency).
-    if gate_url.is_some() && !admin_token.is_empty() {
+    // any hook. The desktop does not block on gate absence (soft dependency): the
+    // gate admin socket's presence is the signal the gate is up.
+    if !admin_token.is_empty() {
         let sock = admin_sock(&base);
         if sock.exists() {
             gate_admin::register(&sock, &admin_token, &session_id, &session_token)
@@ -106,9 +81,6 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
 
     let mut env: BTreeMap<String, String> = BTreeMap::new();
     env.insert("ATHING_DIR".into(), base.to_string_lossy().into_owned());
-    if let Some(url) = &gate_url {
-        env.insert("ATHING_GATE_URL".into(), url.clone());
-    }
     env.insert("ATHING_SESSION_ID".into(), session_id.clone());
     env.insert("ATHING_SESSION_TOKEN".into(), session_token.clone());
 
@@ -135,7 +107,6 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
         session_id,
         session_token,
         athing_dir: base,
-        gate_url,
     })
 }
 
@@ -144,7 +115,7 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
 /// Best-effort: logs but does not propagate errors. Late hooks will fail auth.
 pub fn deregister_session(session: &DaemonSession) {
     let admin_token = std::env::var("ATHING_GATE_ADMIN_TOKEN").unwrap_or_default();
-    if session.gate_url.is_some() && !admin_token.is_empty() {
+    if !admin_token.is_empty() {
         let sock = admin_sock(&session.athing_dir);
         if sock.exists() {
             let _ = gate_admin::deregister(&sock, &admin_token, &session.session_id);
@@ -170,8 +141,9 @@ mod tests {
         dir
     }
 
-    /// Spawn a fake gate admin socket that accepts one request and records it.
-    fn fake_admin_socket(sock_path: &PathBuf) -> mpsc::Receiver<Value> {
+    /// Spawn a fake gate that accepts the `Admin` route: per connection it reads the
+    /// preamble then the command frame, records both, and replies `ok` once.
+    fn fake_admin_socket(sock_path: &PathBuf) -> mpsc::Receiver<(Value, Value)> {
         let (tx, rx) = mpsc::channel();
         let _ = std::fs::remove_file(sock_path);
         let listener = UnixListener::bind(sock_path).unwrap();
@@ -184,24 +156,26 @@ mod tests {
                 let tx = tx.clone();
                 let sock_path = sock_path.clone();
                 thread::spawn(move || {
-                    loop {
-                        let mut header = [0u8; 4];
-                        if stream.read_exact(&mut header).is_err() {
-                            break;
-                        }
-                        let len = u32::from_be_bytes(header) as usize;
-                        let mut payload = vec![0u8; len];
-                        if stream.read_exact(&mut payload).is_err() {
-                            break;
-                        }
-                        let v: Value = serde_json::from_slice(&payload).unwrap();
-                        let _ = tx.send(v);
-                        let resp = serde_json::to_vec(&json!({"result": "ok"})).unwrap();
-                        let resp_header = (resp.len() as u32).to_be_bytes();
-                        let _ = stream.write_all(&resp_header);
-                        let _ = stream.write_all(&resp);
-                        let _ = stream.flush();
-                    }
+                    let read_frame =
+                        |stream: &mut std::os::unix::net::UnixStream| -> Option<Value> {
+                            let mut header = [0u8; 4];
+                            stream.read_exact(&mut header).ok()?;
+                            let len = u32::from_be_bytes(header) as usize;
+                            let mut payload = vec![0u8; len];
+                            stream.read_exact(&mut payload).ok()?;
+                            serde_json::from_slice(&payload).ok()
+                        };
+                    let (Some(preamble), Some(command)) =
+                        (read_frame(&mut stream), read_frame(&mut stream))
+                    else {
+                        return;
+                    };
+                    let _ = tx.send((preamble, command));
+                    let resp = serde_json::to_vec(&json!({"result": "ok"})).unwrap();
+                    let resp_header = (resp.len() as u32).to_be_bytes();
+                    let _ = stream.write_all(&resp_header);
+                    let _ = stream.write_all(&resp);
+                    let _ = stream.flush();
                     let _ = sock_path; // keep path alive
                 });
             }
@@ -235,9 +209,6 @@ mod tests {
         std::env::set_var("ATHING_DIR", &dir);
         std::env::set_var("ATHING_GATE_ADMIN_TOKEN", "test-admin-token");
 
-        // Write a gate URL file so resolve_gate_url finds it.
-        std::fs::write(dir.join("gate.url"), "http://127.0.0.1:19999").unwrap();
-
         let sock_path = admin_sock(&dir);
         let rx = fake_admin_socket(&sock_path);
 
@@ -256,12 +227,13 @@ mod tests {
         let fake_bin = PathBuf::from("/bin/sh");
         let session = ensure_daemon(&fake_bin, "1.0.0").unwrap();
 
-        // The register request must have arrived.
-        let req = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-        assert_eq!(req["request"]["command"], "register");
-        assert_eq!(req["request"]["sessionId"], session.session_id);
-        assert_eq!(req["request"]["token"], session.session_token);
-        assert_eq!(req["adminToken"], "test-admin-token");
+        // The register request must have arrived: an admin preamble then the command.
+        let (preamble, command) = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert_eq!(preamble["route"], "admin");
+        assert_eq!(preamble["token"], "test-admin-token");
+        assert_eq!(command["command"], "register");
+        assert_eq!(command["sessionId"], session.session_id);
+        assert_eq!(command["token"], session.session_token);
 
         std::env::remove_var("ATHING_DIR");
         std::env::remove_var("ATHING_GATE_ADMIN_TOKEN");
@@ -274,7 +246,6 @@ mod tests {
         let dir = temp_dir("dereg-exit");
         std::env::set_var("ATHING_DIR", &dir);
         std::env::set_var("ATHING_GATE_ADMIN_TOKEN", "test-admin-token");
-        std::fs::write(dir.join("gate.url"), "http://127.0.0.1:19998").unwrap();
 
         let sock_path = admin_sock(&dir);
         let rx = fake_admin_socket(&sock_path);
@@ -284,15 +255,15 @@ mod tests {
             session_id: "test-session-42".to_string(),
             session_token: "test-token-42".to_string(),
             athing_dir: dir.clone(),
-            gate_url: Some("http://127.0.0.1:19998".to_string()),
         };
 
         deregister_session(&session);
 
-        let req = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-        assert_eq!(req["request"]["command"], "deregister");
-        assert_eq!(req["request"]["sessionId"], "test-session-42");
-        assert_eq!(req["adminToken"], "test-admin-token");
+        let (preamble, command) = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert_eq!(preamble["route"], "admin");
+        assert_eq!(preamble["token"], "test-admin-token");
+        assert_eq!(command["command"], "deregister");
+        assert_eq!(command["sessionId"], "test-session-42");
 
         std::env::remove_var("ATHING_DIR");
         std::env::remove_var("ATHING_GATE_ADMIN_TOKEN");

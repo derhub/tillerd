@@ -1,6 +1,4 @@
-//! The authentication gate: constant-time per-session token verification against
-//! the session registry. Rejects without continuing when the token does not
-//! authenticate.
+//! Auth: constant-time token verification. Rejects if unauthenticated.
 
 use std::sync::Arc;
 

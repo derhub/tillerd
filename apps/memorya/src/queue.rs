@@ -1,6 +1,4 @@
-//! The durable embedding work queue (`capture_queue`). Ingest enqueues one
-//! request per committed chunk; the background worker drains it. Operations run
-//! over the shared [`Store`] connection, so the caller serializes access.
+//! Queue: durable embedding work. Serialized via shared Store connection.
 
 use rusqlite::{params, OptionalExtension};
 

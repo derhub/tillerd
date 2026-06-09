@@ -1,9 +1,4 @@
-//! Spawn-field diffing (R6).
-//!
-//! A managed child needs restarting only when a field that actually affects the
-//! spawned process changes. The spawn-affecting set is `{command, args, cwd,
-//! env[allowlist]}` with a per-tool declared env-key allowlist. Fields that do
-//! not change the process image — logging level, observer/metadata, manifest-only
+//! Diffing: restart only on spawn-affecting fields. Allowlist-gated env keys.
 //! fields, and any env var outside the allowlist — are ignored.
 
 use std::collections::BTreeMap;

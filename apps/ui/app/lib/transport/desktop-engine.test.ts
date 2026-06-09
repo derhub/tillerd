@@ -16,14 +16,14 @@ const info: AgentInfo = {
   path: "/usr/bin/claude",
   version: "1.5.0",
   hookCommand: "/x/athing-notify",
-  hooksSocketPath: "/x/hooks.sock",
+  athingDir: "/x/athing",
   homeDir: "/home/u",
 };
 
 describe("buildDesktopEngineDeps", () => {
-  test("carries the resolved hooks socket and the three native ports", () => {
+  test("carries the runtime directory and the three native ports", () => {
     const deps = buildDesktopEngineDeps(core, info);
-    expect(deps.hooksSocketPath).toBe("/x/hooks.sock");
+    expect(deps.athingDir).toBe("/x/athing");
     expect(deps.resolvedCommand).toBe("/usr/bin/claude");
     expect(deps.transport).toBeDefined();
     expect(deps.logger).toBeDefined();

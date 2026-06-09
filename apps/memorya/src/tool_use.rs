@@ -1,4 +1,4 @@
-//! Post-tool capture helpers: skip list and auto-title.
+//! Tool use: skip list and auto-title.
 
 /// Low-value tools whose events are not worth storing.
 pub const SKIP_TOOLS: &[&str] = &[

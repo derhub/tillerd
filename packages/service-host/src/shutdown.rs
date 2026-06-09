@@ -1,9 +1,4 @@
-//! Escalating graceful-then-forced shutdown of a tool's child processes.
-//!
-//! The host tracks every child it spawns. On a stop signal it asks each child to
-//! terminate gracefully (`SIGTERM`), waits a bounded grace period, then forces
-//! any survivor (`SIGKILL`) and reaps it. The result is that the host exits with
-//! no orphaned children, honoring the reliability contract.
+//! Shutdown: escalating SIGTERM (grace period) → SIGKILL. No orphaned children.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

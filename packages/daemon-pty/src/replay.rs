@@ -1,4 +1,4 @@
-//! Bounded per-session ring buffer of raw output bytes: 64 KB, evict oldest chunks.
+//! Replay buffer: bounded ring, evicts oldest chunks.
 
 const CAPACITY: usize = 64 * 1024;
 

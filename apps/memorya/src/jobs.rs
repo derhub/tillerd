@@ -1,5 +1,4 @@
-//! Consolidation ladder: session→daily→weekly→monthly digests by aggregation
-//! only (no language model). Each step marks the level below as covered.
+//! Jobs: consolidation ladder by aggregation. No language model.
 
 use crate::store::Store;
 

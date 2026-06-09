@@ -13,7 +13,8 @@ import { AgentSessionProxy, fillProxyOptions } from "./daemon/proxy";
 export interface EngineDeps {
   transport: DaemonTransport;
   logger: Logger;
-  hooksSocketPath: string;
+  /** Runtime directory ($ATHING_DIR) injected into the agent so its hook client derives the gate socket. */
+  athingDir: string;
   resolvedCommand: string;
   hookSource?: HookSource;
 }
@@ -35,7 +36,7 @@ class EngineImpl implements IEngine {
       opts,
       this.deps.transport,
       "spawn",
-      this.deps.hooksSocketPath,
+      this.deps.athingDir,
       this.deps.logger,
       this.deps.resolvedCommand,
       this.deps.hookSource,
@@ -65,7 +66,7 @@ class EngineImpl implements IEngine {
       opts,
       this.deps.transport,
       "subscribe",
-      this.deps.hooksSocketPath,
+      this.deps.athingDir,
       this.deps.logger,
       this.deps.resolvedCommand,
       this.deps.hookSource,

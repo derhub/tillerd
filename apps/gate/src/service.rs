@@ -1,23 +1,17 @@
-//! The gate as a hosted `service-host` Service.
-//!
-//! `service-host` owns path resolution, the manifest, signal handling, and the
-//! unauthenticated liveness probe (the gate's only health face). The gate supplies
-//! its identity and its serve behavior: it binds the five loopback faces (hook,
-//! tool, subscribe, admin, mcp) and tracks their tasks, then tears down the live
-//! subscriptions and session registry on shutdown — neither is a `service-host`
-//! child, so the gate owns their teardown.
+//! Gate: service-host child. Gate owns teardown of subscriptions + registry (not service-host managed).
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use service_host::host::{ServeContext, Service, ServiceConfig};
+use tokio::net::UnixListener;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 use crate::agent_adapter::{AgentAdapter, V1Adapter};
 use crate::endpoint::admin::Admin;
-use crate::endpoint::{admin, hook, mcp, subscribe, tool};
+use crate::endpoint::dispatch::{dispatch, Faces};
 use crate::middleware::auth::Auth;
 use crate::middleware::fanout::FanOut;
 use crate::middleware::normalize::Normalize;
@@ -29,14 +23,17 @@ use crate::router::Router;
 use crate::subscription::Subscriptions;
 use crate::{Kind, Token};
 
-/// The hosted tool name; the manifest and probe socket derive from it.
+/// The hosted tool name; the manifest derives from it.
 const SERVICE_NAME: &str = "gate";
 
-/// This binary's version, reported in the manifest and by the probe.
+/// This binary's version, reported in the manifest.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Environment source of the admin token (distinct from any session token).
 const ADMIN_TOKEN_ENV: &str = "ATHING_GATE_ADMIN_TOKEN";
+
+/// The single front-door socket file, derived from the runtime directory.
+const GATE_SOCKET: &str = "gate.sock";
 
 /// The production observation sink: records flow through `tracing`.
 struct LogSink;
@@ -64,15 +61,10 @@ impl ObserveSink for LogSink {
 }
 
 /// The gate service: the shared registry and subscriptions, the admin face, the
-/// wired router, and the loopback face tasks (filled in `serve`).
+/// wired router, and the single socket's accept task (filled in `serve`).
 pub struct Gate {
     version: String,
     base_override: Option<String>,
-    port: u16,
-    max_body: usize,
-    mcp_transport: mcp::Transport,
-    mcp_port: u16,
-    mcp_sidecar: Option<PathBuf>,
     registry: Arc<SessionRegistry>,
     subscriptions: Arc<Subscriptions>,
     admin: Arc<Admin>,
@@ -81,8 +73,8 @@ pub struct Gate {
 }
 
 impl Gate {
-    /// Build the gate from the environment: the queue cap, the hook port and body
-    /// cap, and the admin token (a random secret when unset).
+    /// Build the gate from the environment: the queue cap and the admin token (a
+    /// random secret when unset).
     pub fn from_env() -> Self {
         let registry = Arc::new(SessionRegistry::new());
         let subscriptions = Arc::new(Subscriptions::from_env());
@@ -99,11 +91,6 @@ impl Gate {
         Self {
             version: VERSION.to_string(),
             base_override: std::env::var("ATHING_DIR").ok(),
-            port: hook::port_from_env(),
-            max_body: hook::max_body_from_env(),
-            mcp_transport: mcp::transport_from_env(),
-            mcp_port: mcp::port_from_env(),
-            mcp_sidecar: None,
             registry,
             subscriptions,
             admin,
@@ -112,53 +99,28 @@ impl Gate {
         }
     }
 
-    /// Bind every loopback face, publish the hook URL, and track each face's task.
-    async fn bind_faces(&mut self, base: &Path) -> std::io::Result<()> {
-        let listener = hook::bind(self.port).await?;
-        hook::write_gate_url(&base.join("gate.url"), listener.local_addr()?)?;
-        let app = hook::app(self.router.clone(), self.max_body);
+    /// Bind the single front-door socket at its deterministic path and run the
+    /// accept loop: every connection is demultiplexed by its route preamble. The
+    /// gate binds no TCP port and publishes no address file — the path derives from
+    /// the runtime directory.
+    fn bind_socket(&mut self, base: &Path) -> std::io::Result<()> {
+        let path = base.join(GATE_SOCKET);
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path)?;
+        let faces = Faces {
+            registry: self.registry.clone(),
+            admin: self.admin.clone(),
+            subscriptions: self.subscriptions.clone(),
+            router: self.router.clone(),
+        };
         self.tasks.push(tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
+            loop {
+                let Ok((stream, _)) = listener.accept().await else {
+                    break;
+                };
+                tokio::spawn(dispatch(stream, faces.clone()));
+            }
         }));
-        self.tasks.push(tool::serve(
-            base.join("gate-tool.sock"),
-            self.router.clone(),
-        )?);
-        self.tasks.push(subscribe::serve(
-            base.join("gate-subscribe.sock"),
-            self.subscriptions.clone(),
-        )?);
-        self.tasks.push(admin::serve(
-            base.join("gate-admin.sock"),
-            self.admin.clone(),
-        )?);
-        self.bind_mcp_face(base).await?;
-        Ok(())
-    }
-
-    /// Bind the configured MCP transport, publish its sidecar, and track its task.
-    async fn bind_mcp_face(&mut self, base: &Path) -> std::io::Result<()> {
-        match self.mcp_transport {
-            mcp::Transport::Http => {
-                let listener = mcp::bind(self.mcp_port).await?;
-                let sidecar = base.join("gate-mcp.url");
-                mcp::write_mcp_url(&sidecar, listener.local_addr()?)?;
-                let app = mcp::http_app(self.router.clone(), self.registry.clone());
-                self.tasks.push(tokio::spawn(async move {
-                    let _ = axum::serve(listener, app).await;
-                }));
-                self.mcp_sidecar = Some(sidecar);
-            }
-            mcp::Transport::Socket => {
-                let sidecar = base.join("gate-mcp.sock");
-                self.tasks.push(mcp::serve_socket(
-                    sidecar.clone(),
-                    self.router.clone(),
-                    self.registry.clone(),
-                )?);
-                self.mcp_sidecar = Some(sidecar);
-            }
-        }
         Ok(())
     }
 }
@@ -197,18 +159,15 @@ impl Service for Gate {
 
     async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
         let ServeContext { paths, .. } = ctx;
-        self.bind_faces(paths.base_dir()).await?;
-        // The faces serve from their own tasks; hold serve open until the host's
-        // stop signal cancels it, then `shutdown` aborts the tasks.
+        self.bind_socket(paths.base_dir())?;
+        // The accept loop serves from its own task; hold serve open until the host's
+        // stop signal cancels it, then `shutdown` aborts the task.
         std::future::pending::<std::io::Result<()>>().await
     }
 
     async fn shutdown(&mut self) {
         for task in self.tasks.drain(..) {
             task.abort();
-        }
-        if let Some(sidecar) = self.mcp_sidecar.take() {
-            let _ = std::fs::remove_file(sidecar);
         }
         self.subscriptions.clear();
         self.registry.clear();
@@ -235,11 +194,6 @@ mod tests {
         Gate {
             version: "9.9.9".into(),
             base_override: None,
-            port: 0,
-            max_body: 1 << 20,
-            mcp_transport: mcp::Transport::Http,
-            mcp_port: 0,
-            mcp_sidecar: None,
             registry,
             subscriptions,
             admin,
@@ -257,32 +211,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn binding_publishes_the_hook_url_and_opens_every_ipc_face() {
+    async fn binding_opens_one_socket_and_publishes_no_address_file() {
         let dir = tempfile::tempdir().unwrap();
         let mut gate = gate();
 
-        gate.bind_faces(dir.path()).await.unwrap();
+        gate.bind_socket(dir.path()).unwrap();
 
-        let url = std::fs::read_to_string(dir.path().join("gate.url")).unwrap();
         assert!(
-            url.starts_with("http://127.0.0.1:"),
-            "the hook url is published"
+            tokio::net::UnixStream::connect(dir.path().join("gate.sock"))
+                .await
+                .is_ok(),
+            "the single front-door socket is bound"
         );
-        let mcp_url = std::fs::read_to_string(dir.path().join("gate-mcp.url")).unwrap();
-        assert!(
-            mcp_url.starts_with("http://127.0.0.1:") && mcp_url.ends_with("/mcp"),
-            "the mcp endpoint is published beside the hook url"
-        );
-        for socket in ["gate-tool.sock", "gate-subscribe.sock", "gate-admin.sock"] {
+        for absent in [
+            "gate.url",
+            "gate-mcp.url",
+            "gate-mcp.sock",
+            "gate-hook.sock",
+            "gate-tool.sock",
+            "gate-subscribe.sock",
+            "gate-admin.sock",
+        ] {
             assert!(
-                tokio::net::UnixStream::connect(dir.path().join(socket))
-                    .await
-                    .is_ok(),
-                "the {socket} face is bound"
+                !dir.path().join(absent).exists(),
+                "{absent} is gone: one socket, no per-face files, no published address"
             );
         }
 
         gate.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn shutdown_stops_the_accept_loop() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut gate = gate();
+        gate.bind_socket(dir.path()).unwrap();
+
+        gate.shutdown().await;
+
+        assert!(
+            gate.tasks.is_empty(),
+            "the accept task is aborted, so the gate stops accepting new connections"
+        );
     }
 
     #[tokio::test]
@@ -365,48 +335,5 @@ mod tests {
             !records[0].correlation_id.0.is_empty(),
             "the observation carries a correlation id"
         );
-    }
-
-    #[tokio::test]
-    async fn shutdown_stops_the_mcp_face_and_removes_its_discovery_sidecar() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut gate = gate();
-        gate.bind_faces(dir.path()).await.unwrap();
-        let sidecar = dir.path().join("gate-mcp.url");
-        assert!(
-            sidecar.exists(),
-            "the mcp endpoint is published after binding"
-        );
-
-        gate.shutdown().await;
-
-        assert!(
-            gate.tasks.is_empty(),
-            "every face task is aborted, so the face stops accepting new connections"
-        );
-        assert!(
-            !sidecar.exists(),
-            "the discovery sidecar is removed on clean shutdown"
-        );
-    }
-
-    #[tokio::test]
-    async fn the_configured_transport_is_the_only_one_bound() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut gate = gate();
-        gate.mcp_transport = mcp::Transport::Socket;
-
-        gate.bind_faces(dir.path()).await.unwrap();
-
-        assert!(
-            dir.path().join("gate-mcp.sock").exists(),
-            "the socket transport binds its socket"
-        );
-        assert!(
-            !dir.path().join("gate-mcp.url").exists(),
-            "no http endpoint is published when the socket transport is selected"
-        );
-
-        gate.shutdown().await;
     }
 }

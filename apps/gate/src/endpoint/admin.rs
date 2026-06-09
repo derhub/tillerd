@@ -1,32 +1,19 @@
-//! The admin face: register and deregister sessions on a separate, authenticated
-//! loopback Unix socket.
-//!
-//! The admin token is distinct from any session token and is compared in constant
-//! time over the full token bytes. An unauthenticated or malformed request never
-//! mutates the registry. This is the only face that can mutate the session
-//! registry: the hook and tool faces have no path to it.
+//! Admin route of the gate's single socket: the only face that mutates the session
+//! registry. The route preamble's admin token is verified by the demux (constant-time,
+//! distinct from any session token); a session token cannot reach this route. Each
+//! subsequent frame is one bare `AdminCommand`.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use contracts::SessionId;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
-use tokio::net::{UnixListener, UnixStream};
-use tokio::task::JoinHandle;
+use tokio::net::UnixStream;
 
 use crate::endpoint::{read_frame, write_frame};
 use crate::registry::SessionRegistry;
 use crate::Token;
-
-/// An admin request: the admin token plus the registry mutation it authorizes.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AdminRequest {
-    admin_token: String,
-    request: AdminCommand,
-}
 
 /// A registry mutation, internally tagged by `command`.
 #[derive(Debug, Deserialize)]
@@ -57,8 +44,9 @@ impl Admin {
     }
 
     /// Constant-time compare the provided token against the stored admin token.
-    /// A length mismatch is an unconditional reject.
-    fn authenticate(&self, provided: &str) -> bool {
+    /// A length mismatch is an unconditional reject. The demux calls this to admit
+    /// an `Admin`-route connection before any command is read.
+    pub(crate) fn authenticate(&self, provided: &str) -> bool {
         let provided = provided.as_bytes();
         if self.token_bytes.len() != provided.len() {
             return false;
@@ -66,17 +54,15 @@ impl Admin {
         bool::from(self.token_bytes.ct_eq(provided))
     }
 
-    /// Apply one admin frame: authenticate, then mutate the registry. A malformed
-    /// or unauthenticated request returns its outcome and never mutates.
-    pub(crate) fn apply(&self, frame: &[u8]) -> Vec<u8> {
-        let request = match serde_json::from_slice::<AdminRequest>(frame) {
-            Ok(request) => request,
+    /// Execute one bare `AdminCommand` frame: mutate the registry and encode the
+    /// outcome. The admin token was already verified by the demux; a malformed
+    /// frame never mutates.
+    pub(crate) fn execute(&self, frame: &[u8]) -> Vec<u8> {
+        let command = match serde_json::from_slice::<AdminCommand>(frame) {
+            Ok(command) => command,
             Err(e) => return encode(&json!({ "result": "invalid", "reason": e.to_string() })),
         };
-        if !self.authenticate(&request.admin_token) {
-            return encode(&json!({ "result": "unauthenticated" }));
-        }
-        match request.request {
+        match command {
             AdminCommand::Register { session_id, token } => {
                 self.registry.register(session_id, &Token::new(token));
             }
@@ -88,25 +74,12 @@ impl Admin {
     }
 }
 
-/// Bind the admin face to `socket_path` and serve it until the task is aborted.
-pub fn serve(socket_path: PathBuf, admin: Arc<Admin>) -> std::io::Result<JoinHandle<()>> {
-    let _ = std::fs::remove_file(&socket_path);
-    let listener = UnixListener::bind(&socket_path)?;
-    Ok(tokio::spawn(async move {
-        loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                break;
-            };
-            let admin = admin.clone();
-            tokio::spawn(handle_conn(stream, admin));
-        }
-    }))
-}
-
-async fn handle_conn(stream: UnixStream, admin: Arc<Admin>) {
+/// Serve one admin connection whose preamble already admitted the admin token:
+/// a request/response loop over bare `AdminCommand` frames.
+pub async fn serve_conn(stream: UnixStream, admin: Arc<Admin>) {
     let (mut rd, mut wr) = stream.into_split();
     while let Ok(Some(frame)) = read_frame(&mut rd).await {
-        let response = admin.apply(&frame);
+        let response = admin.execute(&frame);
         if write_frame(&mut wr, &response).await.is_err() {
             break;
         }
@@ -129,20 +102,13 @@ mod tests {
         )
     }
 
-    fn register_frame(admin_token: &str, session: &str, token: &str) -> Vec<u8> {
-        serde_json::to_vec(&json!({
-            "adminToken": admin_token,
-            "request": { "command": "register", "sessionId": session, "token": token },
-        }))
-        .unwrap()
+    fn register_frame(session: &str, token: &str) -> Vec<u8> {
+        serde_json::to_vec(&json!({ "command": "register", "sessionId": session, "token": token }))
+            .unwrap()
     }
 
-    fn deregister_frame(admin_token: &str, session: &str) -> Vec<u8> {
-        serde_json::to_vec(&json!({
-            "adminToken": admin_token,
-            "request": { "command": "deregister", "sessionId": session },
-        }))
-        .unwrap()
+    fn deregister_frame(session: &str) -> Vec<u8> {
+        serde_json::to_vec(&json!({ "command": "deregister", "sessionId": session })).unwrap()
     }
 
     fn result(response: &[u8]) -> String {
@@ -158,7 +124,7 @@ mod tests {
     fn register_command_adds_a_session_to_the_registry() {
         let (admin, registry) = admin_for("admin-secret");
 
-        let response = admin.apply(&register_frame("admin-secret", "s1", "sess-token"));
+        let response = admin.execute(&register_frame("s1", "sess-token"));
 
         assert_eq!(result(&response), "ok");
         assert!(
@@ -172,9 +138,9 @@ mod tests {
     #[test]
     fn deregister_command_removes_a_session() {
         let (admin, registry) = admin_for("admin-secret");
-        admin.apply(&register_frame("admin-secret", "s1", "sess-token"));
+        admin.execute(&register_frame("s1", "sess-token"));
 
-        let response = admin.apply(&deregister_frame("admin-secret", "s1"));
+        let response = admin.execute(&deregister_frame("s1"));
 
         assert_eq!(result(&response), "ok");
         assert!(
@@ -186,185 +152,27 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_request_with_the_wrong_admin_token() {
-        let (admin, registry) = admin_for("admin-secret");
-
-        let response = admin.apply(&register_frame("not-the-admin-token", "s1", "sess-token"));
-
-        assert_eq!(result(&response), "unauthenticated");
-        assert!(
-            registry
-                .verify(&session("s1"), &Token::new("sess-token"))
-                .is_none(),
-            "a wrong admin token never mutates the registry"
-        );
-    }
-
-    #[test]
-    fn authenticates_the_admin_token_via_constant_time_comparison() {
-        let (admin, _registry) = admin_for("admin-secret");
-
-        assert_eq!(
-            result(&admin.apply(&register_frame("admin-secret", "s1", "t"))),
-            "ok"
-        );
-        assert_eq!(
-            result(&admin.apply(&register_frame("admin-secrer", "s2", "t"))),
-            "unauthenticated",
-            "a token differing by one byte is refused"
-        );
-    }
-
-    #[test]
     fn rejects_a_malformed_admin_frame() {
         let (admin, _registry) = admin_for("admin-secret");
 
-        assert_eq!(result(&admin.apply(b"{ not json")), "invalid");
+        assert_eq!(result(&admin.execute(b"{ not json")), "invalid");
     }
 
-    // Face isolation: the hook and tool faces never reach session registration.
+    #[test]
+    fn authenticate_accepts_the_admin_token_and_refuses_others() {
+        let (admin, _registry) = admin_for("admin-secret");
 
-    fn tool_frame(token: &str, inbound: &Value) -> Vec<u8> {
-        serde_json::to_vec(&json!({ "token": token, "inbound": inbound })).unwrap()
-    }
-
-    #[tokio::test]
-    async fn the_tool_face_cannot_register_a_session() {
-        use crate::endpoint::tool;
-        use crate::middleware::auth::Auth;
-        use crate::middleware::passthrough::PassThrough;
-        use crate::middleware::Middleware;
-        use crate::router::Router;
-        use crate::Kind;
-        use std::collections::HashMap;
-
-        let registry = Arc::new(SessionRegistry::new());
-        let globals = vec![Arc::new(Auth::new(registry.clone())) as Arc<dyn Middleware>];
-        let routes = HashMap::from([
-            (Kind::ToolCall, Arc::new(PassThrough) as Arc<dyn Middleware>),
-            (
-                Kind::ToolResult,
-                Arc::new(PassThrough) as Arc<dyn Middleware>,
-            ),
-        ]);
-        let router = Router::new(globals, routes);
-
-        // An admin-register-shaped payload is meaningless to the tool face.
-        let response = tool::process(
-            &tool_frame(
-                "x",
-                &json!({ "command": "register", "sessionId": "intruder", "token": "t" }),
-            ),
-            &router,
-        )
-        .await;
-
-        let value: Value = serde_json::from_slice(&response).unwrap();
-        assert_eq!(value["result"], "reject");
         assert!(
-            registry
-                .verify(&session("intruder"), &Token::new("t"))
-                .is_none(),
-            "the tool face cannot create a registry entry"
+            admin.authenticate("admin-secret"),
+            "the admin token is accepted"
         );
-    }
-
-    #[tokio::test]
-    async fn the_hook_route_cannot_register_a_session() {
-        use crate::agent_adapter::V1Adapter;
-        use crate::middleware::auth::Auth;
-        use crate::middleware::fanout::FanOut;
-        use crate::middleware::normalize::Normalize;
-        use crate::middleware::{seq, Middleware};
-        use crate::router::{Inbound, Router};
-        use crate::subscription::Subscriptions;
-        use crate::{Kind, Reject};
-        use bytes::Bytes;
-        use std::collections::HashMap;
-
-        let registry = Arc::new(SessionRegistry::new());
-        registry.register(session("victim"), &Token::new("vt"));
-        let globals = vec![Arc::new(Auth::new(registry.clone())) as Arc<dyn Middleware>];
-        let route = seq(vec![
-            Arc::new(Normalize::new(Arc::new(V1Adapter))),
-            Arc::new(FanOut::new(Arc::new(Subscriptions::with_capacity(8)))),
-        ]);
-        let router = Router::new(globals, HashMap::from([(Kind::Hook, route)]));
-
-        // A register-shaped body is not a recognized hook, so it is rejected.
-        let flow = router
-            .handle(Inbound {
-                kind: Kind::Hook,
-                session: session("victim"),
-                correlation: None,
-                token: Token::new("vt"),
-                body: Bytes::from_static(
-                    br#"{"command":"register","sessionId":"intruder","token":"t"}"#,
-                ),
-            })
-            .await;
-
-        assert!(matches!(flow, Err(Reject::Invalid(_))));
         assert!(
-            registry
-                .verify(&session("intruder"), &Token::new("t"))
-                .is_none(),
-            "the hook face cannot create a registry entry"
+            !admin.authenticate("admin-secrer"),
+            "a token differing by one byte is refused"
         );
-    }
-
-    #[tokio::test]
-    async fn the_tool_face_cannot_publish_a_hook_event() {
-        use crate::agent_adapter::V1Adapter;
-        use crate::endpoint::tool;
-        use crate::middleware::auth::Auth;
-        use crate::middleware::fanout::FanOut;
-        use crate::middleware::normalize::Normalize;
-        use crate::middleware::passthrough::PassThrough;
-        use crate::middleware::{seq, Middleware};
-        use crate::router::Router;
-        use crate::subscription::Subscriptions;
-        use crate::Kind;
-        use std::collections::HashMap;
-        use tokio::sync::broadcast::error::TryRecvError;
-
-        let registry = Arc::new(SessionRegistry::new());
-        registry.register(session("s"), &Token::new("t"));
-        let subscriptions = Arc::new(Subscriptions::with_capacity(8));
-        let mut rx = subscriptions.subscribe(&session("s"));
-        let globals = vec![Arc::new(Auth::new(registry)) as Arc<dyn Middleware>];
-        let hook_route = seq(vec![
-            Arc::new(Normalize::new(Arc::new(V1Adapter))),
-            Arc::new(FanOut::new(subscriptions.clone())),
-        ]);
-        let routes = HashMap::from([
-            (Kind::Hook, hook_route),
-            (Kind::ToolCall, Arc::new(PassThrough) as Arc<dyn Middleware>),
-        ]);
-        let router = Router::new(globals, routes);
-
-        let response = tool::process(
-            &tool_frame(
-                "t",
-                &json!({
-                    "type": "ToolCall",
-                    "payload": {
-                        "sessionId": "s",
-                        "correlationId": "c",
-                        "toolName": "Bash",
-                        "toolInput": { "command": "ls" },
-                    },
-                }),
-            ),
-            &router,
-        )
-        .await;
-
-        let value: Value = serde_json::from_slice(&response).unwrap();
-        assert_eq!(value["result"], "forward", "the tool call is forwarded");
         assert!(
-            matches!(rx.try_recv(), Err(TryRecvError::Empty)),
-            "a tool call never publishes to hook subscribers"
+            !admin.authenticate("admin-secret-longer"),
+            "a length mismatch is refused"
         );
     }
 }

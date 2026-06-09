@@ -1,86 +1,59 @@
-//! The tool-route IPC face: a loopback Unix socket carrying length-prefixed tool
-//! inbounds.
-//!
-//! Each request pairs a session token with a [`ToolInbound`]; the face routes the
-//! tool call or result through the router (auth then pass-through) and returns the
-//! forwarded payload or the rejection. It only ever produces `ToolCall`/
-//! `ToolResult` kinds, so it can never publish a hook event.
+//! Tool-route IPC: the `Tool` route of the gate's single socket. The route preamble
+//! admits the connection; each subsequent frame is one bare `ToolInbound`, routed as
+//! `ToolCall`/`ToolResult` (never a hook) with one response frame per request.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use contracts::ToolInbound;
-use serde::Deserialize;
+use contracts::{SessionId, ToolInbound};
 use serde_json::{json, Value};
-use tokio::net::{UnixListener, UnixStream};
-use tokio::task::JoinHandle;
+use tokio::net::UnixStream;
 
 use crate::endpoint::{read_frame, write_frame};
 use crate::router::{Inbound, Router};
 use crate::{Flow, Kind, Outbound, Token};
 
-/// A tool-route request: the session token plus the tool inbound it authorizes.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ToolRequest {
-    token: String,
-    inbound: ToolInbound,
-}
-
-/// Bind the tool face to `socket_path` and serve it until the task is aborted.
-pub fn serve(socket_path: PathBuf, router: Arc<Router>) -> std::io::Result<JoinHandle<()>> {
-    let _ = std::fs::remove_file(&socket_path);
-    let listener = UnixListener::bind(&socket_path)?;
-    Ok(tokio::spawn(async move {
-        loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                break;
-            };
-            let router = router.clone();
-            tokio::spawn(handle_conn(stream, router));
-        }
-    }))
-}
-
-async fn handle_conn(stream: UnixStream, router: Arc<Router>) {
+/// Serve one tool connection whose preamble already admitted `session`/`token`:
+/// a request/response loop over bare `ToolInbound` frames.
+pub async fn serve_conn(stream: UnixStream, router: Arc<Router>, session: SessionId, token: Token) {
     let (mut rd, mut wr) = stream.into_split();
     while let Ok(Some(frame)) = read_frame(&mut rd).await {
-        let response = process(&frame, &router).await;
+        let response = process(&frame, &router, &session, &token).await;
         if write_frame(&mut wr, &response).await.is_err() {
             break;
         }
     }
 }
 
-/// Process one tool frame: route it and encode the response. A malformed frame is
-/// rejected without ever reaching the router.
-pub(crate) async fn process(frame: &[u8], router: &Router) -> Vec<u8> {
-    match serde_json::from_slice::<ToolRequest>(frame) {
-        Ok(request) => encode_response(&router.handle(to_inbound(request)).await),
+/// Process one bare `ToolInbound` frame against the preamble identity: route it and
+/// encode the response. A malformed frame is rejected without reaching the router.
+pub(crate) async fn process(
+    frame: &[u8],
+    router: &Router,
+    session: &SessionId,
+    token: &Token,
+) -> Vec<u8> {
+    match serde_json::from_slice::<ToolInbound>(frame) {
+        Ok(inbound) => encode_response(&router.handle(to_inbound(inbound, session, token)).await),
         Err(e) => encode_reject(&format!("malformed tool inbound: {e}")),
     }
 }
 
-fn to_inbound(request: ToolRequest) -> Inbound {
-    let (kind, session, correlation) = match &request.inbound {
-        ToolInbound::ToolCall {
-            session_id,
-            correlation_id,
-            ..
-        } => (Kind::ToolCall, session_id.clone(), correlation_id.clone()),
-        ToolInbound::ToolResult {
-            session_id,
-            correlation_id,
-            ..
-        } => (Kind::ToolResult, session_id.clone(), correlation_id.clone()),
+/// Build a tool `Inbound` from the payload, attributing it to the preamble-admitted
+/// session and token (not any session named inside the payload).
+fn to_inbound(inbound: ToolInbound, session: &SessionId, token: &Token) -> Inbound {
+    let (kind, correlation) = match &inbound {
+        ToolInbound::ToolCall { correlation_id, .. } => (Kind::ToolCall, correlation_id.clone()),
+        ToolInbound::ToolResult { correlation_id, .. } => {
+            (Kind::ToolResult, correlation_id.clone())
+        }
     };
-    let body = Bytes::from(serde_json::to_vec(&request.inbound).expect("tool inbound re-encodes"));
+    let body = Bytes::from(serde_json::to_vec(&inbound).expect("tool inbound re-encodes"));
     Inbound {
         kind,
-        session,
+        session: session.clone(),
         correlation: Some(correlation),
-        token: Token::new(request.token),
+        token: token.clone(),
         body,
     }
 }
@@ -108,8 +81,9 @@ mod tests {
     use crate::middleware::passthrough::PassThrough;
     use crate::middleware::Middleware;
     use crate::registry::SessionRegistry;
-    use contracts::{CorrelationId, SessionId};
+    use contracts::CorrelationId;
     use std::collections::HashMap;
+    use std::path::PathBuf;
 
     fn registry_with(session: &str, token: &str) -> Arc<SessionRegistry> {
         let registry = Arc::new(SessionRegistry::new());
@@ -138,15 +112,21 @@ mod tests {
         }
     }
 
-    fn frame(token: &str, inbound: &ToolInbound) -> Vec<u8> {
-        serde_json::to_vec(&json!({ "token": token, "inbound": inbound })).unwrap()
+    fn frame(inbound: &ToolInbound) -> Vec<u8> {
+        serde_json::to_vec(inbound).unwrap()
     }
 
     #[tokio::test]
     async fn forwards_an_authenticated_tool_call() {
         let router = tool_router(registry_with("s", "secret"));
 
-        let response = process(&frame("secret", &tool_call("s")), &router).await;
+        let response = process(
+            &frame(&tool_call("s")),
+            &router,
+            &SessionId("s".into()),
+            &Token::new("secret"),
+        )
+        .await;
 
         let value: Value = serde_json::from_slice(&response).unwrap();
         assert_eq!(value["result"], "forward");
@@ -162,17 +142,29 @@ mod tests {
     async fn rejects_a_malformed_frame_without_routing() {
         let router = tool_router(registry_with("s", "secret"));
 
-        let response = process(b"{ not json", &router).await;
+        let response = process(
+            b"{ not json",
+            &router,
+            &SessionId("s".into()),
+            &Token::new("secret"),
+        )
+        .await;
 
         let value: Value = serde_json::from_slice(&response).unwrap();
         assert_eq!(value["result"], "reject");
     }
 
     #[tokio::test]
-    async fn rejects_an_unauthenticated_tool_call() {
+    async fn rejects_a_tool_call_whose_preamble_token_is_wrong() {
         let router = tool_router(registry_with("s", "secret"));
 
-        let response = process(&frame("wrong", &tool_call("s")), &router).await;
+        let response = process(
+            &frame(&tool_call("s")),
+            &router,
+            &SessionId("s".into()),
+            &Token::new("wrong"),
+        )
+        .await;
 
         let value: Value = serde_json::from_slice(&response).unwrap();
         assert_eq!(value["result"], "reject");
@@ -193,11 +185,16 @@ mod tests {
     #[tokio::test]
     async fn serves_tool_inbounds_over_a_loopback_unix_socket() {
         let sock = temp_sock("ipc");
+        let _ = std::fs::remove_file(&sock);
         let router = tool_router(registry_with("s", "secret"));
-        let handle = serve(sock.clone(), router).unwrap();
+        let listener = tokio::net::UnixListener::bind(&sock).unwrap();
+        let handle = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            serve_conn(stream, router, SessionId("s".into()), Token::new("secret")).await;
+        });
 
         let mut stream = UnixStream::connect(&sock).await.unwrap();
-        write_frame(&mut stream, &frame("secret", &tool_call("s")))
+        write_frame(&mut stream, &frame(&tool_call("s")))
             .await
             .unwrap();
         let response = read_frame(&mut stream).await.unwrap().unwrap();

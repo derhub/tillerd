@@ -1,10 +1,10 @@
 ## Why
 
-Users accumulate many MCP servers (typically 3-8, power users 10-50), and every MCP client must
+Users accumulate many MCP servers, and every MCP client must
 be configured with the full list independently — duplicating credentials, spawn commands, and
 process supervision in each client. A single aggregating gateway lets any MCP client connect to
 one endpoint and reach every backend, while one supervisor owns spawn, health, and restart. The
-gateway must outlive the desktop UI so background servers and their warm state survive the UI
+gateway should outlive the desktop UI so background servers and their warm state survive the UI
 closing — so it is a standalone long-lived daemon, a sibling to the existing PTY daemon, not an
 in-process component.
 

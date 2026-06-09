@@ -1,8 +1,4 @@
-//! Dependency-direction guards (rule 8.4). Workspace-level assertions against the
-//! resolved dependency graph:
-//!
-//! - No tool (daemon / gate / gateway / memorya) depends on another tool's internals.
-//! - No tool depends on an orchestrator.
+//! Dependency guards: tools don't depend on each other or orchestrator.
 //! - Only `daemon-pty-client` (and the daemon itself) know the PTY wire.
 //! - `gate-client` and `contracts-rs` carry no tool deps.
 //! - The daemon depends on nothing downstream (no gate / gateway / memorya).

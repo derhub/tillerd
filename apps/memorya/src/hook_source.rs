@@ -1,7 +1,4 @@
-//! The hook-event source port: where captured lifecycle events come from.
-//!
-//! [`StubSource`] replays a fixed list (tests, standalone). [`GateSubscriptionSource`]
-//! subscribes to a gate over a blocking Unix socket and decodes the wire with
+//! Hook-event source: stub (replay) or gate subscription.
 //! [`gate_client`]. The engine stays synchronous: blocking reads on a dedicated
 //! capture thread, no async runtime.
 
@@ -12,10 +9,10 @@ use std::os::unix::net::UnixStream;
 use std::path::Path;
 
 use anyhow::Context;
-use contracts::{HookEvent, HookSubscribeRequest, SessionId};
+use contracts::{HookEvent, SessionId};
 use gate_client::{
-    decode_subscription_frame, encode_subscribe_request, negotiate_ready, FrameDecoder,
-    SubscriptionFrame, WIRE_VERSION,
+    decode_subscription_frame, encode_subscribe_preamble, negotiate_ready, FrameDecoder,
+    SubscriptionFrame,
 };
 
 const READ_BUF: usize = 8192;
@@ -61,11 +58,7 @@ impl GateSubscriptionSource {
     /// handshake are buffered.
     pub fn connect(socket_path: impl AsRef<Path>, session_id: SessionId) -> anyhow::Result<Self> {
         let mut stream = UnixStream::connect(socket_path)?;
-        let request = HookSubscribeRequest {
-            session_id,
-            wire_version: WIRE_VERSION,
-        };
-        stream.write_all(&encode_subscribe_request(&request))?;
+        stream.write_all(&encode_subscribe_preamble(&session_id))?;
         stream.flush()?;
 
         let mut decoder = FrameDecoder::new();
@@ -76,7 +69,7 @@ impl GateSubscriptionSource {
             if n == 0 {
                 anyhow::bail!("gate closed the connection before the ready handshake");
             }
-            let mut frames = decoder.push(&buf[..n]).into_iter();
+            let mut frames = decoder.push(&buf[..n])?.into_iter();
             let Some(first) = frames.next() else {
                 continue;
             };
@@ -108,7 +101,8 @@ impl HookSource for GateSubscriptionSource {
             if n == 0 {
                 return None;
             }
-            for raw in self.decoder.push(&buf[..n]) {
+            let frames = self.decoder.push(&buf[..n]).ok()?;
+            for raw in frames {
                 if let Some(SubscriptionFrame::Event(event)) = decode_subscription_frame(&raw) {
                     self.pending.push_back(event);
                 }
@@ -129,7 +123,7 @@ mod tests {
     use crate::capture::HookCapturer;
     use crate::Engram;
     use contracts::{CorrelationId, HookKind};
-    use gate_client::encode_frame;
+    use gate_client::{encode_frame, WIRE_VERSION};
     use serde_json::json;
     use std::os::unix::net::UnixListener;
     use std::sync::mpsc;

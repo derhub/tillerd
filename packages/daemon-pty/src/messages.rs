@@ -1,5 +1,4 @@
-//! Client → daemon frame parsing. Internally tagged on `type`. Daemon → client
-//! frames are constructed ad hoc with `serde_json` where they are emitted.
+//! Message frames: client→daemon parsing, daemon→client ad hoc construction.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;

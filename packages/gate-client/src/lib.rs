@@ -1,90 +1,27 @@
-//! Client-side codec for the gate hook-subscription wire.
-//!
-//! This crate is the Rust owner of the consumer side of the gate's subscribe
-//! face. It mirrors the gate's server-side codec ([`apps/gate`]'s `endpoint`):
-//! length-prefixed JSON frames (a 4-byte big-endian payload length, then a JSON
-//! payload — no raw body plane), the [`HookSubscribeRequest`] a consumer sends,
-//! and the typed handshake/event/error frames a consumer decodes.
-//!
-//! It carries no transport — a consumer drives its own socket and feeds bytes to
-//! [`FrameDecoder`]. It imports neither the daemon PTY client nor memorya.
+//! Gate hook-subscription decoder (Rust consumer side). Consumer provides transport.
+//! Framing reuses the shared contracts::framing codec; no daemon-pty or memorya imports.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-use contracts::{HookEvent, HookSubscribeRequest, HOOK_SUBSCRIPTION_WIRE_VERSION};
+use contracts::{HookEvent, Route, RoutePreamble, SessionId, HOOK_SUBSCRIPTION_WIRE_VERSION};
 use serde_json::Value;
 
-const HEADER_SIZE: usize = 4;
+pub use contracts::framing::{encode_frame, FrameDecoder, OversizeFrame, RawFrame};
 
-/// The gate hook-subscription wire version this client speaks (R9: sourced from
-/// `contracts-rs`, negotiated with the gate at subscribe time).
+/// The gate wire version this client speaks (R9: sourced from `contracts-rs`,
+/// carried in the route preamble and negotiated with the gate at subscribe time).
 pub const WIRE_VERSION: u32 = HOOK_SUBSCRIPTION_WIRE_VERSION;
 
-/// One complete length-prefixed frame's JSON payload. The gate's subscribe face
-/// carries only JSON, so a frame has no raw body plane.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RawFrame {
-    /// The frame's JSON payload bytes.
-    pub payload: Vec<u8>,
-}
-
-/// Encode a frame the gate's subscribe face accepts: a 4-byte big-endian payload
-/// length, then the payload. Mirrors the gate's `endpoint::encode_frame`.
-pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(HEADER_SIZE + payload.len());
-    out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-    out.extend_from_slice(payload);
-    out
-}
-
-/// Encode the [`HookSubscribeRequest`] a consumer sends to open a stream.
-pub fn encode_subscribe_request(request: &HookSubscribeRequest) -> Vec<u8> {
-    encode_frame(&serde_json::to_vec(request).expect("subscribe request encodes"))
-}
-
-/// Incremental decoder: feed it socket chunks, get back complete frames. Holds a
-/// partial frame across pushes.
-#[derive(Debug, Default)]
-pub struct FrameDecoder {
-    buf: Vec<u8>,
-}
-
-impl FrameDecoder {
-    /// A fresh decoder with an empty buffer.
-    pub fn new() -> Self {
-        Self { buf: Vec::new() }
-    }
-
-    /// Append `chunk` and return every complete frame now available.
-    pub fn push(&mut self, chunk: &[u8]) -> Vec<RawFrame> {
-        self.buf.extend_from_slice(chunk);
-        let mut results = Vec::new();
-        let mut offset = 0usize;
-
-        while self.buf.len() - offset >= HEADER_SIZE {
-            let len_bytes = [
-                self.buf[offset],
-                self.buf[offset + 1],
-                self.buf[offset + 2],
-                self.buf[offset + 3],
-            ];
-            let payload_len = u32::from_be_bytes(len_bytes) as usize;
-            if self.buf.len() - offset < HEADER_SIZE + payload_len {
-                break;
-            }
-            let start = offset + HEADER_SIZE;
-            let end = start + payload_len;
-            results.push(RawFrame {
-                payload: self.buf[start..end].to_vec(),
-            });
-            offset = end;
-        }
-
-        if offset > 0 {
-            self.buf.drain(..offset);
-        }
-        results
-    }
+/// Encode the route preamble a consumer sends to open a `Subscribe` stream on the
+/// gate's single socket. The subscribe route carries no token.
+pub fn encode_subscribe_preamble(session_id: &SessionId) -> Vec<u8> {
+    let preamble = RoutePreamble {
+        route: Route::Subscribe,
+        session_id: Some(session_id.clone()),
+        token: None,
+        wire_version: WIRE_VERSION,
+    };
+    encode_frame(&serde_json::to_vec(&preamble).expect("subscribe preamble encodes"))
 }
 
 /// A decoded subscribe-face frame. The gate keys every frame by a `frame`

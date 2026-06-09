@@ -18,12 +18,7 @@ export interface SpawnSpec {
 }
 
 /** The env keys compared when deciding whether to restart (R6). */
-export const ENV_ALLOWLIST = [
-  "ATHING_DIR",
-  "ATHING_GATE_URL",
-  "ATHING_SESSION_ID",
-  "ATHING_SESSION_TOKEN",
-] as const;
+export const ENV_ALLOWLIST = ["ATHING_DIR", "ATHING_SESSION_ID", "ATHING_SESSION_TOKEN"] as const;
 
 /**
  * Returns true when `a` and `b` differ in any spawn-affecting field.

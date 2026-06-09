@@ -45,25 +45,14 @@ async function persist(ctx: SetupContext, path: string, settings: Settings): Pro
   await ctx.fs.writeAtomic(path, JSON.stringify(settings, null, 2) + "\n");
 }
 
-function hasMarker(entries: HookEntry[]): boolean {
-  return entries.some((entry) => entry.hooks.some((h) => h.command.includes(HOOK_MARKER)));
+function isAthingEntry(entry: HookEntry): boolean {
+  return entry.hooks.some((h) => h.command.includes(HOOK_MARKER));
 }
 
-function hookCommand(ctx: SetupContext): string {
-  if (ctx.gateUrl) {
-    // Gate mode: inline curl with bearer auth; shell vars are resolved at hook runtime.
-    // HOOK_MARKER (-A athing-notify) enables idempotency and uninstall detection.
-    return (
-      `curl -sS --max-time 5 -A ${HOOK_MARKER}` +
-      ` -H "content-type: application/json"` +
-      ` -H "Authorization: Bearer $ATHING_SESSION_TOKEN"` +
-      ` -H "x-session-id: $ATHING_SESSION_ID"` +
-      ` --data-binary @-` +
-      ` "$ATHING_GATE_URL/hook/$ATHING_SESSION_ID"` +
-      ` >/dev/null 2>&1 || true`
-    );
-  }
-  return ctx.notifyCommand;
+// A pre-frame-socket hook: the old gate-mode curl. Detected so re-running setup
+// migrates it to the notify binary.
+function isLegacyEntry(entry: HookEntry): boolean {
+  return entry.hooks.some((h) => h.command.includes("curl"));
 }
 
 export const setup = defineSetup({
@@ -71,29 +60,27 @@ export const setup = defineSetup({
     const path = settingsPath(ctx.agentHome);
     const settings = await readSettings(ctx, path);
     const hooks = settings.hooks ?? {};
+    const command = ctx.notifyCommand;
 
-    const pending = HOOK_EVENTS.filter((event) => !hasMarker(hooks[event] ?? []));
-    if (pending.length === 0) {
+    let changed = false;
+    for (const event of HOOK_EVENTS) {
+      const list = hooks[event] ?? [];
+      const installed = list.filter(isAthingEntry).some((entry) => !isLegacyEntry(entry));
+      if (installed) continue;
+      // Drop any legacy curl hook before adding the notify binary command.
+      const cleaned = list.filter((entry) => !isAthingEntry(entry));
+      cleaned.push({ matcher: matcherFor(event), hooks: [{ type: "command", command }] });
+      hooks[event] = cleaned;
+      changed = true;
+    }
+
+    if (!changed) {
       ctx.logger.debug("hooks already installed", { path });
       return;
     }
-
-    const command = hookCommand(ctx);
-
-    for (const event of pending) {
-      hooks[event] = [
-        ...(hooks[event] ?? []),
-        { matcher: matcherFor(event), hooks: [{ type: "command", command }] },
-      ];
-    }
     settings.hooks = hooks;
-
     await persist(ctx, path, settings);
-    if (ctx.gateUrl) {
-      ctx.logger.info("hooks installed", { path, events: pending, target: "gate" });
-    } else {
-      ctx.logger.info("hooks installed", { path, events: pending });
-    }
+    ctx.logger.info("hooks installed", { path });
   },
 
   async uninstall(ctx) {
@@ -105,9 +92,7 @@ export const setup = defineSetup({
     for (const event of HOOK_EVENTS) {
       const list = settings.hooks[event];
       if (!list) continue;
-      const filtered = list.filter(
-        (entry) => !entry.hooks.some((h) => h.command.includes(HOOK_MARKER)),
-      );
+      const filtered = list.filter((entry) => !isAthingEntry(entry));
       if (filtered.length !== list.length) {
         settings.hooks[event] = filtered;
         changed = true;

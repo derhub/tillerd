@@ -1,5 +1,4 @@
-//! Generic command resolution: absolute path as-is; bare name via login-shell PATH;
-//! no command defaults to `$SHELL`. Unresolvable named command → `BinaryNotFound`.
+//! Command resolution: absolute as-is, bare via PATH, defaults to $SHELL.
 
 use std::process::Command;
 

@@ -1,5 +1,4 @@
-//! In-memory session registry: the source of truth for per-session token
-//! authentication. Tokens are stored in full and verified in constant time.
+//! Session registry: constant-time token verification.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

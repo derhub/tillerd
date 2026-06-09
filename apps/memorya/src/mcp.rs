@@ -1,4 +1,4 @@
-//! MCP stdio server (line-delimited JSON-RPC 2.0): `recall`, `expand`, `entity`.
+//! MCP stdio server: recall, expand, entity tools.
 
 use crate::Engram;
 use serde_json::{json, Value};

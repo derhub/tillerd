@@ -10,6 +10,7 @@ members = [
   "packages/redact-rs",
   "apps/memorya",
   "apps/gate",
+  "apps/gate-notify",
   "apps/mcp-gateway-rs",
   "apps/desktop/src-tauri",
 ]

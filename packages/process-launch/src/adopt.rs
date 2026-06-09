@@ -1,8 +1,4 @@
-//! Adoption: connect to a live, exact-version-matching instance if one exists.
-//!
-//! Adoption succeeds only when the manifest names a process that is alive, whose
-//! `version` matches the requested version exactly (R3), and whose control
-//! socket accepts a connection. Any other state means the caller must spawn.
+//! Adopt: exact-version match required. Otherwise spawn.
 
 use std::path::Path;
 

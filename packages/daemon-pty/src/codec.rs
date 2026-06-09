@@ -1,5 +1,4 @@
-//! Wire framing: 4-byte big-endian length prefix, UTF-8 JSON meta, optional
-//! `0x0a`-separated raw body.
+//! Wire framing codec.
 
 use serde::Serialize;
 

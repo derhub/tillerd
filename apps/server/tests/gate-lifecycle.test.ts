@@ -39,31 +39,49 @@ function startFakeAdmin(adminToken: string): FakeAdmin {
   const commands: AdminCommand[] = [];
   const registry = new Map<string, string>();
 
+  // The Admin route: per connection the client sends a preamble frame then a command
+  // frame. Accumulate bytes (frames may split or coalesce), decode both, then apply.
+  const buffers = new WeakMap<object, Uint8Array>();
+
   const server = Bun.listen({
     unix: socketPath,
     socket: {
       open() {},
       data(socket, data: Buffer) {
-        // Parse length-prefixed frame
-        if (data.byteLength < 4) return;
-        const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-        const len = view.getUint32(0, false);
-        const payloadBytes = data.slice(4, 4 + len);
-        const cmd = JSON.parse(payloadBytes.toString("utf8")) as AdminCommand;
-        commands.push(cmd);
+        const prev = buffers.get(socket) ?? new Uint8Array(0);
+        const incoming = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        const buf = new Uint8Array(prev.length + incoming.length);
+        buf.set(prev, 0);
+        buf.set(incoming, prev.length);
+
+        const frames: Uint8Array[] = [];
+        let offset = 0;
+        while (buf.length - offset >= 4) {
+          const view = new DataView(buf.buffer, buf.byteOffset + offset);
+          const len = view.getUint32(0, false);
+          if (buf.length - offset < 4 + len) break;
+          frames.push(buf.slice(offset + 4, offset + 4 + len));
+          offset += 4 + len;
+        }
+        buffers.set(socket, buf.slice(offset));
+
+        // Need the preamble and the command frame before acting.
+        if (frames.length < 2) return;
+        const preamble = JSON.parse(new TextDecoder().decode(frames[0])) as {
+          route: string;
+          token?: string;
+        };
+        const request = JSON.parse(new TextDecoder().decode(frames[1])) as AdminCommand["request"];
+        commands.push({ adminToken: preamble.token ?? "", request });
 
         let result: string;
-        if (cmd.adminToken !== adminToken) {
+        if (preamble.route !== "admin" || preamble.token !== adminToken) {
           result = "unauthenticated";
-        } else if (
-          cmd.request.command === "register" &&
-          cmd.request.sessionId &&
-          cmd.request.token
-        ) {
-          registry.set(cmd.request.sessionId, cmd.request.token);
+        } else if (request.command === "register" && request.sessionId && request.token) {
+          registry.set(request.sessionId, request.token);
           result = "ok";
-        } else if (cmd.request.command === "deregister" && cmd.request.sessionId) {
-          registry.delete(cmd.request.sessionId);
+        } else if (request.command === "deregister" && request.sessionId) {
+          registry.delete(request.sessionId);
           result = "ok";
         } else {
           result = "invalid";

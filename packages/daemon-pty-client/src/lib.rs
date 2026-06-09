@@ -1,11 +1,5 @@
-//! Client-side codec for the daemon PTY session-event wire.
-//!
-//! This crate is the sole Rust owner of the PTY wire (ADR-0009 framing). It
-//! mirrors the daemon's server-side codec: the same length-prefixed framing, the
-//! control messages a consumer sends (`hello`, `subscribe`), and the typed
-//! session-event frames a consumer decodes (bytes + lifecycle, by session id).
-//! It carries no transport — a consumer drives its own socket and feeds bytes to
-//! [`FrameDecoder`].
+//! PTY session-event wire codec (sole Rust owner of ADR-0009 framing).
+//! Consumer provides transport; this crate provides encode/decode only.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 

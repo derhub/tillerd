@@ -1,8 +1,9 @@
-//! Startup mode resolution. The subcommand picks the face to serve; the
-//! environment picks where captured events come from.
+//! Mode resolution: subcommand picks face, environment picks event source.
 
-/// Canonical environment variable carrying the gate's subscribe socket path.
-pub const GATE_URL_ENV: &str = "ATHING_GATE_URL";
+use std::path::{Path, PathBuf};
+
+/// Environment variable carrying the runtime directory the gate sockets live under.
+pub const ATHING_DIR_ENV: &str = "ATHING_DIR";
 
 /// Canonical environment variable carrying the session id to subscribe to.
 pub const SESSION_ID_ENV: &str = "ATHING_SESSION_ID";
@@ -33,8 +34,9 @@ pub enum CaptureMode {
     Standalone,
     /// Composed: subscribe to a gate's hook-event stream for one session.
     Composed {
-        /// The gate's subscribe socket path.
-        gate_url: String,
+        /// The gate's single socket, derived from the runtime directory; the
+        /// subscriber opens it on the `Subscribe` route.
+        subscribe_sock: PathBuf,
         /// The session to subscribe to.
         session_id: String,
     },
@@ -42,23 +44,33 @@ pub enum CaptureMode {
 
 /// Resolve the capture mode from the environment.
 pub fn capture_mode_from_env() -> CaptureMode {
-    resolve_capture_mode(
-        std::env::var(GATE_URL_ENV).ok().as_deref(),
-        std::env::var(SESSION_ID_ENV).ok().as_deref(),
-    )
+    let base = std::env::var(ATHING_DIR_ENV)
+        .ok()
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(default_base);
+    resolve_capture_mode(&base, std::env::var(SESSION_ID_ENV).ok().as_deref())
 }
 
-/// Resolve the capture mode from explicit values. A non-empty gate url selects
-/// composed capture (the gate-subscription source); its absence is standalone
-/// (the stub source).
-pub fn resolve_capture_mode(gate_url: Option<&str>, session_id: Option<&str>) -> CaptureMode {
-    match gate_url {
-        Some(url) if !url.is_empty() => CaptureMode::Composed {
-            gate_url: url.to_string(),
-            session_id: session_id.unwrap_or_default().to_string(),
+/// Resolve the capture mode from explicit values. A session id selects composed
+/// capture, subscribing to the gate's subscribe socket under `base`; its absence
+/// is standalone (the stub source).
+pub fn resolve_capture_mode(base: &Path, session_id: Option<&str>) -> CaptureMode {
+    match session_id {
+        Some(id) if !id.is_empty() => CaptureMode::Composed {
+            subscribe_sock: base.join("gate.sock"),
+            session_id: id.to_string(),
         },
         _ => CaptureMode::Standalone,
     }
+}
+
+fn default_base() -> PathBuf {
+    std::env::var("HOME")
+        .ok()
+        .filter(|h| !h.is_empty())
+        .map(|h| PathBuf::from(h).join(".athing"))
+        .unwrap_or_else(|| PathBuf::from(".athing"))
 }
 
 #[cfg(test)]
@@ -76,18 +88,21 @@ mod tests {
     }
 
     #[test]
-    fn gate_url_present_selects_gate_subscription_source() {
+    fn a_session_id_selects_gate_subscription_source() {
         assert_eq!(
-            resolve_capture_mode(Some("/run/gate.sock"), Some("s1")),
+            resolve_capture_mode(Path::new("/run/athing"), Some("s1")),
             CaptureMode::Composed {
-                gate_url: "/run/gate.sock".to_string(),
+                subscribe_sock: PathBuf::from("/run/athing/gate.sock"),
                 session_id: "s1".to_string(),
             }
         );
     }
 
     #[test]
-    fn gate_url_absent_selects_stub_source() {
-        assert_eq!(resolve_capture_mode(None, None), CaptureMode::Standalone);
+    fn no_session_id_selects_stub_source() {
+        assert_eq!(
+            resolve_capture_mode(Path::new("/run/athing"), None),
+            CaptureMode::Standalone
+        );
     }
 }

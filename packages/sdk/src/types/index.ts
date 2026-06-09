@@ -24,8 +24,8 @@ export {
   RawFrame,
   FrameDecoder as SubscriptionFrameDecoder,
   encodeFrame as encodeSubscriptionFrame,
-  encodeSubscribeRequest,
+  encodeSubscribePreamble,
   decodeSubscriptionFrame,
   negotiateReady,
 } from "./subscription";
-export type { HookSubscribeRequest, SubscriptionFrame, DecodeError } from "./subscription";
+export type { Route, RoutePreamble, SubscriptionFrame, DecodeError } from "./subscription";

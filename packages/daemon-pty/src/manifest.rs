@@ -1,8 +1,4 @@
-//! Deterministic socket/manifest path names and read-only manifest access.
-//! Names live under a base dir resolved by `service-host` (`~/.athing` honoring
-//! `ATHING_DIR`). service-host owns manifest writing/removal via `host::run`;
-//! this module only derives the names and reads the manifest for the upgrade
-//! handoff (where the predecessor learns the successor's pid).
+//! Manifest: read-only here. service-host owns writes/removal. Upgrade handoff.
 
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -1,6 +1,4 @@
-//! Routes a normalized [`HookEvent`] to memorya's existing capture API. The
-//! dispatcher only routes; redaction, skip-listing, titling, and duplicate
-//! suppression already live in `capture_prompt`/`capture_tool`/`ensure_session`.
+//! Capture router: dispatches to existing capture API.
 
 use std::sync::{Arc, Mutex};
 

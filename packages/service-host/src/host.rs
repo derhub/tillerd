@@ -1,10 +1,9 @@
-//! The single host entry point that wires resource setup, serve, and shutdown.
+//! Host entry point: resource setup, serve, shutdown.
 
 use std::time::Duration;
 
 use crate::manifest::Manifest;
 use crate::paths::Paths;
-use crate::probe::Probe;
 use crate::shutdown::{ChildRegistry, DEFAULT_GRACE_PERIOD};
 use crate::signals::wait_for_stop_signal;
 
@@ -14,7 +13,7 @@ use crate::signals::wait_for_stop_signal;
 pub struct ServiceConfig {
     /// The tool's name; the manifest and socket file names derive from it.
     pub name: String,
-    /// The tool's version, recorded in the manifest and reported by the probe.
+    /// The tool's version, recorded in the manifest.
     pub version: String,
     /// Optional base-directory override (`ATHING_DIR`-style); `None` resolves to
     /// the default base.
@@ -41,14 +40,34 @@ impl ServiceConfig {
     }
 }
 
-/// What the host hands a tool's serve behavior: the resolved paths, the shared
-/// child registry (so the tool tracks any process it spawns), and a future that
-/// resolves when a stop signal arrives.
+/// What the host hands a tool's serve behavior: the resolved paths and the
+/// shared child registry.
 pub struct ServeContext {
     /// The resolved resource paths for this tool.
     pub paths: Paths,
     /// The registry shutdown sweeps; the tool tracks its children here.
     pub children: ChildRegistry,
+}
+
+/// Liveness status from a service's in-process health check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HealthStatus {
+    /// The service is running and accepting work.
+    Serving,
+    /// The service has begun graceful shutdown.
+    Draining,
+}
+
+/// In-process health report: liveness status and version.
+///
+/// Never serialized over a wire — health is the service's own concern.
+/// The host surfaces it via logging; there is no health socket or route.
+#[derive(Debug, Clone)]
+pub struct HealthReport {
+    /// The service version from its configuration.
+    pub version: String,
+    /// The service's current liveness status.
+    pub status: HealthStatus,
 }
 
 /// A long-lived tool. It supplies only its identity and its serve behavior;
@@ -72,11 +91,23 @@ pub trait Service: Send {
     fn shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send {
         async {}
     }
+
+    /// In-process health self-check. The host calls this to log the service's
+    /// status at startup and during graceful drain.
+    ///
+    /// The default reports serving at the configured version; override to report
+    /// a different status (for example, `Draining` once shutdown begins).
+    fn health(&self) -> HealthReport {
+        HealthReport {
+            version: self.config().version,
+            status: HealthStatus::Serving,
+        }
+    }
 }
 
 /// Start a tool through the host: resolve its paths, write its manifest, install
-/// signal handlers, expose the liveness probe, run its serve behavior, then
-/// shut down gracefully (escalating, no orphans) and remove the manifest.
+/// signal handlers, run its serve behavior, then shut down gracefully
+/// (escalating, no orphans) and remove the manifest.
 pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
     let config = service.config();
 
@@ -90,16 +121,20 @@ pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
     let manifest = Manifest::new(paths.manifest_path());
     manifest.write(&config.version)?;
 
-    // 3. Expose the unauthenticated liveness probe on its own socket, distinct
-    //    from the tool's primary socket (which the tool binds in `serve`).
-    let probe = Probe::start(paths.health_socket_path(), config.version.clone())?;
-
-    // 4. Run the tool's serve behavior, racing it against the stop signal.
+    // 3. Run the tool's serve behavior, racing it against the stop signal.
     let children = ChildRegistry::new();
     let ctx = ServeContext {
         paths: paths.clone(),
         children: children.clone(),
     };
+
+    let health = service.health();
+    tracing::info!(
+        service = %config.name,
+        version = %health.version,
+        status = ?health.status,
+        "service started"
+    );
 
     let result = tokio::select! {
         served = service.serve(ctx) => served,
@@ -110,16 +145,40 @@ pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
         }
     };
 
-    // 5. Tool-specific teardown, then escalating graceful-then-forced child
+    // 4. Tool-specific teardown, then escalating graceful-then-forced child
     //    shutdown: no orphans.
+    let health = service.health();
+    tracing::info!(
+        service = %config.name,
+        version = %health.version,
+        status = ?health.status,
+        "service draining"
+    );
     service.shutdown().await;
     children.shutdown_all(config.grace_period).await;
-    probe.stop();
 
-    // 6. Remove the manifest on a clean stop.
+    // 5. Remove the manifest on a clean stop.
     manifest.remove();
 
     result
+}
+
+/// Build the standard multi-thread runtime, run the service under the host,
+/// and exit with a uniform error message on failure. Every service binary
+/// collapses to one call to this function.
+pub fn run_blocking<S: Service>(service: S) {
+    let name = service.config().name;
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap_or_else(|e| {
+            eprintln!("{name}: failed to build runtime: {e}");
+            std::process::exit(1);
+        });
+    if let Err(e) = rt.block_on(run(service)) {
+        eprintln!("{name}: {e}");
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]
@@ -154,6 +213,52 @@ mod tests {
                 .push(Step::ManifestWrittenWith(manifest.version));
             self.steps.lock().unwrap().push(Step::Serve);
             Ok(())
+        }
+    }
+
+    struct HealthOverrideService {
+        config: ServiceConfig,
+        status: HealthStatus,
+    }
+
+    impl Service for HealthOverrideService {
+        fn config(&self) -> ServiceConfig {
+            self.config.clone()
+        }
+
+        async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn health(&self) -> HealthReport {
+            HealthReport {
+                version: self.config.version.clone(),
+                status: self.status.clone(),
+            }
+        }
+    }
+
+    struct HealthTrackingService {
+        config: ServiceConfig,
+        health_calls: Arc<Mutex<Vec<HealthStatus>>>,
+    }
+
+    impl Service for HealthTrackingService {
+        fn config(&self) -> ServiceConfig {
+            self.config.clone()
+        }
+
+        async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn health(&self) -> HealthReport {
+            let status = HealthStatus::Serving;
+            self.health_calls.lock().unwrap().push(status.clone());
+            HealthReport {
+                version: self.config.version.clone(),
+                status,
+            }
         }
     }
 
@@ -204,6 +309,50 @@ mod tests {
         // On a clean stop the manifest is removed; its parent (the resolved
         // base) was created during resolution.
         assert!(std::path::Path::new(&base).exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn health_default_reports_serving_at_configured_version() {
+        let service = RecordingService {
+            config: ServiceConfig::new("tool", "3.2.1"),
+            steps: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        let report = service.health();
+
+        assert_eq!(report.version, "3.2.1");
+        assert_eq!(report.status, HealthStatus::Serving);
+    }
+
+    #[test]
+    fn health_override_reports_own_status() {
+        let service = HealthOverrideService {
+            config: ServiceConfig::new("tool", "1.0.0"),
+            status: HealthStatus::Draining,
+        };
+
+        let report = service.health();
+
+        assert_eq!(report.status, HealthStatus::Draining);
+    }
+
+    #[tokio::test]
+    async fn host_calls_health_at_startup_and_drain() {
+        let base = temp_base("health-calls");
+        let health_calls = Arc::new(Mutex::new(Vec::new()));
+        let service = HealthTrackingService {
+            config: ServiceConfig::new("toolh", "1.0.0").with_base_override(Some(base.clone())),
+            health_calls: health_calls.clone(),
+        };
+
+        run(service).await.unwrap();
+
+        assert_eq!(
+            health_calls.lock().unwrap().len(),
+            2,
+            "host calls health() at startup and again at drain"
+        );
         let _ = std::fs::remove_dir_all(&base);
     }
 }

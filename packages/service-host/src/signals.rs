@@ -1,9 +1,4 @@
-//! Stop-signal handling.
-//!
-//! Installs handlers for the graceful-termination signals (`SIGTERM`, `SIGINT`)
-//! and exposes a future that resolves on the first one received. The host wires
-//! this to the shutdown sequence so a stop signal drives a graceful-then-forced
-//! teardown rather than an abrupt process death.
+//! Graceful termination signals: SIGTERM / SIGINT → graceful-then-forced teardown.
 
 use tokio::signal::unix::{signal, SignalKind};
 

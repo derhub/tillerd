@@ -1,6 +1,5 @@
-//! The agent adapter seam: a sync, pure translation from an agent's raw hook
-//! payload into the canonical [`HookEvent`]. v1 ships a single in-binary adapter;
-//! a per-agent adapter crate arrives only at multi-agent.
+//! Agent adapter: translates raw hook bytes to HookEvent.
+//! v1: single in-binary. Multi-agent: separate adapter crates.
 
 use contracts::{CorrelationId, HookEvent, HookKind, SessionId};
 use serde_json::Value;

@@ -1,5 +1,4 @@
-//! Control plane: Unix-socket accept loop, per-connection framing, capability
-//! negotiation, session registry, credit fan-out, and graceful shutdown.
+//! Server: control plane, session registry, credit fan-out.
 
 use crate::codec::{encode_frame, FrameDecoder};
 use crate::exit_qualifier::translate_exit;

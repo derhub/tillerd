@@ -1,9 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-//! The gate's composable middleware core: the context that flows through the
-//! onion, the outcome types, and the module tree. The transport faces (hook,
-//! tool, subscribe, admin) and the router wire these together.
+//! Gate: composable middleware stack. Faces (hook, tool, subscribe, admin) route via middleware.
 
 pub mod agent_adapter;
 pub mod endpoint;

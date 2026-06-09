@@ -1,8 +1,4 @@
-//! End-to-end router integration (task 5.14): the gate's production middleware
-//! wiring exercised through the public `Router` — fan-out to N subscribers,
-//! tool-route pass-through, auth rejection still recorded by the outermost
-//! observe layer, face isolation (a tool call never publishes a hook; a hook body
-//! never mutates the registry), subscription teardown on session end, and
+//! Router integration: face isolation, auth recorded, teardown on end.
 //! correlation preservation from inbound to event to record.
 
 use std::collections::HashMap;

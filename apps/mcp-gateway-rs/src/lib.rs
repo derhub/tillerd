@@ -1,8 +1,5 @@
 #![deny(unsafe_code)]
-//! Lightweight local-first MCP gateway: aggregates many MCP servers behind one
-//! MCP face. Pure core (`config`, `router`, `registry`) carries no I/O;
-//! `backend`/`supervisor` own all process and network side effects;
-//! `handler` is the MCP server face.
+//! MCP gateway: aggregates servers. Pure core (no I/O); backend/supervisor own side effects.
 
 pub mod backend;
 pub mod config;

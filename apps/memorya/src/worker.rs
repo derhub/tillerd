@@ -1,6 +1,4 @@
-//! The background embedding worker. It drains the durable capture queue on an
-//! interval and embeds each chunk, so embeddings are ready before a recall asks
-//! for them. It owns no database — it shares the memorya behind a mutex.
+//! Worker: drains capture queue, embeds chunks. Shares store via mutex.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -172,7 +170,8 @@ mod tests {
         let (_d, memorya) = shared();
         ingest_doc(&memorya, "/p/a.md", "alpha content");
         let stop = Arc::new(AtomicBool::new(false));
-        let handle = EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
+        let handle =
+            EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
 
         let drained = wait_until(|| pending(&memorya) == 0);
 
@@ -186,7 +185,8 @@ mod tests {
         let (_d, memorya) = shared();
         ingest_doc(&memorya, "/p/db.md", "the project stores data in postgres");
         let stop = Arc::new(AtomicBool::new(false));
-        let handle = EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
+        let handle =
+            EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
 
         let drained = wait_until(|| pending(&memorya) == 0);
         stop.store(true, Ordering::Relaxed);
@@ -248,7 +248,8 @@ mod tests {
         assert_eq!(total_queue_rows(&memorya), 1, "the abandoned row remains");
 
         let stop = Arc::new(AtomicBool::new(false));
-        let handle = EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
+        let handle =
+            EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
 
         let cleared = wait_until(|| total_queue_rows(&memorya) == 0);
 
@@ -265,7 +266,8 @@ mod tests {
         let (_d, memorya) = shared();
         ingest_doc(&memorya, "/p/bg.md", "background content");
         let stop = Arc::new(AtomicBool::new(false));
-        let handle = EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
+        let handle =
+            EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
 
         // No recall is ever issued; the queue must still drain proactively.
         let drained = wait_until(|| pending(&memorya) == 0);

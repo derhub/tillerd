@@ -1,14 +1,20 @@
-import { test, expect, describe } from "bun:test";
-import * as path from "node:path";
+import { test, expect, describe, beforeAll, afterAll } from "bun:test";
 import * as os from "node:os";
 import { encodeFrame, FrameDecoder } from "@athing/sdk";
+import { startDaemon, type DaemonHandle } from "./fixtures/daemon";
 
-const ATHING_DIR = process.env["ATHING_DIR"]
-  ? path.resolve(process.env["ATHING_DIR"])
-  : path.join(os.homedir(), ".athing");
+// The suite provisions its own daemon against an isolated temp runtime dir.
+let daemon: DaemonHandle;
+let SOCK_PATH: string;
 
-const SOCK_PATH = path.join(ATHING_DIR, "daemon.sock");
-const HOOKS_SOCK_PATH = path.join(ATHING_DIR, "hooks.sock");
+beforeAll(async () => {
+  daemon = await startDaemon();
+  SOCK_PATH = daemon.sockPath;
+});
+
+afterAll(async () => {
+  await daemon?.stop();
+});
 
 // ── Socket client ────────────────────────────────────────────────────────────
 
@@ -121,7 +127,6 @@ async function spawnSession(
     command: opts.command,
     args: opts.args ?? [],
     flags: [],
-    hookSocketPath: HOOKS_SOCK_PATH,
     token: `tok-${sessionId}`,
     cols: 80,
     rows: 24,
@@ -192,7 +197,6 @@ describe("daemon protocol", () => {
       command: "sh",
       args: [],
       flags: [],
-      hookSocketPath: HOOKS_SOCK_PATH,
       token: "tok",
       cols: 80,
       rows: 24,

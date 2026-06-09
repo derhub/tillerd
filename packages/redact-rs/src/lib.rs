@@ -1,10 +1,5 @@
-//! Sensitive-data redaction: detect credentials and structured PII, then
-//! replace each detected span with a fixed `[REDACTED]` marker.
-//!
-//! Detection layers: a regex catalog (credentials + structured PII), a
-//! Shannon-entropy fallback for unknown secrets, and an allowlist that
-//! suppresses structural false positives. For a labeled key/value pair only
-//! the value is redacted; the key is preserved. Pure and deterministic.
+//! Redact credentials and PII: regex catalog + entropy fallback + allowlist.
+//! Pure and deterministic. For key/value pairs, only value is redacted.
 
 mod entropy;
 mod patterns;

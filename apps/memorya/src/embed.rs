@@ -1,5 +1,4 @@
-//! Embedding: the [`Embedder`] boundary, the static-model implementation, and
-//! brute-force cosine.
+//! Embedding: trait, static-model impl, cosine similarity.
 
 pub trait Embedder: Send + Sync {
     fn model_id(&self) -> &str;

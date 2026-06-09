@@ -1,6 +1,4 @@
-//! Loopback HTTP viewer (`GET /`) plus a health check (`GET /healthz`). Blocking
-//! and `127.0.0.1`-only. Capture no longer arrives over HTTP — it is ingested by
-//! the capture dispatcher from a hook source.
+//! Server: loopback HTTP viewer + health. Blocking, localhost-only.
 
 use crate::Engram;
 use std::io::{BufRead, BufReader, Write};

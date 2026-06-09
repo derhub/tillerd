@@ -1,8 +1,4 @@
-//! Spawn the backend and wait until its control socket is reachable.
-//!
-//! Before spawning, any stale socket is removed so the fresh child binds
-//! cleanly. After the child becomes reachable the manifest is rewritten to name
-//! the new pid, overwriting a stale manifest that named a dead instance.
+//! Spawn and wait for control socket reachability. Manifest rewritten with new pid.
 
 use std::path::Path;
 use std::time::{Duration, Instant};

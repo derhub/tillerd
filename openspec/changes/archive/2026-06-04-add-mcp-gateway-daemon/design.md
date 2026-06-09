@@ -6,7 +6,7 @@ Each MCP client today is configured with the full backend server list independen
 spawn commands, credentials, and supervision. This change introduces an aggregating gateway: one
 MCP face over many backends, owned by a single supervisor.
 
-The gateway must outlive the desktop UI (backends and warm state survive the UI closing), so it
+The gateway should outlive the desktop UI (backends and warm state survive the UI closing), so it
 follows the detached-daemon pattern already established for the PTY daemon in ADR-0008: a long-lived
 process, a manifest under `~/.athing/`, reuse-or-spawn, and "no orphans / graceful shutdown" from
 ADR-0007. It is a sibling of the PTY daemon, not a dependant: it shares the conventions, not the

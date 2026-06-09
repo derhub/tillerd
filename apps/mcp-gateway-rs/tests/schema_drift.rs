@@ -1,6 +1,4 @@
-//! Golden drift guard: the published `schema.json` must match the schema
-//! generated from the current config types. Regenerate with
-//! `cargo run --bin gen-schema` when the types change.
+//! Schema drift guard: published schema must match generated.
 
 #[test]
 fn schema_json_matches_the_config_types() {

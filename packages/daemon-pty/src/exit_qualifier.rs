@@ -1,5 +1,4 @@
-//! Exit-qualifier translation. The qualifier is the primary exit field; raw
-//! code/signal/category are diagnostic only.
+//! Exit-qualifier: primary exit field. Code/signal/category are diagnostic.
 
 use crate::signals::{
     resolve_signal, signal_category_to_qualifier, ResolvedSignal, SignalInput, SignalPlatform,

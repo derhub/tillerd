@@ -1,10 +1,5 @@
-//! Run-others launcher for managed tool backends.
-//!
-//! Adopt a live, exact-version-matching instance when one is running; otherwise
-//! spawn one and wait until its control socket is reachable, overwriting a stale
-//! manifest that names a dead instance. Decide restarts by comparing only the
-//! spawn-affecting fields, and restart an exited child with a capped exponential
-//! backoff.
+//! Process launcher: adopt if live + exact-version match, else spawn.
+//! Restart only on spawn-affecting field changes, capped exponential backoff.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]

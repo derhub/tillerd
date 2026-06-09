@@ -1,5 +1,4 @@
-//! The pass-through terminal: forwards the inbound body unchanged. The gate
-//! observes tool-route traffic without rewriting it (v1 allow-all).
+//! Passthrough terminal: forwards unchanged. v1: allow-all.
 
 use async_trait::async_trait;
 

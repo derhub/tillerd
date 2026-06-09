@@ -2,8 +2,19 @@ import type { HookEvent } from "./events";
 
 export const HOOK_SUBSCRIPTION_WIRE_VERSION = 1;
 
-export interface HookSubscribeRequest {
-  sessionId: string;
+/** The face an inbound connection selects on the gate's single front-door socket. */
+export type Route = "hook" | "tool" | "subscribe" | "admin" | "mcp";
+
+/**
+ * The first frame on every connection to the gate's single socket: it selects the
+ * route, names the session (absent for the admin route), carries the route's bearer
+ * token (absent for the tokenless subscribe route), and declares the gate wire
+ * version. Subsequent frames are the route's bare payload.
+ */
+export interface RoutePreamble {
+  route: Route;
+  sessionId?: string;
+  token?: string;
   wireVersion: number;
 }
 
@@ -21,9 +32,15 @@ export function encodeFrame(payload: Uint8Array): Uint8Array {
   return out;
 }
 
-export function encodeSubscribeRequest(request: HookSubscribeRequest): Uint8Array {
-  const json = new TextEncoder().encode(JSON.stringify(request));
-  return encodeFrame(json);
+/** Encode the `Subscribe` route preamble a consumer sends to open a stream on the
+ * gate's single socket. The subscribe route carries no token. */
+export function encodeSubscribePreamble(sessionId: string): Uint8Array {
+  const preamble: RoutePreamble = {
+    route: "subscribe",
+    sessionId,
+    wireVersion: HOOK_SUBSCRIPTION_WIRE_VERSION,
+  };
+  return encodeFrame(new TextEncoder().encode(JSON.stringify(preamble)));
 }
 
 export class FrameDecoder {

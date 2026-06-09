@@ -2,22 +2,24 @@
 
 ## Purpose
 
-The gate's MCP face: a fifth transport face, peer to hook/tool/subscribe/admin, that accepts MCP protocol requests over a configurable loopback-only transport, authenticates them with the per-session bearer token, normalizes them into a distinct MCP inbound kind, routes them through the gate's existing global middleware (observe, auth) unchanged, and publishes the bound endpoint for discovery. This version is the routing layer only — it registers no tool implementations.
+The gate's MCP face: the `Mcp` route of the gate's single front-door socket, peer to hook/tool/subscribe/admin. A connection opens with the gate's route preamble; once its per-session token is verified the stream upgrades to the MCP protocol. The face normalizes each request into a distinct MCP inbound kind and routes it through the gate's existing global middleware (observe, auth) unchanged. The path is derived from the runtime directory — there is no separate transport and no published endpoint. This version is the routing layer only — it registers no tool implementations.
 
 ## Requirements
 
 ### Requirement: MCP ingress face
 
-The gate SHALL expose an MCP ingress face that accepts MCP protocol requests, peer to its
-existing transport faces. The face SHALL speak the MCP protocol — including the initialize
-handshake and protocol-version negotiation — over a maintained protocol library rather than
-a hand-rolled wire, so the gate owns only the bridge from an MCP request to an internal
-inbound.
+The gate SHALL expose an MCP ingress face as the `Mcp` route of its single front-door
+socket, peer to its other routes. A connection SHALL open with the gate's route preamble
+selecting the `Mcp` route; once the preamble's session token is verified, the gate SHALL
+upgrade the connection and speak the MCP protocol — including the initialize handshake and
+protocol-version negotiation — over a maintained protocol library rather than a hand-rolled
+wire, so the gate owns only the admission preamble and the bridge from an MCP request to an
+internal inbound.
 
 #### Scenario: A compliant client completes the initialize handshake
 
-- **WHEN** an MCP client connects to the face and sends an initialize request with its
-  supported protocol version
+- **WHEN** a client connects on the `Mcp` route with a verified preamble and sends an
+  initialize request with its supported protocol version
 - **THEN** the face completes the handshake, negotiating a mutually supported protocol
   version, and the connection becomes ready to serve requests
 
@@ -27,50 +29,37 @@ inbound.
 - **THEN** the face declines the handshake with a protocol error and does not serve
   requests on that connection
 
-### Requirement: Configurable local transport
-
-The face SHALL be reachable over a local transport selected by configuration, supporting at
-least a loopback network transport and a local socket transport. The same request-handling
-behavior — authentication, normalization, routing — SHALL apply identically regardless of
-which transport is bound.
-
-#### Scenario: Configuration selects the bound transport
-
-- **WHEN** the gate starts with a configured MCP transport
-- **THEN** the face binds only that transport and serves MCP requests on it
-
-#### Scenario: Behavior is transport-independent
-
-- **WHEN** the same authenticated MCP request is delivered over any supported transport
-- **THEN** it is authenticated, normalized, and routed with identical outcomes
-
 ### Requirement: Loopback-only binding
 
-In this version the face SHALL bind a local-only surface and SHALL NOT expose any remote or
-non-loopback listener.
+The MCP face SHALL NOT bind a transport of its own. It SHALL be served as the `Mcp` route of
+the gate's single local Unix domain socket, reachable only from the same host, and SHALL NOT
+expose any remote or non-loopback listener.
 
-#### Scenario: The bound address is local-only
+#### Scenario: The bound surface is local-only
 
-- **WHEN** the MCP face binds its transport
-- **THEN** a network transport binds the loopback address only, and a socket transport binds
-  a local socket reachable only from the same host
+- **WHEN** the gate binds its socket
+- **THEN** the MCP face is reachable only as the `Mcp` route of that local socket, with no
+  remote or network listener of its own
 
 ### Requirement: Per-session bearer authentication
 
-Every MCP request SHALL be authenticated with the per-session bearer token, consistent with
-the gate's other authenticated faces. An unauthenticated connection SHALL be refused before
-the protocol loop serves it, and every routed request SHALL additionally carry the token
-through the gate's shared authentication so an unauthenticated request never reaches a route.
+Every MCP connection SHALL be admitted only with a valid per-session token carried in its
+route preamble, consistent with the gate's other session-token routes. A connection whose
+preamble token does not verify SHALL be refused before the connection is upgraded to the MCP
+protocol, and every routed request SHALL additionally carry the token through the gate's
+shared authentication so an unauthenticated request never reaches a route.
 
-#### Scenario: An authenticated request is served
+#### Scenario: An authenticated connection is served
 
-- **WHEN** a client presents a valid per-session token and issues an MCP request
-- **THEN** the request is authenticated and routed
+- **WHEN** a client presents a valid per-session token in its `Mcp`-route preamble and
+  issues an MCP request
+- **THEN** the connection is upgraded, and the request is authenticated and routed
 
-#### Scenario: A connection with no valid token is refused at admission
+#### Scenario: A connection with no valid token is refused before upgrade
 
-- **WHEN** a client connects without a valid per-session token
-- **THEN** the connection is refused before the MCP protocol loop serves any request
+- **WHEN** a client connects on the `Mcp` route without a valid per-session token in its
+  preamble
+- **THEN** the connection is refused before it is upgraded to the MCP protocol
 
 #### Scenario: A request with a wrong token is rejected before routing
 
@@ -96,29 +85,6 @@ observed exactly once and carry a correlation identifier.
 - **THEN** exactly one observation record is emitted for it, carrying a correlation
   identifier that is consistent across the request's processing
 
-### Requirement: Endpoint publication for discovery without secret disclosure
-
-The gate SHALL publish the bound MCP endpoint to a discovery location in its base directory,
-following the same convention as its other published endpoints, so an orchestrator can read
-it and inject it into an agent CLI's MCP configuration. The per-session token SHALL NOT be
-written to that discovery location.
-
-#### Scenario: The endpoint is published after binding
-
-- **WHEN** the MCP face has bound its transport
-- **THEN** a discovery entry naming the reachable endpoint exists in the gate's base
-  directory and is readable
-
-#### Scenario: The discovery entry carries no token
-
-- **WHEN** the discovery entry is read
-- **THEN** it contains the endpoint location only and contains no per-session token
-
-#### Scenario: The discovery entry is cleaned up on clean shutdown
-
-- **WHEN** the gate shuts down cleanly
-- **THEN** the MCP discovery entry is removed
-
 ### Requirement: Routing layer carries no tools in this version
 
 This version provides the MCP routing layer only; it SHALL NOT register tool
@@ -133,10 +99,11 @@ routing.
 
 ### Requirement: Lifecycle teardown with the gate
 
-The MCP face SHALL participate in the gate's graceful shutdown: on shutdown it SHALL stop
-accepting new MCP connections and release its bound transport.
+The MCP face SHALL participate in the gate's graceful shutdown through the single listener:
+on shutdown the gate SHALL stop accepting new connections on its socket, so the `Mcp` route
+stops serving without a face-specific transport to release.
 
 #### Scenario: The face stops on gate shutdown
 
 - **WHEN** the gate begins graceful shutdown
-- **THEN** the MCP face stops accepting new connections and releases its transport
+- **THEN** the `Mcp` route stops accepting new connections together with every other route

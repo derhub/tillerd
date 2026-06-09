@@ -1,4 +1,4 @@
-//! End-to-end coverage of the adopt-or-spawn orchestration against fake boundary I/O.
+//! Adopt-or-spawn orchestration coverage using mock boundary I/O.
 
 use std::cell::Cell;
 use std::path::{Path, PathBuf};

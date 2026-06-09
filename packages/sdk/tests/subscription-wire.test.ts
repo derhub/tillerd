@@ -6,7 +6,7 @@ import {
   RawFrame,
   FrameDecoder,
   encodeFrame,
-  encodeSubscribeRequest,
+  encodeSubscribePreamble,
   decodeSubscriptionFrame,
   negotiateReady,
 } from "../src/types/subscription";
@@ -67,17 +67,18 @@ describe("encodeFrame / FrameDecoder round-trip", () => {
   });
 });
 
-describe("encodeSubscribeRequest", () => {
-  test("produces a framed JSON object with sessionId and wireVersion", () => {
-    const req = { sessionId: "s1", wireVersion: HOOK_SUBSCRIPTION_WIRE_VERSION };
-    const frames = new FrameDecoder().push(encodeSubscribeRequest(req));
+describe("encodeSubscribePreamble", () => {
+  test("produces a framed subscribe route preamble with sessionId and wireVersion", () => {
+    const frames = new FrameDecoder().push(encodeSubscribePreamble("s1"));
     expect(frames).toHaveLength(1);
     const decoded = JSON.parse(new TextDecoder().decode(frames[0]!.payload)) as Record<
       string,
       unknown
     >;
+    expect(decoded["route"]).toBe("subscribe");
     expect(decoded["sessionId"]).toBe("s1");
     expect(decoded["wireVersion"]).toBe(HOOK_SUBSCRIPTION_WIRE_VERSION);
+    expect(decoded["token"]).toBeUndefined();
   });
 });
 

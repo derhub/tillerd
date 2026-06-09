@@ -1,6 +1,4 @@
-//! Login-shell environment probe: run a login+interactive shell, capture PATH and
-//! friends via start/end markers, install into the daemon's env so spawned commands
-//! resolve as in a user terminal.
+//! Shell env: spawned commands resolve as in user terminal.
 
 use std::process::Command;
 

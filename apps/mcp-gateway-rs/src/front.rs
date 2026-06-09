@@ -1,9 +1,4 @@
-//! Holder for the current front-client peer.
-//!
-//! Backends issue server-to-client requests (sampling, roots, elicitation)
-//! asynchronously, outside any front request. The gateway captures the front
-//! peer when a session initializes so those requests can be relayed. For v1 a
-//! single most-recent front peer is tracked (the primary consumer).
+//! Front peer: single most-recent (v1 limitation). Relay async server→client requests.
 
 use rmcp::service::Peer;
 use rmcp::RoleServer;

@@ -8,7 +8,7 @@ export interface AgentInfo {
   path: string;
   version: string;
   hookCommand: string | null;
-  hooksSocketPath: string;
+  athingDir: string;
   homeDir: string;
 }
 

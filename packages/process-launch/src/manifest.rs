@@ -1,6 +1,4 @@
-//! Launch manifest: the `{pid, version}` record a managed backend writes so a
-//! launcher can decide whether to adopt it. Shape and key order mirror the PTY
-//! daemon manifest for cross-tool compatibility.
+//! Manifest: shape mirrors PTY daemon for cross-tool compatibility.
 
 use serde::{Deserialize, Serialize};
 use std::fs;

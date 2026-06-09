@@ -1,10 +1,4 @@
-//! Atomic manifest lifecycle.
-//!
-//! The manifest carries the hosted tool's process identity and version. It is
-//! written via a temporary file and an atomic rename so a concurrent reader
-//! never observes a partial file, and removed on a clean stop. A manifest left
-//! behind by a `SIGKILL`ed process is stale, not corrupt: the next launcher
-//! overwrites it (the same temp + rename guarantees a clean overwrite).
+//! Atomic manifest: temp + rename prevents partial reads. Stale manifests are overwritten.
 
 use serde::{Deserialize, Serialize};
 use std::fs;

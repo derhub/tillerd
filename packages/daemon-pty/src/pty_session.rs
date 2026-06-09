@@ -1,6 +1,4 @@
-//! Per-session PTY plane: spawn, blocking reader thread pumping raw output into
-//! the daemon event loop, credit-based per-subscriber flow control, on-demand
-//! snapshot production, and escalating teardown.
+//! PTY session: credit-based per-subscriber flow control, on-demand snapshots.
 
 use crate::cell::SnapshotPayload;
 use crate::messages::SpawnFrame;

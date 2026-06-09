@@ -1,58 +1,32 @@
-//! The consumer subscribe face: a loopback Unix socket a consumer opens to stream
-//! a session's hook events.
-//!
-//! It reads one [`HookSubscribeRequest`], negotiates the hook-subscription wire
-//! version, then streams a ready frame followed by event frames drawn from the
-//! session's broadcast channel, recording drop-oldest lag as it observes it.
+//! Subscribe route of the gate's single socket: streams a session's hook events.
+//! The route preamble names the session and the wire version; this handler negotiates,
+//! acknowledges readiness, then server-pushes events and records drop-oldest lag.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use contracts::HookSubscribeRequest;
+use contracts::SessionId;
 use serde_json::json;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixStream;
 use tokio::sync::broadcast::error::RecvError;
-use tokio::task::JoinHandle;
 
-use crate::endpoint::{read_frame, write_frame};
+use crate::endpoint::write_frame;
 use crate::subscription::{encode_event, encode_ready, negotiate, Subscriptions};
 
-/// Bind the subscribe face to `socket_path` and serve it until the task is aborted.
-pub fn serve(
-    socket_path: PathBuf,
+/// Serve one subscribe connection whose preamble named `session` and `wire_version`.
+/// Negotiate the wire version, send `ready`, then stream events until the peer closes.
+pub async fn serve_conn(
+    stream: UnixStream,
     subscriptions: Arc<Subscriptions>,
-) -> std::io::Result<JoinHandle<()>> {
-    let _ = std::fs::remove_file(&socket_path);
-    let listener = UnixListener::bind(&socket_path)?;
-    Ok(tokio::spawn(async move {
-        loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                break;
-            };
-            let subscriptions = subscriptions.clone();
-            tokio::spawn(handle_conn(stream, subscriptions));
-        }
-    }))
-}
-
-async fn handle_conn(stream: UnixStream, subscriptions: Arc<Subscriptions>) {
-    let (mut rd, mut wr) = stream.into_split();
-    let Ok(Some(frame)) = read_frame(&mut rd).await else {
-        return;
-    };
-    let request: HookSubscribeRequest = match serde_json::from_slice(&frame) {
-        Ok(request) => request,
-        Err(e) => {
-            let _ = write_frame(&mut wr, &encode_error(&format!("malformed request: {e}"))).await;
-            return;
-        }
-    };
-    if negotiate(request.wire_version).is_none() {
+    session: SessionId,
+    wire_version: u32,
+) {
+    let (_rd, mut wr) = stream.into_split();
+    if negotiate(wire_version).is_none() {
         let _ = write_frame(&mut wr, &encode_error("unsupported wire version")).await;
         return;
     }
 
-    let mut rx = subscriptions.subscribe(&request.session_id);
+    let mut rx = subscriptions.subscribe(&session);
     if write_frame(&mut wr, &encode_ready()).await.is_err() {
         return;
     }
@@ -63,7 +37,7 @@ async fn handle_conn(stream: UnixStream, subscriptions: Arc<Subscriptions>) {
                     break;
                 }
             }
-            Err(RecvError::Lagged(n)) => subscriptions.record_lag(&request.session_id, n),
+            Err(RecvError::Lagged(n)) => subscriptions.record_lag(&session, n),
             Err(RecvError::Closed) => break,
         }
     }
@@ -76,10 +50,10 @@ fn encode_error(reason: &str) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contracts::{
-        CorrelationId, HookEvent, HookKind, SessionId, HOOK_SUBSCRIPTION_WIRE_VERSION,
-    };
+    use crate::endpoint::read_frame;
+    use contracts::{CorrelationId, HookEvent, HookKind, HOOK_SUBSCRIPTION_WIRE_VERSION};
     use serde_json::Value;
+    use std::path::PathBuf;
     use std::time::Duration;
 
     fn temp_sock(tag: &str) -> PathBuf {
@@ -93,14 +67,6 @@ mod tests {
         ))
     }
 
-    fn request(session: &str, wire_version: u32) -> Vec<u8> {
-        serde_json::to_vec(&HookSubscribeRequest {
-            session_id: SessionId(session.into()),
-            wire_version,
-        })
-        .unwrap()
-    }
-
     fn event(correlation: &str) -> HookEvent {
         HookEvent {
             session_id: SessionId("s".into()),
@@ -110,16 +76,34 @@ mod tests {
         }
     }
 
+    async fn serve(
+        sock: PathBuf,
+        subscriptions: Arc<Subscriptions>,
+        session: &str,
+        wire_version: u32,
+    ) -> tokio::task::JoinHandle<()> {
+        let _ = std::fs::remove_file(&sock);
+        let listener = tokio::net::UnixListener::bind(&sock).unwrap();
+        let session = SessionId(session.into());
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            serve_conn(stream, subscriptions, session, wire_version).await;
+        })
+    }
+
     #[tokio::test]
     async fn negotiates_the_wire_version_then_streams_events() {
         let sock = temp_sock("stream");
         let subscriptions = Arc::new(Subscriptions::with_capacity(8));
-        let handle = serve(sock.clone(), subscriptions.clone()).unwrap();
+        let handle = serve(
+            sock.clone(),
+            subscriptions.clone(),
+            "s",
+            HOOK_SUBSCRIPTION_WIRE_VERSION,
+        )
+        .await;
 
         let mut stream = UnixStream::connect(&sock).await.unwrap();
-        write_frame(&mut stream, &request("s", HOOK_SUBSCRIPTION_WIRE_VERSION))
-            .await
-            .unwrap();
 
         let ready: Value =
             serde_json::from_slice(&read_frame(&mut stream).await.unwrap().unwrap()).unwrap();
@@ -148,16 +132,15 @@ mod tests {
     async fn rejects_an_unsupported_wire_version() {
         let sock = temp_sock("bad-version");
         let subscriptions = Arc::new(Subscriptions::with_capacity(8));
-        let handle = serve(sock.clone(), subscriptions).unwrap();
+        let handle = serve(
+            sock.clone(),
+            subscriptions,
+            "s",
+            HOOK_SUBSCRIPTION_WIRE_VERSION + 1,
+        )
+        .await;
 
         let mut stream = UnixStream::connect(&sock).await.unwrap();
-        write_frame(
-            &mut stream,
-            &request("s", HOOK_SUBSCRIPTION_WIRE_VERSION + 1),
-        )
-        .await
-        .unwrap();
-
         let value: Value =
             serde_json::from_slice(&read_frame(&mut stream).await.unwrap().unwrap()).unwrap();
         assert_eq!(value["frame"], "error", "an unsupported version is refused");

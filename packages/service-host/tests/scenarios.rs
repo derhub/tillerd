@@ -1,10 +1,4 @@
-//! Dedicated scenario coverage for the service-host spec (task 8.1).
-//!
-//! Each test maps 1-to-1 to a named spec scenario; the test name is the scenario.
-//!
-//! Scenarios that require a live OS signal or a separate process carry
-//! `#[ignore]` per the gated-deployment-slice pattern so they appear in
-//! `cargo test` output but are skipped in CI unless `--ignored` is passed.
+//! Scenario tests: each test name is a spec scenario. Live-OS tests are #[ignore]d.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -12,7 +6,6 @@ use std::time::Duration;
 use service_host::host::{run, ServeContext, Service, ServiceConfig};
 use service_host::manifest::Manifest;
 use service_host::paths::Paths;
-use service_host::probe::probe_once;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,7 +117,6 @@ async fn base_directory_override_respected() {
     // All derived paths must start at the overridden directory.
     assert!(paths.manifest_path().starts_with(&base));
     assert!(paths.socket_path().starts_with(&base));
-    assert!(paths.health_socket_path().starts_with(&base));
     let _ = std::fs::remove_dir_all(&base);
 }
 
@@ -272,41 +264,5 @@ async fn graceful_shutdown_on_signal() {
         Manifest::read(&paths.manifest_path()).is_none(),
         "manifest cleaned up after signal-driven shutdown"
     );
-    let _ = std::fs::remove_dir_all(&base);
-}
-
-// ── Launcher probes before connecting ────────────────────────────────────────
-
-struct ProbeWitnessService {
-    config: ServiceConfig,
-}
-
-impl Service for ProbeWitnessService {
-    fn config(&self) -> ServiceConfig {
-        self.config.clone()
-    }
-
-    async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
-        // Probe the health socket during serve — no token supplied.
-        let (status, body) = probe_once(
-            &ctx.paths.health_socket_path(),
-            "GET /health HTTP/1.1\r\n\r\n",
-        )
-        .await?;
-        assert_eq!(status, "200 OK", "probe answers without a credential");
-        assert!(body.contains("\"reachable\":true"), "reports reachable");
-        assert!(body.contains("\"version\":\"5.0.0\""), "reports version");
-        Ok(())
-    }
-}
-
-#[tokio::test]
-async fn launcher_probes_before_connecting_reports_reachability_and_version() {
-    let base = temp_base("probe");
-    let svc = ProbeWitnessService {
-        config: ServiceConfig::new("probe-tool", "5.0.0").with_base_override(Some(base.clone())),
-    };
-
-    run(svc).await.unwrap();
     let _ = std::fs::remove_dir_all(&base);
 }

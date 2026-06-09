@@ -2,12 +2,6 @@ import { parseArgs, type ParseArgsConfig } from "util";
 import type { Logger } from "@athing/logger";
 import type { SetupContext, SetupDefinition } from "@athing/sdk";
 
-export interface GateContext {
-  gateUrl?: string;
-  sessionId?: string;
-  sessionToken?: string;
-}
-
 export interface ManifestData {
   pid: number;
   version: string;
@@ -19,9 +13,8 @@ export interface ManifestData {
  */
 export interface CliDeps {
   setup: SetupDefinition;
-  buildContext(notifyCommand: string, logger: Logger, gate?: GateContext): SetupContext;
+  buildContext(notifyCommand: string, logger: Logger): SetupContext;
   resolveNotify(): string;
-  resolveGate(): GateContext;
   readManifest(): ManifestData | null;
   isAlive(pid: number): boolean;
   isTTY: boolean;
@@ -137,9 +130,8 @@ async function install(deps: CliDeps, yes: boolean): Promise<number> {
     return 1;
   }
 
-  const gate = deps.resolveGate();
   const records: LogRecord[] = [];
-  await deps.setup.install(deps.buildContext(notify, recordingLogger(records), gate));
+  await deps.setup.install(deps.buildContext(notify, recordingLogger(records)));
 
   const installed = records.find((r) => r.msg === "hooks installed");
   if (installed) {

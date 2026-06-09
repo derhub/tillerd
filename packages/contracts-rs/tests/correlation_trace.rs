@@ -1,17 +1,5 @@
-//! Correlation-trace static guarantee (rule 8.3).
-//!
-//! Asserts that a single `CorrelationId` value threads unchanged through every
-//! message shape that crosses a process boundary in the stack:
-//!
-//!   daemon (HookEvent) → gate (HookEvent forwarded to subscribers) →
-//!   gateway (ToolInbound ToolCall / ToolResult) → memory (observation record)
-//!
-//! The in-process tests assert the static guarantee: the same `CorrelationId`
-//! type appears in every hop's message type, and JSON serialisation/deserialisation
-//! preserves the value end-to-end.
-//!
-//! The live-process cross-hop test is `#[ignore]`d; it requires all four
-//! processes running with `ATHING_GATE_URL` + `ATHING_SESSION_ID` set.
+//! CorrelationId threads unchanged across process boundaries so distributed tracing
+//! can correlate log/event streams back to a single user action.
 
 use contracts::{CorrelationId, HookEvent, HookKind, SessionId, ToolInbound};
 use serde_json::json;
@@ -146,30 +134,31 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
 /// must be observable in the gate subscriber stream.
 ///
 /// Requirements: live daemon + gate + an active session generating hook events.
-///   ATHING_GATE_URL=… ATHING_SESSION_ID=… \
+///   ATHING_DIR=… ATHING_SESSION_ID=… \
 ///   cargo test -p contracts-rs --test correlation_trace \
 ///     correlation_id_threads_daemon_to_gate_in_live_stack -- --ignored
 #[test]
-#[ignore = "requires live daemon + gate; set ATHING_GATE_URL + ATHING_SESSION_ID and run with --ignored"]
+#[ignore = "requires live daemon + gate; set ATHING_DIR + ATHING_SESSION_ID and run with --ignored"]
 fn correlation_id_threads_daemon_to_gate_in_live_stack() {
     // Validate that every HookEvent received from the gate carries a non-empty
     // correlation id — which proves the daemon minted one and the gate preserved it.
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 
-    let gate_url =
-        std::env::var("ATHING_GATE_URL").expect("ATHING_GATE_URL points at a live gate socket");
+    let base = std::env::var("ATHING_DIR").expect("ATHING_DIR points at the runtime directory");
+    let subscribe_sock = std::path::Path::new(&base).join("gate.sock");
     let session_id =
         std::env::var("ATHING_SESSION_ID").expect("ATHING_SESSION_ID names the active session");
 
-    // The gate subscribe wire: send a subscribe request, read back a frame.
-    // Using raw bytes rather than gate-client to keep contracts-rs dep-free.
-    let mut stream = UnixStream::connect(&gate_url).expect("connect to gate subscribe socket");
+    // The gate wire: open the single socket on the Subscribe route via one preamble
+    // frame, then read back a frame. Raw bytes keep contracts-rs dep-free here.
+    let mut stream = UnixStream::connect(&subscribe_sock).expect("connect to gate socket");
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(10)))
         .unwrap();
 
     let subscribe = serde_json::to_vec(&serde_json::json!({
+        "route": "subscribe",
         "sessionId": session_id,
         "wireVersion": 1
     }))

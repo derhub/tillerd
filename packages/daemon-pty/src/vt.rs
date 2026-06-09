@@ -1,6 +1,4 @@
-//! Virtual-terminal grid model. Direct 1:1 port of the reference `vt-state.ts`
-//! hand-rolled parser, chosen over an off-the-shelf VT crate so snapshot output
-//! matches the reference daemon cell-for-cell (the conformance-critical seam).
+//! VT parser: conformance-critical seam (cell-for-cell match with reference).
 
 use crate::cell::{
     ansi_to_color, char_display_width, color_256, color_rgb, Cursor, SnapshotCell, SnapshotPayload,

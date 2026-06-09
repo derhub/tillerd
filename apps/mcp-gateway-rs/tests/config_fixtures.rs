@@ -1,5 +1,4 @@
-//! Golden config-parse fixture: the sample `mcp.json` parses to the expected
-//! shape. The fixture is the contract for the de-facto config format.
+//! Config fixture: contract for mcp.json format.
 
 use athing_mcp_gateway::config::{BackendKind, McpConfig};
 

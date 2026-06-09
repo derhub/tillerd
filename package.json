@@ -1,6 +1,9 @@
 {
   "name": "a-thing",
   "private": true,
+  "description": "Experimental toolkit for driving coding agents.",
+  "license": "MIT",
+  "author": "derhub <imjohnderbaul@gmail.com>",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -18,6 +21,9 @@
     "e2e": "turbo run e2e",
     "lint": "oxlint . && turbo run lint",
     "format": "oxfmt --write . && turbo run fmt",
+    "format:check": "oxfmt --check . && cargo fmt --check",
+    "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@athing/integration-tests",
+    "e2e:ui": "turbo run e2e --filter=@athing/e2e-test",
     "check-deps": "turbo run check-deps"
   },
   "devDependencies": {

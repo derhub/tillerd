@@ -67,7 +67,7 @@ export class AgentSessionProxy implements AgentSession {
     opts: Required<SessionOptions>,
     private readonly client: DaemonTransport,
     private readonly mode: ProxyMode,
-    private readonly hooksSockPath: string,
+    private readonly athingDir: string,
     logger: Logger,
     private readonly resolvedCommand: string,
     private readonly hookSource?: HookSource,
@@ -126,7 +126,7 @@ export class AgentSessionProxy implements AgentSession {
         command: this.resolvedCommand,
         args: launchArgs,
         env: {
-          ...(this.opts.gateUrl ? { ATHING_GATE_URL: this.opts.gateUrl } : {}),
+          ATHING_DIR: this.athingDir,
           ATHING_SESSION_ID: this.sessionId,
           ATHING_SESSION_TOKEN: this.token,
         },
@@ -377,7 +377,6 @@ export function fillProxyOptions(opts?: SessionOptions): Required<SessionOptions
     sendQueueCapacity: opts?.sendQueueCapacity ?? DEFAULT_SEND_QUEUE_CAPACITY,
     captureRawIo: opts?.captureRawIo ?? false,
     sessionId: opts?.sessionId ?? "",
-    gateUrl: opts?.gateUrl ?? "",
     gateToken: opts?.gateToken ?? "",
   };
 }

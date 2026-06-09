@@ -1,5 +1,4 @@
-//! The middleware trait, the single-use continuation [`Next`], and the
-//! [`seq`]/[`par`] combinators.
+//! Middleware trait with seq/par combinators.
 
 pub mod auth;
 pub mod fanout;

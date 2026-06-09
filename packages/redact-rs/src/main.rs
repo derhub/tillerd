@@ -1,4 +1,4 @@
-//! `redact` CLI: read text from stdin, redact, write to stdout.
+//! redact CLI.
 
 use std::io::{Read, Write};
 

@@ -33,32 +33,17 @@ tracing = "0.1"
 uuid = { version = "1", features = ["v4"] }
 bytes = "1"
 subtle = "2"
-axum = "0.8"
-http = "1"
 # Confined to `endpoint/mcp.rs`: gate owns only the request->Inbound bridge; the
-# router, Kind, and middleware never name an rmcp type. Minor version pinned and
-# features gated to the transports actually bound (loopback HTTP + local socket).
-rmcp = { version = "1.7", features = [
-  "server",
-  "server-side-http",
-  "transport-streamable-http-server",
-  "transport-io",
-] }
+# router, Kind, and middleware never name an rmcp type. The MCP face is served over
+# the gate's single Unix socket only — no HTTP/TCP transport.
+rmcp = { version = "1.7", features = ["server", "transport-io"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
 tempfile = "3"
-tower = { version = "0.5", features = ["util"] }
-# Integration tests stand up the real bound HTTP face and drive it with an MCP
-# client over the streamable-HTTP transport; these features are test-only and are
-# excluded from the release binary, which builds the server features above alone.
-rmcp = { version = "1.7", features = [
-  "client",
-  "transport-streamable-http-client",
-  "transport-streamable-http-client-reqwest",
-] }
-axum = "0.8"
-http = "1"
+# Integration tests drive the MCP face with an in-process client over the same
+# socket/stream transport the server uses; no HTTP client transport is needed.
+rmcp = { version = "1.7", features = ["client", "transport-io"] }
 serde_json = "1"
 contracts-rs = { path = "../../packages/contracts-rs" }
 

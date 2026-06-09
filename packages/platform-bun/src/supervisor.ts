@@ -13,7 +13,6 @@ function getAthingDir(): string {
 
 const ATHING_DIR = getAthingDir();
 const MANIFEST_PATH = join(ATHING_DIR, "daemon.json");
-export const HOOKS_SOCK = join(ATHING_DIR, "hooks.sock");
 
 interface ManifestData {
   pid: number;

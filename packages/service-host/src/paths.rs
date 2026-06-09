@@ -1,10 +1,4 @@
-//! Deterministic resource-path resolution for a hosted tool.
-//!
-//! The base directory honors an `ATHING_DIR` override with parity to the
-//! existing TS + Rust behavior: an absolute override passes through, a relative
-//! override resolves against the current working directory (mirroring
-//! `path.resolve()`), and an absent override falls back to `~/.athing`. Manifest
-//! and socket paths are derived from the resolved base by the tool's identity.
+//! Path resolution: ATHING_DIR override parity to TS + Rust. Defaults to ~/.athing.
 
 use std::path::{Path, PathBuf};
 
@@ -38,13 +32,6 @@ impl Paths {
     /// The socket path, derived deterministically as `<base>/<name>.sock`.
     pub fn socket_path(&self) -> PathBuf {
         self.base.join(format!("{}.sock", self.name))
-    }
-
-    /// The liveness-probe socket, derived as `<base>/<name>-health.sock`. Kept
-    /// distinct from [`socket_path`](Self::socket_path) so the probe never squats
-    /// a tool whose primary socket is its own control/serve plane.
-    pub fn health_socket_path(&self) -> PathBuf {
-        self.base.join(format!("{}-health.sock", self.name))
     }
 }
 
@@ -86,16 +73,6 @@ mod tests {
     fn socket_path_deterministic_from_base_dir() {
         let paths = Paths::resolve("gate", Some("/base"));
         assert_eq!(paths.socket_path(), PathBuf::from("/base/gate.sock"));
-    }
-
-    #[test]
-    fn health_socket_distinct_from_primary_socket() {
-        let paths = Paths::resolve("daemon", Some("/base"));
-        assert_eq!(
-            paths.health_socket_path(),
-            PathBuf::from("/base/daemon-health.sock")
-        );
-        assert_ne!(paths.health_socket_path(), paths.socket_path());
     }
 
     #[test]

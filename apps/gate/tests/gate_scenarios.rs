@@ -1,7 +1,4 @@
-//! Dedicated scenario coverage for the gate spec (task 8.1).
-//!
-//! Each test maps 1-to-1 to a spec scenario that had no prior dedicated test.
-//! Tests requiring live network endpoints are `#[ignore]`d.
+//! Scenario tests: 1-to-1 mapping. Network tests #[ignore]d.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

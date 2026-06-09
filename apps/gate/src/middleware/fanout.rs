@@ -1,6 +1,4 @@
-//! The fan-out terminal: publishes the normalized event to a session's
-//! subscribers and accepts. Fire-and-forget — a session with no subscribers is
-//! normal, and the non-blocking broadcast never stalls the poster.
+//! Fanout terminal: fire-and-forget broadcast. No subscribers is normal.
 
 use std::sync::Arc;
 

@@ -1,4 +1,4 @@
-//! Deterministic retrieval metrics: Recall@K, MRR, NDCG@10. No model calls.
+//! Retrieval metrics: Recall@K, MRR, NDCG@10.
 
 use std::collections::HashSet;
 

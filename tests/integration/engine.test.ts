@@ -1,15 +1,37 @@
-import { test, expect, describe } from "bun:test";
+import { test, expect, describe, beforeAll, afterAll } from "bun:test";
 import { createEngine } from "@athing/engine";
-import { adoptOrSpawn, HOOKS_SOCK, resolveAgentCommand } from "@athing/platform-bun";
+import { adoptOrSpawn, resolveAthingDir, resolveAgentCommand } from "@athing/platform-bun";
 import { createLogger } from "@athing/logger";
 import { bashAdapter } from "./fixtures/bash-adapter";
+import { startDaemon, type DaemonHandle } from "./fixtures/daemon";
+
+// Provision a daemon in an isolated temp runtime dir and point the host's
+// adopt-or-spawn at it (binary + dir), so the engine adopts a live daemon with
+// no pre-running service or manually exported env.
+let daemon: DaemonHandle;
+const priorEnv: Record<string, string | undefined> = {};
+
+beforeAll(async () => {
+  daemon = await startDaemon();
+  for (const k of ["ATHING_DIR", "ATHING_DAEMON_BIN"]) priorEnv[k] = process.env[k];
+  process.env["ATHING_DIR"] = daemon.athingDir;
+  process.env["ATHING_DAEMON_BIN"] = daemon.bin;
+});
+
+afterAll(async () => {
+  for (const [k, v] of Object.entries(priorEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+  await daemon?.stop();
+});
 
 async function makeEngine() {
   const transport = await adoptOrSpawn();
   return createEngine({
     transport,
     logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
-    hooksSocketPath: HOOKS_SOCK,
+    athingDir: resolveAthingDir(),
     resolvedCommand: resolveAgentCommand(bashAdapter.binaryResolution),
   });
 }
@@ -59,7 +81,7 @@ describe("engine integration", () => {
     const engine = createEngine({
       transport,
       logger: createLogger({ "service.name": "athing-integration-test", "service.version": "0" }),
-      hooksSocketPath: HOOKS_SOCK,
+      athingDir: resolveAthingDir(),
       resolvedCommand: "__athing_no_such_binary__",
     });
 

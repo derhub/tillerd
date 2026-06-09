@@ -1,8 +1,4 @@
-//! Dedicated scenario coverage for the tool-composition spec (task 8.1).
-//!
-//! These tests assert observable behavior of memorya as a composable tool:
-//! standalone operability, graceful degradation when peers are absent, and
-//! contract-only coupling. Dep-direction assertions are in dependency_direction.rs.
+//! Tool composition: standalone, graceful degradation, contract-only coupling.
 
 use memorya::dual_mode::{resolve_capture_mode, CaptureMode};
 use memorya::Engram;
@@ -15,8 +11,8 @@ use serde_json::json;
 #[test]
 fn tool_runs_with_no_peers_and_serves_recall() {
     let dir = tempfile::tempdir().unwrap();
-    let memorya =
-        Engram::open(dir.path().join("memorya.db")).expect("memorya opens without any peer present");
+    let memorya = Engram::open(dir.path().join("memorya.db"))
+        .expect("memorya opens without any peer present");
 
     let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize"});
     let resp =
@@ -32,7 +28,7 @@ fn tool_runs_with_no_peers_and_serves_recall() {
 #[test]
 fn absent_gate_url_selects_standalone_mode() {
     assert_eq!(
-        resolve_capture_mode(None, None),
+        resolve_capture_mode(std::path::Path::new("/run/athing"), None),
         CaptureMode::Standalone,
         "no gate URL means standalone; tool must not crash when no peer is present"
     );
@@ -73,15 +69,15 @@ fn absent_peer_degrades_gracefully_not_crashes() {
 #[test]
 fn source_selected_by_wiring_not_hard_coded_inside_the_tool() {
     // Standalone wiring: no gate URL.
-    let standalone = resolve_capture_mode(None, None);
+    let standalone = resolve_capture_mode(std::path::Path::new("/run/athing"), None);
     assert_eq!(standalone, CaptureMode::Standalone);
 
-    // Composed wiring: gate URL present.
-    let composed = resolve_capture_mode(Some("/run/gate.sock"), Some("sess-x"));
+    // Composed wiring: a session id present.
+    let composed = resolve_capture_mode(std::path::Path::new("/run/athing"), Some("sess-x"));
     assert_eq!(
         composed,
         CaptureMode::Composed {
-            gate_url: "/run/gate.sock".into(),
+            subscribe_sock: std::path::PathBuf::from("/run/athing/gate.sock"),
             session_id: "sess-x".into(),
         }
     );

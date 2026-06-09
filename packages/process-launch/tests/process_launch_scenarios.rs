@@ -1,7 +1,4 @@
-//! Dedicated scenario coverage for the process-launch spec (task 8.1).
-//!
-//! Covers the remaining spec scenarios: spawn-field diffing and capped
-//! backoff. Adopt-or-spawn scenarios live in adopt_or_spawn.rs.
+//! Scenario coverage: spawn-field diffing and backoff. Adopt-or-spawn in adopt_or_spawn.rs.
 
 use std::time::Duration;
 

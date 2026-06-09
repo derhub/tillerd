@@ -1,6 +1,4 @@
-//! Durable stopped-session store: an authoritative, never-evicted set of
-//! intentionally-stopped session ids, persisted atomically (tmp + fsync + rename)
-//! so a stopped session stays stopped across daemon restarts.
+//! Stopped sessions: never-evicted, durable across daemon restarts.
 
 use std::collections::BTreeSet;
 use std::fs;

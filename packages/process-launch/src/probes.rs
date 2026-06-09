@@ -1,9 +1,4 @@
-//! Injectable boundary I/O for adopt-or-spawn.
-//!
-//! The launcher's decisions are pure; the side effects it depends on — checking
-//! whether a pid is alive, whether a control socket accepts a connection,
-//! spawning the backend, and removing a dead socket — are isolated here so they
-//! can be faked in tests without touching real processes or sockets.
+//! Probes: injected I/O. Launcher logic is pure, side effects isolated.
 
 use std::path::Path;
 use std::time::Duration;

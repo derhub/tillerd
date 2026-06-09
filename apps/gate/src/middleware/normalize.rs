@@ -1,6 +1,4 @@
-//! The normalization layer (transform): calls the injected agent adapter to turn
-//! the raw hook body into a canonical event, stamps the bound identifiers onto
-//! it, and stores it on the context. A parse failure rejects without continuing.
+//! Normalize: adapter-driven parsing. Parse failure rejects without continuing.
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

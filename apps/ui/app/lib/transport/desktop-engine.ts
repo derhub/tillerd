@@ -19,7 +19,7 @@ export function buildDesktopEngineDeps(
   return {
     transport,
     logger: new TauriLogger(core),
-    hooksSocketPath: info.hooksSocketPath,
+    athingDir: info.athingDir,
     resolvedCommand: info.path,
   };
 }

@@ -1,7 +1,4 @@
-//! Real static-embedding-model test. `#[ignore]` because it downloads a ~130MB
-//! model on first run.
-//!
-//! Run with: cargo test --test model2vec_real -- --ignored
+//! Real embedding model test. #[ignore]d (downloads ~130MB model).
 
 use memorya::embed::{cosine, Embedder, Model2VecEmbedder};
 

@@ -1,6 +1,4 @@
-//! The observation layer (around): the outermost global. It times the inner
-//! chain and emits exactly one record per inbound, carrying the bound context
-//! (`sessionId`, `correlationId`, `component`) and the outcome.
+//! Observe: exactly one record per inbound (outer layer, outermost global).
 
 use std::sync::Arc;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};

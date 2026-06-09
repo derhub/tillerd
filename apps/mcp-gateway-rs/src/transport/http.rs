@@ -1,5 +1,4 @@
-//! Loopback HTTP front: MCP at `/mcp` + a token-guarded REST control plane;
-//! `/health` is open.
+//! HTTP front: MCP at /mcp, token-guarded control plane, /health open.
 
 use std::collections::HashMap;
 use std::sync::Arc;

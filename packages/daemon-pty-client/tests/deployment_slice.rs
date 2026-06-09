@@ -1,20 +1,5 @@
-//! PTY-only deployment slice (rule 8.2): the daemon PTY client codec encodes
-//! and decodes the full handshake in-process, without a running daemon.
-//!
-//! This proves the PTY-only slice is self-contained and correct at the
-//! codec level. The live-daemon variant is `#[ignore]`d and requires
-//! `ATHING_DAEMON_SOCK` pointing at a running daemon:
-//!   cargo test -p daemon-pty-client --test deployment_slice -- --ignored
-//!
-//! What the in-process test asserts:
-//! - `encode_hello` + `encode_subscribe` produce valid length-prefixed frames.
-//! - `FrameDecoder::push` reassembles them and the meta decodes to the
-//!   expected wire shapes.
-//! - A `decode_session_frame` round-trip on a synthetic hello-ack frame
-//!   returns `SessionFrame::HelloAck` with the correct version.
-//!
-//! Together these guarantee the PTY-only slice can send and receive without
-//! a daemon — the transport is the only missing piece.
+//! PTY-only codec deployment: test that handshake encoding/decoding works
+//! without a running daemon (transport is the only missing piece).
 
 use contracts::SessionId;
 use daemon_pty_client::{

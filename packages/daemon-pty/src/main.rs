@@ -65,13 +65,60 @@ fn init_tracing(dir: &std::path::Path) {
         .init();
 }
 
-// The daemon as a hosted Service: service-host owns path/manifest/signal/probe
+// The daemon as a hosted Service: service-host owns path/manifest/signal
 // lifecycle; the daemon binds its own control socket in `serve` and tears down
 // live PTY sessions in `shutdown` (they are not service-host children).
 struct DaemonService {
     daemon: Daemon,
     events_rx: Option<UnboundedReceiver<pty_session::SessionEvent>>,
     root: tracing::Span,
+}
+
+impl DaemonService {
+    fn from_env() -> Self {
+        let args: Vec<String> = std::env::args().collect();
+        let is_handoff = args.iter().any(|a| a == "--handoff");
+
+        if !is_handoff {
+            shell_env::install_login_shell_env();
+        }
+
+        let dir = resolve_base_dir(std::env::var("ATHING_DIR").ok().as_deref());
+        let _ = std::fs::create_dir_all(&dir);
+
+        init_tracing(&dir);
+        let root = tracing::info_span!(
+            "daemon",
+            service.name = SERVICE_NAME,
+            service.version = DAEMON_VERSION,
+            process.pid = std::process::id(),
+        );
+
+        let (events_tx, events_rx) = unbounded_channel();
+        let daemon = Daemon::new(&dir, events_tx);
+
+        if is_handoff {
+            let _g = root.enter();
+            match arg_value(&args, "--snapshot") {
+                Some(snap) => match snapshot::read_snapshot(std::path::Path::new(&snap)) {
+                    Ok(records) => {
+                        let n = daemon.adopt_records(&records);
+                        tracing::info!(sessions = n, "handoff adopted sessions");
+                    }
+                    Err(e) => {
+                        tracing::error!(error = %e, "handoff: snapshot read failed; starting empty")
+                    }
+                },
+                None => tracing::warn!("handoff: --snapshot missing; starting empty"),
+            }
+        }
+
+        Self {
+            daemon,
+            events_rx: Some(events_rx),
+            root,
+        }
+    }
 }
 
 impl Service for DaemonService {
@@ -94,64 +141,7 @@ impl Service for DaemonService {
 }
 
 fn main() {
-    let rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime");
-    rt.block_on(async_main());
-}
-
-async fn async_main() {
-    let args: Vec<String> = std::env::args().collect();
-    let is_handoff = args.iter().any(|a| a == "--handoff");
-
-    if !is_handoff {
-        shell_env::install_login_shell_env();
-    }
-
-    let dir = resolve_base_dir(std::env::var("ATHING_DIR").ok().as_deref());
-    let _ = std::fs::create_dir_all(&dir);
-
-    init_tracing(&dir);
-    let root = tracing::info_span!(
-        "daemon",
-        service.name = SERVICE_NAME,
-        service.version = DAEMON_VERSION,
-        process.pid = std::process::id(),
-    );
-
-    let (events_tx, events_rx) = unbounded_channel();
-    let daemon = Daemon::new(&dir, events_tx);
-
-    if is_handoff {
-        let _g = root.enter();
-        match arg_value(&args, "--snapshot") {
-            Some(snap) => match snapshot::read_snapshot(std::path::Path::new(&snap)) {
-                Ok(records) => {
-                    let n = daemon.adopt_records(&records);
-                    tracing::info!(sessions = n, "handoff adopted sessions");
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "handoff: snapshot read failed; starting empty")
-                }
-            },
-            None => tracing::warn!("handoff: --snapshot missing; starting empty"),
-        }
-    }
-
-    let service = DaemonService {
-        daemon,
-        events_rx: Some(events_rx),
-        root: root.clone(),
-    };
-
-    // service-host resolves paths, writes the manifest, installs signal handlers,
-    // exposes the liveness probe, runs serve, then shuts down (no orphans).
-    if let Err(e) = service_host::host::run(service).await {
-        let _g = root.enter();
-        tracing::error!(error = %e, "daemon serve error");
-        std::process::exit(1);
-    }
+    service_host::run_blocking(DaemonService::from_env());
 }
 
 fn arg_value(args: &[String], flag: &str) -> Option<String> {

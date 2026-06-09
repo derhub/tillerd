@@ -1,11 +1,4 @@
-//! The gateway as a hosted `service-host` Service.
-//!
-//! `service-host` owns path resolution, the manifest (`gateway.json`: `{pid,
-//! version}`), signal handling, the unauthenticated liveness probe, and the
-//! escalating shutdown. The gateway supplies its identity and its serve behavior:
-//! it builds the backend supervisor, binds its loopback MCP/control HTTP front,
-//! publishes its URL for clients, then tears the supervisor down on shutdown (the
-//! supervised backends are not `service-host` children).
+//! Gateway: service-host child. Gateway owns supervisor teardown on shutdown.
 
 use std::net::Ipv4Addr;
 use std::path::Path;
@@ -15,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{build, transport, Gateway, McpConfig, GATEWAY_VERSION};
 
-/// The hosted tool name; the manifest and probe socket derive from it.
+/// The hosted tool name; the manifest derives from it.
 const SERVICE_NAME: &str = "gateway";
 
 /// The gateway service: the resolved base override and, once `serve` runs, the

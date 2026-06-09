@@ -1,6 +1,4 @@
-//! Per-session hook-event pub/sub. Each session owns a bounded broadcast channel
-//! that drops the oldest event when a consumer falls behind, plus the
-//! `HOOK_SUBSCRIPTION_WIRE_VERSION`-gated frame codec the subscribe face streams.
+//! Subscriptions: bounded broadcast per session. Drops oldest on lag.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

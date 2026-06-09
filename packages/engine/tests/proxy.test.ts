@@ -633,7 +633,7 @@ describe("AgentSessionProxy — HookSource ingress", () => {
 // ── spawn env injection (task 7.4 / step 5) ──────────────────────────────────
 
 describe("AgentSessionProxy — spawn env injection", () => {
-  test("injects ATHING_GATE_URL when gateUrl is set in options", async () => {
+  test("injects ATHING_DIR so the agent's hook client derives the gate socket", async () => {
     const { AgentSessionProxy, fillProxyOptions } = await import("../src/daemon/proxy");
     const sent: object[] = [];
     const fakeClient = {
@@ -651,10 +651,10 @@ describe("AgentSessionProxy — spawn env injection", () => {
     const proxy = new AgentSessionProxy(
       "gate-env-session",
       mockAdapter,
-      fillProxyOptions({ cwd: "/tmp", gateUrl: "http://127.0.0.1:9999", gateToken: "tok-abc" }),
+      fillProxyOptions({ cwd: "/tmp", gateToken: "tok-abc" }),
       fakeClient as never,
       "spawn",
-      "/tmp/hooks.sock",
+      "/run/athing",
       noopLogger,
       "mock",
     );
@@ -663,7 +663,7 @@ describe("AgentSessionProxy — spawn env injection", () => {
     const spawnFrame = sent.find((s) => (s as { type: string }).type === "spawn") as {
       env: Record<string, string>;
     };
-    expect(spawnFrame.env["ATHING_GATE_URL"]).toBe("http://127.0.0.1:9999");
+    expect(spawnFrame.env["ATHING_DIR"]).toBe("/run/athing");
     expect(spawnFrame.env["ATHING_SESSION_ID"]).toBe("gate-env-session");
     expect(spawnFrame.env["ATHING_SESSION_TOKEN"]).toBe("tok-abc");
   });

@@ -3,18 +3,19 @@ use std::process::Command;
 
 use serde::Serialize;
 
-use crate::paths::{hooks_sock, resolve_notify_bin};
+use crate::paths::{athing_dir, resolve_notify_bin};
 
 /// Startup values the host resolves for the renderer (design D4): the agent binary, its version,
-/// the prepared hook command, and the hook ingress socket path the engine binds. The renderer
-/// gates the version against the adapter's supported range (§5.5) and constructs the ports.
+/// the prepared hook command, and the runtime directory the engine injects so the agent's hook
+/// client derives the gate socket. The renderer gates the version against the adapter's supported
+/// range (§5.5) and constructs the ports.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentInfo {
     path: String,
     version: String,
     hook_command: Option<String>,
-    hooks_socket_path: String,
+    athing_dir: String,
     agent_home: String,
     home_dir: String,
 }
@@ -35,7 +36,7 @@ pub fn agent_bootstrap() -> Result<AgentInfo, String> {
         path: path.to_string_lossy().into_owned(),
         version,
         hook_command,
-        hooks_socket_path: hooks_sock().to_string_lossy().into_owned(),
+        athing_dir: athing_dir().to_string_lossy().into_owned(),
         agent_home,
         home_dir: home.to_string_lossy().into_owned(),
     })

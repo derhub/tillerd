@@ -1,4 +1,4 @@
-//! memorya CLI. Jobs are manual subcommands; scheduling lands with the daemon.
+//! memorya CLI: manual jobs. Scheduling deferred to daemon.
 
 use contracts::SessionId;
 use memorya::capture::HookCapturer;
@@ -177,11 +177,11 @@ fn run_face(face: Face, rest: &[String]) -> anyhow::Result<()> {
 
     let capture = match dual_mode::capture_mode_from_env() {
         CaptureMode::Composed {
-            gate_url,
+            subscribe_sock,
             session_id,
         } => Some(start_composed_capture(
             memorya.clone(),
-            &gate_url,
+            &subscribe_sock,
             session_id,
         )?),
         CaptureMode::Standalone => None,
@@ -229,10 +229,10 @@ impl ComposedCapture {
 
 fn start_composed_capture(
     memorya: Arc<Mutex<Engram>>,
-    gate_url: &str,
+    subscribe_sock: &std::path::Path,
     session_id: String,
 ) -> anyhow::Result<ComposedCapture> {
-    let source = GateSubscriptionSource::connect(gate_url, SessionId(session_id))?;
+    let source = GateSubscriptionSource::connect(subscribe_sock, SessionId(session_id))?;
     let stop = Arc::new(AtomicBool::new(false));
     let worker = EmbeddingWorker::spawn(memorya.clone(), worker::drain_interval(), stop.clone());
 

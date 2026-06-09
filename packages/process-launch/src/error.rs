@@ -1,6 +1,4 @@
-//! Typed launcher errors. Each variant names a distinct failure mode a caller
-//! can branch on (binary missing vs. spawn vs. startup-timeout vs. version
-//! mismatch vs. an unresponsive control socket).
+//! Launcher errors: typed by failure mode.
 
 use thiserror::Error;
 
