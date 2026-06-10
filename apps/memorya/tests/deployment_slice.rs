@@ -1,7 +1,7 @@
 //! Deployment slices: memory-only and full.
 //!   test but requires all four processes running.
 //!
-//! For the gateway-only slice see `apps/mcp-gateway-rs/tests/deployment_slice.rs`.
+//! For the gateway-only slice see `apps/mcp-gateway/tests/deployment_slice.rs`.
 //! For the PTY-only slice see `packages/daemon-pty-client/tests/deployment_slice.rs`.
 //!
 //! All tests that require live processes are `#[ignore]`d. Run them with:

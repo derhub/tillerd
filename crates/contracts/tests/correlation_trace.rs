@@ -135,7 +135,7 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
 ///
 /// Requirements: live daemon + gate + an active session generating hook events.
 ///   TILLERD_DIR=… TILLERD_SESSION_ID=… \
-///   cargo test -p contracts-rs --test correlation_trace \
+///   cargo test -p tillerd-contracts --test correlation_trace \
 ///     correlation_id_threads_daemon_to_gate_in_live_stack -- --ignored
 #[test]
 #[ignore = "requires live daemon + gate; set TILLERD_DIR + TILLERD_SESSION_ID and run with --ignored"]

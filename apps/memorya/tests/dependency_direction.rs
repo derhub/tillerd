@@ -1,6 +1,6 @@
 //! Dependency guards: tools don't depend on each other or orchestrator.
 //! - Only `daemon-pty-client` (and the daemon itself) know the PTY wire.
-//! - `gate-client` and `contracts-rs` carry no tool deps.
+//! - `gate-client` and `contracts` carry no tool deps.
 //! - The daemon depends on nothing downstream (no gate / gateway / memorya).
 //!
 //! Engram-scoped rules (subset of the above, included here for locality):
@@ -135,7 +135,7 @@ fn gate_client_has_no_memorya_or_daemon_pty_client_dependency() {
 fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
     let closure = normal_closure(&metadata(), "memorya");
     let wire_family: BTreeSet<&str> = [
-        "tillerd-contracts-rs",
+        "tillerd-contracts",
         "tillerd-gate-client",
         "tillerd-daemon-pty-client",
         "tillerd",
@@ -151,7 +151,7 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
 
     assert_eq!(
         wire_deps,
-        BTreeSet::from(["tillerd-contracts-rs", "tillerd-gate-client"]),
+        BTreeSet::from(["tillerd-contracts", "tillerd-gate-client"]),
         "memorya's only gate-wire deps must be the contract types and the codec"
     );
 }
@@ -164,7 +164,7 @@ fn gate_has_no_memorya_or_gateway_or_pty_client_dependency() {
     let closure = normal_closure(&meta, "tillerd-gate");
     let forbidden = [
         "memorya",
-        "tillerd-mcp-gateway-rs",
+        "tillerd-mcp-gateway",
         "tillerd-daemon-pty-client",
     ];
 
@@ -178,7 +178,7 @@ fn gate_has_no_memorya_or_gateway_or_pty_client_dependency() {
 #[test]
 fn gateway_has_no_memorya_or_gate_or_daemon_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "tillerd-mcp-gateway-rs");
+    let closure = normal_closure(&meta, "tillerd-mcp-gateway");
     let forbidden = [
         "memorya",
         "tillerd-gate",
@@ -189,7 +189,7 @@ fn gateway_has_no_memorya_or_gate_or_daemon_dependency() {
     assert_eq!(
         leaked(&closure, &forbidden),
         Vec::<&str>::new(),
-        "tillerd-mcp-gateway-rs must not depend on memorya, the gate process, the daemon, or the PTY client"
+        "tillerd-mcp-gateway must not depend on memorya, the gate process, the daemon, or the PTY client"
     );
 }
 
@@ -199,7 +199,7 @@ fn daemon_has_no_downstream_tool_dependency() {
     let closure = normal_closure(&meta, "tillerd");
     let forbidden = [
         "tillerd-gate",
-        "tillerd-mcp-gateway-rs",
+        "tillerd-mcp-gateway",
         "memorya",
         "tillerd-gate-client",
     ];
@@ -214,11 +214,11 @@ fn daemon_has_no_downstream_tool_dependency() {
 #[test]
 fn contracts_rs_has_no_tool_dependency() {
     let meta = metadata();
-    let closure = normal_closure(&meta, "tillerd-contracts-rs");
+    let closure = normal_closure(&meta, "tillerd-contracts");
     let forbidden = [
         "memorya",
         "tillerd-gate",
-        "tillerd-mcp-gateway-rs",
+        "tillerd-mcp-gateway",
         "tillerd",
         "tillerd-gate-client",
         "tillerd-daemon-pty-client",
@@ -235,7 +235,7 @@ fn contracts_rs_has_no_tool_dependency() {
 fn only_daemon_and_pty_client_know_the_pty_wire() {
     // gate, gateway, and memorya must not pull in daemon-pty-client transitively.
     let meta = metadata();
-    let tools = ["tillerd-gate", "tillerd-mcp-gateway-rs", "memorya"];
+    let tools = ["tillerd-gate", "tillerd-mcp-gateway", "memorya"];
 
     for tool in tools {
         let closure = normal_closure(&meta, tool);

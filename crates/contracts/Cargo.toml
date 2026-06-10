@@ -1,5 +1,5 @@
 [package]
-name = "tillerd-contracts-rs"
+name = "tillerd-contracts"
 version.workspace = true
 edition.workspace = true
 description = "Shared wire types for the composable tools: canonical HookEvent, ids, and subscription + tool-route message shapes"

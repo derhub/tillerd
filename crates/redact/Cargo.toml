@@ -1,5 +1,5 @@
 [package]
-name = "tillerd-redact-rs"
+name = "tillerd-redact"
 version.workspace = true
 edition.workspace = true
 description = "Detect-then-transform redaction of credentials and structured PII"

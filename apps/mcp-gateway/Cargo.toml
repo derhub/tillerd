@@ -1,5 +1,5 @@
 [package]
-name = "tillerd-mcp-gateway-rs"
+name = "tillerd-mcp-gateway"
 version.workspace = true
 edition.workspace = true
 description = "Lightweight local-first MCP gateway: aggregates many MCP servers behind one MCP face"

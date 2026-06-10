@@ -1,17 +1,17 @@
 [workspace]
 resolver = "3"
 members = [
-  "crates/contracts-rs",
+  "crates/contracts",
   "crates/service-host",
   "crates/process-launch",
   "crates/daemon-pty-client",
   "crates/gate-client",
-  "crates/redact-rs",
+  "crates/redact",
   "apps/daemon-pty",
   "apps/memorya",
   "apps/gate",
   "apps/gate-notify",
-  "apps/mcp-gateway-rs",
+  "apps/mcp-gateway",
   "apps/desktop/src-tauri",
 ]
 
@@ -42,11 +42,11 @@ rmcp = "1.7"
 # testing
 tempfile = "3"
 # internal
-contracts = { path = "crates/contracts-rs", package = "tillerd-contracts-rs" }
+contracts = { path = "crates/contracts", package = "tillerd-contracts" }
 gate-client = { path = "crates/gate-client", package = "tillerd-gate-client" }
 service-host = { path = "crates/service-host", package = "tillerd-service-host" }
 process-launch = { path = "crates/process-launch", package = "tillerd-process-launch" }
-redact = { path = "crates/redact-rs", package = "tillerd-redact-rs" }
+redact = { path = "crates/redact", package = "tillerd-redact" }
 
 [workspace.lints.rust]
 future-incompatible = "warn"

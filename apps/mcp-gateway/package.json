@@ -1,5 +1,5 @@
 {
-  "name": "@tillerd/mcp-gateway-rs",
+  "name": "@tillerd/mcp-gateway",
   "version": "0.1.0",
   "private": true,
   "description": "Standalone Rust MCP gateway daemon. Built with cargo, outside the Bun/turbo graph.",
