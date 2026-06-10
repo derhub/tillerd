@@ -66,7 +66,7 @@ second one.
 
 ## Services (long-lived processes)
 
-### daemon (`packages/daemon-pty`)
+### daemon (`apps/daemon-pty`)
 
 - **What** — owns every terminal (PTY master fd). One daemon, N sessions.
 - **Why** — terminals must survive app restarts and upgrades. A detached daemon
@@ -102,12 +102,6 @@ second one.
 
 - **Config** — environment variables only (`TILLERD_GATE_ADMIN_TOKEN`,
   `TILLERD_GATE_QUEUE_CAP`, …). No config file, no port.
-- **Today's limits** — the pipeline is hardcoded in `build_router()`; adding a
-  middleware (e.g. redact, firewall) is a code change, not config. Authorization
-  is allow-all (`AllowPolicy::All`); per-session or per-tool rules are a reserved
-  seam, not yet implemented. The `admin` route is walled by credential, not by a
-  separate socket — its protection is the centralized route→credential policy.
-
 ### memorya (`apps/memorya`)
 
 - **What** — local knowledge layer. Captures conversation + tool activity, makes
@@ -164,16 +158,15 @@ the agent can send its first hook, or that hook fails authentication.
 
 ## Libraries (shared, no process of their own)
 
-### contracts-rs (`packages/contracts-rs`)
+### contracts (`crates/contracts`)
 
-- **What** — the shared wire types plus the canonical length-prefix frame codec.
-- **Why** — one home for `HookEvent`, the ids, the wire-version constants, and the
-  `framing` codec, so every Rust service speaks the same wire without re-deriving it.
+- **What** — shared wire types and the canonical length-prefix frame codec.
+- **Why** — one home for `HookEvent`, ids, wire-version constants, and the `framing`
+  codec so every Rust service speaks the same wire without re-deriving it.
 - **Gives you** — `framing::{encode_frame, FrameDecoder, MAX_FRAME_SIZE}` and the
-  contract types. Pure: no I/O, no async runtime (faces add their own socket
-  adapters on top).
+  contract types. Pure: no I/O, no async runtime.
 
-### service-host (`packages/service-host`)
+### service-host (`crates/service-host`)
 
 - **What** — the "run me as a long-lived process" wrapper. A Rust crate.
 - **Why** — gate, daemon, and memorya all need the same plumbing. Write it once.
@@ -200,7 +193,7 @@ the agent can send its first hook, or that hook fails authentication.
   `serve()` against the stop signal, logs `health()` at startup and drain, and
   exits uniformly on error.
 
-### process-launch (`packages/process-launch`)
+### process-launch (`crates/process-launch`)
 
 - **What** — the adopt-or-spawn launcher.
 - **Why** — never start a second daemon when one is already healthy.
@@ -212,14 +205,14 @@ the agent can send its first hook, or that hook fails authentication.
 > my own lifecycle from inside). process-launch is _"I start services"_ (manage
 > another process from outside). Different jobs, easy to confuse by name.
 
-### gate-client (`packages/gate-client`)
+### gate-client (`crates/gate-client`)
 
 - **What** — the consumer half of the gate's subscribe protocol.
 - **Why** — engine and memorya need to decode gate frames without importing the
   gate binary.
 - **Gives you** — `encode_subscribe_preamble` (the `subscribe` route preamble), the
   typed `SubscriptionFrame` (`Ready`, `Event`, `Error`), and the wire-version
-  handshake. The length-prefix framing itself it re-exports from `contracts-rs`.
+  handshake. The length-prefix framing itself it re-exports from `contracts`.
   Carries no socket — you drive your own connection and feed it bytes.
 
 ---
@@ -234,7 +227,7 @@ the agent can send its first hook, or that hook fails authentication.
 | gate-notify    | client  | Per-hook binary; frames the payload to `gate.sock` (hook route). |
 | orchestrator   | role    | Mints sessions, registers them, injects env.                     |
 | supervisor     | role    | Adopts or spawns the daemon; owns its shutdown.                  |
-| contracts-rs   | library | Shared wire types + the canonical frame codec.                   |
+| contracts      | library | Shared wire types + the canonical frame codec.                   |
 | service-host   | library | "Run me as a long-lived process" wrapper.                        |
 | process-launch | library | Adopt-or-spawn a managed backend.                                |
 | gate-client    | library | Decode the gate's subscribe wire.                                |
