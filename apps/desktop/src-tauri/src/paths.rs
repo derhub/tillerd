@@ -76,6 +76,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn daemon_sock_and_manifest_share_parent() {
         assert_eq!(daemon_sock().parent(), manifest_path().parent());
     }

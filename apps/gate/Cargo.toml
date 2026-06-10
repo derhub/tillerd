@@ -1,9 +1,9 @@
 [package]
 name = "tillerd-gate"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Composable middleware gate: per-session auth, hook normalization and fan-out, and tool-route pass-through over loopback"
-license = "MIT"
+license.workspace = true
 
 [lib]
 name = "tillerd_gate"
@@ -14,9 +14,9 @@ name = "tillerd-gate"
 path = "src/bin/main.rs"
 
 [dependencies]
-contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
-service-host = { path = "../../packages/service-host", package = "tillerd-service-host" }
-tokio = { version = "1", features = [
+contracts.workspace = true
+service-host.workspace = true
+tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
   "net",
@@ -26,33 +26,26 @@ tokio = { version = "1", features = [
   "signal",
 ] }
 async-trait = "0.1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "2"
-tracing = "0.1"
-uuid = { version = "1", features = ["v4"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
 bytes = "1"
 subtle = "2"
 # Confined to `endpoint/mcp.rs`: gate owns only the request->Inbound bridge; the
 # router, Kind, and middleware never name an rmcp type. The MCP face is served over
 # the gate's single Unix socket only — no HTTP/TCP transport.
-rmcp = { version = "1.7", features = ["server", "transport-io"] }
+rmcp = { workspace = true, features = ["server", "transport-io"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
-tempfile = "3"
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }
+tempfile.workspace = true
 # Integration tests drive the MCP face with an in-process client over the same
 # socket/stream transport the server uses; no HTTP client transport is needed.
-rmcp = { version = "1.7", features = ["client", "transport-io"] }
-serde_json = "1"
-contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
+rmcp = { workspace = true, features = ["client", "transport-io"] }
+serde_json.workspace = true
+contracts.workspace = true
 
-[lints.rust]
-future-incompatible = "warn"
-nonstandard_style = "warn"
-
-[lints.clippy]
-all = "warn"
-redundant_clone = "warn"
-large_enum_variant = "warn"
-needless_collect = "warn"
+[lints]
+workspace = true

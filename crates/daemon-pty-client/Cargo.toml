@@ -1,0 +1,18 @@
+[package]
+name = "tillerd-daemon-pty-client"
+version.workspace = true
+edition.workspace = true
+description = "Client-side codec for the daemon PTY session-event wire (framing + typed frames)"
+license.workspace = true
+
+[lib]
+name = "daemon_pty_client"
+path = "src/lib.rs"
+
+[dependencies]
+contracts.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

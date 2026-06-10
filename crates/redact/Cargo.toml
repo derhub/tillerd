@@ -1,0 +1,20 @@
+[package]
+name = "tillerd-redact"
+version.workspace = true
+edition.workspace = true
+description = "Detect-then-transform redaction of credentials and structured PII"
+license.workspace = true
+
+[lib]
+name = "redact"
+path = "src/lib.rs"
+
+[[bin]]
+name = "redact"
+path = "src/main.rs"
+
+[dependencies]
+regex = "1"
+
+[lints]
+workspace = true

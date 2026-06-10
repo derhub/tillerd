@@ -2360,9 +2360,9 @@ dependencies = [
  "sha2",
  "strsim",
  "tempfile",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
  "tillerd-gate-client",
- "tillerd-redact-rs",
+ "tillerd-redact",
 ]
 
 [[package]]
@@ -4503,7 +4503,7 @@ dependencies = [
  "portable-pty",
  "serde",
  "serde_json",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
  "tillerd-service-host",
  "tokio",
  "tracing",
@@ -4512,7 +4512,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tillerd-contracts-rs"
+name = "tillerd-contracts"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -4526,7 +4526,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
 ]
 
 [[package]]
@@ -4541,7 +4541,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tempfile",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
  "tillerd-process-launch",
  "tokio",
  "uuid",
@@ -4559,7 +4559,7 @@ dependencies = [
  "subtle",
  "tempfile",
  "thiserror 2.0.18",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
  "tillerd-service-host",
  "tokio",
  "tracing",
@@ -4573,7 +4573,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
 ]
 
 [[package]]
@@ -4582,11 +4582,11 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "tempfile",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
 ]
 
 [[package]]
-name = "tillerd-mcp-gateway-rs"
+name = "tillerd-mcp-gateway"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4596,7 +4596,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
- "tillerd-contracts-rs",
+ "tillerd-contracts",
  "tillerd-process-launch",
  "tillerd-service-host",
  "tokio",
@@ -4616,7 +4616,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tillerd-redact-rs"
+name = "tillerd-redact"
 version = "0.1.0"
 dependencies = [
  "regex",

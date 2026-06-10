@@ -198,8 +198,7 @@ the agent can send its first hook, or that hook fails authentication.
 
   Your service never handles signals or runtimes itself. The host races your
   `serve()` against the stop signal, logs `health()` at startup and drain, and
-  exits uniformly on error. There is no `<name>-health.sock`; health is answered
-  in-process, not over a socket.
+  exits uniformly on error.
 
 ### process-launch (`packages/process-launch`)
 

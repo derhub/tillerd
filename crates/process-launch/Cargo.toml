@@ -1,0 +1,19 @@
+[package]
+name = "tillerd-process-launch"
+version.workspace = true
+edition.workspace = true
+description = "Adopt-or-spawn launcher for managed tool backends: manifest adoption, spawn-field diffing, bounded-backoff restart"
+license.workspace = true
+
+[lib]
+name = "process_launch"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+nix = { workspace = true, features = ["signal", "process"] }
+
+[lints]
+workspace = true

@@ -8,7 +8,7 @@ use serde_json::Value;
 
 pub use contracts::framing::{encode_frame, FrameDecoder, OversizeFrame, RawFrame};
 
-/// The gate wire version this client speaks (R9: sourced from `contracts-rs`,
+/// The gate wire version this client speaks (R9: sourced from `contracts`,
 /// carried in the route preamble and negotiated with the gate at subscribe time).
 pub const WIRE_VERSION: u32 = HOOK_SUBSCRIPTION_WIRE_VERSION;
 
