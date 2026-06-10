@@ -239,4 +239,4 @@ the agent can send its first hook, or that hook fails authentication.
 | service-host   | library | "Run me as a long-lived process" wrapper.                        |
 | process-launch | library | Adopt-or-spawn a managed backend.                                |
 | gate-client    | library | Decode the gate's subscribe wire.                                |
-| `~/.tillerd/`   | data    | Well-known files; the discovery source of truth.                 |
+| `~/.tillerd/`  | data    | Well-known files; the discovery source of truth.                 |

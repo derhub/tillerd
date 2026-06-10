@@ -23,9 +23,13 @@
     "format:check": "oxfmt --check . && cargo fmt --check",
     "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@tillerd/integration-tests",
     "e2e:ui": "turbo run e2e --filter=@tillerd/e2e-test",
-    "check-deps": "turbo run check-deps"
+    "check-deps": "turbo run check-deps",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@playwright/test": "^1.60.0",
     "@types/bun": "^1.3.14",
     "oxfmt": "^0.53.0",

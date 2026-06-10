@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use bytes::Bytes;
+use contracts::{CorrelationId, HookKind, SessionId};
 use tillerd_gate::agent_adapter::V1Adapter;
 use tillerd_gate::middleware::auth::Auth;
 use tillerd_gate::middleware::fanout::FanOut;
@@ -16,8 +18,6 @@ use tillerd_gate::registry::SessionRegistry;
 use tillerd_gate::router::{Inbound, Router};
 use tillerd_gate::subscription::Subscriptions;
 use tillerd_gate::{Kind, Outbound, Reject, Token};
-use bytes::Bytes;
-use contracts::{CorrelationId, HookKind, SessionId};
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
 
 #[derive(Default)]

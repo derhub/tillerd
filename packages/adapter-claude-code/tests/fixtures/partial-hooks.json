@@ -4,7 +4,10 @@
       { "matcher": "", "hooks": [{ "type": "command", "command": "/fixtures/bin/tillerd-notify" }] }
     ],
     "PostToolUse": [
-      { "matcher": "*", "hooks": [{ "type": "command", "command": "/fixtures/bin/tillerd-notify" }] }
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "/fixtures/bin/tillerd-notify" }]
+      }
     ]
   }
 }
