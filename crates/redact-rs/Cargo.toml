@@ -1,9 +1,9 @@
 [package]
 name = "tillerd-redact-rs"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Detect-then-transform redaction of credentials and structured PII"
-license = "MIT"
+license.workspace = true
 
 [lib]
 name = "redact"
@@ -16,12 +16,5 @@ path = "src/main.rs"
 [dependencies]
 regex = "1"
 
-[lints.rust]
-future-incompatible = "warn"
-nonstandard_style = "warn"
-
-[lints.clippy]
-all = "warn"
-redundant_clone = "warn"
-large_enum_variant = "warn"
-needless_collect = "warn"
+[lints]
+workspace = true

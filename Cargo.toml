@@ -1,19 +1,62 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
-  "packages/contracts-rs",
-  "packages/service-host",
-  "packages/process-launch",
-  "packages/daemon-pty-client",
-  "packages/gate-client",
-  "packages/daemon-pty",
-  "packages/redact-rs",
+  "crates/contracts-rs",
+  "crates/service-host",
+  "crates/process-launch",
+  "crates/daemon-pty-client",
+  "crates/gate-client",
+  "crates/redact-rs",
+  "apps/daemon-pty",
   "apps/memorya",
   "apps/gate",
   "apps/gate-notify",
   "apps/mcp-gateway-rs",
   "apps/desktop/src-tauri",
 ]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+rust-version = "1.84"
+
+[workspace.dependencies]
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# error handling
+thiserror = "2"
+anyhow = "1"
+# async runtime
+tokio = "1"
+# observability
+tracing = "0.1"
+tracing-subscriber = "0.3"
+# identifiers
+uuid = { version = "1", features = ["v4"] }
+# platform
+nix = "0.31"
+# mcp
+rmcp = "1.7"
+# testing
+tempfile = "3"
+# internal
+contracts = { path = "crates/contracts-rs", package = "tillerd-contracts-rs" }
+gate-client = { path = "crates/gate-client", package = "tillerd-gate-client" }
+service-host = { path = "crates/service-host", package = "tillerd-service-host" }
+process-launch = { path = "crates/process-launch", package = "tillerd-process-launch" }
+redact = { path = "crates/redact-rs", package = "tillerd-redact-rs" }
+
+[workspace.lints.rust]
+future-incompatible = "warn"
+nonstandard_style = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+redundant_clone = "warn"
+large_enum_variant = "warn"
+needless_collect = "warn"
 
 [profile.release]
 opt-level = 3

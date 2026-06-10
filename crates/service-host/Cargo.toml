@@ -1,0 +1,31 @@
+[package]
+name = "tillerd-service-host"
+version.workspace = true
+edition.workspace = true
+description = "Uniform run-me lifecycle for long-lived tools: path resolution, atomic manifest, signal-driven graceful shutdown, and an unauthenticated liveness probe"
+license.workspace = true
+
+[lib]
+name = "service_host"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "sync",
+  "signal",
+  "io-util",
+  "time",
+  "process",
+] }
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

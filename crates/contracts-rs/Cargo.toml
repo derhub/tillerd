@@ -1,0 +1,18 @@
+[package]
+name = "tillerd-contracts-rs"
+version.workspace = true
+edition.workspace = true
+description = "Shared wire types for the composable tools: canonical HookEvent, ids, and subscription + tool-route message shapes"
+license.workspace = true
+
+[lib]
+name = "contracts"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

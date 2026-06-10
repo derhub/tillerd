@@ -1,9 +1,9 @@
 [package]
 name = "tillerd-mcp-gateway-rs"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Lightweight local-first MCP gateway: aggregates many MCP servers behind one MCP face"
-license = "MIT"
+license.workspace = true
 
 [lib]
 name = "tillerd_mcp_gateway"
@@ -23,7 +23,7 @@ name = "stub-backend"
 path = "src/bin/stub_backend.rs"
 
 [dependencies]
-rmcp = { version = "1.7", features = [
+rmcp = { workspace = true, features = [
   "server",
   "client",
   "transport-child-process",
@@ -35,7 +35,7 @@ rmcp = { version = "1.7", features = [
   "elicitation",
   "macros",
 ] }
-tokio = { version = "1", features = [
+tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
   "sync",
@@ -46,27 +46,20 @@ tokio = { version = "1", features = [
   "io-util",
 ] }
 axum = "0.8"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde.workspace = true
+serde_json.workspace = true
 schemars = "1"
-anyhow = "1"
-thiserror = "2"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-uuid = { version = "1", features = ["v4"] }
-contracts = { path = "../../packages/contracts-rs", package = "tillerd-contracts-rs" }
-service-host = { path = "../../packages/service-host", package = "tillerd-service-host" }
-process-launch = { path = "../../packages/process-launch", package = "tillerd-process-launch" }
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+contracts.workspace = true
+service-host.workspace = true
+process-launch.workspace = true
 
 [dev-dependencies]
-tokio = { version = "1", features = ["test-util", "macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["test-util", "macros", "rt-multi-thread"] }
 
-[lints.rust]
-future-incompatible = "warn"
-nonstandard_style = "warn"
-
-[lints.clippy]
-all = "warn"
-redundant_clone = "warn"
-large_enum_variant = "warn"
-needless_collect = "warn"
+[lints]
+workspace = true

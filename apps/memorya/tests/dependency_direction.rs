@@ -242,7 +242,7 @@ fn only_daemon_and_pty_client_know_the_pty_wire() {
         assert_eq!(
             leaked(&closure, &["tillerd-daemon-pty-client"]),
             Vec::<&str>::new(),
-            "{tool} must not reach daemon-pty-client (PTY wire is daemon-only)"
+            "{tool} must not reach tillerd-daemon-pty-client (PTY wire is daemon-only)"
         );
     }
 }
