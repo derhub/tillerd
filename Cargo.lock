@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "memorya"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "ignore",
@@ -4495,7 +4495,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "command-fds",
@@ -4513,7 +4513,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-contracts"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4522,7 +4522,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-daemon-pty-client"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4531,7 +4531,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-desktop"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "dirs",
  "libc",
@@ -4549,7 +4549,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-gate"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4568,7 +4568,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-gate-client"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4578,7 +4578,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-gate-notify"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde_json",
  "tempfile",
@@ -4587,7 +4587,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-mcp-gateway"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4607,7 +4607,7 @@ dependencies = [
 
 [[package]]
 name = "tillerd-process-launch"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "nix 0.31.3",
  "serde",
@@ -4617,14 +4617,14 @@ dependencies = [
 
 [[package]]
 name = "tillerd-redact"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "regex",
 ]
 
 [[package]]
 name = "tillerd-service-host"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",

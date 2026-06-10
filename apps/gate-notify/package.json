@@ -1,6 +1,6 @@
 {
   "name": "@tillerd/gate-notify",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "bin": {
     "tillerd-notify": "../../bin/tillerd-notify"
   },

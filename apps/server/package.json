@@ -1,6 +1,6 @@
 {
   "name": "@tillerd/server",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "bun --hot src/index.ts",
