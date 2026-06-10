@@ -10,7 +10,7 @@ const HEADER_SIZE: usize = 4;
 const BODY_SEP: u8 = 0x0a;
 
 /// The PTY session-event wire version this client speaks (R9: sourced from
-/// `contracts-rs`, negotiated with the daemon at `hello`).
+/// `contracts`, negotiated with the daemon at `hello`).
 pub const WIRE_VERSION: u32 = SESSION_EVENT_WIRE_VERSION;
 
 /// A frame split into its JSON meta and optional raw body.

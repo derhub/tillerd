@@ -1,0 +1,35 @@
+[package]
+name = "tillerd"
+version.workspace = true
+edition.workspace = true
+description = "Native (Rust) generic terminal-backend daemon, wire-compatible with @tillerd/daemon"
+license.workspace = true
+
+[[bin]]
+name = "tillerd-daemon"
+path = "src/main.rs"
+
+[dependencies]
+contracts.workspace = true
+service-host.workspace = true
+portable-pty = "0.9"
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "sync",
+  "signal",
+  "io-util",
+  "time",
+] }
+serde.workspace = true
+serde_json.workspace = true
+nix = { workspace = true, features = ["signal", "process", "ioctl"] }
+base64 = "0.22"
+command-fds = "0.3"
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
+tracing-appender = "0.2"
+
+[lints]
+workspace = true

@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
-// Single source of truth for the session-event wire version (contracts-rs, R9).
+// Single source of truth for the session-event wire version (contracts, R9).
 pub const SUPPORTED_VERSIONS: &[u32] = &[contracts::SESSION_EVENT_WIRE_VERSION];
 
 #[derive(Debug, Clone, Deserialize)]

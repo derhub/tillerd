@@ -55,7 +55,7 @@ const events: HookEvent[] = [
 
 test("the sdk HookEvent encoding matches the contracts-rs golden wire", async () => {
   const fixtures = await Bun.file(
-    new URL("../../contracts-rs/fixtures/hook_events.json", import.meta.url),
+    new URL("../../contracts/fixtures/hook_events.json", import.meta.url),
   ).json();
   expect(events).toEqual(fixtures);
 });
