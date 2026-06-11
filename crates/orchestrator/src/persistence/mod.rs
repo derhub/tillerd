@@ -15,6 +15,10 @@ impl SessionId {
         Self(uuid::Uuid::new_v4().to_string())
     }
 
+    pub fn from_string(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -26,6 +30,10 @@ pub struct SurfaceId(String);
 impl SurfaceId {
     pub fn mint() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn from_string(id: impl Into<String>) -> Self {
+        Self(id.into())
     }
 
     pub fn as_str(&self) -> &str {
@@ -111,6 +119,7 @@ pub struct Session {
 
 #[derive(Debug, Clone)]
 pub struct NewSurface {
+    pub id: Option<SurfaceId>,
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
@@ -122,6 +131,7 @@ pub struct Surface {
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
+    pub last_status: Option<String>,
 }
 
 impl Surface {
@@ -138,4 +148,12 @@ pub trait Store: Send + Sync {
     fn create_session(&self, draft: NewSession) -> Result<Session>;
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface>;
+
+    fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>>;
+
+    fn list_resumable_surfaces(&self) -> Result<Vec<Surface>>;
+
+    fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()>;
+
+    fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()>;
 }

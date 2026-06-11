@@ -19,3 +19,19 @@ export type { KeyEncodeOptions } from "./keys";
 export type { DaemonTransport, FileSource, FrameHandler, HookSource } from "./ports";
 export { ATTR, RESOURCE_KEY } from "./attributes";
 export { hookEventToContent } from "./hook-content";
+export {
+  SURFACE_CREATE,
+  SURFACE_INPUT,
+  SURFACE_RESIZE,
+  SURFACE_DETACH,
+  SURFACE_STATUS_EVENT,
+  SURFACE_EXIT_EVENT,
+  createTerminalSurfaceClient,
+} from "./orchestrator/terminal-surface";
+export type {
+  SurfaceStatusEvent,
+  SurfaceExitEvent,
+  TerminalSurfaceTransport,
+  CreateTerminalOptions,
+  TerminalSurfaceClient,
+} from "./orchestrator/terminal-surface";

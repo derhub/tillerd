@@ -1,15 +1,18 @@
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use orchestrator::persistence::{SqliteStore, Store};
-use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn};
+use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
 use orchestrator::{boot, EventSink, Orchestrator, Status};
-use process_launch::{tillerd_dir, LaunchError};
+use process_launch::LaunchError;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
-
-use crate::paths::{resolve_daemon_bin, resolve_gate_bin};
+use tillerd_paths::{
+    daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin,
+    runtime_dir,
+};
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
@@ -76,7 +79,7 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .env("TILLERD_DIR", &dir)
+            .env(tillerd_paths::ENV_TILLERD_DIR, &dir)
             .spawn()
             .map(|child| child.id())
             .map_err(|e| LaunchError::SpawnFailed(e.to_string()))
@@ -84,14 +87,20 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
 }
 
 fn build_supervisor() -> ProcessSupervisor {
-    let dir = tillerd_dir();
+    let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
+    // Cold-starting a freshly-built service can exceed the 10s default under load; fail-fast on a
+    // dead child keeps a genuine crash from waiting this out.
     ProcessSupervisor::new()
+        .with_timing(SpawnTiming {
+            startup_timeout: Duration::from_secs(30),
+            poll_interval: Duration::from_millis(100),
+        })
         .service(
             ServiceSpec {
                 name: "gate".to_string(),
                 manifest_path: dir.join("gate.json"),
-                socket_path: dir.join("gate.sock"),
+                socket_path: gate_socket_in(&dir),
                 version: version.clone(),
             },
             spawn_fn(resolve_gate_bin, "tillerd-gate", dir.clone()),
@@ -99,8 +108,8 @@ fn build_supervisor() -> ProcessSupervisor {
         .service(
             ServiceSpec {
                 name: "daemon".to_string(),
-                manifest_path: dir.join("daemon.json"),
-                socket_path: dir.join("daemon.sock"),
+                manifest_path: manifest_in(&dir),
+                socket_path: daemon_socket_in(&dir),
                 version,
             },
             spawn_fn(resolve_daemon_bin, "tillerd-daemon", dir),
@@ -111,11 +120,15 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let status = state.status.clone();
     let slot = state.orchestrator.clone();
     std::thread::spawn(move || {
+        let app_for_surface = app.clone();
         let sink = TauriEventSink { app, status };
         let mut supervisor = build_supervisor();
         let open_store = || SqliteStore::open_default().map(|s| Box::new(s) as Box<dyn Store>);
         match boot(open_store, &mut supervisor, &sink) {
             Ok(orchestrator) => {
+                // Register the surface layer before stashing the orchestrator so
+                // SurfaceState exists before any IPC command can fire.
+                crate::surface_host::register(&app_for_surface, orchestrator.store_arc());
                 *slot.lock().unwrap() = Some(orchestrator);
             }
             Err(error) => {

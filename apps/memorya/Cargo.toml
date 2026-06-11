@@ -19,6 +19,7 @@ path = "src/lib.rs"
 
 [dependencies]
 contracts.workspace = true
+tillerd-paths.workspace = true
 gate-client.workspace = true
 serde.workspace = true
 serde_json.workspace = true

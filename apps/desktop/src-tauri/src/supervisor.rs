@@ -6,7 +6,7 @@ use serde::Serialize;
 use tauri::State;
 use tokio::net::UnixStream;
 
-use crate::paths::{daemon_sock, manifest_path, resolve_daemon_bin};
+use tillerd_paths::{daemon_socket, manifest, resolve_daemon_bin};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Ownership {
@@ -29,7 +29,7 @@ pub struct EnsureResult {
 }
 
 fn read_manifest() -> Option<(u32, String)> {
-    let raw = std::fs::read(manifest_path()).ok()?;
+    let raw = std::fs::read(manifest()).ok()?;
     let v: serde_json::Value = serde_json::from_slice(&raw).ok()?;
     let pid = v.get("pid")?.as_u64()? as u32;
     let version = v.get("version")?.as_str()?.to_string();
@@ -42,7 +42,7 @@ fn is_alive(pid: u32) -> bool {
 }
 
 async fn socket_reachable() -> bool {
-    UnixStream::connect(daemon_sock()).await.is_ok()
+    UnixStream::connect(daemon_socket()).await.is_ok()
 }
 
 /// Adopt a live daemon recorded in the manifest, else spawn one and wait for reachability.
@@ -59,7 +59,7 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
     }
 
     // Stale socket from a dead daemon blocks bind; remove best-effort.
-    let _ = std::fs::remove_file(daemon_sock());
+    let _ = std::fs::remove_file(daemon_socket());
 
     let bin = resolve_daemon_bin().ok_or_else(|| {
         "cannot resolve tillerd-daemon binary (set TILLERD_DAEMON_BIN)".to_string()
@@ -87,7 +87,7 @@ pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureRe
 }
 
 fn sock_string() -> String {
-    daemon_sock().to_string_lossy().into_owned()
+    daemon_socket().to_string_lossy().into_owned()
 }
 
 /// On app exit: SIGTERM an owned daemon (graceful), leave an adopted daemon running.

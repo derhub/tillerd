@@ -1,0 +1,11 @@
+{
+  "name": "@tillerd/desktop-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "bash run.sh"
+  },
+  "devDependencies": {
+    "webdriverio": "^9.0.0"
+  }
+}

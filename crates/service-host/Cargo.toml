@@ -10,6 +10,7 @@ name = "service_host"
 path = "src/lib.rs"
 
 [dependencies]
+tillerd-paths.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = [

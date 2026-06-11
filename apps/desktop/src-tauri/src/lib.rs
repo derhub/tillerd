@@ -5,9 +5,9 @@ mod diag;
 mod files;
 mod gate_admin;
 mod orchestrator_host;
-mod paths;
 mod store;
 mod supervisor;
+mod surface_host;
 
 use tauri::Manager;
 
@@ -18,7 +18,10 @@ use supervisor::SupervisorState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "webdriver")]
+    let builder = builder.plugin(tauri_plugin_webdriver::init());
+    builder
         .manage(BridgeState::default())
         .manage(StoreState::load())
         .manage(SupervisorState::default())
@@ -47,6 +50,10 @@ pub fn run() {
             supervisor::daemon_ensure,
             bootstrap::agent_bootstrap,
             orchestrator_host::orchestrator_status,
+            surface_host::surface_create,
+            surface_host::surface_input,
+            surface_host::surface_resize,
+            surface_host::surface_detach,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

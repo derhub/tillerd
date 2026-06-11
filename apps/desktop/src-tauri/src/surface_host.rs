@@ -1,0 +1,129 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use orchestrator::persistence::SurfaceId;
+use orchestrator::surface::transport::default_daemon_socket;
+use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+pub type SurfaceChannels = Arc<Mutex<HashMap<String, tauri::ipc::Channel<Vec<u8>>>>>;
+
+pub struct TauriSurfaceSink {
+    channels: SurfaceChannels,
+    app: AppHandle,
+}
+
+impl SurfaceEventSink for TauriSurfaceSink {
+    fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]) {
+        let channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(ch) = channels.get(surface.as_str()) {
+            let _ = ch.send(bytes.to_vec());
+        }
+    }
+
+    fn on_status(&self, surface: &SurfaceId, status: &str) {
+        let _ = self.app.emit(
+            "surface://status",
+            serde_json::json!({ "surfaceId": surface.as_str(), "status": status }),
+        );
+    }
+
+    fn on_exit(&self, surface: &SurfaceId, qualifier: &str) {
+        let _ = self.app.emit(
+            "surface://exit",
+            serde_json::json!({ "surfaceId": surface.as_str(), "qualifier": qualifier }),
+        );
+        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
+        channels.remove(surface.as_str());
+    }
+}
+
+pub struct SurfaceState {
+    pub api: Arc<SurfaceApi>,
+    pub channels: SurfaceChannels,
+}
+
+pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store>) {
+    let channels: SurfaceChannels = Arc::new(Mutex::new(HashMap::new()));
+    let sink = Arc::new(TauriSurfaceSink {
+        channels: channels.clone(),
+        app: app.clone(),
+    });
+    let api = Arc::new(SurfaceApi::new(store, sink, default_daemon_socket()));
+
+    let api_for_resume = api.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = api_for_resume.resume_all().await {
+            eprintln!("surface resume_all failed (non-fatal): {e}");
+        }
+    });
+
+    app.manage(SurfaceState { api, channels });
+}
+
+#[tauri::command]
+pub async fn surface_create(
+    state: State<'_, SurfaceState>,
+    channel: tauri::ipc::Channel<Vec<u8>>,
+    cols: u16,
+    rows: u16,
+    cwd: Option<String>,
+) -> Result<String, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    // Register the channel before create so no initial output is lost.
+    state
+        .channels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id.clone(), channel);
+    state
+        .api
+        .create_terminal_surface(SurfaceId::from_string(id.clone()), cols, rows, cwd)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+#[tauri::command]
+pub async fn surface_input(
+    state: State<'_, SurfaceState>,
+    surface_id: String,
+    bytes: Vec<u8>,
+) -> Result<(), String> {
+    state
+        .api
+        .input(&SurfaceId::from_string(surface_id), &bytes)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn surface_resize(
+    state: State<'_, SurfaceState>,
+    surface_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    state
+        .api
+        .resize(&SurfaceId::from_string(surface_id), cols, rows)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn surface_detach(
+    state: State<'_, SurfaceState>,
+    surface_id: String,
+) -> Result<(), String> {
+    state
+        .channels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&surface_id);
+    state
+        .api
+        .detach(&SurfaceId::from_string(surface_id))
+        .await
+        .map_err(|e| e.to_string())
+}

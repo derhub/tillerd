@@ -37,7 +37,7 @@ pub fn spawn_and_wait(
     timing: &SpawnTiming,
     probes: &impl Probes,
 ) -> Result<u32, LaunchError> {
-    let sock = manifest::socket_path(dir);
+    let sock = tillerd_paths::daemon_socket_in(dir);
     probes.remove_socket(&sock);
 
     let pid = probes.spawn()?;

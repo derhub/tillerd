@@ -55,6 +55,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 contracts.workspace = true
+tillerd-paths.workspace = true
 service-host.workspace = true
 process-launch.workspace = true
 

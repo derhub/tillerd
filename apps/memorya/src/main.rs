@@ -14,13 +14,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn default_db_path() -> PathBuf {
-    let base = std::env::var_os("TILLERD_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            PathBuf::from(home).join(".tillerd")
-        });
-    base.join("memorya.db")
+    tillerd_paths::runtime_dir().join("memorya.db")
 }
 
 fn now() -> i64 {
