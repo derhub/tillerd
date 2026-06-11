@@ -6,15 +6,13 @@ cd "$REPO_ROOT"
 
 echo "Setting up development environment..."
 
-# Setup .env with absolute paths
-if [ ! -f .env ]; then
-  echo "Creating .env from .env.example..."
-  sed \
-    -e "s|TILLERD_DIR=\.\/\.tillerd|TILLERD_DIR=$REPO_ROOT/.tillerd|" \
-    -e "s|TILLERD_DAEMON_BIN=\.\/bin\/tillerd-daemon|TILLERD_DAEMON_BIN=$REPO_ROOT/bin/tillerd-daemon|" \
-    .env.example > .env
-else
+# Setup .env — seed from .env.example, rewriting every relative ./ path to an absolute path
+# rooted at THIS worktree, so .tillerd and bin live beside it (each worktree is self-contained).
+if [ -f .env ]; then
   echo ".env exists, skipping..."
+else
+  echo "Creating .env from .env.example..."
+  sed "s|=\./|=$REPO_ROOT/|g" .env.example > .env
 fi
 
 # Create necessary directories
