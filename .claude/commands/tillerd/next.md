@@ -1,11 +1,11 @@
 ---
 description: Dev driver — resume the pending OpenSpec change (status + what's left) or prepare the next roadmap version
 argument-hint: "[version e.g. 0.0.2]  (optional; defaults to auto-detect)"
-allowed-tools: Bash, Read, Glob, Grep
+allowed-tools: Bash, Read, Glob, Grep, EnterWorktree
 ---
 
-tillerd dev driver. Pick a mode — **resume** a pending change or **prepare** the next — then
-report a tight status, the roadmap edit it implies, and ONE next step. **Read-only: report, never edit.**
+tillerd dev driver. Preflight the worktree, then **resume** the active change or **prepare** the next.
+Sets up the worktree; otherwise read-only — reports status + the roadmap edit, never edits artifacts.
 
 ## State (pre-loaded)
 
@@ -18,37 +18,34 @@ report a tight status, the roadmap edit it implies, and ONE next step. **Read-on
 - Next roadmap gap: !`awk '/^### [0-9]/{h=$0} /^- \[ \]/{if(h){print h; h=""} print}' docs/roadmap.md | head -16`
 - Arg: "$ARGUMENTS"
 
-## Mode
+## 1. Preflight — worktree (first)
 
-`$ARGUMENTS` names a version → focus it. Else active change (dir under `openspec/changes/` ≠ `archive/`) → RESUME. Else → PREPARE.
+This command authorizes `EnterWorktree`; build every change in its own worktree, never main.
 
-## RESUME
+- **Focus + branch:** `$ARGUMENTS` version → it; else active change dir (under `openspec/changes/` ≠ `archive/`) → RESUME; else next roadmap gap → PREPARE. `<id>` = change kebab-id, branch `feature/<id>`.
+- **Place the session:** already there → continue · worktree exists in `git worktree list` → `EnterWorktree({path})` · RESUME, branch exists, no worktree → `git worktree add .claude/worktrees/<id> feature/<id>` + `EnterWorktree({path})` · PREPARE, no branch → `EnterWorktree({name:"feature/<id>"})` (off `main`).
+- Entered and `.env` missing → run `tools/setup-dev.sh`.
+- **Blocked (flag, don't force):** artifacts uncommitted on main → `/commit` onto `feature/<id>` first · branch already checked out in main → switch main back to `main` first.
 
-- Read the change's `proposal.md` + `tasks.md`; note artifacts present (proposal / specs / design / tasks).
-- **Version:** from the proposal `Implements roadmap X.Y.Z` marker. Missing → flag `⚠ binding missing` and only then guess by title (say so).
-- **Tasks:** done `- [x]` / total. The **Verification group** (heading ends in `Verification`, e.g. `## 7. Verification`) is reported separately. No such group → flag `⚠ no Verification group`.
-- **Ladder → next step:**
-  - artifact missing for schema (proposal→specs→design→tasks) → `/opsx:continue`
-  - planning done, impl tasks partial → `/opsx:apply`
-  - impl tasks `[x]`, Verification not `[x]` → `/opsx:apply` (finish the checks)
-  - all `[x]` incl Verification → `/opsx:verify` (gate)
-  - verify passed → `/opsx:archive` (user-only)
-- Hygiene: on a `feature/*` branch + a dedicated worktree (not the main worktree / `main`)? Uncommitted work to `/commit`?
+## 2. RESUME
 
-## PREPARE
+- Read `proposal.md` + `tasks.md`; note artifacts present (proposal / specs / design / tasks).
+- **Version:** the proposal `Implements roadmap X.Y.Z` marker. Missing → flag `⚠ binding missing`, then guess by title (say so).
+- **Tasks:** done `- [x]` / total; report the Verification group (heading ends in `Verification`, e.g. `## 7. Verification`) separately — none → flag `⚠ no Verification group`.
+- **Next step:** missing artifact (proposal→specs→design→tasks) → `/opsx:continue` · impl tasks partial → `/opsx:apply` · impl done but Verification not `[x]` → `/opsx:apply` · all `[x]` incl Verification → `/opsx:verify` · verified → `/opsx:archive` (user-only). Uncommitted work → `/commit`.
 
-- **Reconcile first:** a version still `- [ ]`/`[WIP]` whose change is in `archive/` → don't prepare; report the ROADMAP EDIT to mark it done, stop.
-- Pick the first `### 0.x.y` (top-down) with any `- [ ]` (unless `$ARGUMENTS` overrides). Summarize: title, one-line demoable outcome, unchecked bullets.
-- ADRs that constrain it (scan bullets for `ADR-00xx`; default honor 0020–0023). Schema: `spec-driven` default; `minimalist`/direct for small ones.
-- **Worktree (default isolation):** propose `git worktree add ../tillerd-<id> -b feature/<id> main` (`<id>` = change kebab-id), then work from that worktree.
-- Emit a ready **change description** for `/opsx:propose` (one-shot) or `/opsx:new` (step-by-step), containing: the scope bullets verbatim; a binding line `Implements roadmap X.Y.Z — "<title>"`; and **Acceptance criteria** from the demoable outcome (so `tasks.md` gets a real `## Verification` group).
+## 3. PREPARE
+
+- **Reconcile first:** a `- [ ]`/`[WIP]` version whose change sits in `archive/` → don't prepare; report the ROADMAP EDIT to mark it done, stop.
+- First `### 0.x.y` (top-down) with any `- [ ]` (unless `$ARGUMENTS`). Summarize title + one-line demoable outcome + unchecked bullets; constraining ADRs (scan `ADR-00xx`; default 0020–0023); schema `spec-driven` (small → `minimalist`/direct).
+- Emit a change description for `/opsx:propose` (one-shot) or `/opsx:new` (step-by-step): scope bullets verbatim + a binding line `Implements roadmap X.Y.Z — "<title>"` + **Acceptance criteria** from the demoable outcome (→ a real `## Verification` group).
 
 ## Output (tight)
 
 ```
 MODE: resume | prepare
 VERSION: <0.x.y — title>   CHANGE: <id|none>   (source: marker|guessed)
-LOCATION: <branch> @ <worktree>   (flag if main / main-worktree / dirty)
+WORKTREE: <path>  (entered | created | already here | ⚠ blocked: artifacts/branch on main)
 
 DONE: <checked / implemented>            (resume)
 LEFT: <unchecked / remaining>
@@ -57,15 +54,13 @@ VERIFY: <N/M checks; is /opsx:verify the gate next?>   (resume)
 ROADMAP EDIT (report only — user applies):
 - <"mark 0.0.1 header [WIP]" | "after archive: mark 0.0.1 bullets [x], drop [WIP]" | none>
 
-NEXT STEP: <one command: /opsx:apply | /opsx:continue | /opsx:verify | /opsx:propose | git worktree add ...>
+NEXT STEP: <one command: /opsx:apply | /opsx:continue | /opsx:verify | /opsx:propose | /commit>
 <one line why>
 ```
 
 ## Rules
 
-- **Read-only** — never edit code/specs/tasks/`docs/roadmap.md`; report the edit under ROADMAP EDIT, user applies.
-- **Version binding read, not guessed** — from the proposal marker; absent → flag + mark guessed.
-- **Roadmap lifecycle (reported):** applying → header `[WIP]`; DONE (`[x]` bullets, drop `[WIP]`) **only after** archive + Verification green + `/opsx:verify` passed.
-- **Every change needs a Verification group** (heading ends in `Verification`) of runnable acceptance checks; missing/not-green → not done, surface it.
-- **Worktree-first** — a change is built in its own worktree off `main`; flag work happening in the main worktree.
-- Never auto-run `/opsx:apply` `/opsx:sync` `/opsx:archive` — surface as next step. Honor ADRs. One version at a time, in order; call out scope drift.
+- Sets up the worktree only; otherwise **never edits** code/specs/tasks/`docs/roadmap.md` — report edits under ROADMAP EDIT.
+- Version is read from the proposal marker, never guessed silently.
+- Roadmap DONE (`[x]` bullets, drop `[WIP]`) **only after** archive + Verification green + `/opsx:verify`; while applying → header `[WIP]`.
+- Never auto-run `/opsx:apply` `/opsx:sync` `/opsx:archive`. Honor ADRs. One version at a time, in order; flag scope drift.
