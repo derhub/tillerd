@@ -11,6 +11,8 @@ import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
 import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/panelTree";
+import { useDesktopHost } from "~/lib/useDesktopHost";
+import { cn } from "~/lib/utils";
 
 type Session = { id: string; cwd?: string };
 
@@ -194,7 +196,31 @@ export function AppShell({ sessions }: AppShellProps) {
 
   return (
     <SessionContext value={{ sessionId, status, setStatus }}>
-      <div className="h-dvh w-full overflow-hidden pt-px">{renderNode(tree, "root")}</div>
+      <div className="h-dvh w-full overflow-hidden pt-px">
+        {renderNode(tree, "root")}
+        <HostStatusBadge />
+      </div>
     </SessionContext>
+  );
+}
+
+// Always-visible chip reflecting the embedded orchestrator's boot state — the
+// renderer observes readiness through the SDK client (ADR-0022). Inert on web.
+function HostStatusBadge() {
+  const host = useDesktopHost();
+  if (host.status === "web") return null;
+  const style = {
+    booting: { dot: "bg-amber-500", text: "text-amber-300", label: "booting" },
+    ready: { dot: "bg-emerald-500", text: "text-emerald-300", label: "ready" },
+    error: { dot: "bg-red-500", text: "text-red-300", label: "failed" },
+  }[host.status];
+  return (
+    <div className="fixed bottom-2 right-2 z-50 flex items-center gap-1.5 rounded-sm bg-black/60 px-2 h-6 font-mono text-[0.75rem] pointer-events-none select-none">
+      <span className={cn("w-1.5 h-1.5 rounded-full", style.dot)} />
+      <span className={style.text}>orchestrator: {style.label}</span>
+      {host.status === "error" && (
+        <span className="text-red-300/70 max-w-[40ch] truncate">— {host.error.message}</span>
+      )}
+    </div>
   );
 }
