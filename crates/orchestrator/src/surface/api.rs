@@ -44,6 +44,8 @@ impl SurfaceApi {
             session_id,
             kind: SurfaceKind::Terminal,
             cwd: cwd.clone(),
+            placement: None,
+            worktree_id: None,
         })?;
 
         let token = uuid::Uuid::new_v4().to_string();
@@ -86,6 +88,8 @@ impl SurfaceApi {
             session_id,
             kind: SurfaceKind::Agent,
             cwd: cwd.clone(),
+            placement: None,
+            worktree_id: None,
         })?;
 
         let token = uuid::Uuid::new_v4().to_string();

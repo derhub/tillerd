@@ -130,8 +130,13 @@ fn migration_v2() -> String {
         .to_string()
 }
 
+/// Add `deleted_at` to the `command` table to enable soft-delete.
+fn migration_v3() -> String {
+    "ALTER TABLE command ADD COLUMN deleted_at TEXT;".to_string()
+}
+
 pub fn migrations() -> Vec<String> {
-    vec![migration_v1(), migration_v2()]
+    vec![migration_v1(), migration_v2(), migration_v3()]
 }
 
 pub fn current_version() -> u32 {

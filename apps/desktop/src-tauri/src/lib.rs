@@ -8,6 +8,7 @@ mod orchestrator_host;
 mod store;
 mod supervisor;
 mod surface_host;
+mod workspace_host;
 
 use tauri::Manager;
 
@@ -55,6 +56,12 @@ pub fn run() {
             surface_host::surface_resize,
             surface_host::surface_detach,
             surface_host::surface_create_agent,
+            workspace_host::project_create,
+            workspace_host::session_list,
+            workspace_host::session_layout_set,
+            workspace_host::session_layout_get,
+            workspace_host::command_list,
+            workspace_host::command_create,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

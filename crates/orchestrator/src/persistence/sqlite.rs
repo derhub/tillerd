@@ -5,8 +5,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::schema;
 use super::{
-    NewProject, NewSession, NewSurface, Project, ProjectId, Session, SessionId, SourceKind, Store,
-    Surface, SurfaceId, SurfaceKind, TitleSource,
+    Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
+    Session, SessionId, SourceKind, Store, Surface, SurfaceId, SurfaceKind, TitleSource, Worktree,
+    WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -36,9 +38,22 @@ impl SqliteStore {
         conn.pragma_update(None, "foreign_keys", true)
             .map_err(persist)?;
         run_migrations(&conn, migrations)?;
-        Ok(Self {
+        let store = Self {
             conn: Mutex::new(conn),
-        })
+        };
+        // Only seed if the command table exists (guards against synthetic migration sets in tests).
+        let has_command: i64 = store
+            .lock()?
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='command'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(persist)?;
+        if has_command > 0 {
+            store.seed_commands()?;
+        }
+        Ok(store)
     }
 
     fn lock(&self) -> Result<MutexGuard<'_, Connection>> {
@@ -173,7 +188,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
     if let Some(pid) = project_id {
         let mut stmt = conn
             .prepare(
-                "SELECT id, project_id, title, title_source, created_at
+                "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL AND project_id = ?1
                  ORDER BY created_at DESC",
@@ -188,7 +203,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
     } else {
         let mut stmt = conn
             .prepare(
-                "SELECT id, project_id, title, title_source, created_at
+                "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL
                  ORDER BY created_at DESC",
@@ -394,14 +409,39 @@ impl Store for SqliteStore {
         let project_id = draft.project_id.unwrap_or_else(ProjectId::unfiled);
         let title = draft.title.unwrap_or_default();
         let conn = self.lock()?;
+
+        // Resolve template spec if provided — done inside a transaction for atomicity.
+        let (spec_version, spec_json) = if let Some(ref tid) = draft.template_id {
+            let row: Option<(u32, String)> = conn
+                .query_row(
+                    "SELECT spec_version, spec_json FROM launch_template WHERE id = ?1",
+                    params![tid.as_str()],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()
+                .map_err(persist)?;
+            match row {
+                Some((v, j)) => (Some(v), Some(j)),
+                None => {
+                    return Err(OrchestratorError::LaunchTemplateNotFound(
+                        tid.as_str().to_string(),
+                    ))
+                }
+            }
+        } else {
+            (None, None)
+        };
+
         conn.execute(
-            "INSERT INTO session (id, project_id, title, title_source)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO session (id, project_id, title, title_source, spec_version, spec_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 id.as_str(),
                 project_id.as_str(),
                 &title,
-                draft.title_source.as_str()
+                draft.title_source.as_str(),
+                spec_version,
+                spec_json.as_deref()
             ],
         )
         .map_err(persist)?;
@@ -418,6 +458,8 @@ impl Store for SqliteStore {
             title,
             title_source: draft.title_source,
             created_at,
+            spec_version,
+            spec_json,
         })
     }
 
@@ -446,7 +488,7 @@ impl Store for SqliteStore {
     fn get_session(&self, id: &SessionId) -> Result<Option<Session>> {
         self.lock()?
             .query_row(
-                "SELECT id, project_id, title, title_source, created_at
+                "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE id = ?1 AND deleted_at IS NULL",
                 params![id.as_str()],
@@ -518,14 +560,18 @@ impl Store for SqliteStore {
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
         let id = draft.id.clone().unwrap_or_else(SurfaceId::mint);
+        let worktree_id_str = draft.worktree_id.as_ref().map(|w| w.as_str().to_string());
         self.lock()?
             .execute(
-                "INSERT INTO surface (id, session_id, kind, cwd) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO surface (id, session_id, kind, cwd, placement, worktree_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     id.as_str(),
                     draft.session_id.as_str(),
                     draft.kind.as_str(),
-                    draft.cwd
+                    draft.cwd,
+                    draft.placement,
+                    worktree_id_str
                 ],
             )
             .map_err(persist)?;
@@ -535,13 +581,15 @@ impl Store for SqliteStore {
             kind: draft.kind,
             cwd: draft.cwd,
             last_status: None,
+            placement: draft.placement,
+            worktree_id: draft.worktree_id,
         })
     }
 
     fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>> {
         self.lock()?
             .query_row(
-                "SELECT id, session_id, kind, cwd, last_status
+                "SELECT id, session_id, kind, cwd, last_status, placement, worktree_id
                  FROM surface
                  WHERE id = ?1 AND deleted_at IS NULL",
                 params![id.as_str()],
@@ -555,7 +603,7 @@ impl Store for SqliteStore {
         let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
-                "SELECT s.id, s.session_id, s.kind, s.cwd, s.last_status
+                "SELECT s.id, s.session_id, s.kind, s.cwd, s.last_status, s.placement, s.worktree_id
                  FROM surface s
                  JOIN session ses ON s.session_id = ses.id
                  WHERE s.deleted_at IS NULL AND ses.deleted_at IS NULL",
@@ -662,6 +710,209 @@ impl Store for SqliteStore {
             Some(blob) => Ok(blob),
         }
     }
+
+    // ── command library ───────────────────────────────────────────────────
+
+    fn list_commands(&self) -> Result<Vec<Command>> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name, origin, cli, args_json, env_json
+                 FROM command
+                 WHERE deleted_at IS NULL",
+            )
+            .map_err(persist)?;
+        let rows = stmt.query_map([], row_to_command).map_err(persist)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(persist)
+    }
+
+    fn get_command(&self, id: &str) -> Result<Option<Command>> {
+        self.lock()?
+            .query_row(
+                "SELECT id, name, origin, cli, args_json, env_json
+                 FROM command
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                params![id],
+                row_to_command,
+            )
+            .optional()
+            .map_err(persist)
+    }
+
+    fn create_command(&self, draft: NewCommand) -> Result<Command> {
+        let id = CommandId::mint();
+        let args_json = serde_json::to_string(&draft.args).unwrap_or_default();
+        let env_json = serde_json::to_string(&draft.env).unwrap_or_default();
+        self.lock()?
+            .execute(
+                "INSERT INTO command (id, name, origin, cli, args_json, env_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    id.as_str(),
+                    &draft.name,
+                    draft.origin.as_str(),
+                    &draft.cli,
+                    &args_json,
+                    &env_json
+                ],
+            )
+            .map_err(persist)?;
+        Ok(Command {
+            id,
+            name: draft.name,
+            origin: draft.origin,
+            cli: draft.cli,
+            args: draft.args,
+            env: draft.env,
+        })
+    }
+
+    fn delete_command(&self, id: &str) -> Result<()> {
+        self.lock()?
+            .execute(
+                "UPDATE command SET deleted_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                params![id],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
+
+    fn seed_commands(&self) -> Result<()> {
+        for cmd in prebuilt_commands() {
+            let exists: i64 = self
+                .lock()?
+                .query_row(
+                    "SELECT count(*) FROM command WHERE id = ?1",
+                    params![cmd.id.as_str()],
+                    |r| r.get(0),
+                )
+                .map_err(persist)?;
+            if exists == 0 {
+                let args_json = serde_json::to_string(&cmd.args).unwrap_or_default();
+                let env_json = serde_json::to_string(&cmd.env).unwrap_or_default();
+                self.lock()?
+                    .execute(
+                        "INSERT INTO command (id, name, origin, cli, args_json, env_json)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        params![
+                            cmd.id.as_str(),
+                            &cmd.name,
+                            cmd.origin.as_str(),
+                            &cmd.cli,
+                            &args_json,
+                            &env_json
+                        ],
+                    )
+                    .map_err(persist)?;
+            }
+        }
+        Ok(())
+    }
+
+    // ── worktree ──────────────────────────────────────────────────────────
+
+    fn create_worktree(&self, draft: NewWorktree) -> Result<Worktree> {
+        let id = WorktreeId::mint();
+        self.lock()?
+            .execute(
+                "INSERT INTO worktree (id, project_id, path, branch)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    id.as_str(),
+                    draft.project_id.as_str(),
+                    &draft.path,
+                    draft.branch.as_deref()
+                ],
+            )
+            .map_err(persist)?;
+        Ok(Worktree {
+            id,
+            project_id: draft.project_id,
+            path: draft.path,
+            branch: draft.branch,
+        })
+    }
+
+    fn list_worktrees(&self, project_id: &ProjectId) -> Result<Vec<Worktree>> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, project_id, path, branch
+                 FROM worktree
+                 WHERE project_id = ?1 AND deleted_at IS NULL",
+            )
+            .map_err(persist)?;
+        let rows = stmt
+            .query_map(params![project_id.as_str()], row_to_worktree)
+            .map_err(persist)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(persist)
+    }
+
+    fn archive_worktree(&self, id: &WorktreeId) -> Result<()> {
+        self.lock()?
+            .execute(
+                "UPDATE worktree SET deleted_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
+                params![id.as_str()],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
+
+    // ── launch template ───────────────────────────────────────────────────
+
+    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate> {
+        let id = LaunchTemplateId::mint();
+        self.lock()?
+            .execute(
+                "INSERT INTO launch_template (id, project_id, spec_version, spec_json)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    id.as_str(),
+                    draft.project_id.as_str(),
+                    draft.spec_version,
+                    &draft.spec_json
+                ],
+            )
+            .map_err(persist)?;
+        Ok(LaunchTemplate {
+            id,
+            project_id: draft.project_id,
+            spec_version: draft.spec_version,
+            spec_json: draft.spec_json,
+        })
+    }
+
+    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>> {
+        self.lock()?
+            .query_row(
+                "SELECT id, project_id, spec_version, spec_json
+                 FROM launch_template
+                 WHERE id = ?1",
+                params![id.as_str()],
+                row_to_launch_template,
+            )
+            .optional()
+            .map_err(persist)
+    }
+
+    fn set_launch_template_spec(
+        &self,
+        id: &LaunchTemplateId,
+        spec_version: u32,
+        spec_json: &str,
+    ) -> Result<()> {
+        self.lock()?
+            .execute(
+                "UPDATE launch_template SET spec_version = ?1, spec_json = ?2,
+                                           updated_at = datetime('now')
+                 WHERE id = ?3",
+                params![spec_version, spec_json, id.as_str()],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
 }
 
 fn row_to_surface(row: &rusqlite::Row<'_>) -> rusqlite::Result<Surface> {
@@ -670,12 +921,16 @@ fn row_to_surface(row: &rusqlite::Row<'_>) -> rusqlite::Result<Surface> {
     let kind: String = row.get(2)?;
     let cwd: Option<String> = row.get(3)?;
     let last_status: Option<String> = row.get(4)?;
+    let placement: Option<String> = row.get(5)?;
+    let worktree_id: Option<String> = row.get(6)?;
     Ok(Surface {
         id: SurfaceId::from_string(id),
         session_id: SessionId::from_string(session_id),
         kind: parse_surface_kind(&kind),
         cwd,
         last_status,
+        placement,
+        worktree_id: worktree_id.map(WorktreeId::from_string),
     })
 }
 
@@ -685,13 +940,92 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<Session> {
     let title: String = row.get(2)?;
     let title_source: String = row.get(3)?;
     let created_at: String = row.get(4)?;
+    let spec_version: Option<u32> = row.get(5)?;
+    let spec_json: Option<String> = row.get(6)?;
     Ok(Session {
         id: SessionId::from_string(id),
         project_id: ProjectId::new(project_id),
         title,
         title_source: parse_title_source(&title_source),
         created_at,
+        spec_version,
+        spec_json,
     })
+}
+
+fn row_to_command(row: &rusqlite::Row<'_>) -> rusqlite::Result<Command> {
+    let id: String = row.get(0)?;
+    let name: String = row.get(1)?;
+    let origin_str: String = row.get(2)?;
+    let cli: String = row.get(3)?;
+    let args_json: Option<String> = row.get(4)?;
+    let env_json: Option<String> = row.get(5)?;
+    let origin = match origin_str.as_str() {
+        "custom" => CommandOrigin::Custom,
+        _ => CommandOrigin::Prebuilt,
+    };
+    let args: Vec<String> = args_json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default();
+    let env: std::collections::HashMap<String, String> = env_json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default();
+    Ok(Command {
+        id: CommandId::from_string(id),
+        name,
+        origin,
+        cli,
+        args,
+        env,
+    })
+}
+
+fn row_to_worktree(row: &rusqlite::Row<'_>) -> rusqlite::Result<Worktree> {
+    let id: String = row.get(0)?;
+    let project_id: String = row.get(1)?;
+    let path: String = row.get(2)?;
+    let branch: Option<String> = row.get(3)?;
+    Ok(Worktree {
+        id: WorktreeId::from_string(id),
+        project_id: ProjectId::new(project_id),
+        path,
+        branch,
+    })
+}
+
+fn row_to_launch_template(row: &rusqlite::Row<'_>) -> rusqlite::Result<LaunchTemplate> {
+    let id: String = row.get(0)?;
+    let project_id: String = row.get(1)?;
+    let spec_version: u32 = row.get(2)?;
+    let spec_json: String = row.get(3)?;
+    Ok(LaunchTemplate {
+        id: LaunchTemplateId::from_string(id),
+        project_id: ProjectId::new(project_id),
+        spec_version,
+        spec_json,
+    })
+}
+
+/// Hard-coded prebuilt command seeds.
+fn prebuilt_commands() -> Vec<Command> {
+    vec![
+        Command {
+            id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
+            name: "login-shell".to_string(),
+            origin: CommandOrigin::Prebuilt,
+            cli: "/bin/bash".to_string(),
+            args: vec!["-l".to_string()],
+            env: Default::default(),
+        },
+        Command {
+            id: CommandId::from_string("00000000-0000-0000-0000-000000000102"),
+            name: "agent-cli".to_string(),
+            origin: CommandOrigin::Prebuilt,
+            cli: "claude".to_string(),
+            args: vec![],
+            env: Default::default(),
+        },
+    ]
 }
 
 #[cfg(test)]
@@ -738,6 +1072,8 @@ mod tests {
                 session_id: session.id,
                 kind: SurfaceKind::Terminal,
                 cwd: Some("/tmp".to_string()),
+                placement: None,
+                worktree_id: None,
             })
             .unwrap()
     }
@@ -818,6 +1154,8 @@ mod tests {
                 session_id: session.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap();
 
@@ -1016,6 +1354,8 @@ mod tests {
                 session_id: sess.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap();
 
@@ -1207,6 +1547,8 @@ mod tests {
                 session_id: sess.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap();
 
@@ -1230,6 +1572,8 @@ mod tests {
                 session_id: sess.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap();
         store.archive_session(&sess.id).unwrap();
@@ -1279,6 +1623,8 @@ mod tests {
                 session_id: s1.id,
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap();
 
@@ -1349,5 +1695,336 @@ mod tests {
 
         let list = store.list_resumable_surfaces().unwrap();
         assert!(!list.iter().any(|s| s.id == surface.id));
+    }
+
+    // ── surface placement + worktree_id ───────────────────────────────────
+
+    #[test]
+    fn surface_created_with_placement_and_worktree_id_round_trips() {
+        let (_dir, path) = temp_db("surf-placement");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let project = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+        let wt = store
+            .create_worktree(NewWorktree {
+                project_id: project.id,
+                path: "/tmp/wt1".to_string(),
+                branch: Some("feat".to_string()),
+            })
+            .unwrap();
+        let sess = make_session(&store);
+        let wt_id = wt.id;
+        let surface = store
+            .create_surface(NewSurface {
+                id: None,
+                session_id: sess.id,
+                kind: SurfaceKind::Terminal,
+                cwd: None,
+                placement: Some("sidebar".to_string()),
+                worktree_id: Some(wt_id.clone()),
+            })
+            .unwrap();
+
+        let fetched = store.get_surface(&surface.id).unwrap().unwrap();
+        assert_eq!(fetched.placement.as_deref(), Some("sidebar"));
+        assert_eq!(
+            fetched.worktree_id.as_ref().map(|w| w.as_str()),
+            Some(wt_id.as_str())
+        );
+    }
+
+    #[test]
+    fn surface_created_without_placement_stores_null() {
+        let (_dir, path) = temp_db("surf-no-placement");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let surface = make_surface(&store);
+        let fetched = store.get_surface(&surface.id).unwrap().unwrap();
+        assert!(fetched.placement.is_none());
+        assert!(fetched.worktree_id.is_none());
+    }
+
+    // ── command library ───────────────────────────────────────────────────
+
+    #[test]
+    fn prebuilt_entries_present_after_first_open() {
+        let (_dir, path) = temp_db("cmd-seed");
+        let store = SqliteStore::open(&path).unwrap();
+        store.seed_commands().unwrap();
+
+        let cmds = store.list_commands().unwrap();
+        assert!(cmds.iter().any(|c| c.name == "login-shell"));
+        assert!(cmds.iter().any(|c| c.name == "agent-cli"));
+    }
+
+    #[test]
+    fn seed_is_idempotent_on_repeated_open() {
+        let (_dir, path) = temp_db("cmd-seed-idem");
+        let store = SqliteStore::open(&path).unwrap();
+        store.seed_commands().unwrap();
+        store.seed_commands().unwrap();
+
+        let cmds = store.list_commands().unwrap();
+        let login_count = cmds.iter().filter(|c| c.name == "login-shell").count();
+        assert_eq!(login_count, 1);
+    }
+
+    #[test]
+    fn list_returns_all_non_deleted_commands() {
+        let (_dir, path) = temp_db("cmd-list");
+        let store = SqliteStore::open(&path).unwrap();
+        store.seed_commands().unwrap();
+
+        let custom = store
+            .create_command(crate::persistence::NewCommand {
+                name: "my-tool".to_string(),
+                origin: CommandOrigin::Custom,
+                cli: "/usr/bin/mytool".to_string(),
+                args: vec![],
+                env: Default::default(),
+            })
+            .unwrap();
+
+        let cmds = store.list_commands().unwrap();
+        assert!(cmds.iter().any(|c| c.name == "login-shell"));
+        assert!(cmds.iter().any(|c| c.id == custom.id));
+    }
+
+    #[test]
+    fn get_returns_matching_entry() {
+        let (_dir, path) = temp_db("cmd-get");
+        let store = SqliteStore::open(&path).unwrap();
+        store.seed_commands().unwrap();
+
+        let cmd = store
+            .create_command(crate::persistence::NewCommand {
+                name: "x".to_string(),
+                origin: CommandOrigin::Custom,
+                cli: "/x".to_string(),
+                args: vec![],
+                env: Default::default(),
+            })
+            .unwrap();
+
+        let fetched = store.get_command(cmd.id.as_str()).unwrap();
+        assert_eq!(fetched.map(|c| c.id), Some(cmd.id));
+    }
+
+    #[test]
+    fn get_on_unknown_id_returns_none() {
+        let (_dir, path) = temp_db("cmd-get-missing");
+        let store = SqliteStore::open(&path).unwrap();
+        let result = store.get_command("no-such-id").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn custom_command_is_added() {
+        let (_dir, path) = temp_db("cmd-add");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let cmd = store
+            .create_command(crate::persistence::NewCommand {
+                name: "custom-tool".to_string(),
+                origin: CommandOrigin::Custom,
+                cli: "/bin/tool".to_string(),
+                args: vec!["--flag".to_string()],
+                env: Default::default(),
+            })
+            .unwrap();
+
+        assert_eq!(cmd.origin, CommandOrigin::Custom);
+        assert_eq!(cmd.name, "custom-tool");
+    }
+
+    #[test]
+    fn command_is_deleted() {
+        let (_dir, path) = temp_db("cmd-delete");
+        let store = SqliteStore::open(&path).unwrap();
+        store.seed_commands().unwrap();
+
+        let cmd = store.list_commands().unwrap().into_iter().next().unwrap();
+        store.delete_command(cmd.id.as_str()).unwrap();
+
+        let after = store.list_commands().unwrap();
+        assert!(!after.iter().any(|c| c.id == cmd.id));
+        assert!(store.get_command(cmd.id.as_str()).unwrap().is_none());
+    }
+
+    // ── worktree ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn worktree_row_created_and_returned() {
+        let (_dir, path) = temp_db("wt-create");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let project = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+
+        let wt = store
+            .create_worktree(NewWorktree {
+                project_id: project.id.clone(),
+                path: "/tmp/wt".to_string(),
+                branch: Some("main".to_string()),
+            })
+            .unwrap();
+
+        let list = store.list_worktrees(&project.id).unwrap();
+        assert!(list.iter().any(|w| w.id == wt.id));
+    }
+
+    #[test]
+    fn archived_worktree_absent_from_list() {
+        let (_dir, path) = temp_db("wt-archive");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let project = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+
+        let wt = store
+            .create_worktree(NewWorktree {
+                project_id: project.id.clone(),
+                path: "/tmp/wt2".to_string(),
+                branch: None,
+            })
+            .unwrap();
+
+        store.archive_worktree(&wt.id).unwrap();
+
+        let list = store.list_worktrees(&project.id).unwrap();
+        assert!(!list.iter().any(|w| w.id == wt.id));
+    }
+
+    #[test]
+    fn worktree_row_survives_store_reopen() {
+        let (_dir, path) = temp_db("wt-persist");
+        let project_id;
+        let wt_id;
+        {
+            let store = SqliteStore::open(&path).unwrap();
+            let project = store
+                .create_project(NewProject {
+                    source_kind: SourceKind::Blank,
+                    root_path: None,
+                    name: Some("p".to_string()),
+                })
+                .unwrap();
+            project_id = project.id.clone();
+            let wt = store
+                .create_worktree(NewWorktree {
+                    project_id: project.id,
+                    path: "/tmp/wt3".to_string(),
+                    branch: Some("feat".to_string()),
+                })
+                .unwrap();
+            wt_id = wt.id;
+        }
+        let store2 = SqliteStore::open(&path).unwrap();
+        let list = store2.list_worktrees(&project_id).unwrap();
+        assert!(list.iter().any(|w| w.id == wt_id));
+    }
+
+    // ── session template reference ────────────────────────────────────────
+
+    #[test]
+    fn new_session_without_template_produces_null_spec_fields() {
+        let (_dir, path) = temp_db("sess-no-tmpl");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let sess = store.create_session(NewSession::default()).unwrap();
+        assert!(sess.spec_version.is_none());
+        assert!(sess.spec_json.is_none());
+    }
+
+    #[test]
+    fn new_session_with_template_copies_spec_atomically() {
+        let (_dir, path) = temp_db("sess-with-tmpl");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let project = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+        let tmpl = store
+            .create_launch_template(crate::persistence::NewLaunchTemplate {
+                project_id: project.id,
+                spec_version: 1,
+                spec_json: r#"{"version":1,"items":[]}"#.to_string(),
+            })
+            .unwrap();
+
+        let sess = store
+            .create_session(NewSession {
+                template_id: Some(tmpl.id),
+                ..Default::default()
+            })
+            .unwrap();
+
+        assert_eq!(sess.spec_version, Some(1));
+        assert_eq!(
+            sess.spec_json.as_deref(),
+            Some(r#"{"version":1,"items":[]}"#)
+        );
+    }
+
+    #[test]
+    fn template_update_after_session_creation_does_not_affect_session() {
+        let (_dir, path) = temp_db("sess-tmpl-diverge");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let project = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+        let tmpl = store
+            .create_launch_template(crate::persistence::NewLaunchTemplate {
+                project_id: project.id,
+                spec_version: 1,
+                spec_json: r#"{"version":1,"items":[]}"#.to_string(),
+            })
+            .unwrap();
+
+        let sess = store
+            .create_session(NewSession {
+                template_id: Some(tmpl.id.clone()),
+                ..Default::default()
+            })
+            .unwrap();
+
+        store
+            .set_launch_template_spec(
+                &tmpl.id,
+                1,
+                r#"{"version":1,"items":[{"target":"x","command":{"executable":"/x","args":[]}}]}"#,
+            )
+            .unwrap();
+
+        let reloaded = store.get_session(&sess.id).unwrap().unwrap();
+        assert_eq!(
+            reloaded.spec_json.as_deref(),
+            Some(r#"{"version":1,"items":[]}"#)
+        );
     }
 }
