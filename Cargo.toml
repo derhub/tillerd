@@ -6,6 +6,7 @@ members = [
   "crates/process-launch",
   "crates/daemon-pty-client",
   "crates/gate-client",
+  "crates/orchestrator",
   "crates/redact",
   "apps/daemon-pty",
   "apps/memorya",
@@ -44,8 +45,10 @@ tempfile = "3"
 # internal
 contracts = { path = "crates/contracts", package = "tillerd-contracts" }
 gate-client = { path = "crates/gate-client", package = "tillerd-gate-client" }
+daemon-pty-client = { path = "crates/daemon-pty-client", package = "tillerd-daemon-pty-client" }
 service-host = { path = "crates/service-host", package = "tillerd-service-host" }
 process-launch = { path = "crates/process-launch", package = "tillerd-process-launch" }
+orchestrator = { path = "crates/orchestrator", package = "tillerd-orchestrator" }
 redact = { path = "crates/redact", package = "tillerd-redact" }
 
 [workspace.lints.rust]

@@ -1,9 +1,10 @@
 mod bootstrap;
 mod bridge;
+mod daemon_session;
 mod diag;
 mod files;
 mod gate_admin;
-mod orchestrator;
+mod orchestrator_host;
 mod paths;
 mod store;
 mod supervisor;
@@ -11,6 +12,7 @@ mod supervisor;
 use tauri::Manager;
 
 use bridge::BridgeState;
+use orchestrator_host::OrchestratorState;
 use store::StoreState;
 use supervisor::SupervisorState;
 
@@ -20,6 +22,15 @@ pub fn run() {
         .manage(BridgeState::default())
         .manage(StoreState::load())
         .manage(SupervisorState::default())
+        .manage(OrchestratorState::default())
+        .setup(|app| {
+            // Construct and boot the single embedded orchestrator instance; it
+            // streams lifecycle events to the renderer and reaches `ready`.
+            let handle = app.handle().clone();
+            let state = app.state::<OrchestratorState>();
+            orchestrator_host::spawn_boot(handle, state.inner());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             bridge::daemon_connect,
             bridge::daemon_send,
@@ -35,6 +46,7 @@ pub fn run() {
             store::registry_list,
             supervisor::daemon_ensure,
             bootstrap::agent_bootstrap,
+            orchestrator_host::orchestrator_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

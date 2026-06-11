@@ -1,0 +1,288 @@
+//! The boot lifecycle, the transport-agnostic API surface, and the host
+//! [`EventSink`].
+//!
+//! Boot is a defined sequence — open and migrate the store, then adopt-or-spawn
+//! and health-check the services — that ends in an observable [`Status::Ready`].
+//! The orchestrator never reports `Ready` until the store is open and every
+//! supervised service is available; a failed prerequisite emits a terminal
+//! [`Status::Failed`] carrying a typed reason and is returned as an error. The
+//! current state is queryable via [`Orchestrator::status`], and every transition
+//! is emitted through the [`EventSink`] the host binds to its own transport, so
+//! the orchestrator encodes no transport of its own (ADR-0022).
+
+use crate::error::{OrchestratorError, Result};
+use crate::persistence::Store;
+use crate::supervision::{all_available, ServiceStatus, Supervise};
+
+/// The orchestrator's lifecycle state. It is both the value returned by the
+/// `status()` request method and the payload of each streamed lifecycle event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Status {
+    /// Boot has started.
+    Booting,
+    /// The durable product store is being opened and migrated.
+    OpeningStore,
+    /// The shared services are being adopted or spawned and health-checked.
+    Supervising,
+    /// The store is open and every supervised service is available.
+    Ready,
+    /// Boot failed; the reason is a typed error rendered to a string. Terminal.
+    Failed {
+        /// Why boot failed.
+        reason: String,
+    },
+}
+
+/// The outbound event channel the host implements and binds to its transport.
+/// The orchestrator calls [`EventSink::emit`] on each lifecycle transition; how
+/// the event reaches a client is entirely the host's concern.
+pub trait EventSink {
+    /// Deliver a lifecycle event to the host.
+    fn emit(&self, event: &Status);
+}
+
+/// The embedded backend: one instance owns the store and the supervised service
+/// statuses for a host process. Constructed only by [`boot`]; it is not `Clone`,
+/// so a host cannot duplicate the single owning instance.
+pub struct Orchestrator {
+    status: Status,
+    store: Box<dyn Store>,
+    services: Vec<ServiceStatus>,
+}
+
+impl Orchestrator {
+    /// The current lifecycle state (the `status()` request method).
+    pub fn status(&self) -> &Status {
+        &self.status
+    }
+
+    /// Whether the orchestrator has reached `Ready`.
+    pub fn is_ready(&self) -> bool {
+        self.status == Status::Ready
+    }
+
+    /// The owned product store.
+    pub fn store(&self) -> &dyn Store {
+        self.store.as_ref()
+    }
+
+    /// The statuses of the supervised services as of boot.
+    pub fn service_statuses(&self) -> &[ServiceStatus] {
+        &self.services
+    }
+}
+
+/// Boot the orchestrator: emit `Booting`, open and migrate the store
+/// (`OpeningStore`), adopt-or-spawn and health-check the services
+/// (`Supervising`), then reach `Ready` once both hold.
+///
+/// The store opener and supervisor are injected so boot is exercised against an
+/// in-memory store and a fake supervisor without touching disk or spawning
+/// processes. On any failed prerequisite, a terminal `Failed { reason }` event is
+/// emitted with the typed error rendered into it, and that typed error is
+/// returned; `Ready` is never emitted.
+pub fn boot<F>(
+    open_store: F,
+    supervisor: &mut impl Supervise,
+    sink: &impl EventSink,
+) -> Result<Orchestrator>
+where
+    F: FnOnce() -> Result<Box<dyn Store>>,
+{
+    sink.emit(&Status::Booting);
+
+    sink.emit(&Status::OpeningStore);
+    let store = fail_on(open_store(), sink)?;
+
+    sink.emit(&Status::Supervising);
+    let services = fail_on(supervisor.ensure_all(), sink)?;
+    if !all_available(&services) {
+        let unavailable = services
+            .iter()
+            .filter(|s| !s.is_available())
+            .map(|s| s.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(emit_failure(
+            OrchestratorError::ServiceUnavailable {
+                service: unavailable,
+                reason: "service not available at boot".to_string(),
+            },
+            sink,
+        ));
+    }
+
+    let orchestrator = Orchestrator {
+        status: Status::Ready,
+        store,
+        services,
+    };
+    sink.emit(&Status::Ready);
+    Ok(orchestrator)
+}
+
+/// Emit a terminal `Failed` event for `error` and return it.
+fn emit_failure(error: OrchestratorError, sink: &impl EventSink) -> OrchestratorError {
+    sink.emit(&Status::Failed {
+        reason: error.to_string(),
+    });
+    error
+}
+
+/// Unwrap a boot step, emitting a terminal `Failed` and propagating on error.
+fn fail_on<T>(step: Result<T>, sink: &impl EventSink) -> Result<T> {
+    step.map_err(|e| emit_failure(e, sink))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::current_schema_version;
+    use crate::persistence::memory::InMemoryStore;
+    use crate::supervision::Liveness;
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct RecordingSink {
+        events: Mutex<Vec<Status>>,
+    }
+
+    impl RecordingSink {
+        fn events(&self) -> Vec<Status> {
+            self.events.lock().unwrap().clone()
+        }
+    }
+
+    impl EventSink for RecordingSink {
+        fn emit(&self, event: &Status) {
+            self.events.lock().unwrap().push(event.clone());
+        }
+    }
+
+    enum FakeSupervisor {
+        AllAvailable,
+        OneUnavailable,
+        Errors,
+    }
+
+    fn status(name: &str, liveness: Liveness) -> ServiceStatus {
+        ServiceStatus {
+            name: name.to_string(),
+            version: Some("1.0.0".to_string()),
+            liveness,
+            pid: Some(1),
+            adopted: true,
+        }
+    }
+
+    impl Supervise for FakeSupervisor {
+        fn ensure_all(&mut self) -> Result<Vec<ServiceStatus>> {
+            match self {
+                FakeSupervisor::AllAvailable => Ok(vec![
+                    status("gate", Liveness::Available),
+                    status("daemon", Liveness::Available),
+                ]),
+                FakeSupervisor::OneUnavailable => Ok(vec![
+                    status("gate", Liveness::Available),
+                    status("daemon", Liveness::Unavailable),
+                ]),
+                FakeSupervisor::Errors => Err(OrchestratorError::ServiceUnavailable {
+                    service: "daemon".to_string(),
+                    reason: "spawn failed".to_string(),
+                }),
+            }
+        }
+    }
+
+    fn open_ok() -> Result<Box<dyn Store>> {
+        Ok(Box::new(InMemoryStore::new()))
+    }
+
+    fn open_err() -> Result<Box<dyn Store>> {
+        Err(OrchestratorError::StoreVersionTooNew {
+            found: 2,
+            supported: 1,
+        })
+    }
+
+    #[test]
+    fn boot_reaches_ready_and_emits_transitions_in_order() {
+        let sink = RecordingSink::default();
+        let mut supervisor = FakeSupervisor::AllAvailable;
+
+        let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
+
+        assert!(orch.is_ready());
+        assert_eq!(
+            sink.events(),
+            vec![
+                Status::Booting,
+                Status::OpeningStore,
+                Status::Supervising,
+                Status::Ready,
+            ]
+        );
+    }
+
+    #[test]
+    fn ready_not_reported_when_store_open_fails() {
+        let sink = RecordingSink::default();
+        let mut supervisor = FakeSupervisor::AllAvailable;
+
+        let result = boot(open_err, &mut supervisor, &sink);
+
+        assert!(matches!(
+            result,
+            Err(OrchestratorError::StoreVersionTooNew { .. })
+        ));
+        let events = sink.events();
+        assert!(!events.contains(&Status::Ready), "must not report ready");
+        assert!(matches!(events.last(), Some(Status::Failed { .. })));
+    }
+
+    #[test]
+    fn ready_not_reported_when_a_service_is_unavailable() {
+        let sink = RecordingSink::default();
+        let mut supervisor = FakeSupervisor::OneUnavailable;
+
+        let result = boot(open_ok, &mut supervisor, &sink);
+
+        assert!(matches!(
+            result,
+            Err(OrchestratorError::ServiceUnavailable { .. })
+        ));
+        assert!(!sink.events().contains(&Status::Ready));
+    }
+
+    #[test]
+    fn supervision_failure_surfaces_a_typed_error_and_no_ready() {
+        let sink = RecordingSink::default();
+        let mut supervisor = FakeSupervisor::Errors;
+
+        let result = boot(open_ok, &mut supervisor, &sink);
+
+        assert!(matches!(
+            result,
+            Err(OrchestratorError::ServiceUnavailable { .. })
+        ));
+        let events = sink.events();
+        assert!(!events.contains(&Status::Ready));
+        assert!(matches!(events.last(), Some(Status::Failed { .. })));
+    }
+
+    #[test]
+    fn boot_yields_one_instance_that_owns_a_working_store() {
+        let sink = RecordingSink::default();
+        let mut supervisor = FakeSupervisor::AllAvailable;
+
+        let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
+
+        // The single instance owns the backend: the store is reachable and
+        // migrated, and the supervised services are tracked through it.
+        assert_eq!(
+            orch.store().schema_version().unwrap(),
+            current_schema_version()
+        );
+        assert_eq!(orch.service_statuses().len(), 2);
+    }
+}
