@@ -45,6 +45,17 @@ pub struct OrchestratorState {
     orchestrator: Arc<Mutex<Option<Orchestrator>>>,
 }
 
+impl OrchestratorState {
+    /// Return the store if the orchestrator has booted, or `None`.
+    pub fn store_arc(&self) -> Option<Arc<dyn Store>> {
+        self.orchestrator
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|o| o.store_arc())
+    }
+}
+
 impl Default for OrchestratorState {
     fn default() -> Self {
         Self {
