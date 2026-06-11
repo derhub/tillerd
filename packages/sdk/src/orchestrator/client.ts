@@ -14,10 +14,7 @@ export interface OrchestratorHostTransport {
   /** Invoke a request/response method on the orchestrator API. */
   invoke<T>(method: string, args?: Record<string, unknown>): Promise<T>;
   /** Subscribe to a host event channel; resolves to an unsubscribe function. */
-  listen(
-    event: string,
-    handler: (payload: OrchestratorStatus) => void,
-  ): Promise<() => void>;
+  listen(event: string, handler: (payload: OrchestratorStatus) => void): Promise<() => void>;
 }
 
 /** A typed client of the orchestrator API. */
@@ -28,15 +25,11 @@ export interface OrchestratorClient {
    * Subscribe to lifecycle status events. Resolves to an unsubscribe function.
    * Events are delivered exactly as the orchestrator emits them.
    */
-  subscribe(
-    handler: (status: OrchestratorStatus) => void,
-  ): Promise<() => void>;
+  subscribe(handler: (status: OrchestratorStatus) => void): Promise<() => void>;
 }
 
 /** Build a typed orchestrator client over a host transport. */
-export function createOrchestratorClient(
-  transport: OrchestratorHostTransport,
-): OrchestratorClient {
+export function createOrchestratorClient(transport: OrchestratorHostTransport): OrchestratorClient {
   return {
     status: () => transport.invoke<OrchestratorStatus>(ORCHESTRATOR_STATUS_METHOD),
     subscribe: (handler) => transport.listen(ORCHESTRATOR_STATUS_EVENT, handler),

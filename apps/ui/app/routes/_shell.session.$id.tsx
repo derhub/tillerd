@@ -18,9 +18,7 @@ function DesktopSession({ routeId }: { routeId: string | null }) {
 
   if (host.status === "error") {
     return (
-      <div className="p-6 text-[0.917rem] text-red-400">
-        Backend failed: {host.error.message}
-      </div>
+      <div className="p-6 text-[0.917rem] text-red-400">Backend failed: {host.error.message}</div>
     );
   }
   if (host.status !== "ready") {
