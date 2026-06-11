@@ -123,10 +123,12 @@ mapping table.
 frames as it forwards `data`, matching the existing engine proxy and `daemon-flow-control` (ADR-0007
 backpressure). The input send-queue and outbound credit are the two backpressure points.
 
-**Initial paint is the daemon snapshot.** The proxy advertises `capabilities: ["snapshot"]` in
-`hello`; on `subscribe` the daemon sends a `snapshot` (VT cell grid) — or raw replay for
-non-snapshot — followed by a `status` frame. That snapshot is the scrollback source on attach and
-resume; no separate reconstruction is built here.
+**Initial paint is the daemon's raw replay.** The proxy advertises **no** snapshot capability in
+`hello`, so on `subscribe` the daemon replays scrollback as a raw `data` frame (bytes the terminal
+paints directly) followed by a `status` frame — not a VT cell-grid `snapshot`. Verified live: a fresh
+runtime resuming a surface by `surface_id` receives the prior session's scrollback. The richer
+snapshot/`virtual-terminal-state` path is deferred (the client would need to model the snapshot
+frame; raw replay is the raw-bytes-end-to-end fit for 0.0.2).
 
 ## Risks / Trade-offs
 

@@ -47,7 +47,9 @@ impl DaemonConnection {
         let write = Arc::new(Mutex::new(write_half));
 
         {
-            let hello = encode_hello(&["snapshot"]);
+            // No snapshot capability: a resumed subscribe replays scrollback as raw
+            // `data` bytes (which paint the terminal) instead of a cell-grid snapshot.
+            let hello = encode_hello(&[]);
             let mut guard = write.lock().await;
             guard.write_all(&hello).await?;
         }
