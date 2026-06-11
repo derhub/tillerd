@@ -9,7 +9,8 @@ use process_launch::LaunchError;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tillerd_paths::{
-    daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin, runtime_dir,
+    daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin,
+    runtime_dir,
 };
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";

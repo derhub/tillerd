@@ -438,7 +438,10 @@ mod tests {
         let bytes = encode_ack(&SessionId("s1".into()), 256);
         let frame = &FrameDecoder::new().push(&bytes)[0];
         let meta: Value = serde_json::from_slice(&frame.meta).unwrap();
-        assert_eq!(meta, json!({ "type": "ack", "sessionId": "s1", "bytes": 256 }));
+        assert_eq!(
+            meta,
+            json!({ "type": "ack", "sessionId": "s1", "bytes": 256 })
+        );
     }
 
     #[test]
@@ -519,8 +522,9 @@ mod tests {
     #[test]
     fn decodes_an_error_frame() {
         let raw = RawFrame {
-            meta: br#"{"type":"error","code":"ENOENT","message":"no such session","sessionId":"s1"}"#
-                .to_vec(),
+            meta:
+                br#"{"type":"error","code":"ENOENT","message":"no such session","sessionId":"s1"}"#
+                    .to_vec(),
             body: None,
         };
         assert_eq!(

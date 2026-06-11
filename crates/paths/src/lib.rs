@@ -33,7 +33,11 @@ pub fn runtime_dir_or(base_override: Option<&str>) -> PathBuf {
     base_override
         .filter(|v| !v.is_empty())
         .map(str::to_owned)
-        .or_else(|| std::env::var(ENV_TILLERD_DIR).ok().filter(|v| !v.is_empty()))
+        .or_else(|| {
+            std::env::var(ENV_TILLERD_DIR)
+                .ok()
+                .filter(|v| !v.is_empty())
+        })
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir().join(".tillerd"))
 }

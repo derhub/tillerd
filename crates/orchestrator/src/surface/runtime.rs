@@ -130,14 +130,10 @@ impl SurfaceRuntime {
         }
 
         let task = tokio::spawn(read_loop(ctx, rx));
-        self.proxies.lock().await.insert(
-            surface,
-            Proxy {
-                conn,
-                state,
-                task,
-            },
-        );
+        self.proxies
+            .lock()
+            .await
+            .insert(surface, Proxy { conn, state, task });
         Ok(())
     }
 
@@ -234,14 +230,10 @@ impl SurfaceRuntime {
     ) {
         let ctx = self.ctx(surface.clone(), wire, conn.clone(), state.clone());
         let task = tokio::spawn(read_loop(ctx, rx));
-        self.proxies.lock().await.insert(
-            surface,
-            Proxy {
-                conn,
-                state,
-                task,
-            },
-        );
+        self.proxies
+            .lock()
+            .await
+            .insert(surface, Proxy { conn, state, task });
     }
 }
 
@@ -298,9 +290,9 @@ async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
             *ctx.state.lock().await = ProxyState::Closed;
             false
         }
-        SessionFrame::Error { .. }
-        | SessionFrame::HelloAck { .. }
-        | SessionFrame::Other { .. } => true,
+        SessionFrame::Error { .. } | SessionFrame::HelloAck { .. } | SessionFrame::Other { .. } => {
+            true
+        }
     }
 }
 
@@ -339,7 +331,10 @@ mod tests {
         }
     }
 
-    async fn read_frame(rx: &mut tokio::net::unix::OwnedReadHalf, decoder: &mut FrameDecoder) -> RawFrameMeta {
+    async fn read_frame(
+        rx: &mut tokio::net::unix::OwnedReadHalf,
+        decoder: &mut FrameDecoder,
+    ) -> RawFrameMeta {
         let mut buf = vec![0u8; 1024];
         loop {
             let n = rx.read(&mut buf).await.expect("read");
@@ -347,7 +342,9 @@ mod tests {
             let frames = decoder.push(&buf[..n]);
             if let Some(f) = frames.into_iter().next() {
                 let meta: serde_json::Value = serde_json::from_slice(&f.meta).expect("meta json");
-                return RawFrameMeta { ty: meta["type"].as_str().unwrap_or("").to_string() };
+                return RawFrameMeta {
+                    ty: meta["type"].as_str().unwrap_or("").to_string(),
+                };
             }
         }
     }
@@ -381,12 +378,18 @@ mod tests {
             assert_eq!(read_frame(&mut rx, &mut dec).await.ty, "hello");
             tx.write_all(&hello_ack()).await.unwrap();
             assert_eq!(read_frame(&mut rx, &mut dec).await.ty, "spawn");
-            tx.write_all(&encode_frame(br#"{"type":"spawn-ack","sessionId":"surf-1","pid":7}"#, None))
-                .await
-                .unwrap();
-            tx.write_all(&encode_frame(br#"{"type":"data","sessionId":"surf-1"}"#, Some(b"hi")))
-                .await
-                .unwrap();
+            tx.write_all(&encode_frame(
+                br#"{"type":"spawn-ack","sessionId":"surf-1","pid":7}"#,
+                None,
+            ))
+            .await
+            .unwrap();
+            tx.write_all(&encode_frame(
+                br#"{"type":"data","sessionId":"surf-1"}"#,
+                Some(b"hi"),
+            ))
+            .await
+            .unwrap();
             // The proxy must return credit for the 2 bytes it consumed.
             assert_eq!(read_frame(&mut rx, &mut dec).await.ty, "ack");
             tx.write_all(&encode_frame(
@@ -404,7 +407,13 @@ mod tests {
         let runtime = SurfaceRuntime::new(store, sink.clone(), sock);
 
         runtime
-            .open_terminal(SurfaceId::from_string("surf-1"), "tok".into(), 80, 24, "/tmp".into())
+            .open_terminal(
+                SurfaceId::from_string("surf-1"),
+                "tok".into(),
+                80,
+                24,
+                "/tmp".into(),
+            )
             .await
             .expect("open");
 
@@ -463,9 +472,12 @@ mod tests {
             assert_eq!(read_frame(&mut rx, &mut dec).await.ty, "spawn");
             // Delay the spawn-ack so the test's input() call is queued.
             tokio::time::sleep(std::time::Duration::from_millis(80)).await;
-            tx.write_all(&encode_frame(br#"{"type":"spawn-ack","sessionId":"s","pid":1}"#, None))
-                .await
-                .unwrap();
+            tx.write_all(&encode_frame(
+                br#"{"type":"spawn-ack","sessionId":"s","pid":1}"#,
+                None,
+            ))
+            .await
+            .unwrap();
             // After the ack the queued input must arrive.
             assert_eq!(read_frame(&mut rx, &mut dec).await.ty, "input");
             tokio::time::sleep(std::time::Duration::from_millis(30)).await;
@@ -481,7 +493,10 @@ mod tests {
             .await
             .expect("open");
         // Send input while still attaching (spawn-ack delayed).
-        runtime.input(&surface, b"ls\n").await.expect("input queued");
+        runtime
+            .input(&surface, b"ls\n")
+            .await
+            .expect("input queued");
 
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         daemon.abort();
@@ -495,7 +510,9 @@ mod tests {
         let mut buf = vec![0u8; 1024];
         let mut dec = FrameDecoder::new();
         loop {
-            let Ok(n) = rx.read(&mut buf).await else { return };
+            let Ok(n) = rx.read(&mut buf).await else {
+                return;
+            };
             if n == 0 {
                 return;
             }
@@ -536,12 +553,13 @@ mod tests {
         false
     }
 
-    fn recording_runtime(
-        sock: std::path::PathBuf,
-    ) -> (SurfaceRuntime, Arc<StdMutex<Vec<String>>>) {
+    fn recording_runtime(sock: std::path::PathBuf) -> (SurfaceRuntime, Arc<StdMutex<Vec<String>>>) {
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
         let sink = Arc::new(CollectingSink::default());
-        (SurfaceRuntime::new(store, sink, sock), Arc::new(StdMutex::new(Vec::new())))
+        (
+            SurfaceRuntime::new(store, sink, sock),
+            Arc::new(StdMutex::new(Vec::new())),
+        )
     }
 
     #[tokio::test]

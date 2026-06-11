@@ -16,7 +16,11 @@ use tillerd_paths::{gate_socket_in, runtime_dir, ENV_TILLERD_DIR};
 use crate::gate_admin;
 
 /// Env-var allowlist for spawn-field diffing (R6).
-pub const ENV_ALLOWLIST: &[&str] = &[ENV_TILLERD_DIR, "TILLERD_SESSION_ID", "TILLERD_SESSION_TOKEN"];
+pub const ENV_ALLOWLIST: &[&str] = &[
+    ENV_TILLERD_DIR,
+    "TILLERD_SESSION_ID",
+    "TILLERD_SESSION_TOKEN",
+];
 
 /// A successfully established daemon session: the launched daemon pid plus the
 /// minted session credentials injected into the daemon's environment.

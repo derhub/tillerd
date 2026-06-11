@@ -421,9 +421,7 @@ mod tests {
         let store = SqliteStore::open(&path).unwrap();
 
         let surface = make_surface(&store);
-        store
-            .update_surface_status(&surface.id, "running")
-            .unwrap();
+        store.update_surface_status(&surface.id, "running").unwrap();
 
         let fetched = store.get_surface(&surface.id).unwrap().unwrap();
         assert_eq!(fetched.last_status.as_deref(), Some("running"));

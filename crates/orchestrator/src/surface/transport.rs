@@ -94,12 +94,7 @@ impl DaemonConnection {
         self.write_frame(encode_input(id, bytes)).await
     }
 
-    pub async fn resize(
-        &self,
-        id: &SessionId,
-        cols: u16,
-        rows: u16,
-    ) -> Result<(), TransportError> {
+    pub async fn resize(&self, id: &SessionId, cols: u16, rows: u16) -> Result<(), TransportError> {
         self.write_frame(encode_resize(id, cols, rows)).await
     }
 
@@ -254,13 +249,10 @@ mod tests {
         };
         conn.spawn(&params).await.expect("spawn should succeed");
 
-        let frame = tokio::time::timeout(
-            std::time::Duration::from_secs(2),
-            receiver.recv(),
-        )
-        .await
-        .expect("timed out waiting for spawn-ack")
-        .expect("channel closed before spawn-ack");
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(2), receiver.recv())
+            .await
+            .expect("timed out waiting for spawn-ack")
+            .expect("channel closed before spawn-ack");
 
         assert!(
             matches!(frame, SessionFrame::SpawnAck { .. }),
@@ -295,10 +287,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let sock = fake_daemon(dir.path(), |stream| async move {
             let (_rx, mut tx) = stream.into_split();
-            let wrong = encode_frame(
-                br#"{"type":"spawn-ack","sessionId":"s","pid":1}"#,
-                None,
-            );
+            let wrong = encode_frame(br#"{"type":"spawn-ack","sessionId":"s","pid":1}"#, None);
             tx.write_all(&wrong).await.expect("write wrong frame");
         })
         .await;

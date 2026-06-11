@@ -133,8 +133,8 @@ impl Store for InMemoryStore {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::SurfaceKind;
+    use super::*;
 
     #[test]
     fn fake_reports_current_schema_version() {
@@ -201,9 +201,7 @@ mod tests {
         let store = InMemoryStore::new();
 
         let surface = make_surface(&store);
-        store
-            .update_surface_status(&surface.id, "running")
-            .unwrap();
+        store.update_surface_status(&surface.id, "running").unwrap();
 
         let fetched = store.get_surface(&surface.id).unwrap().unwrap();
         assert_eq!(fetched.last_status.as_deref(), Some("running"));

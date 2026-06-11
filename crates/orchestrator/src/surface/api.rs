@@ -88,7 +88,9 @@ mod tests {
         let mut buf = vec![0u8; 1024];
         let mut dec = FrameDecoder::new();
         loop {
-            let Ok(n) = rx.read(&mut buf).await else { return };
+            let Ok(n) = rx.read(&mut buf).await else {
+                return;
+            };
             if n == 0 {
                 return;
             }
