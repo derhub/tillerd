@@ -4,63 +4,68 @@ argument-hint: "[version e.g. 0.0.2]  (optional; defaults to auto-detect)"
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-You are the tillerd development driver. Decide between TWO modes — **resume** a pending
-change, or **prepare** the next one — then report a tight status and ONE clear next step.
+tillerd dev driver. Pick a mode — **resume** a pending change or **prepare** the next — then
+report a tight status, the roadmap edit it implies, and ONE next step. **Read-only: report, never edit.**
 
 ## State (pre-loaded)
 
-- Branch: !`git branch --show-current`
-- Working tree: !`git status --short | head -20 || echo clean`
-- Active changes (exclude archive): !`ls -1 openspec/changes 2>/dev/null | grep -v '^archive$' || echo NONE`
-- OpenSpec change list: !`openspec list 2>/dev/null | head -30 || echo "openspec CLI unavailable — use the filesystem"`
-- Roadmap next-unchecked scan: !`grep -nE '^### [0-9]|- \[ \]' docs/roadmap.md | head -40`
-- Argument (target version, optional): "$ARGUMENTS"
+- Branch / worktree: !`echo "$(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --show-toplevel)"`
+- Worktrees: !`git worktree list | head -8`
+- Tree: !`git status --short | head -10 || echo clean`
+- Changes: !`openspec list 2>/dev/null | head -20 || ls -1 openspec/changes | grep -v '^archive$'`
+- Archived: !`ls -1 openspec/changes/archive 2>/dev/null | head -12 || echo NONE`
+- Bindings: !`grep -rn 'Implements roadmap' openspec/changes --include=proposal.md 2>/dev/null | grep -v '/archive/' | head`
+- Next roadmap gap: !`awk '/^### [0-9]/{h=$0} /^- \[ \]/{if(h){print h; h=""} print}' docs/roadmap.md | head -16`
+- Arg: "$ARGUMENTS"
 
-## Procedure
+## Mode
 
-1. **Pick the change to focus.**
-   - If `$ARGUMENTS` names a version, focus that.
-   - Else if an active change exists (a dir under `openspec/changes/` other than `archive/`), focus it (RESUME mode).
-   - Else go to PREPARE mode.
+`$ARGUMENTS` names a version → focus it. Else active change (dir under `openspec/changes/` ≠ `archive/`) → RESUME. Else → PREPARE.
 
-2. **RESUME mode — there is an active change.**
-   - Read its `proposal.md` (intent) and `tasks.md` (the checklist). Also note which artifacts exist: `proposal.md`, `specs/`, `design.md`, `tasks.md`.
-   - Count tasks: done = `- [x]`, left = `- [ ]`. Compute a simple done/total.
-   - Map it back to the roadmap version it implements (match by title/scope in `docs/roadmap.md`).
-   - Determine the phase and the next step:
-     - Planning incomplete (an expected artifact is missing for the `spec-driven` schema: proposal → specs → design → tasks) → next step is **`/opsx:continue`**.
-     - Planning complete, tasks unstarted or partial → next step is **`/opsx:apply`**.
-     - All tasks `- [x]` → next step is **`/opsx:verify`**, then **`/opsx:archive`** (archive is user-only — never auto-run it).
-   - Check git hygiene: are we on a `feature/*` branch (not `main`)? Any uncommitted work that should be committed (`/commit`) first?
+## RESUME
 
-3. **PREPARE mode — no active change.**
-   - In `docs/roadmap.md`, find the next version to build: the FIRST `### 0.x.y` (top-down) that still has any `- [ ]` items, unless `$ARGUMENTS` overrides.
-   - Summarize that version: its title and its unchecked bullets (the scope).
-   - Identify which ADRs constrain it (scan the bullets for `ADR-00xx`; default to honoring ADR-0020–0023).
-   - Recommend a schema: `spec-driven` (default) for multi-piece versions; `minimalist` or direct-implement for small ones (e.g. wire-types, docs).
-   - Propose a branch name: `feature/<kebab-desc>` off `main`.
-   - Produce a ready-to-run **change description** (the scope bullets, verbatim) the user can hand to `/opsx:propose` (one-shot) or `/opsx:new` (step-by-step).
+- Read the change's `proposal.md` + `tasks.md`; note artifacts present (proposal / specs / design / tasks).
+- **Version:** from the proposal `Implements roadmap X.Y.Z` marker. Missing → flag `⚠ binding missing` and only then guess by title (say so).
+- **Tasks:** done `- [x]` / total. The **Verification group** (heading ends in `Verification`, e.g. `## 7. Verification`) is reported separately. No such group → flag `⚠ no Verification group`.
+- **Ladder → next step:**
+  - artifact missing for schema (proposal→specs→design→tasks) → `/opsx:continue`
+  - planning done, impl tasks partial → `/opsx:apply`
+  - impl tasks `[x]`, Verification not `[x]` → `/opsx:apply` (finish the checks)
+  - all `[x]` incl Verification → `/opsx:verify` (gate)
+  - verify passed → `/opsx:archive` (user-only)
+- Hygiene: on a `feature/*` branch + a dedicated worktree (not the main worktree / `main`)? Uncommitted work to `/commit`?
 
-## Output format (keep it tight)
+## PREPARE
+
+- **Reconcile first:** a version still `- [ ]`/`[WIP]` whose change is in `archive/` → don't prepare; report the ROADMAP EDIT to mark it done, stop.
+- Pick the first `### 0.x.y` (top-down) with any `- [ ]` (unless `$ARGUMENTS` overrides). Summarize: title, one-line demoable outcome, unchecked bullets.
+- ADRs that constrain it (scan bullets for `ADR-00xx`; default honor 0020–0023). Schema: `spec-driven` default; `minimalist`/direct for small ones.
+- **Worktree (default isolation):** propose `git worktree add ../tillerd-<id> -b feature/<id> main` (`<id>` = change kebab-id), then work from that worktree.
+- Emit a ready **change description** for `/opsx:propose` (one-shot) or `/opsx:new` (step-by-step), containing: the scope bullets verbatim; a binding line `Implements roadmap X.Y.Z — "<title>"`; and **Acceptance criteria** from the demoable outcome (so `tasks.md` gets a real `## Verification` group).
+
+## Output (tight)
 
 ```
 MODE: resume | prepare
-VERSION: <0.x.y — title>   CHANGE: <change-id or "none yet">
-BRANCH: <branch>  (flag if on main / dirty tree)
+VERSION: <0.x.y — title>   CHANGE: <id|none>   (source: marker|guessed)
+LOCATION: <branch> @ <worktree>   (flag if main / main-worktree / dirty)
 
-DONE:
-- <checked items / what's implemented>     (resume only)
-LEFT:
-- <unchecked items / what remains>
+DONE: <checked / implemented>            (resume)
+LEFT: <unchecked / remaining>
+VERIFY: <N/M checks; is /opsx:verify the gate next?>   (resume)
 
-NEXT STEP: <single command to run, e.g. `/opsx:apply`, `/opsx:continue`,
-            `/opsx:propose`, or `git checkout -b feature/...`>
+ROADMAP EDIT (report only — user applies):
+- <"mark 0.0.1 header [WIP]" | "after archive: mark 0.0.1 bullets [x], drop [WIP]" | none>
+
+NEXT STEP: <one command: /opsx:apply | /opsx:continue | /opsx:verify | /opsx:propose | git worktree add ...>
 <one line why>
 ```
 
 ## Rules
 
-- Do NOT implement or edit code, specs, or tasks here — this command only reports status and the next step.
-- Never auto-run `/opsx:apply`, `/opsx:sync`, or `/opsx:archive` — surface them as the next step; the user runs them.
-- Honor the ADRs; do not re-decide architecture.
-- One version at a time, in roadmap order. If the active change's scope has drifted past its version, say so.
+- **Read-only** — never edit code/specs/tasks/`docs/roadmap.md`; report the edit under ROADMAP EDIT, user applies.
+- **Version binding read, not guessed** — from the proposal marker; absent → flag + mark guessed.
+- **Roadmap lifecycle (reported):** applying → header `[WIP]`; DONE (`[x]` bullets, drop `[WIP]`) **only after** archive + Verification green + `/opsx:verify` passed.
+- **Every change needs a Verification group** (heading ends in `Verification`) of runnable acceptance checks; missing/not-green → not done, surface it.
+- **Worktree-first** — a change is built in its own worktree off `main`; flag work happening in the main worktree.
+- Never auto-run `/opsx:apply` `/opsx:sync` `/opsx:archive` — surface as next step. Honor ADRs. One version at a time, in order; call out scope drift.
