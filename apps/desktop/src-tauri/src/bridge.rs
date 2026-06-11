@@ -8,7 +8,7 @@ use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
-use crate::paths::daemon_sock;
+use tillerd_paths::daemon_socket;
 
 /// Event emitted to the renderer when the daemon connection drops unexpectedly (§5.6).
 pub const DAEMON_LOST_EVENT: &str = "daemon-lost";
@@ -27,7 +27,7 @@ pub async fn daemon_connect(
     channel: Channel<Vec<u8>>,
     state: State<'_, BridgeState>,
 ) -> Result<(), String> {
-    let sock = daemon_sock();
+    let sock = daemon_socket();
     let stream = UnixStream::connect(&sock)
         .await
         .map_err(|e| format!("daemon connect {}: {}", sock.display(), e))?;

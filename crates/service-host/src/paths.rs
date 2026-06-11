@@ -1,4 +1,4 @@
-//! Path resolution: TILLERD_DIR override parity to TS + Rust. Defaults to ~/.tillerd.
+//! Per-tool resource paths rooted at the runtime directory resolved by `tillerd-paths`.
 
 use std::path::{Path, PathBuf};
 
@@ -14,7 +14,7 @@ impl Paths {
     /// optional override (`TILLERD_DIR`-style) or the default `~/.tillerd`.
     pub fn resolve(name: &str, base_override: Option<&str>) -> Self {
         Self {
-            base: resolve_base_dir(base_override),
+            base: tillerd_paths::runtime_dir_or(base_override),
             name: name.to_string(),
         }
     }
@@ -33,30 +33,6 @@ impl Paths {
     pub fn socket_path(&self) -> PathBuf {
         self.base.join(format!("{}.sock", self.name))
     }
-}
-
-/// Resolve a base directory honoring an `TILLERD_DIR`-style override.
-///
-/// Parity rule: absolute passes through, relative resolves against cwd, absent
-/// falls back to `~/.tillerd`.
-pub fn resolve_base_dir(base_override: Option<&str>) -> PathBuf {
-    match base_override.filter(|v| !v.is_empty()) {
-        Some(v) => {
-            let p = PathBuf::from(v);
-            if p.is_absolute() {
-                p
-            } else {
-                std::env::current_dir().unwrap_or_default().join(p)
-            }
-        }
-        None => home_dir().join(".tillerd"),
-    }
-}
-
-fn home_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -84,22 +60,8 @@ mod tests {
     }
 
     #[test]
-    fn base_dir_override_honored_via_tillerd_dir_env() {
+    fn base_dir_override_honored() {
         let paths = Paths::resolve("daemon", Some("/override/here"));
         assert_eq!(paths.base_dir(), Path::new("/override/here"));
-    }
-
-    #[test]
-    fn base_dir_override_absolute_path_unchanged() {
-        let resolved = resolve_base_dir(Some("/already/absolute"));
-        assert_eq!(resolved, PathBuf::from("/already/absolute"));
-    }
-
-    #[test]
-    fn base_dir_override_relative_path_resolved_against_cwd() {
-        let resolved = resolve_base_dir(Some("rel/sub"));
-        let expected = std::env::current_dir().unwrap().join("rel/sub");
-        assert_eq!(resolved, expected);
-        assert!(resolved.is_absolute());
     }
 }

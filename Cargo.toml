@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
   "crates/contracts",
+  "crates/paths",
   "crates/service-host",
   "crates/process-launch",
   "crates/daemon-pty-client",
@@ -43,6 +44,7 @@ rmcp = "1.7"
 # testing
 tempfile = "3"
 # internal
+tillerd-paths = { path = "crates/paths" }
 contracts = { path = "crates/contracts", package = "tillerd-contracts" }
 gate-client = { path = "crates/gate-client", package = "tillerd-gate-client" }
 daemon-pty-client = { path = "crates/daemon-pty-client", package = "tillerd-daemon-pty-client" }

@@ -125,8 +125,7 @@ impl DaemonConnection {
 }
 
 pub fn default_daemon_socket() -> PathBuf {
-    service_host::paths::resolve_base_dir(std::env::var("TILLERD_DIR").ok().as_deref())
-        .join("daemon.sock")
+    tillerd_paths::daemon_socket()
 }
 
 async fn read_first_frame(

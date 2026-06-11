@@ -11,11 +11,12 @@ use std::process::{Command, Stdio};
 use process_launch::{adopt_or_spawn, LaunchError, OsProbes, SpawnTiming};
 use uuid::Uuid;
 
+use tillerd_paths::{gate_socket_in, runtime_dir, ENV_TILLERD_DIR};
+
 use crate::gate_admin;
-use crate::paths::tillerd_dir;
 
 /// Env-var allowlist for spawn-field diffing (R6).
-pub const ENV_ALLOWLIST: &[&str] = &["TILLERD_DIR", "TILLERD_SESSION_ID", "TILLERD_SESSION_TOKEN"];
+pub const ENV_ALLOWLIST: &[&str] = &[ENV_TILLERD_DIR, "TILLERD_SESSION_ID", "TILLERD_SESSION_TOKEN"];
 
 /// A successfully established daemon session: the launched daemon pid plus the
 /// minted session credentials injected into the daemon's environment.
@@ -52,7 +53,7 @@ fn rand_byte() -> u8 {
 /// Resolve the gate's single socket path; the orchestrator reaches the admin face
 /// over its `Admin` route. Its presence is the signal the gate is up.
 pub fn admin_sock(base: &Path) -> PathBuf {
-    base.join("gate.sock")
+    gate_socket_in(base)
 }
 
 /// Adopt-or-spawn the daemon, registering the session with the gate admin face
@@ -62,7 +63,7 @@ pub fn admin_sock(base: &Path) -> PathBuf {
 /// reachable, the registration step is skipped and the session credentials are
 /// still injected so the daemon can propagate them if the gate appears later.
 pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, String> {
-    let base = tillerd_dir();
+    let base = runtime_dir();
 
     let session_id = Uuid::new_v4().to_string();
     let session_token = mint_token();
@@ -80,7 +81,7 @@ pub fn ensure_daemon(daemon_bin: &Path, version: &str) -> Result<DaemonSession, 
     }
 
     let mut env: BTreeMap<String, String> = BTreeMap::new();
-    env.insert("TILLERD_DIR".into(), base.to_string_lossy().into_owned());
+    env.insert(ENV_TILLERD_DIR.into(), base.to_string_lossy().into_owned());
     env.insert("TILLERD_SESSION_ID".into(), session_id.clone());
     env.insert("TILLERD_SESSION_TOKEN".into(), session_token.clone());
 

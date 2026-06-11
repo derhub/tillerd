@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use tillerd_paths::manifest_in;
 
 /// Persisted record naming the live backend process and the version it serves.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -13,44 +14,9 @@ pub struct ManifestData {
     pub version: String,
 }
 
-/// Resolve the base runtime directory honoring `TILLERD_DIR` (R7).
-///
-/// Parity with the existing TypeScript and Rust behavior: a set `TILLERD_DIR` is
-/// resolved against the current working directory (absolute values pass
-/// through); when unset the default is `~/.tillerd`.
-pub fn tillerd_dir() -> PathBuf {
-    match std::env::var_os("TILLERD_DIR") {
-        Some(v) if !v.is_empty() => {
-            let p = PathBuf::from(v);
-            if p.is_absolute() {
-                p
-            } else {
-                std::env::current_dir().unwrap_or_default().join(p)
-            }
-        }
-        _ => home_dir().join(".tillerd"),
-    }
-}
-
-fn home_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default()
-}
-
-/// Deterministic manifest path under a base directory.
-pub fn manifest_path(dir: &Path) -> PathBuf {
-    dir.join("daemon.json")
-}
-
-/// Deterministic control-socket path under a base directory.
-pub fn socket_path(dir: &Path) -> PathBuf {
-    dir.join("daemon.sock")
-}
-
 /// Read the manifest from a base directory, or `None` if absent or malformed.
 pub fn read(dir: &Path) -> Option<ManifestData> {
-    let raw = fs::read(manifest_path(dir)).ok()?;
+    let raw = fs::read(manifest_in(dir)).ok()?;
     serde_json::from_slice(&raw).ok()
 }
 
@@ -60,7 +26,7 @@ pub fn read(dir: &Path) -> Option<ManifestData> {
 /// observes a partially written manifest.
 pub fn write(dir: &Path, pid: u32, version: &str) -> std::io::Result<()> {
     fs::create_dir_all(dir)?;
-    let path = manifest_path(dir);
+    let path = manifest_in(dir);
     let tmp = path.with_extension("json.tmp");
     let data = ManifestData {
         pid,
@@ -73,12 +39,13 @@ pub fn write(dir: &Path, pid: u32, version: &str) -> std::io::Result<()> {
 
 /// Remove the manifest, ignoring a missing file.
 pub fn remove(dir: &Path) {
-    let _ = fs::remove_file(manifest_path(dir));
+    let _ = fs::remove_file(manifest_in(dir));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn temp_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -114,7 +81,7 @@ mod tests {
         let dir = temp_dir("shape");
         write(&dir, 4321, "9.9.9").unwrap();
 
-        let raw = fs::read_to_string(manifest_path(&dir)).unwrap();
+        let raw = fs::read_to_string(manifest_in(&dir)).unwrap();
         assert_eq!(raw, r#"{"pid":4321,"version":"9.9.9"}"#);
         let _ = fs::remove_dir_all(&dir);
     }
@@ -129,15 +96,8 @@ mod tests {
     fn write_leaves_no_temp_file_behind() {
         let dir = temp_dir("notmp");
         write(&dir, 7, "1.0.0").unwrap();
-        let tmp = manifest_path(&dir).with_extension("json.tmp");
+        let tmp = manifest_in(&dir).with_extension("json.tmp");
         assert!(!tmp.exists());
         let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn manifest_and_socket_paths_are_deterministic_from_base_dir() {
-        let dir = PathBuf::from("/base");
-        assert_eq!(manifest_path(&dir), PathBuf::from("/base/daemon.json"));
-        assert_eq!(socket_path(&dir), PathBuf::from("/base/daemon.sock"));
     }
 }

@@ -16,7 +16,7 @@ pub struct SqliteStore {
 
 impl SqliteStore {
     pub fn default_path() -> PathBuf {
-        process_launch::tillerd_dir().join("tillerd.db")
+        tillerd_paths::store()
     }
 
     pub fn open_default() -> Result<Self> {

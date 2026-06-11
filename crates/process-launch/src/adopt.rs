@@ -59,7 +59,7 @@ pub fn evaluate(dir: &Path, wanted_version: &str, probes: &impl Probes) -> Adopt
         });
     }
 
-    if !probes.is_reachable(&manifest::socket_path(dir)) {
+    if !probes.is_reachable(&tillerd_paths::daemon_socket_in(dir)) {
         return Adoption::Spawn(AdoptMiss::SocketUnresponsive);
     }
 

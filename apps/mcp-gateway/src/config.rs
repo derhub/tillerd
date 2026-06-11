@@ -6,28 +6,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub fn tillerd_dir() -> PathBuf {
-    match std::env::var_os("TILLERD_DIR") {
-        Some(v) if !v.is_empty() => {
-            let p = PathBuf::from(v);
-            if p.is_absolute() {
-                p
-            } else {
-                std::env::current_dir().unwrap_or_default().join(p)
-            }
-        }
-        _ => home_dir().join(".tillerd"),
-    }
-}
-
-fn home_dir() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_default()
-}
-
 pub fn config_path() -> PathBuf {
-    tillerd_dir().join("mcp.json")
+    tillerd_paths::runtime_dir().join("mcp.json")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

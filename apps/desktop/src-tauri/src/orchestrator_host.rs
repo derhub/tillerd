@@ -5,11 +5,12 @@ use std::sync::{Arc, Mutex};
 use orchestrator::persistence::{SqliteStore, Store};
 use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn};
 use orchestrator::{boot, EventSink, Orchestrator, Status};
-use process_launch::{tillerd_dir, LaunchError};
+use process_launch::LaunchError;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
-
-use crate::paths::{resolve_daemon_bin, resolve_gate_bin};
+use tillerd_paths::{
+    daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin, runtime_dir,
+};
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
@@ -76,7 +77,7 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .env("TILLERD_DIR", &dir)
+            .env(tillerd_paths::ENV_TILLERD_DIR, &dir)
             .spawn()
             .map(|child| child.id())
             .map_err(|e| LaunchError::SpawnFailed(e.to_string()))
@@ -84,14 +85,14 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
 }
 
 fn build_supervisor() -> ProcessSupervisor {
-    let dir = tillerd_dir();
+    let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
     ProcessSupervisor::new()
         .service(
             ServiceSpec {
                 name: "gate".to_string(),
                 manifest_path: dir.join("gate.json"),
-                socket_path: dir.join("gate.sock"),
+                socket_path: gate_socket_in(&dir),
                 version: version.clone(),
             },
             spawn_fn(resolve_gate_bin, "tillerd-gate", dir.clone()),
@@ -99,8 +100,8 @@ fn build_supervisor() -> ProcessSupervisor {
         .service(
             ServiceSpec {
                 name: "daemon".to_string(),
-                manifest_path: dir.join("daemon.json"),
-                socket_path: dir.join("daemon.sock"),
+                manifest_path: manifest_in(&dir),
+                socket_path: daemon_socket_in(&dir),
                 version,
             },
             spawn_fn(resolve_daemon_bin, "tillerd-daemon", dir),

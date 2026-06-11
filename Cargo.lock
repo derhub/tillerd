@@ -2362,6 +2362,7 @@ dependencies = [
  "tempfile",
  "tillerd-contracts",
  "tillerd-gate-client",
+ "tillerd-paths",
  "tillerd-redact",
 ]
 
@@ -4504,6 +4505,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tillerd-contracts",
+ "tillerd-paths",
  "tillerd-service-host",
  "tokio",
  "tracing",
@@ -4543,6 +4545,7 @@ dependencies = [
  "tempfile",
  "tillerd-contracts",
  "tillerd-orchestrator",
+ "tillerd-paths",
  "tillerd-process-launch",
  "tokio",
  "uuid",
@@ -4561,6 +4564,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tillerd-contracts",
+ "tillerd-paths",
  "tillerd-service-host",
  "tokio",
  "tracing",
@@ -4584,6 +4588,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tillerd-contracts",
+ "tillerd-paths",
 ]
 
 [[package]]
@@ -4598,6 +4603,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tillerd-contracts",
+ "tillerd-paths",
  "tillerd-process-launch",
  "tillerd-service-host",
  "tokio",
@@ -4618,11 +4624,21 @@ dependencies = [
  "tillerd-contracts",
  "tillerd-daemon-pty-client",
  "tillerd-gate-client",
+ "tillerd-paths",
  "tillerd-process-launch",
  "tillerd-service-host",
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "tillerd-paths"
+version = "0.0.0"
+dependencies = [
+ "dirs",
+ "serial_test",
+ "tempfile",
 ]
 
 [[package]]
@@ -4633,6 +4649,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tillerd-paths",
 ]
 
 [[package]]
@@ -4648,6 +4665,7 @@ version = "0.0.0"
 dependencies = [
  "serde",
  "serde_json",
+ "tillerd-paths",
  "tokio",
  "tracing",
 ]

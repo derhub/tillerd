@@ -32,9 +32,6 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Environment source of the admin token (distinct from any session token).
 const ADMIN_TOKEN_ENV: &str = "TILLERD_GATE_ADMIN_TOKEN";
 
-/// The single front-door socket file, derived from the runtime directory.
-const GATE_SOCKET: &str = "gate.sock";
-
 /// The production observation sink: records flow through `tracing`.
 struct LogSink;
 
@@ -90,7 +87,7 @@ impl Gate {
         );
         Self {
             version: VERSION.to_string(),
-            base_override: std::env::var("TILLERD_DIR").ok(),
+            base_override: std::env::var(tillerd_paths::ENV_TILLERD_DIR).ok(),
             registry,
             subscriptions,
             admin,
@@ -104,7 +101,7 @@ impl Gate {
     /// gate binds no TCP port and publishes no address file — the path derives from
     /// the runtime directory.
     fn bind_socket(&mut self, base: &Path) -> std::io::Result<()> {
-        let path = base.join(GATE_SOCKET);
+        let path = tillerd_paths::gate_socket_in(base);
         let _ = std::fs::remove_file(&path);
         let listener = UnixListener::bind(&path)?;
         let faces = Faces {
@@ -218,7 +215,7 @@ mod tests {
         gate.bind_socket(dir.path()).unwrap();
 
         assert!(
-            tokio::net::UnixStream::connect(dir.path().join("gate.sock"))
+            tokio::net::UnixStream::connect(tillerd_paths::gate_socket_in(dir.path()))
                 .await
                 .is_ok(),
             "the single front-door socket is bound"

@@ -90,10 +90,8 @@ impl GateToolClient {
         let token = std::env::var("TILLERD_SESSION_TOKEN")
             .ok()
             .filter(|s| !s.is_empty())?;
-        let base =
-            service_host::paths::resolve_base_dir(std::env::var("TILLERD_DIR").ok().as_deref());
         Some(Self::new(
-            base.join("gate.sock"),
+            tillerd_paths::gate_socket(),
             SessionId(session_id),
             token,
         ))

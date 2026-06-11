@@ -1,0 +1,20 @@
+[package]
+name = "tillerd-paths"
+version.workspace = true
+edition.workspace = true
+description = "Single source of truth for the tillerd runtime layout and TILLERD_* environment surface"
+license.workspace = true
+
+[lib]
+name = "tillerd_paths"
+path = "src/lib.rs"
+
+[dependencies]
+dirs = "6"
+
+[dev-dependencies]
+tempfile.workspace = true
+serial_test = "3"
+
+[lints]
+workspace = true

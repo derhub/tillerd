@@ -24,6 +24,7 @@ serde_json.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "sync", "rt", "macros", "fs", "time"] }
 dirs = "6"
 libc = "0.2"
+tillerd-paths.workspace = true
 contracts.workspace = true
 process-launch.workspace = true
 orchestrator.workspace = true

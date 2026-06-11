@@ -4,7 +4,7 @@
 
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use contracts::framing::encode_frame;
@@ -21,7 +21,7 @@ fn main() {
 fn run() -> Option<()> {
     let session_id = non_empty_env("TILLERD_SESSION_ID")?;
     let token = non_empty_env("TILLERD_SESSION_TOKEN")?;
-    let socket = base_dir()?.join("gate.sock");
+    let socket = tillerd_paths::gate_socket();
 
     let mut payload = Vec::new();
     std::io::stdin().read_to_end(&mut payload).ok()?;
@@ -55,18 +55,12 @@ fn non_empty_env(key: &str) -> Option<String> {
     std::env::var(key).ok().filter(|v| !v.is_empty())
 }
 
-fn base_dir() -> Option<PathBuf> {
-    if let Some(dir) = non_empty_env("TILLERD_DIR") {
-        return Some(PathBuf::from(dir));
-    }
-    Some(PathBuf::from(non_empty_env("HOME")?).join(".tillerd"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use contracts::framing::FrameDecoder;
     use std::os::unix::net::UnixListener;
+    use std::path::PathBuf;
     use std::sync::mpsc;
     use std::thread;
 

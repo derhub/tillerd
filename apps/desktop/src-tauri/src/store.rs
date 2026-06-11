@@ -6,7 +6,7 @@ use serde_json::Value;
 use tauri::State;
 use tokio::sync::Mutex;
 
-use crate::paths::tillerd_dir;
+use tillerd_paths::runtime_dir;
 
 /// Native app-data store: user preferences plus the session registry (sessionId -> cwd). Replaces
 /// the server-side sqlite registry on the desktop path (design D6). Persisted as JSON.
@@ -35,7 +35,7 @@ impl StoreState {
 }
 
 fn store_path() -> PathBuf {
-    tillerd_dir().join("desktop-store.json")
+    runtime_dir().join("desktop-store.json")
 }
 
 async fn persist(data: &StoreData) {

@@ -2,7 +2,7 @@
 
 use crate::codec::{encode_frame, FrameDecoder};
 use crate::exit_qualifier::translate_exit;
-use crate::manifest::{daemon_sock, stopped_sessions_path, Manifest};
+use crate::manifest::{stopped_sessions_path, Manifest};
 use crate::messages::{parse_client_frame, ClientFrame, SUPPORTED_VERSIONS};
 use crate::pty_session::{Session, SessionEvent, INITIAL_CREDIT, SHUTDOWN_KILL_GRACE_MS};
 use crate::signals::SignalPlatform;
@@ -74,7 +74,7 @@ impl Daemon {
         };
         Daemon {
             state: Arc::new(Mutex::new(state)),
-            sock_path: daemon_sock(dir),
+            sock_path: tillerd_paths::daemon_socket_in(dir),
         }
     }
 

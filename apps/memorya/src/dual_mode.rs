@@ -2,9 +2,6 @@
 
 use std::path::{Path, PathBuf};
 
-/// Environment variable carrying the runtime directory the gate sockets live under.
-pub const TILLERD_DIR_ENV: &str = "TILLERD_DIR";
-
 /// Canonical environment variable carrying the session id to subscribe to.
 pub const SESSION_ID_ENV: &str = "TILLERD_SESSION_ID";
 
@@ -44,11 +41,7 @@ pub enum CaptureMode {
 
 /// Resolve the capture mode from the environment.
 pub fn capture_mode_from_env() -> CaptureMode {
-    let base = std::env::var(TILLERD_DIR_ENV)
-        .ok()
-        .filter(|d| !d.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(default_base);
+    let base = tillerd_paths::runtime_dir();
     resolve_capture_mode(&base, std::env::var(SESSION_ID_ENV).ok().as_deref())
 }
 
@@ -58,19 +51,11 @@ pub fn capture_mode_from_env() -> CaptureMode {
 pub fn resolve_capture_mode(base: &Path, session_id: Option<&str>) -> CaptureMode {
     match session_id {
         Some(id) if !id.is_empty() => CaptureMode::Composed {
-            subscribe_sock: base.join("gate.sock"),
+            subscribe_sock: tillerd_paths::gate_socket_in(base),
             session_id: id.to_string(),
         },
         _ => CaptureMode::Standalone,
     }
-}
-
-fn default_base() -> PathBuf {
-    std::env::var("HOME")
-        .ok()
-        .filter(|h| !h.is_empty())
-        .map(|h| PathBuf::from(h).join(".tillerd"))
-        .unwrap_or_else(|| PathBuf::from(".tillerd"))
 }
 
 #[cfg(test)]

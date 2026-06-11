@@ -17,7 +17,6 @@ mod vt;
 
 use server::{Daemon, DAEMON_VERSION};
 use service_host::host::{ServeContext, Service, ServiceConfig};
-use service_host::paths::resolve_base_dir;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tracing::Instrument;
 
@@ -83,7 +82,7 @@ impl DaemonService {
             shell_env::install_login_shell_env();
         }
 
-        let dir = resolve_base_dir(std::env::var("TILLERD_DIR").ok().as_deref());
+        let dir = tillerd_paths::runtime_dir();
         let _ = std::fs::create_dir_all(&dir);
 
         init_tracing(&dir);
@@ -124,7 +123,7 @@ impl DaemonService {
 impl Service for DaemonService {
     fn config(&self) -> ServiceConfig {
         ServiceConfig::new("daemon", DAEMON_VERSION)
-            .with_base_override(std::env::var("TILLERD_DIR").ok())
+            .with_base_override(std::env::var(tillerd_paths::ENV_TILLERD_DIR).ok())
     }
 
     async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
