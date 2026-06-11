@@ -111,15 +111,14 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let status = state.status.clone();
     let slot = state.orchestrator.clone();
     std::thread::spawn(move || {
-        // Keep a clone for post-boot work; the original moves into the sink.
         let app_for_surface = app.clone();
         let sink = TauriEventSink { app, status };
         let mut supervisor = build_supervisor();
         let open_store = || SqliteStore::open_default().map(|s| Box::new(s) as Box<dyn Store>);
         match boot(open_store, &mut supervisor, &sink) {
             Ok(orchestrator) => {
-                // Wire up the terminal-surface layer before storing the orchestrator
-                // so the SurfaceState is available before any IPC command fires.
+                // Register the surface layer before stashing the orchestrator so
+                // SurfaceState exists before any IPC command can fire.
                 crate::surface_host::register(&app_for_surface, orchestrator.store_arc());
                 *slot.lock().unwrap() = Some(orchestrator);
             }

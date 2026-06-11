@@ -119,7 +119,6 @@ pub struct Session {
 
 #[derive(Debug, Clone)]
 pub struct NewSurface {
-    /// The surface id to assign; `None` mints a fresh one.
     pub id: Option<SurfaceId>,
     pub session_id: SessionId,
     pub kind: SurfaceKind,
@@ -132,8 +131,6 @@ pub struct Surface {
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
-    /// The last known status of this surface (e.g. `"running"`, `"exited"`).
-    /// `None` until explicitly set via [`Store::update_surface_status`].
     pub last_status: Option<String>,
 }
 
@@ -152,16 +149,11 @@ pub trait Store: Send + Sync {
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface>;
 
-    /// Fetch a single non-deleted surface by id.
-    /// Returns `None` when the surface does not exist or has been soft-deleted.
     fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>>;
 
-    /// List all surfaces that have not been soft-deleted.
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>>;
 
-    /// Set `last_status` on the identified surface.
     fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()>;
 
-    /// Soft-delete the identified surface by recording a deletion timestamp.
     fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()>;
 }
