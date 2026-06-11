@@ -71,7 +71,7 @@
 ## 12. Verification
 
 - [ ] 12.1 Create a session in the Unfiled project with a terminal surface; the terminal renders and streams live pseudo-terminal bytes through the orchestrator API / surface channel, not the engine (acceptance 1).
-- [ ] 12.2 Confirm the surface-runtime proxies one daemon session per surface over the tokio transport, exposes status, and queues sends with flow control (acceptance 2).
+- [x] 12.2 Confirm the surface-runtime proxies one daemon session per surface over the tokio transport, exposes status, and queues sends with flow control (acceptance 2).
 - [ ] 12.3 Confirm a surface row persists and, after a host restart, the runtime re-subscribes by `surface_id` and the live session reattaches with snapshot paint (acceptance 3).
-- [ ] 12.4 Confirm the engine path for terminal surfaces is off on the desktop host (acceptance 4).
-- [ ] 12.5 `cargo test` passes for `daemon-pty-client`, `contracts`, `orchestrator`; `turbo test`, `turbo lint`, `turbo build` pass for the touched packages; `cargo clippy --all-targets -- -D warnings` is clean (testing gate; rust-best-practices).
+- [x] 12.4 Confirm the engine path for terminal surfaces is off on the desktop host (acceptance 4).
+- [x] 12.5 `cargo test` passes for `daemon-pty-client`, `contracts`, `orchestrator`; `turbo test`, `turbo lint`, `turbo build` pass for the touched packages; `cargo clippy --all-targets -- -D warnings` is clean (testing gate; rust-best-practices).

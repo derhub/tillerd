@@ -529,4 +529,141 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         daemon.abort();
     }
+
+    /// A fake daemon that records every received frame type and auto-replies:
+    /// `hello-ack` to hello, `spawn-ack` to spawn, a live `status` to subscribe.
+    async fn recording_daemon(listener: UnixListener, recorded: Arc<StdMutex<Vec<String>>>) {
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
+        let (mut rx, mut tx) = stream.into_split();
+        let mut buf = vec![0u8; 1024];
+        let mut dec = FrameDecoder::new();
+        loop {
+            let Ok(n) = rx.read(&mut buf).await else { return };
+            if n == 0 {
+                return;
+            }
+            for frame in dec.push(&buf[..n]) {
+                let Ok(meta) = serde_json::from_slice::<serde_json::Value>(&frame.meta) else {
+                    continue;
+                };
+                let ty = meta["type"].as_str().unwrap_or("").to_string();
+                recorded.lock().unwrap().push(ty.clone());
+                let id = meta["sessionId"].as_str().unwrap_or("").to_string();
+                match ty.as_str() {
+                    "hello" => {
+                        let _ = tx.write_all(&hello_ack()).await;
+                    }
+                    "spawn" => {
+                        let ack = format!(r#"{{"type":"spawn-ack","sessionId":"{id}","pid":1}}"#);
+                        let _ = tx.write_all(&encode_frame(ack.as_bytes(), None)).await;
+                    }
+                    "subscribe" => {
+                        let st = format!(
+                            r#"{{"type":"status","sessionId":"{id}","status":"IDLE","source":"terminal"}}"#
+                        );
+                        let _ = tx.write_all(&encode_frame(st.as_bytes(), None)).await;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    /// Poll until `recorded` contains `ty`, up to ~500ms.
+    async fn saw(recorded: &Arc<StdMutex<Vec<String>>>, ty: &str) -> bool {
+        for _ in 0..50 {
+            if recorded.lock().unwrap().iter().any(|t| t == ty) {
+                return true;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        false
+    }
+
+    fn recording_runtime(
+        sock: std::path::PathBuf,
+    ) -> (SurfaceRuntime, Arc<StdMutex<Vec<String>>>) {
+        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let sink = Arc::new(CollectingSink::default());
+        (SurfaceRuntime::new(store, sink, sock), Arc::new(StdMutex::new(Vec::new())))
+    }
+
+    #[tokio::test]
+    async fn resize_forwards_a_resize_frame() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("daemon.sock");
+        let listener = UnixListener::bind(&sock).unwrap();
+        let (runtime, rec) = recording_runtime(sock);
+        let daemon = tokio::spawn(recording_daemon(listener, rec.clone()));
+
+        let surface = SurfaceId::from_string("rs");
+        runtime
+            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .await
+            .unwrap();
+        runtime.resize(&surface, 100, 30).await.unwrap();
+
+        assert!(saw(&rec, "resize").await);
+        daemon.abort();
+    }
+
+    #[tokio::test]
+    async fn detach_unsubscribes_and_drops_the_proxy() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("daemon.sock");
+        let listener = UnixListener::bind(&sock).unwrap();
+        let (runtime, rec) = recording_runtime(sock);
+        let daemon = tokio::spawn(recording_daemon(listener, rec.clone()));
+
+        let surface = SurfaceId::from_string("dt");
+        runtime
+            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .await
+            .unwrap();
+        runtime.detach(&surface).await.unwrap();
+
+        assert!(saw(&rec, "unsubscribe").await);
+        assert_eq!(runtime.proxy_count().await, 0);
+        daemon.abort();
+    }
+
+    #[tokio::test]
+    async fn remove_kills_and_drops_the_proxy() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("daemon.sock");
+        let listener = UnixListener::bind(&sock).unwrap();
+        let (runtime, rec) = recording_runtime(sock);
+        let daemon = tokio::spawn(recording_daemon(listener, rec.clone()));
+
+        let surface = SurfaceId::from_string("rm");
+        runtime
+            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .await
+            .unwrap();
+        runtime.remove(&surface).await.unwrap();
+
+        assert!(saw(&rec, "kill").await);
+        assert_eq!(runtime.proxy_count().await, 0);
+        daemon.abort();
+    }
+
+    #[tokio::test]
+    async fn resume_attaches_to_a_live_session() {
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("daemon.sock");
+        let listener = UnixListener::bind(&sock).unwrap();
+        let (runtime, rec) = recording_runtime(sock);
+        let daemon = tokio::spawn(recording_daemon(listener, rec.clone()));
+
+        runtime
+            .resume(SurfaceId::from_string("live"))
+            .await
+            .expect("resume should attach to a live session");
+
+        assert!(saw(&rec, "subscribe").await);
+        assert_eq!(runtime.proxy_count().await, 1);
+        daemon.abort();
+    }
 }
