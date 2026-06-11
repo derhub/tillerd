@@ -23,12 +23,12 @@ The Rust inversion and a working vertical slice.
 A runtime-agnostic orchestrator crate the desktop embeds, with persistence and
 supervised services. Nothing renders yet.
 
-- [ ] Orchestrator crate — runtime-agnostic Rust library (ADR-0022), embedded in-process
+- [x] Orchestrator crate — runtime-agnostic Rust library (ADR-0022), embedded in-process
   by the desktop host; transport-agnostic API + `EventSink` bound to Tauri.
-- [ ] Supervised startup — orchestrator adopt-or-spawns gate + daemon; per-service health.
-- [ ] Persistence — `tillerd.db` (rusqlite) with the schema and lazy migration runner
+- [x] Supervised startup — orchestrator adopt-or-spawns gate + daemon; per-service health.
+- [x] Persistence — `tillerd.db` (rusqlite) with the schema and lazy migration runner
   (ADR-0023).
-- [ ] SDK as API client — the TS `sdk` talks to the orchestrator API; the UI reaches
+- [x] SDK as API client — the TS `sdk` talks to the orchestrator API; the UI reaches
   `ready` through it (old TS engine path off). Blank UI acceptable.
 
 ### 0.0.2 — Terminal surface, end-to-end
