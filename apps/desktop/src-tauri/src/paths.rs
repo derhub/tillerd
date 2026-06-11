@@ -19,23 +19,32 @@ pub fn manifest_path() -> PathBuf {
     tillerd_dir().join("daemon.json")
 }
 
-/// Resolve the generic PTY daemon binary: `TILLERD_DAEMON_BIN`, then a cwd/bundled `bin/tillerd-daemon`,
-/// then `~/.local/bin`. (Packaged-bundle sidecar resolution is §7.)
-pub fn resolve_daemon_bin() -> Option<PathBuf> {
-    if let Ok(bin) = std::env::var("TILLERD_DAEMON_BIN") {
+/// Resolve a service binary by precedence: `$<env_var>`, then `bin/<name>` or
+/// `target/{release,debug}/<name>` under the cwd or any ancestor (the cargo
+/// build output, so no env is needed in dev/CI), then `~/.local/bin/<name>`.
+/// (Packaged-bundle sidecar resolution is §7.)
+fn resolve_service_bin(env_var: &str, name: &str) -> Option<PathBuf> {
+    if let Ok(bin) = std::env::var(env_var) {
         let p = PathBuf::from(bin);
         if p.exists() {
             return Some(p);
         }
     }
     if let Ok(cwd) = std::env::current_dir() {
-        let cwd_bin = cwd.join("bin/tillerd-daemon");
-        if cwd_bin.exists() {
-            return Some(cwd_bin);
+        for dir in cwd.ancestors() {
+            for candidate in [
+                dir.join("bin").join(name),
+                dir.join("target/release").join(name),
+                dir.join("target/debug").join(name),
+            ] {
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
         }
     }
     if let Some(home) = dirs::home_dir() {
-        let user_bin = home.join(".local/bin/tillerd-daemon");
+        let user_bin = home.join(".local/bin").join(name);
         if user_bin.exists() {
             return Some(user_bin);
         }
@@ -43,26 +52,12 @@ pub fn resolve_daemon_bin() -> Option<PathBuf> {
     None
 }
 
+pub fn resolve_daemon_bin() -> Option<PathBuf> {
+    resolve_service_bin("TILLERD_DAEMON_BIN", "tillerd-daemon")
+}
+
 pub fn resolve_gate_bin() -> Option<PathBuf> {
-    if let Ok(bin) = std::env::var("TILLERD_GATE_BIN") {
-        let p = PathBuf::from(bin);
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    if let Ok(cwd) = std::env::current_dir() {
-        let cwd_bin = cwd.join("bin/tillerd-gate");
-        if cwd_bin.exists() {
-            return Some(cwd_bin);
-        }
-    }
-    if let Some(home) = dirs::home_dir() {
-        let user_bin = home.join(".local/bin/tillerd-gate");
-        if user_bin.exists() {
-            return Some(user_bin);
-        }
-    }
-    None
+    resolve_service_bin("TILLERD_GATE_BIN", "tillerd-gate")
 }
 
 /// The committed runtime-free hook callback client (`notify-bash-client`).
@@ -139,6 +134,23 @@ mod tests {
         std::env::remove_var("TILLERD_DAEMON_BIN");
         // Must not return the nonexistent path we set.
         assert_ne!(result.as_ref().and_then(|p| p.to_str()), Some(absent));
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_service_bin_discovers_cargo_target_output() {
+        let tmp = tempfile::tempdir().unwrap();
+        let release = tmp.path().join("target/release");
+        std::fs::create_dir_all(&release).unwrap();
+        std::fs::write(release.join("tillerd-daemon"), b"x").unwrap();
+
+        let prev = std::env::current_dir().unwrap();
+        std::env::set_current_dir(tmp.path()).unwrap();
+        std::env::remove_var("TILLERD_DAEMON_BIN");
+        let result = resolve_service_bin("TILLERD_DAEMON_BIN", "tillerd-daemon");
+        std::env::set_current_dir(prev).unwrap();
+
+        assert!(result.is_some_and(|p| p.ends_with("target/release/tillerd-daemon")));
     }
 
     #[test]
