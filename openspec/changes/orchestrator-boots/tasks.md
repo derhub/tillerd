@@ -31,7 +31,7 @@
 
 - [x] 5.1 Embed the orchestrator crate in `apps/desktop/src-tauri`; construct one instance at host startup and bind its request methods to host commands (orchestrator-core: embedded in-process by a host).
 - [x] 5.2 Implement the host `EventSink` binding the orchestrator status stream to the host event channel (orchestrator-core: host binds the event sink).
-- [ ] 5.3 Verify the host reaches and exposes `ready` after boot (manual/integration: host emits a `ready` status event once the orchestrator is ready).
+- [x] 5.3 Verify the host reaches and exposes `ready` after boot (manual/integration: host emits a `ready` status event once the orchestrator is ready).
 
 ## 6. SDK client and engine-path removal
 
@@ -42,6 +42,6 @@
 
 ## 7. Verification
 
-- [ ] 7.1 End-to-end: launch the desktop host with no services running → orchestrator spawns gate + daemon, opens a fresh `tillerd.db` with the Unfiled seed, and the blank renderer observes `ready`.
-- [ ] 7.2 Re-launch with services already running → orchestrator adopts them (no duplicate spawn) and reaches `ready`.
+- [x] 7.1 End-to-end: launch the desktop host with no services running → orchestrator spawns gate + daemon, opens a fresh `tillerd.db` with the Unfiled seed, and the blank renderer observes `ready`.
+- [x] 7.2 Re-launch with services already running → orchestrator adopts them (no duplicate spawn) and reaches `ready`.
 - [x] 7.3 Run the workspace checks (build, test, lint, format) green for the new crate, the host wiring, and the SDK client.

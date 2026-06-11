@@ -14,7 +14,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use process_launch::{LaunchError, ManifestData, Probes, SpawnTiming};
+pub use process_launch::{LaunchError, SpawnTiming};
+use process_launch::{ManifestData, Probes};
 
 use crate::error::{OrchestratorError, Result};
 
