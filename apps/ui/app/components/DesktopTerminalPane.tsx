@@ -38,12 +38,8 @@ export function DesktopTerminalPane(_props: {
     (async () => {
       const { Terminal } = await import("@xterm/xterm");
       const { FitAddon } = await import("@xterm/addon-fit");
-      const { loadTerminalSurfaceTransport } = await import(
-        "~/lib/transport/terminal-surface"
-      );
-      const { createTerminalSurfaceClient } = await import(
-        "@tillerd/sdk/orchestrator"
-      );
+      const { loadTerminalSurfaceTransport } = await import("~/lib/transport/terminal-surface");
+      const { createTerminalSurfaceClient } = await import("@tillerd/sdk/orchestrator");
 
       if (cancelled) return;
 
@@ -70,9 +66,8 @@ export function DesktopTerminalPane(_props: {
 
       const client = createTerminalSurfaceClient(transport);
 
-      const surfaceId = await client.create(
-        { cols: term.cols, rows: term.rows },
-        (bytes) => term.write(bytes),
+      const surfaceId = await client.create({ cols: term.cols, rows: term.rows }, (bytes) =>
+        term.write(bytes),
       );
 
       if (cancelled) {
@@ -118,12 +113,7 @@ export function DesktopTerminalPane(_props: {
     };
   }, []);
 
-  const dotColor =
-    status === "connected"
-      ? "#3fb950"
-      : status === "exited"
-        ? "#ff7b72"
-        : "#8b949e";
+  const dotColor = status === "connected" ? "#3fb950" : status === "exited" ? "#ff7b72" : "#8b949e";
 
   return (
     <div className="h-full w-full relative" style={{ background: "#0d1117" }}>
