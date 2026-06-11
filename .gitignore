@@ -57,4 +57,3 @@ packages/daemon-pty/athing-daemon
 
 # Include openspec (overrides global ignore)
 !openspec/
-.claude
