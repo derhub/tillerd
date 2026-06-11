@@ -1,7 +1,7 @@
 ## 1. Daemon wire codec (`crates/daemon-pty-client`)
 
-- [ ] 1.1 Write failing tests: `encode_spawn`, `encode_input`, `encode_resize`, `encode_ack`, `encode_kill`, `encode_unsubscribe` produce the exact `[u32 BE len][JSON meta][0x0a?][raw body]` frames the daemon accepts, and `decode_session_frame` gains a `SpawnAck { session_id, pid }` variant — fixtures matching the `apps/daemon-pty` frame shapes (daemon-wire-protocol; ADR-0009).
-- [ ] 1.2 Implement the encoders + `SpawnAck` decode in `daemon-pty-client`, keeping raw body bytes intact (no re-encode); `input` carries raw bytes in the body plane.
+- [x] 1.1 Write failing tests: `encode_spawn`, `encode_input`, `encode_resize`, `encode_ack`, `encode_kill`, `encode_unsubscribe` produce the exact `[u32 BE len][JSON meta][0x0a?][raw body]` frames the daemon accepts, and `decode_session_frame` gains a `SpawnAck { session_id, pid }` variant — fixtures matching the `apps/daemon-pty` frame shapes (daemon-wire-protocol; ADR-0009).
+- [x] 1.2 Implement the encoders + `SpawnAck` decode in `daemon-pty-client`, keeping raw body bytes intact (no re-encode); `input` carries raw bytes in the body plane.
 
 ## 2. Surface + terminal contract types (`crates/contracts` + TS mirror)
 
