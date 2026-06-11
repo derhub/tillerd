@@ -1,94 +1,113 @@
-# 0022. A workspace library owns the session container; the engine stays the surface runtime
+# 0022. A Rust orchestrator crate owns the backend; TypeScript is UI and SDK
 
 - Status: proposed
 - Date: 2026-06-11
 
 ## Context
 
-ADR-0020 defined two desktop/SDK concepts — `session` (a container) and `surface`
-(a kind-tagged leaf) — but shipped no code. ADR-0021 then defined the launch spec:
-a project owns a template, a session is an instance, and launch items produce
-surfaces. Something must instantiate templates into grouped, persisted surfaces.
+ADR-0020 defined `session` (container) and `surface` (leaf), and ADR-0021 defined
+the launch spec (projects own templates; sessions are instances; launch items produce
+surfaces). Both need a home: something that owns projects, sessions, surfaces, launch
+execution, and persistence, and that drives the daemon and gate.
 
-The current code does not have that grouping:
+Two homes were considered:
 
-- The engine exposes `AgentSession` (implemented by `AgentSessionProxy`): a handle to
-  **one PTY** — one daemon record and, for agents, one hook stream. It carries the
-  byte stream, status, content, and lifecycle, with flow control, snapshot replay,
-  status mapping, and a send queue. This is a proven per-PTY runtime.
-- `Engine` holds a **flat** `Map<id, proxy>` and exposes `start` / `reconnect` /
-  `listSessions` / `shutdown`. There is no container grouping multiple PTYs.
-- The only "container" today is a thin UI-local `type Session = { id; cwd? }` in the
-  desktop shell — no lifecycle, no launch orchestration, no persistence.
+1. A TypeScript workspace library layered above the existing TypeScript engine (the
+   per-PTY surface runtime). **Rejected.**
+2. A Rust orchestrator crate that also absorbs the surface runtime. **Chosen.**
 
-So the engine's `AgentSession` already *is* the ADR-0020 surface in all but name. The
-missing piece is the **container** plus the launch-and-persistence layer around it —
-not a rewrite of the per-PTY runtime.
+Why Rust owns the backend:
 
-A full rename of `AgentSession` to `Surface` across the SDK, engine, server, desktop,
-and tests was considered and **rejected**: the churn is broad and the runtime is
-correct as written. The engine keeps its name.
+- The daemon and gate are already Rust, and Rust client crates already exist —
+  `daemon-pty-client`, `gate-client`, `process-launch`, `service-host`,
+  `contracts-rs`. The TypeScript engine duplicates, in TS, the daemon-client and
+  hook-handling logic these crates already provide.
+- A future server for remote control must run the *same* backend. Orchestration in
+  TypeScript forces the backend into the renderer/runtime and blocks a headless
+  server, or forces a second implementation.
+- The backend must run unchanged in two hosts — the desktop (Tauri) and a future
+  server — without caring which.
 
 ## Decision
 
-Keep the engine as the surface runtime, unchanged, and add a new layer above it.
+One Rust **orchestrator** library crate owns the backend.
 
-### Engine — unchanged
+### What the orchestrator owns
 
-`AgentSession` / `AgentSessionProxy` remain the per-PTY runtime handle. No rename, no
-behavior change. It stays web-API-only and pure (ADR-0003).
+- **Workspace domain** — projects, sessions, surfaces, launch-spec execution
+  (ADR-0021), the archive lifecycle.
+- **Persistence** — rusqlite over `tillerd.db` (read and write). See ADR-0023.
+- **Surface runtime** — the per-PTY proxy, hook drain, status mapping, and send queue,
+  composing `daemon-pty-client` + `gate-client` + `process-launch`. Migrated from the
+  TypeScript engine.
+- **Agent adapter** — the `AgentDefinition` data plus the hook → status / content parse
+  functions (migrated from the TS adapter and `hookEventToContent`).
+- **A transport-agnostic API** — request/response methods plus outbound streams emitted
+  over an `EventSink` trait the host implements.
 
-### Workspace library — new
+### Embedded, not a process
 
-Introduce a host-agnostic package (name TBD, e.g. `@tillerd/workspace`) above the
-engine that owns the workspace domain:
+The orchestrator is a **library crate**, embedded in-process by each host as a Cargo
+dependency. It is not a separate process and not one of the shared singleton services.
+It is the **client** of the daemon and gate (which remain separate singletons,
+ADR-0020). One orchestrator instance per host process.
 
-- **`Session`** — the container: `{ id, projectId, title, surfaces, layout }`.
-- **`Surface`** — the ADR-0020 leaf: `{ id, kind, … }` wrapping one engine
-  `AgentSession`. This is where the product seam presents "surface" in ADR-0020's
-  vocabulary, while the engine internally keeps `AgentSession`.
-- **Launch-spec execution** (ADR-0021): template → launch items → spawn surfaces via
-  the engine, run `pre` / `post`, the worktree step, and placement.
-- **Persistence port**: the host injects a SQLite adapter (ports-and-adapters,
-  ADR-0003). The library stays pure and web-safe, like the engine.
-- **Project domain**: projects, worktrees (under a project, ADR-0021 decision),
-  command library, and the archive lifecycle.
-- **Container API**: `createSession` / `getSession` / `listSessions` /
-  `archiveSession`; `session.addSurface` / `removeSurface`.
+### Hosts are thin shells
+
+Each host embeds the crate and binds its API to a transport:
+
+- **desktop (Tauri)** — commands plus a `Channel` / events.
+- **server (future)** — network (HTTP / WS) for remote control.
+
+The only difference between desktop and server is the host binary; the orchestrator is
+identical.
+
+### TypeScript is UI and SDK only
+
+- **ui** — the renderer (xterm, panels).
+- **sdk** — a typed client to the orchestrator API; wire types generated from
+  `contracts-rs`.
+- The TypeScript **engine**, **adapter** parse logic, **platform-bun**, and the TS
+  **server** are retired. This is done in one move (full-now), not phased.
 
 ### Naming
 
-The product/desktop term is `Session` (the workspace container). The engine's
-`AgentSession` is the underlying surface-runtime handle and is not presented to
-product code as "the session." The residual overload — engine `AgentSession` versus
-workspace `Session` — is bounded: the engine handle is internal to the workspace
-library; product and desktop code use `Session` and `Surface`.
+With the TS engine retired, the surface runtime is named fresh in Rust — `Session`
+(container) and `Surface` (leaf). No TypeScript rename is needed: the TS types are
+removed, not renamed.
 
 ### Layering
 
 ```
-adapter        agent definitions
-   ↓
-engine         surface runtime — one PTY (AgentSession) each      [unchanged]
-   ↓
-workspace      Session container + Surface leaves + launch-spec
-               execution + persistence port                      [new]
-   ↓
-host           desktop (Tauri) now / web (server) later —
-               injects transport, FS, SQLite, keychain
+RUST
+  orchestrator (lib crate, runtime-agnostic)
+    workspace domain · persistence (rusqlite) · surface runtime · adapter
+    composes: daemon-pty-client · gate-client · process-launch · contracts-rs
+        ↓ embedded by
+  host: desktop (Tauri)  — API over commands/events
+  host: server (future)  — API over HTTP/WS  → remote control
+        ▲ client of
+  shared singletons: daemon, gate   (separate processes, unchanged)
+
+TS
+  ui  — renderer (xterm, panels)
+  sdk — typed API client (wire types from contracts-rs)
 ```
 
 ## Consequences
 
-- The proven per-PTY runtime is untouched; no broad rename churn.
-- The container, launch execution, and persistence land in one shared library that
-  the desktop uses now and the web host reuses later; the engine stays pure.
-- A residual naming overload remains (engine `AgentSession` versus workspace
-  `Session`). It is the deliberate cost of not renaming, and is contained to the
-  engine boundary — product code never names the engine handle "session."
-- The persistence port advances the SQLite foundation standard; worktree and keychain
-  access are host-injected adapters behind ports.
-- The launch spec (ADR-0021) gains a concrete home: the workspace library is what
-  reads a template and produces grouped surfaces.
+- A single-language backend; the surface runtime is not duplicated across TypeScript
+  and Rust.
+- The same orchestrator runs on the desktop now and a remote server later — remote
+  control is a host shell, not a re-implementation.
+- TypeScript shrinks to presentation plus a generated API client; the renderer no
+  longer holds backend logic or a daemon connection.
+- This is a large migration: the TS engine, the adapter parse functions, and the hook /
+  status mapping are reimplemented in Rust. It is the biggest single commitment in
+  0.x and front-loads the risk — chosen full-now for a clean foundation before more
+  services land.
+- The daemon and gate are unchanged; the orchestrator is their client.
+- This supersedes the earlier workspace-library direction previously recorded under
+  this ADR number.
 - The decision constrains the 0.x implementation but ships no code itself. Rollback is
   reverting this file.

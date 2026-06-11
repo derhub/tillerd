@@ -138,13 +138,30 @@ More findings (2026-06-11):
     separately). Settings split **global** (default agent, theme, default command
     library / template) vs **per-project** (launch template, project env, worktree
     config).
-20. **Engine stays the surface runtime; a new workspace library owns the container**
-    ([ADR-0022](./adr/0022-workspace-session-container-above-the-engine.md)).
-    `AgentSession` is **not renamed** — it remains the per-PTY runtime handle. A new
-    host-agnostic `workspace` package (name TBD) above the engine owns `Session` (the
-    container), `Surface` (the ADR-0020 leaf, wrapping one engine `AgentSession`),
-    launch-spec execution, the project domain, and a SQLite persistence port. Engine
-    stays pure / web-safe. Layering: adapter → engine → workspace → host.
+20. **Backend inverts to Rust; TS becomes UI + SDK only** (full-now)
+    ([ADR-0022](./adr/0022-workspace-session-container-above-the-engine.md)). A Rust
+    **`orchestrator` library crate** owns the backend: workspace domain, persistence
+    (rusqlite), surface runtime, and agent adapter — composing the existing Rust
+    crates (`daemon-pty-client`, `gate-client`, `process-launch`, `contracts-rs`).
+    It is **embedded in-process** (Cargo dep), runtime-agnostic, and is the *client*
+    of the daemon + gate singletons. Hosts are thin shells binding its
+    transport-agnostic API (request/response + `EventSink` streams) to a transport:
+    desktop = Tauri commands/events; server (future) = HTTP/WS → remote control. TS
+    **engine, adapter-parse, platform-bun, and TS server are retired**; TS keeps
+    `ui` (renderer) + `sdk` (typed API client, wire types from `contracts-rs`). Rust
+    names fresh: `Session` (container) / `Surface` (leaf) — no TS rename (TS removed).
+    *(Supersedes the earlier no-rename / TS-workspace-lib direction.)*
+21. **Data model + two-level id** ([ADR-0023](./adr/0023-workspace-data-model-and-two-level-id.md)).
+    One product store `~/.tillerd/tillerd.db` (rusqlite, orchestrator-owned); service
+    runtime files (daemon.json, snapshots, gate in-memory) excluded. **Two ids:**
+    `session_id` (container, product-only, backends never see it) vs `surface_id`
+    (= daemon PTY id = gate id = `correlation_id`; today's `TILLERD_SESSION_ID`,
+    now per-surface). Tables: project, worktree, launch_template, session, surface,
+    command (global library), secret_ref (keychain handle only), setting, meta.
+    Launch spec = versioned JSON blob (`spec_json`), not normalized rows. Soft-delete
+    via `deleted_at` (archive = `deleted_at IS NOT NULL`; hard-delete = row removal;
+    worktree dir kept). "Unfiled" project seeded so `session.project_id` is NOT NULL.
+    No pre-v1 data migration.
 
 ---
 
@@ -207,16 +224,15 @@ Tags: `[built]` exists · `[wire]` exists but unwired · `[new]` net-new.
 
 Architecture-critical (resolve before / during data-model design):
 
-- **Persistence consolidation + concrete schema** — one SQLite store in `~/.tillerd`?
-  Tables for project, worktree, session, surface, launch_template, launch_item,
-  command_library, secret_ref. Migrate/unify existing `store.rs` registry + prefs
-  and `server.db`.
-- ~~Engine/SDK multi-surface container~~ — **resolved** (ADR-0022): engine stays the
-  surface runtime (`AgentSession` unchanged); new `workspace` library owns the
-  `Session` container + `Surface` leaves + launch exec + persistence port.
-- **ID / correlation flow for the project layer** — project_id, desktop session id,
-  vs daemon pty id + gate id; `correlation_id` is the kernel (ADR-0020). Confirm
-  generation + threading through the new layers.
+- ~~Persistence consolidation + concrete schema~~ — **resolved** (ADR-0023): one
+  `tillerd.db` (rusqlite, orchestrator-owned); 9-table schema; service runtime files
+  excluded; no pre-v1 migration.
+- ~~Engine/SDK multi-surface container~~ — **resolved** (ADR-0022, then superseded):
+  backend inverts to a Rust `orchestrator` crate; TS engine retired. Container =
+  `Session`, leaf = `Surface`, both in Rust.
+- ~~ID / correlation flow for the project layer~~ — **resolved** (ADR-0023):
+  two-level id — `session_id` (container, product-only) vs `surface_id` (= daemon /
+  gate / `correlation_id`).
 - **Agent global-settings mutation** — `setup` writes the user's
   `~/.claude/settings.json`. Policy: when it runs, idempotency, cleanup on uninstall,
   coexistence with the user's own hooks.
