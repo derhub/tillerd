@@ -112,9 +112,11 @@ complete release ships at **0.1.7**.
 
 - [ ] Generate the TS SDK wire types from `contracts-rs` (single source of truth).
 
-### 0.1.5 — Daemon drain-and-restart upgrade `[WIP]`
+### 0.1.5 — Daemon drain-and-restart upgrade
 
-- [ ] Replace fd-handoff with a simpler planned-upgrade path.
+- [ ] Replace fd-handoff with a simpler planned-upgrade path. Deferred: the 0.0.x Rust
+  inversion retires the TS-engine handoff this targets, so the change is re-authored
+  against the orchestrator + `daemon-upgrade` / `rust-pty-daemon` specs once 0.0.x lands.
 
 ### 0.1.6 — Desktop end-to-end test
 
