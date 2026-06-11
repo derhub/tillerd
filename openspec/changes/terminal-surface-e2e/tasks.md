@@ -37,10 +37,10 @@
 
 ## 7. Orchestrator API and event streams
 
-- [ ] 7.1 Write failing tests: a create-terminal-surface method returns a `surface_id` and starts the proxy; input and resize route to the proxy; output and status emit as surface events tagged with `surface_id` (orchestrator-core: terminal-surface lifecycle).
-- [ ] 7.2 Implement the API methods (create-terminal-surface in a session, send input, resize), resolving session-or-Unfiled, writing the surface row, and starting the runtime proxy (orchestrator-core; workspace-persistence: default project).
-- [ ] 7.3 Extend the host event surface with surface byte + status events distinct from the boot `Status` stream; emit them from the runtime (orchestrator-core: output and status as events; ADR-0022).
-- [ ] 7.4 Write test: creating a terminal surface without an explicit project places its session under the seeded Unfiled project (orchestrator-core: default project when none given).
+- [x] 7.1 Write failing tests: a create-terminal-surface method returns a `surface_id` and starts the proxy; input and resize route to the proxy; output and status emit as surface events tagged with `surface_id` (orchestrator-core: terminal-surface lifecycle).
+- [x] 7.2 Implement the API methods (create-terminal-surface in a session, send input, resize), resolving session-or-Unfiled, writing the surface row, and starting the runtime proxy (orchestrator-core; workspace-persistence: default project).
+- [x] 7.3 Extend the host event surface with surface byte + status events distinct from the boot `Status` stream; emit them from the runtime (orchestrator-core: output and status as events; ADR-0022).
+- [x] 7.4 Write test: creating a terminal surface without an explicit project places its session under the seeded Unfiled project (orchestrator-core: default project when none given).
 
 ## 8. Desktop host transport (`apps/desktop/src-tauri`)
 

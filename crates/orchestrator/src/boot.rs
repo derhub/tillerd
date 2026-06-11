@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::error::{OrchestratorError, Result};
 use crate::persistence::Store;
 use crate::supervision::{all_available, ServiceStatus, Supervise};
@@ -17,7 +19,7 @@ pub trait EventSink {
 
 pub struct Orchestrator {
     status: Status,
-    store: Box<dyn Store>,
+    store: Arc<dyn Store>,
     services: Vec<ServiceStatus>,
 }
 
@@ -32,6 +34,12 @@ impl Orchestrator {
 
     pub fn store(&self) -> &dyn Store {
         self.store.as_ref()
+    }
+
+    /// A shared handle to the durable store, for subsystems (e.g. the surface
+    /// runtime) that outlive a single call.
+    pub fn store_arc(&self) -> Arc<dyn Store> {
+        Arc::clone(&self.store)
     }
 
     pub fn service_statuses(&self) -> &[ServiceStatus] {
@@ -50,7 +58,7 @@ where
     sink.emit(&Status::Booting);
 
     sink.emit(&Status::OpeningStore);
-    let store = fail_on(open_store(), sink)?;
+    let store: Arc<dyn Store> = Arc::from(fail_on(open_store(), sink)?);
 
     sink.emit(&Status::Supervising);
     let services = fail_on(supervisor.ensure_all(), sink)?;

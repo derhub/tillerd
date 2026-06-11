@@ -161,7 +161,7 @@ impl Store for SqliteStore {
     }
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
-        let id = SurfaceId::mint();
+        let id = draft.id.clone().unwrap_or_else(SurfaceId::mint);
         self.lock()?
             .execute(
                 "INSERT INTO surface (id, session_id, kind, cwd) VALUES (?1, ?2, ?3, ?4)",
@@ -356,6 +356,7 @@ mod tests {
         let session = store.create_session(NewSession::default()).unwrap();
         let surface = store
             .create_surface(NewSurface {
+                id: None,
                 session_id: session.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
@@ -370,6 +371,7 @@ mod tests {
         let session = store.create_session(NewSession::default()).unwrap();
         store
             .create_surface(NewSurface {
+                id: None,
                 session_id: session.id,
                 kind: SurfaceKind::Terminal,
                 cwd: Some("/tmp".to_string()),

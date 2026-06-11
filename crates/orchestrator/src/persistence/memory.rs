@@ -81,7 +81,7 @@ impl Store for InMemoryStore {
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
         let surface = Surface {
-            id: SurfaceId::mint(),
+            id: draft.id.unwrap_or_else(SurfaceId::mint),
             session_id: draft.session_id,
             kind: draft.kind,
             cwd: draft.cwd,
@@ -155,6 +155,7 @@ mod tests {
         let session = store.create_session(NewSession::default()).unwrap();
         store
             .create_surface(NewSurface {
+                id: None,
                 session_id: session.id,
                 kind: SurfaceKind::Terminal,
                 cwd: None,

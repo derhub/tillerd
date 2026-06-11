@@ -119,6 +119,8 @@ pub struct Session {
 
 #[derive(Debug, Clone)]
 pub struct NewSurface {
+    /// The surface id to assign; `None` mints a fresh one.
+    pub id: Option<SurfaceId>,
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
