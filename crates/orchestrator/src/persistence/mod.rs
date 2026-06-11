@@ -15,6 +15,10 @@ impl SessionId {
         Self(uuid::Uuid::new_v4().to_string())
     }
 
+    pub fn from_string(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -26,6 +30,10 @@ pub struct SurfaceId(String);
 impl SurfaceId {
     pub fn mint() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn from_string(id: impl Into<String>) -> Self {
+        Self(id.into())
     }
 
     pub fn as_str(&self) -> &str {
@@ -122,6 +130,9 @@ pub struct Surface {
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
+    /// The last known status of this surface (e.g. `"running"`, `"exited"`).
+    /// `None` until explicitly set via [`Store::update_surface_status`].
+    pub last_status: Option<String>,
 }
 
 impl Surface {
@@ -138,4 +149,17 @@ pub trait Store: Send + Sync {
     fn create_session(&self, draft: NewSession) -> Result<Session>;
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface>;
+
+    /// Fetch a single non-deleted surface by id.
+    /// Returns `None` when the surface does not exist or has been soft-deleted.
+    fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>>;
+
+    /// List all surfaces that have not been soft-deleted.
+    fn list_resumable_surfaces(&self) -> Result<Vec<Surface>>;
+
+    /// Set `last_status` on the identified surface.
+    fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()>;
+
+    /// Soft-delete the identified surface by recording a deletion timestamp.
+    fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()>;
 }

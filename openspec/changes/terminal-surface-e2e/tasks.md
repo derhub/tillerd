@@ -10,30 +10,30 @@
 
 ## 3. Terminal surface persistence (`crates/orchestrator`)
 
-- [ ] 3.1 Write failing test: creating a terminal surface writes a durable surface row (`surface_id`, owning session, kind, cwd) readable after the store is reopened (workspace-persistence: terminal surface row persistence and resume).
-- [ ] 3.2 Extend the `Store` trait + `SqliteStore` + `InMemoryStore`: `get_surface`, `list_resumable_surfaces`, `update_surface_status`, mapping the existing `surface` columns (`last_status`, `cwd`, `deleted_at`) (workspace-persistence: surface row lifecycle).
-- [ ] 3.3 Write test: a removed (soft-deleted) surface is excluded from `list_resumable_surfaces` (workspace-persistence: removed surface is not resumed).
+- [x] 3.1 Write failing test: creating a terminal surface writes a durable surface row (`surface_id`, owning session, kind, cwd) readable after the store is reopened (workspace-persistence: terminal surface row persistence and resume).
+- [x] 3.2 Extend the `Store` trait + `SqliteStore` + `InMemoryStore`: `get_surface`, `list_resumable_surfaces`, `update_surface_status`, mapping the existing `surface` columns (`last_status`, `cwd`, `deleted_at`) (workspace-persistence: surface row lifecycle).
+- [x] 3.3 Write test: a removed (soft-deleted) surface is excluded from `list_resumable_surfaces` (workspace-persistence: removed surface is not resumed).
 
 ## 4. Daemon transport (tokio, in the surface-runtime)
 
-- [ ] 4.1 Write failing tests against a fake daemon socket: the transport connects, sends `hello` with `["snapshot"]`, asserts `hello-ack` v1, then round-trips `spawn` → `spawn-ack` keyed by `surface_id` (daemon-wire-protocol; ADR-0008/0009).
-- [ ] 4.2 Implement a `tokio::net::UnixStream` transport in `crates/orchestrator`: connect, handshake, framed read loop via `FrameDecoder`, framed writes; typed errors on handshake/version failure. Discover the socket via `service-host` paths (`<TILLERD_DIR>/daemon.sock`).
-- [ ] 4.3 Add `tokio` to `crates/orchestrator` deps and a runtime handle the surface-runtime spawns tasks on; `boot()`/`EventSink` stay synchronous.
+- [x] 4.1 Write failing tests against a fake daemon socket: the transport connects, sends `hello` with `["snapshot"]`, asserts `hello-ack` v1, then round-trips `spawn` → `spawn-ack` keyed by `surface_id` (daemon-wire-protocol; ADR-0008/0009).
+- [x] 4.2 Implement a `tokio::net::UnixStream` transport in `crates/orchestrator`: connect, handshake, framed read loop via `FrameDecoder`, framed writes; typed errors on handshake/version failure. Discover the socket via `service-host` paths (`<TILLERD_DIR>/daemon.sock`).
+- [x] 4.3 Add `tokio` to `crates/orchestrator` deps and a runtime handle the surface-runtime spawns tasks on; `boot()`/`EventSink` stay synchronous.
 
 ## 5. Surface-runtime proxy (`crates/orchestrator`)
 
-- [ ] 5.1 Write failing tests (fake daemon): opening a terminal surface spawns a daemon session keyed by `surface_id`, with exactly one proxy per surface and no second proxy for the same id (surface-runtime: one PTY proxy per surface; ADR-0020/0024).
-- [ ] 5.2 Implement the per-surface proxy as a tokio task: spawn-or-subscribe by `surface_id`, decode `data`/`status`/`exit`, and fan raw bytes + status to the surface event sink tagged with `surface_id`, preserving control sequences unchanged (surface-runtime: outbound raw-byte streaming, terminal status emission; ADR-0007).
-- [ ] 5.3 Implement flow control: return credit via `ack` frames as `data` is forwarded, and apply bounded backpressure on the outbound path (surface-runtime: backpressure under load; daemon-flow-control; ADR-0007).
-- [ ] 5.4 Implement the input send-queue: accept input immediately, flush in arrival order once the daemon session is live, queue while spawning/attaching (surface-runtime: input send-queue).
-- [ ] 5.5 Implement resize: forward `resize`, and apply the latest known dimensions on attach and reattach (surface-runtime: resize propagation).
-- [ ] 5.6 Implement detach vs removal: detach (host shutdown / dropped client) sends `unsubscribe` and leaves the daemon session alive; removing the surface sends `kill`/`stop` and releases the proxy (surface-runtime: detach preserves the pseudo-terminal; removal terminates it).
+- [x] 5.1 Write failing tests (fake daemon): opening a terminal surface spawns a daemon session keyed by `surface_id`, with exactly one proxy per surface and no second proxy for the same id (surface-runtime: one PTY proxy per surface; ADR-0020/0024).
+- [x] 5.2 Implement the per-surface proxy as a tokio task: spawn-or-subscribe by `surface_id`, decode `data`/`status`/`exit`, and fan raw bytes + status to the surface event sink tagged with `surface_id`, preserving control sequences unchanged (surface-runtime: outbound raw-byte streaming, terminal status emission; ADR-0007).
+- [x] 5.3 Implement flow control: return credit via `ack` frames as `data` is forwarded, and apply bounded backpressure on the outbound path (surface-runtime: backpressure under load; daemon-flow-control; ADR-0007).
+- [x] 5.4 Implement the input send-queue: accept input immediately, flush in arrival order once the daemon session is live, queue while spawning/attaching (surface-runtime: input send-queue).
+- [x] 5.5 Implement resize: forward `resize`, and apply the latest known dimensions on attach and reattach (surface-runtime: resize propagation).
+- [x] 5.6 Implement detach vs removal: detach (host shutdown / dropped client) sends `unsubscribe` and leaves the daemon session alive; removing the surface sends `kill`/`stop` and releases the proxy (surface-runtime: detach preserves the pseudo-terminal; removal terminates it).
 
 ## 6. Resume by surface identifier
 
-- [ ] 6.1 Write failing test: after a simulated host restart, a persisted surface whose daemon session is alive re-subscribes by `surface_id` without re-spawning (surface-runtime: reconnect by surface identifier).
-- [ ] 6.2 Implement boot-time resume: read resumable surface rows and `subscribe` each by `surface_id`; the daemon's snapshot/replay + `status` supplies initial paint (surface-runtime: reconnect by surface identifier; ADR-0008).
-- [ ] 6.3 Write test: subscribing to a missing daemon session surfaces a typed error and does not silently re-spawn (surface-runtime: pseudo-terminal gone after restart).
+- [x] 6.1 Write failing test: after a simulated host restart, a persisted surface whose daemon session is alive re-subscribes by `surface_id` without re-spawning (surface-runtime: reconnect by surface identifier).
+- [x] 6.2 Implement boot-time resume: read resumable surface rows and `subscribe` each by `surface_id`; the daemon's snapshot/replay + `status` supplies initial paint (surface-runtime: reconnect by surface identifier; ADR-0008).
+- [x] 6.3 Write test: subscribing to a missing daemon session surfaces a typed error and does not silently re-spawn (surface-runtime: pseudo-terminal gone after restart).
 
 ## 7. Orchestrator API and event streams
 

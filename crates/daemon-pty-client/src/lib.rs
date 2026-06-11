@@ -243,6 +243,15 @@ pub enum SessionFrame {
         /// The qualified exit reason.
         qualifier: String,
     },
+    /// The daemon rejected a request or reported a session-level fault.
+    Error {
+        /// The session the error concerns, when scoped to one.
+        session_id: Option<String>,
+        /// The daemon's error code (e.g. `ENOENT`, `EEXIST`).
+        code: String,
+        /// A human-readable message.
+        message: String,
+    },
     /// A frame whose `type` this client does not model (forward-compatible).
     Other {
         /// The unrecognized frame `type`.
@@ -306,6 +315,22 @@ pub fn decode_session_frame(frame: &RawFrame) -> Option<SessionFrame> {
             session_id: sid(&meta),
             qualifier: meta
                 .get("qualifier")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        },
+        "error" => SessionFrame::Error {
+            session_id: meta
+                .get("sessionId")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            code: meta
+                .get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            message: meta
+                .get("message")
                 .and_then(Value::as_str)
                 .unwrap_or("")
                 .to_string(),
@@ -487,6 +512,23 @@ mod tests {
             Some(SessionFrame::Exit {
                 session_id: "s1".into(),
                 qualifier: "ok".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn decodes_an_error_frame() {
+        let raw = RawFrame {
+            meta: br#"{"type":"error","code":"ENOENT","message":"no such session","sessionId":"s1"}"#
+                .to_vec(),
+            body: None,
+        };
+        assert_eq!(
+            decode_session_frame(&raw),
+            Some(SessionFrame::Error {
+                session_id: Some("s1".into()),
+                code: "ENOENT".into(),
+                message: "no such session".into(),
             })
         );
     }

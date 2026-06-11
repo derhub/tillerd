@@ -10,6 +10,9 @@ pub enum OrchestratorError {
 
     #[error("service '{service}' could not be made available: {reason}")]
     ServiceUnavailable { service: String, reason: String },
+
+    #[error("surface '{surface}': {reason}")]
+    Surface { surface: String, reason: String },
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
