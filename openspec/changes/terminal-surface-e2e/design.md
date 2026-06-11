@@ -71,8 +71,10 @@ payloads and is "not designed for low latency or high throughput," while channel
 exactly this streaming case. The `EventSink` contract is unchanged; the channel is purely the desktop
 binding. Lower-rate terminal-status changes stay on the event system.
 
-**No new crate or package.** The surface-runtime is a module inside `crates/orchestrator`; surface +
-terminal API/event types extend `crates/contracts`; the daemon wire encoders extend
+**No new crate or package.** The surface-runtime is a module inside `crates/orchestrator`; the
+cross-boundary surface wire types live at the host seam (mirroring the existing `StatusWire` pattern)
+and are mirrored in `packages/sdk` (the orchestrator API is in-process Rust, so they need no
+`crates/contracts` change); the daemon wire encoders extend
 `crates/daemon-pty-client` (codec colocated with its existing `encode_hello`/`encode_subscribe`, not a
 split); the client extends `packages/sdk`; the pane and host wiring extend `apps/ui` and
 `apps/desktop/src-tauri`. `tokio` is added as a dependency (not a workspace crate). A new crate is

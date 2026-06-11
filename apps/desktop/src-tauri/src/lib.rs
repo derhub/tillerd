@@ -8,6 +8,7 @@ mod orchestrator_host;
 mod paths;
 mod store;
 mod supervisor;
+mod surface_host;
 
 use tauri::Manager;
 
@@ -47,6 +48,10 @@ pub fn run() {
             supervisor::daemon_ensure,
             bootstrap::agent_bootstrap,
             orchestrator_host::orchestrator_status,
+            surface_host::surface_create,
+            surface_host::surface_input,
+            surface_host::surface_resize,
+            surface_host::surface_detach,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -3,10 +3,15 @@
 - [x] 1.1 Write failing tests: `encode_spawn`, `encode_input`, `encode_resize`, `encode_ack`, `encode_kill`, `encode_unsubscribe` produce the exact `[u32 BE len][JSON meta][0x0a?][raw body]` frames the daemon accepts, and `decode_session_frame` gains a `SpawnAck { session_id, pid }` variant — fixtures matching the `apps/daemon-pty` frame shapes (daemon-wire-protocol; ADR-0009).
 - [x] 1.2 Implement the encoders + `SpawnAck` decode in `daemon-pty-client`, keeping raw body bytes intact (no re-encode); `input` carries raw bytes in the body plane.
 
-## 2. Surface + terminal contract types (`crates/contracts` + TS mirror)
+## 2. Surface + terminal wire types (host boundary + TS mirror)
 
-- [ ] 2.1 Write failing serde round-trip tests (camelCase, fixtures) for `SurfaceId`, the create-terminal-surface request/result, the input and resize requests, and the outbound surface byte event + terminal-status event (orchestrator-core: terminal-surface lifecycle; ADR-0023 surface_id kernel).
-- [ ] 2.2 Implement the types in `contracts`; mirror the minimal wire types in `packages/sdk` (hand-authored; generation deferred to 0.1.4).
+> Reconciled with reality: the orchestrator API is in-process Rust, so the cross-boundary surface
+> wire types live at the host seam (mirroring the existing `StatusWire` pattern) + the SDK, not in
+> `crates/contracts`. `SurfaceId` is the orchestrator domain id (`persistence`), passed to the daemon
+> as the `sessionId` (ADR-0020).
+
+- [x] 2.1 Surface command/event wire shapes keyed by `surfaceId` (`surface_create`/`input`/`resize`/`detach`, `surface://status`/`surface://exit`) defined at the host boundary and mirrored in `packages/sdk` with round-trip tests (orchestrator-core: terminal-surface lifecycle; ADR-0023 surface_id kernel).
+- [x] 2.2 SDK terminal-surface client + types hand-authored in `packages/sdk` (generation deferred to 0.1.4).
 
 ## 3. Terminal surface persistence (`crates/orchestrator`)
 
@@ -44,24 +49,24 @@
 
 ## 8. Desktop host transport (`apps/desktop/src-tauri`)
 
-- [ ] 8.1 Add commands for create-terminal-surface, input, and resize that call the orchestrator, and bind each surface's byte stream to a per-surface `tauri::ipc::Channel<Vec<u8>>` (mirroring the existing `bridge.rs` byte-channel pattern); status changes ride the event channel (design: desktop host binds the byte stream to a streaming channel; ADR-0024).
-- [ ] 8.2 Verify the orchestrator (not the renderer bridge) owns the daemon connection for terminal surfaces (design: the orchestrator owns the daemon socket).
+- [x] 8.1 Add commands for create-terminal-surface, input, and resize that call the orchestrator, and bind each surface's byte stream to a per-surface `tauri::ipc::Channel<Vec<u8>>` (mirroring the existing `bridge.rs` byte-channel pattern); status changes ride the event channel (design: desktop host binds the byte stream to a streaming channel; ADR-0024).
+- [x] 8.2 Verify the orchestrator (not the renderer bridge) owns the daemon connection for terminal surfaces (design: the orchestrator owns the daemon socket).
 
 ## 9. SDK terminal-surface client (`packages/sdk`)
 
-- [ ] 9.1 Write failing tests: the SDK create returns a `surface_id`; subscribe delivers raw bytes over the surface channel and status; input and resize forward keyed by `surface_id` and never open a daemon connection (sdk-orchestrator-client: typed terminal-surface client).
-- [ ] 9.2 Implement the typed terminal-surface client over the orchestrator commands + the per-surface byte channel, with wire types centralized in one module (sdk-orchestrator-client).
+- [x] 9.1 Write failing tests: the SDK create returns a `surface_id`; subscribe delivers raw bytes over the surface channel and status; input and resize forward keyed by `surface_id` and never open a daemon connection (sdk-orchestrator-client: typed terminal-surface client).
+- [x] 9.2 Implement the typed terminal-surface client over the orchestrator commands + the per-surface byte channel, with wire types centralized in one module (sdk-orchestrator-client).
 
 ## 10. UI terminal pane (`apps/ui`)
 
-- [ ] 10.1 Wire `DesktopTerminalPane` to accept a `surface_id`, attach through the SDK to the surface byte channel, render raw bytes into the xterm pane preserving ANSI, clear and reattach on `surface_id` change, and tear down cleanly on unmount leaving the daemon session alive (ui-terminal-pane: session-scoped terminal connection; terminal output rendering).
-- [ ] 10.2 Send a resize for the surface to the orchestrator via the SDK when the container resizes (ui-terminal-pane: resize propagates).
-- [ ] 10.3 Drive the connection status indicator and manual reconnect from the surface attachment state (ui-terminal-pane: connection status indicator).
+- [x] 10.1 Wire `DesktopTerminalPane` to accept a `surface_id`, attach through the SDK to the surface byte channel, render raw bytes into the xterm pane preserving ANSI, clear and reattach on `surface_id` change, and tear down cleanly on unmount leaving the daemon session alive (ui-terminal-pane: session-scoped terminal connection; terminal output rendering).
+- [x] 10.2 Send a resize for the surface to the orchestrator via the SDK when the container resizes (ui-terminal-pane: resize propagates).
+- [x] 10.3 Drive the connection status indicator and manual reconnect from the surface attachment state (ui-terminal-pane: connection status indicator).
 
 ## 11. Retire the engine for the terminal path
 
-- [ ] 11.1 Route the desktop terminal through the orchestrator surface-runtime; remove the in-renderer engine + WebSocket-to-server terminal transport from the desktop terminal flow (desktop-engine-runtime: desktop terminal I/O flows through the surface-runtime; ui-terminal-pane).
-- [ ] 11.2 Verify no in-renderer engine carries the terminal pseudo-terminal I/O on the desktop host (desktop-engine-runtime: engine is off the terminal path).
+- [x] 11.1 Route the desktop terminal through the orchestrator surface-runtime; remove the in-renderer engine + WebSocket-to-server terminal transport from the desktop terminal flow (desktop-engine-runtime: desktop terminal I/O flows through the surface-runtime; ui-terminal-pane).
+- [x] 11.2 Verify no in-renderer engine carries the terminal pseudo-terminal I/O on the desktop host (desktop-engine-runtime: engine is off the terminal path).
 
 ## 12. Verification
 
