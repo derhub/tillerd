@@ -44,31 +44,6 @@ jobs:
       - run: bun run build
       - run: bun run verify
 
-  # Rust daemon is Unix-only (nix, portable-pty, unix sockets) -> Windows runs the portable TS checks only.
-  verify-ts-windows:
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 2
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: bun-windows-${{ hashFiles('bun.lock') }}
-      - uses: actions/cache@v5
-        with:
-          path: .turbo
-          key: turbo-windows-${{ github.sha }}
-          restore-keys: |
-            turbo-windows-
-      - run: bun install --frozen-lockfile
-      - run: bun run check-types
-      - run: bunx oxlint .
-
   ui-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
