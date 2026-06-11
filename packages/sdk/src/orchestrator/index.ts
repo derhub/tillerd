@@ -1,5 +1,19 @@
 export { createOrchestratorClient } from "./client";
-export type { OrchestratorClient, OrchestratorHostTransport } from "./client";
+export type {
+  OrchestratorClient,
+  OrchestratorHostTransport,
+  Project,
+  Session,
+  CreateProjectArgs,
+  RenameProjectArgs,
+  ArchiveProjectArgs,
+  CreateSessionArgs,
+  RenameSessionArgs,
+  ListSessionsArgs,
+  ArchiveSessionArgs,
+  SetSessionLayoutArgs,
+  GetSessionLayoutArgs,
+} from "./client";
 export { ORCHESTRATOR_STATUS_EVENT, ORCHESTRATOR_STATUS_METHOD, isFailed, isReady } from "./status";
 export type { OrchestratorStatus } from "./status";
 export {
@@ -18,3 +32,17 @@ export type {
   CreateTerminalOptions,
   TerminalSurfaceClient,
 } from "./terminal-surface";
+export {
+  PROJECT_CREATE,
+  PROJECT_RENAME,
+  PROJECT_LIST,
+  PROJECT_ARCHIVE,
+  SESSION_CREATE,
+  SESSION_RENAME,
+  SESSION_LIST,
+  SESSION_ARCHIVE,
+  SESSION_LAYOUT_SET,
+  SESSION_LAYOUT_GET,
+  createWorkspaceClient,
+} from "./workspace";
+export type { SourceKind, TitleSource, WorkspaceClient, WorkspaceTransport } from "./workspace";

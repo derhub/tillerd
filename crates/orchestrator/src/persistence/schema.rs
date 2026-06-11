@@ -95,8 +95,43 @@ fn migration_v1() -> String {
     )
 }
 
+/// Widen `session.title_source` CHECK to the four-strategy enum and change the default
+/// from `'inferred'` to `'agent-title'`. SQLite does not support ALTER COLUMN, so we
+/// recreate the table, copy data (mapping 'inferred' → 'agent-title'), and drop the old one.
+fn migration_v2() -> String {
+    "CREATE TABLE session_new (
+         id           TEXT PRIMARY KEY,
+         project_id   TEXT NOT NULL REFERENCES project(id),
+         title        TEXT NOT NULL DEFAULT '',
+         title_source TEXT NOT NULL DEFAULT 'agent-title'
+             CHECK (title_source IN ('agent-title','branch','both','custom')),
+         spec_version INTEGER,
+         spec_json    TEXT,
+         layout_json  TEXT,
+         deleted_at   TEXT,
+         created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+         updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+     );
+
+     INSERT INTO session_new
+         SELECT id, project_id,
+                COALESCE(title, ''),
+                CASE title_source
+                    WHEN 'inferred' THEN 'agent-title'
+                    WHEN 'custom'   THEN 'custom'
+                    ELSE                 'agent-title'
+                END,
+                spec_version, spec_json, layout_json,
+                deleted_at, created_at, updated_at
+         FROM session;
+
+     DROP TABLE session;
+     ALTER TABLE session_new RENAME TO session;"
+        .to_string()
+}
+
 pub fn migrations() -> Vec<String> {
-    vec![migration_v1()]
+    vec![migration_v1(), migration_v2()]
 }
 
 pub fn current_version() -> u32 {

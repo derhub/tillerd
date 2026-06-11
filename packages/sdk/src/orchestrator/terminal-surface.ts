@@ -22,6 +22,8 @@ export interface TerminalSurfaceTransport {
 }
 
 export interface CreateTerminalOptions {
+  /** The session this surface belongs to. */
+  sessionId: string;
   cols: number;
   rows: number;
   cwd?: string;
@@ -44,6 +46,7 @@ export function createTerminalSurfaceClient(
       const channel = transport.createByteChannel(onBytes);
       const id = await transport.invoke<string>(SURFACE_CREATE, {
         channel,
+        sessionId: opts.sessionId,
         cols: opts.cols,
         rows: opts.rows,
         cwd: opts.cwd,

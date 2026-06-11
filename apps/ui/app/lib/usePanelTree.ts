@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   type PanelNode,
   type PanelContent,
@@ -13,37 +13,71 @@ import {
   setActiveTabNode,
   countLeaves,
 } from "./panelTree";
+import type { OrchestratorClient } from "@tillerd/sdk/orchestrator";
 
-const STORAGE_KEY = "tillerd:panel-tree";
+const LEGACY_STORAGE_KEY = "tillerd:panel-tree";
 
-function loadTree(): PanelNode {
+function discardLegacyLayout(): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_LAYOUT;
-    return deserializeLayout(raw);
-  } catch {
-    return DEFAULT_LAYOUT;
-  }
-}
-
-function saveTree(tree: PanelNode): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, serializeLayout(tree));
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
   } catch {
     // storage unavailable
   }
 }
 
-export function usePanelTree() {
-  const [tree, setTree] = useState<PanelNode>(() => loadTree());
+export function usePanelTree(sessionId?: string | null, client?: OrchestratorClient | null) {
+  const [tree, setTree] = useState<PanelNode>(DEFAULT_LAYOUT);
 
-  const update = useCallback((fn: (t: PanelNode) => PanelNode) => {
-    setTree((prev) => {
-      const next = fn(prev);
-      saveTree(next);
-      return next;
-    });
-  }, []);
+  // On mount: discard legacy key and load server layout when session + client are available
+  useEffect(() => {
+    discardLegacyLayout();
+    if (!sessionId || !client) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const blob = await client.getSessionLayout({ id: sessionId });
+        if (cancelled) return;
+        if (blob) {
+          try {
+            setTree(deserializeLayout(blob));
+          } catch {
+            setTree(DEFAULT_LAYOUT);
+          }
+        }
+      } catch {
+        // session not found or transport error — fall back to default
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, client]);
+
+  const persistLayout = useCallback(
+    (next: PanelNode) => {
+      if (!sessionId || !client) return;
+      void client
+        .setSessionLayout({ id: sessionId, layoutJson: serializeLayout(next) })
+        .catch(() => {
+          // non-fatal; layout will be re-persisted on next mutation
+        });
+    },
+    [sessionId, client],
+  );
+
+  const update = useCallback(
+    (fn: (t: PanelNode) => PanelNode) => {
+      setTree((prev) => {
+        const next = fn(prev);
+        persistLayout(next);
+        return next;
+      });
+    },
+    [persistLayout],
+  );
 
   const split = useCallback(
     (id: string, direction: "horizontal" | "vertical") => {

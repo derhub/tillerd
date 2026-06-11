@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use contracts::ContentEvent;
-use orchestrator::persistence::SurfaceId;
+use orchestrator::persistence::{SessionId, SurfaceId};
 use orchestrator::surface::transport::default_daemon_socket;
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -87,6 +87,7 @@ pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store
 pub async fn surface_create(
     state: State<'_, SurfaceState>,
     channel: tauri::ipc::Channel<Vec<u8>>,
+    session_id: String,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
@@ -100,7 +101,13 @@ pub async fn surface_create(
         .insert(id.clone(), channel);
     state
         .api
-        .create_terminal_surface(SurfaceId::from_string(id.clone()), cols, rows, cwd)
+        .create_terminal_surface(
+            SessionId::from_string(session_id),
+            SurfaceId::from_string(id.clone()),
+            cols,
+            rows,
+            cwd,
+        )
         .await
         .map_err(|e| e.to_string())?;
     Ok(id)
@@ -154,6 +161,7 @@ pub async fn surface_detach(
 pub async fn surface_create_agent(
     state: State<'_, SurfaceState>,
     channel: tauri::ipc::Channel<Vec<u8>>,
+    session_id: String,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
@@ -173,6 +181,7 @@ pub async fn surface_create_agent(
     state
         .api
         .create_agent_surface(
+            SessionId::from_string(session_id),
             SurfaceId::from_string(id.clone()),
             &agent_home,
             &notify_cmd,
