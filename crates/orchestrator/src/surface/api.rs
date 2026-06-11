@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::error::Result;
@@ -13,6 +13,21 @@ pub struct SurfaceApi {
 impl SurfaceApi {
     pub fn new(store: Arc<dyn Store>, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
         let runtime = Arc::new(SurfaceRuntime::new(store.clone(), sink, socket));
+        Self { runtime, store }
+    }
+
+    pub fn with_gate_socket(
+        store: Arc<dyn Store>,
+        sink: Arc<dyn SurfaceEventSink>,
+        socket: PathBuf,
+        gate_socket: PathBuf,
+    ) -> Self {
+        let runtime = Arc::new(SurfaceRuntime::with_gate_socket(
+            store.clone(),
+            sink,
+            socket,
+            gate_socket,
+        ));
         Self { runtime, store }
     }
 
@@ -54,6 +69,39 @@ impl SurfaceApi {
 
     pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
         self.runtime.detach(surface).await
+    }
+
+    pub async fn create_agent_surface(
+        &self,
+        surface_id: SurfaceId,
+        agent_home: &Path,
+        notify_command: &str,
+        cols: u16,
+        rows: u16,
+        cwd: Option<String>,
+    ) -> Result<SurfaceId> {
+        let session = self.store.create_session(NewSession::default())?;
+        let surface = self.store.create_surface(NewSurface {
+            id: Some(surface_id.clone()),
+            session_id: session.id,
+            kind: SurfaceKind::Agent,
+            cwd: cwd.clone(),
+        })?;
+
+        let token = uuid::Uuid::new_v4().to_string();
+        let work_dir = cwd.unwrap_or_else(default_cwd);
+        self.runtime
+            .open_agent(
+                surface.id.clone(),
+                agent_home,
+                notify_command,
+                token,
+                cols,
+                rows,
+                work_dir,
+            )
+            .await?;
+        Ok(surface.id)
     }
 
     pub async fn remove(&self, surface: &SurfaceId) -> Result<()> {
@@ -117,6 +165,26 @@ mod tests {
         }
     }
 
+    async fn fake_gate(listener: UnixListener) {
+        let Ok((mut stream, _)) = listener.accept().await else {
+            return;
+        };
+        let mut buf = vec![0u8; 4096];
+        let mut dec = gate_client::FrameDecoder::new();
+        while let Ok(n) = stream.read(&mut buf).await {
+            if n == 0 {
+                break;
+            }
+            let frames = dec.push(&buf[..n]).unwrap_or_default();
+            if !frames.is_empty() {
+                break;
+            }
+        }
+        let ready = gate_client::encode_frame(br#"{"frame":"ready","wireVersion":1}"#);
+        let _ = stream.write_all(&ready).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
     #[tokio::test]
     async fn create_terminal_surface_persists_a_row_and_starts_one_proxy() {
         let dir = tempfile::tempdir().unwrap();
@@ -139,5 +207,42 @@ mod tests {
         assert_eq!(row.cwd.as_deref(), Some("/tmp"));
         assert_eq!(api.runtime.proxy_count().await, 1);
         daemon.abort();
+    }
+
+    #[tokio::test]
+    async fn create_agent_surface_persists_agent_row_and_starts_proxy() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon_sock = dir.path().join("daemon.sock");
+        let gate_sock = dir.path().join("gate.sock");
+        let agent_home = dir.path().join("agent_home");
+        std::fs::create_dir_all(&agent_home).unwrap();
+
+        let daemon_listener = UnixListener::bind(&daemon_sock).unwrap();
+        let gate_listener = UnixListener::bind(&gate_sock).unwrap();
+        let _daemon = tokio::spawn(fake_daemon(daemon_listener));
+        let _gate = tokio::spawn(fake_gate(gate_listener));
+
+        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let api =
+            SurfaceApi::with_gate_socket(store.clone(), Arc::new(NullSink), daemon_sock, gate_sock);
+
+        let id = SurfaceId::from_string("agent-api-1");
+        let returned = api
+            .create_agent_surface(
+                id.clone(),
+                &agent_home,
+                "tillerd-notify",
+                80,
+                24,
+                Some("/tmp".into()),
+            )
+            .await
+            .expect("create_agent_surface");
+
+        assert_eq!(returned, id);
+        let row = store.get_surface(&id).expect("get").expect("row exists");
+        assert_eq!(row.kind, SurfaceKind::Agent);
+        assert_eq!(row.cwd.as_deref(), Some("/tmp"));
+        assert_eq!(api.runtime.proxy_count().await, 1);
     }
 }

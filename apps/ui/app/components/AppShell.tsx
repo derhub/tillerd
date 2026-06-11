@@ -7,6 +7,7 @@ import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
 import { SessionSidebar } from "~/components/SessionSidebar";
 import { DiffPanel } from "~/components/DiffPanel";
 import { EmptyPanel } from "~/components/EmptyPanel";
+import { AgentPane } from "~/components/AgentPane";
 import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
@@ -147,7 +148,7 @@ export function AppShell({ sessions }: AppShellProps) {
       close: () => close(leaf.id),
     };
     const isEmpty = leaf.content.type === "empty";
-    const isTerminal = leaf.content.type === "terminal";
+    const isTerminal = leaf.content.type === "terminal" || leaf.content.type === "agent";
     const hasHeader = !isTerminal && !isEmpty;
 
     return (
@@ -187,6 +188,13 @@ export function AppShell({ sessions }: AppShellProps) {
         return <SessionSidebar sessions={sessions} />;
       case "terminal":
         return <Outlet />;
+      case "agent":
+        return (
+          <AgentPane
+            surfaceId={content.sessionId ?? ""}
+            cwd={sessions.find((s) => s.id === content.sessionId)?.cwd ?? "/"}
+          />
+        );
       case "diff":
         return <DiffPanel sessionId={sessionId} />;
       case "empty":

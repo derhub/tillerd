@@ -1,6 +1,7 @@
 export type PanelContent =
   | { type: "sidebar" }
   | { type: "terminal"; sessionId: string | null }
+  | { type: "agent"; sessionId: string | null }
   | { type: "diff"; sessionId: string | null }
   | { type: "empty" };
 

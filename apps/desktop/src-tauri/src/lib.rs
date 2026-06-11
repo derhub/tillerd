@@ -54,6 +54,7 @@ pub fn run() {
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
+            surface_host::surface_create_agent,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

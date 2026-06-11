@@ -140,6 +140,31 @@ pub enum HookKind {
     },
 }
 
+/// Agent lifecycle state derived from hook events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentStatus {
+    /// No active turn; session started or stopped.
+    Idle,
+    /// A turn is in progress.
+    Working,
+    /// The agent is waiting for user permission.
+    WaitingInput,
+    /// The session has ended.
+    Done,
+}
+
+/// A structured content event extracted from a hook event.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentEvent {
+    /// Event kind; currently always `"tool_use"`.
+    pub kind: String,
+    /// Tool name from the hook payload.
+    pub tool_name: String,
+    /// Raw tool input JSON.
+    pub tool_input: serde_json::Value,
+}
+
 /// A tool-route inbound the gate observes and passes through. Adjacently tagged.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]

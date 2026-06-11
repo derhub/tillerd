@@ -1,10 +1,13 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use contracts::ContentEvent;
 use orchestrator::persistence::SurfaceId;
 use orchestrator::surface::transport::default_daemon_socket;
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tillerd_paths::{gate_socket, resolve_notify_bin};
 
 pub type SurfaceChannels = Arc<Mutex<HashMap<String, tauri::ipc::Channel<Vec<u8>>>>>;
 
@@ -36,6 +39,20 @@ impl SurfaceEventSink for TauriSurfaceSink {
         let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         channels.remove(surface.as_str());
     }
+
+    fn on_content(&self, surface: &SurfaceId, event: &ContentEvent) {
+        let _ = self.app.emit(
+            "surface:content",
+            serde_json::json!({ "surfaceId": surface.as_str(), "event": event }),
+        );
+    }
+
+    fn on_error(&self, surface: &SurfaceId, reason: &str) {
+        let _ = self.app.emit(
+            "surface:error",
+            serde_json::json!({ "surfaceId": surface.as_str(), "reason": reason }),
+        );
+    }
 }
 
 pub struct SurfaceState {
@@ -49,7 +66,12 @@ pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store
         channels: channels.clone(),
         app: app.clone(),
     });
-    let api = Arc::new(SurfaceApi::new(store, sink, default_daemon_socket()));
+    let api = Arc::new(SurfaceApi::with_gate_socket(
+        store,
+        sink,
+        default_daemon_socket(),
+        gate_socket(),
+    ));
 
     let api_for_resume = api.clone();
     tauri::async_runtime::spawn(async move {
@@ -126,4 +148,44 @@ pub async fn surface_detach(
         .detach(&SurfaceId::from_string(surface_id))
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn surface_create_agent(
+    state: State<'_, SurfaceState>,
+    channel: tauri::ipc::Channel<Vec<u8>>,
+    cols: u16,
+    rows: u16,
+    cwd: Option<String>,
+) -> Result<String, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    state
+        .channels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(id.clone(), channel);
+
+    let agent_home = default_agent_home();
+    let notify_cmd = resolve_notify_bin()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "tillerd-notify".to_string());
+
+    state
+        .api
+        .create_agent_surface(
+            SurfaceId::from_string(id.clone()),
+            &agent_home,
+            &notify_cmd,
+            cols,
+            rows,
+            cwd,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+fn default_agent_home() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    PathBuf::from(home).join(".claude")
 }
