@@ -52,6 +52,7 @@ yarn-error.log*
 
 # Compiled daemon binary
 bin/tillerd-daemon
+bin/tillerd-gate
 packages/daemon-pty/tillerd-daemon
 packages/daemon-pty/athing-daemon
 
