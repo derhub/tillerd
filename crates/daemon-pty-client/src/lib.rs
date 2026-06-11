@@ -120,7 +120,7 @@ pub fn encode_subscribe(session: &SessionId) -> Vec<u8> {
 pub struct SpawnParams<'a> {
     /// The client-chosen session id (the orchestrator passes the `surface_id`).
     pub session_id: &'a SessionId,
-    /// Per-session token the daemon records for hook-plane verification.
+    /// Per-session token recorded by the daemon.
     pub token: &'a str,
     /// Initial terminal width in columns.
     pub cols: u16,

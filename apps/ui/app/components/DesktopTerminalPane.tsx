@@ -95,7 +95,6 @@ export function DesktopTerminalPane(_props: {
       });
       if (containerRef.current) ro.observe(containerRef.current);
 
-      // Filter status/exit events to this surface only.
       const unsubStatus = await client.onStatus((e) => {
         if (e.surfaceId === surfaceId && !cancelled) setStatus(e.status);
       });

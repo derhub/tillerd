@@ -1,7 +1,3 @@
-//! The orchestrator's terminal-surface API: the operations a host binds to its
-//! transport (ADR-0022). It resolves a session, persists the surface row, and
-//! drives the [`SurfaceRuntime`] proxy.
-
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -9,23 +5,17 @@ use crate::error::Result;
 use crate::persistence::{NewSession, NewSurface, Store, SurfaceId, SurfaceKind};
 use crate::surface::runtime::{SurfaceEventSink, SurfaceRuntime};
 
-/// The terminal-surface API the host calls. Holds the runtime and the store.
 pub struct SurfaceApi {
     runtime: Arc<SurfaceRuntime>,
     store: Arc<dyn Store>,
 }
 
 impl SurfaceApi {
-    /// Build the API over a shared store, a host event sink, and the daemon
-    /// socket the runtime connects to.
     pub fn new(store: Arc<dyn Store>, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
         let runtime = Arc::new(SurfaceRuntime::new(store.clone(), sink, socket));
         Self { runtime, store }
     }
 
-    /// Create a terminal surface under the given (or seeded default) project,
-    /// persist its row, and start streaming. The host supplies the `surface_id`
-    /// so it can route bytes before the first frame arrives. Returns the id.
     pub async fn create_terminal_surface(
         &self,
         surface_id: SurfaceId,
@@ -33,8 +23,7 @@ impl SurfaceApi {
         rows: u16,
         cwd: Option<String>,
     ) -> Result<SurfaceId> {
-        // A session without an explicit project belongs to the seeded Unfiled
-        // project (workspace-persistence: seeded default project).
+        // Sessions without an explicit project go to the seeded Unfiled project.
         let session = self.store.create_session(NewSession::default())?;
         let surface = self.store.create_surface(NewSurface {
             id: Some(surface_id.clone()),
@@ -51,34 +40,28 @@ impl SurfaceApi {
         Ok(surface.id)
     }
 
-    /// Forward input to a surface's PTY.
     pub async fn input(&self, surface: &SurfaceId, bytes: &[u8]) -> Result<()> {
         self.runtime.input(surface, bytes).await
     }
 
-    /// Resize a surface's terminal.
     pub async fn resize(&self, surface: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
         self.runtime.resize(surface, cols, rows).await
     }
 
-    /// Reattach every persisted terminal surface whose daemon session survives.
     pub async fn resume_all(&self) -> Result<()> {
         self.runtime.resume_all().await
     }
 
-    /// Detach a surface, leaving its daemon session alive for later resume.
     pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
         self.runtime.detach(surface).await
     }
 
-    /// Remove a surface, terminating its daemon session.
     pub async fn remove(&self, surface: &SurfaceId) -> Result<()> {
         self.store.soft_delete_surface(surface)?;
         self.runtime.remove(surface).await
     }
 }
 
-/// The working directory for a terminal whose surface did not specify one.
 fn default_cwd() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
 }
@@ -99,13 +82,11 @@ mod tests {
         fn on_exit(&self, _surface: &SurfaceId, _qualifier: &str) {}
     }
 
-    /// A fake daemon that completes the hello + spawn handshake on one connection.
     async fn fake_daemon(listener: UnixListener) {
         let (stream, _) = listener.accept().await.expect("accept");
         let (mut rx, mut tx) = stream.into_split();
         let mut buf = vec![0u8; 1024];
         let mut dec = FrameDecoder::new();
-        // Drain frames; reply hello-ack after hello and spawn-ack after spawn.
         loop {
             let Ok(n) = rx.read(&mut buf).await else { return };
             if n == 0 {

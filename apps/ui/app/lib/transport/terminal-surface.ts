@@ -4,12 +4,7 @@ type TauriChannelCtor = new <T>() => {
   onmessage: (response: T) => void;
 };
 
-/**
- * Build a `TerminalSurfaceTransport` backed by Tauri v2 invoke + event listen.
- * Must be awaited once before use so the `Channel` constructor is synchronously
- * available to `createByteChannel` — the same split used by `loadTauriCore` in
- * `core.ts` (async init, sync channel construction afterwards).
- */
+// Await once before use: it preloads the Channel ctor so createByteChannel stays sync.
 export async function loadTerminalSurfaceTransport(): Promise<TerminalSurfaceTransport> {
   const { invoke, Channel } = await import("@tauri-apps/api/core");
   const ChannelCtor = Channel as unknown as TauriChannelCtor;

@@ -15,12 +15,9 @@ export interface SurfaceExitEvent {
   qualifier: string;
 }
 
-/** Host transport the renderer injects (Tauri-backed in apps/ui). */
 export interface TerminalSurfaceTransport {
   invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
   listen<T>(event: string, handler: (payload: T) => void): Promise<() => void>;
-  /** Create a host byte-channel; calls `onBytes` for each chunk. Returns the
-   *  opaque channel object to pass as the `channel` arg of `surface_create`. */
   createByteChannel(onBytes: (bytes: Uint8Array) => void): unknown;
 }
 
@@ -31,7 +28,6 @@ export interface CreateTerminalOptions {
 }
 
 export interface TerminalSurfaceClient {
-  /** Create a terminal surface; streams raw bytes to `onBytes`. Returns surfaceId. */
   create(opts: CreateTerminalOptions, onBytes: (bytes: Uint8Array) => void): Promise<string>;
   input(surfaceId: string, bytes: Uint8Array): Promise<void>;
   resize(surfaceId: string, cols: number, rows: number): Promise<void>;

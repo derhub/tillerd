@@ -1,11 +1,3 @@
-//! Per-surface PTY proxy.
-//!
-//! [`SurfaceRuntime`] owns one proxy per terminal surface. A proxy opens (or
-//! reattaches to) a daemon session keyed by the `surface_id`, fans raw PTY bytes
-//! and status to the host [`SurfaceEventSink`], queues input until the session is
-//! live, returns flow-control credit, and forwards resize. Detach leaves the
-//! daemon session running; removal terminates it.
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -19,35 +11,24 @@ use crate::error::{OrchestratorError, Result};
 use crate::persistence::{Store, SurfaceId, SurfaceKind};
 use crate::surface::transport::DaemonConnection;
 
-/// Sink the host implements to deliver a surface's output to a client. Every
-/// method is called from the runtime's async task and MUST NOT block.
 pub trait SurfaceEventSink: Send + Sync + 'static {
-    /// Raw PTY output bytes for a surface, delivered unchanged.
     fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]);
-    /// A terminal-status transition for a surface.
     fn on_status(&self, surface: &SurfaceId, status: &str);
-    /// The surface's PTY exited with the given qualifier.
     fn on_exit(&self, surface: &SurfaceId, qualifier: &str);
 }
 
-/// The daemon socket connection state of one surface proxy.
 enum ProxyState {
-    /// The session is being spawned; input is buffered until `spawn-ack`.
     Attaching(Vec<Vec<u8>>),
-    /// The session is live; input is forwarded immediately.
     Live,
-    /// The session has exited or been removed.
     Closed,
 }
 
-/// A live proxy: the daemon connection, its attach state, and the read task.
 struct Proxy {
     conn: Arc<DaemonConnection>,
     state: Arc<Mutex<ProxyState>>,
     task: JoinHandle<()>,
 }
 
-/// Shared context the read task and frame handler operate on.
 struct ProxyCtx {
     surface: SurfaceId,
     wire: WireSessionId,
@@ -57,7 +38,6 @@ struct ProxyCtx {
     state: Arc<Mutex<ProxyState>>,
 }
 
-/// Owns one PTY proxy per terminal surface over the daemon socket.
 pub struct SurfaceRuntime {
     store: Arc<dyn Store>,
     sink: Arc<dyn SurfaceEventSink>,
@@ -66,7 +46,6 @@ pub struct SurfaceRuntime {
 }
 
 impl SurfaceRuntime {
-    /// Build a runtime that connects to the daemon at `socket`.
     pub fn new(store: Arc<dyn Store>, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
         Self {
             store,
@@ -76,14 +55,10 @@ impl SurfaceRuntime {
         }
     }
 
-    /// The number of live proxies (one per attached surface).
     pub async fn proxy_count(&self) -> usize {
         self.proxies.lock().await.len()
     }
 
-    /// Open a fresh terminal surface: spawn a daemon session keyed by `surface`
-    /// and start streaming. Input sent before the spawn is acknowledged is
-    /// queued and flushed in order.
     pub async fn open_terminal(
         &self,
         surface: SurfaceId,
@@ -122,8 +97,6 @@ impl SurfaceRuntime {
         Ok(())
     }
 
-    /// Reattach to a surface whose daemon session is still alive, by `surface`.
-    /// Returns a typed error if the daemon has no such session.
     pub async fn resume(&self, surface: SurfaceId) -> Result<()> {
         if self.proxies.lock().await.contains_key(&surface) {
             return Ok(());
@@ -138,8 +111,7 @@ impl SurfaceRuntime {
             .await
             .map_err(|e| surface_err(&surface, e))?;
 
-        // The daemon answers a subscribe with a snapshot/replay + status for a
-        // live session, or an error frame for a missing one.
+        // subscribe replies with snapshot+status for a live session, or an error frame for a missing one.
         let first = rx
             .recv()
             .await
@@ -169,8 +141,6 @@ impl SurfaceRuntime {
         Ok(())
     }
 
-    /// Resume every persisted terminal surface whose daemon session survives.
-    /// Surfaces whose session is gone are skipped (not fatal to boot).
     pub async fn resume_all(&self) -> Result<()> {
         let surfaces = self.store.list_resumable_surfaces()?;
         for surface in surfaces {
@@ -182,7 +152,6 @@ impl SurfaceRuntime {
         Ok(())
     }
 
-    /// Forward input bytes to a surface's PTY, queueing while it is attaching.
     pub async fn input(&self, surface: &SurfaceId, bytes: &[u8]) -> Result<()> {
         let (conn, state) = self.handle(surface).await?;
         let mut st = state.lock().await;
@@ -201,7 +170,6 @@ impl SurfaceRuntime {
         }
     }
 
-    /// Resize a surface's terminal.
     pub async fn resize(&self, surface: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
         let (conn, _) = self.handle(surface).await?;
         conn.resize(&wire_id(surface), cols, rows)
@@ -209,8 +177,6 @@ impl SurfaceRuntime {
             .map_err(|e| surface_err(surface, e))
     }
 
-    /// Detach from a surface: stop streaming but leave the daemon session alive
-    /// so the surface can resume later.
     pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
         let Some(proxy) = self.proxies.lock().await.remove(surface) else {
             return Ok(());
@@ -220,7 +186,6 @@ impl SurfaceRuntime {
         Ok(())
     }
 
-    /// Remove a surface: terminate its daemon session and release the proxy.
     pub async fn remove(&self, surface: &SurfaceId) -> Result<()> {
         let Some(proxy) = self.proxies.lock().await.remove(surface) else {
             return Ok(());
@@ -230,10 +195,7 @@ impl SurfaceRuntime {
         Ok(())
     }
 
-    // ── internal helpers ────────────────────────────────────────────────────
-
-    /// Clone the connection + state handles for a surface, releasing the map
-    /// lock before any await on them.
+    // Clone conn+state out before awaiting so the proxies map lock isn't held across await.
     async fn handle(
         &self,
         surface: &SurfaceId,
@@ -283,7 +245,6 @@ impl SurfaceRuntime {
     }
 }
 
-/// The daemon session id for a surface: the `surface_id` verbatim (ADR-0020).
 fn wire_id(surface: &SurfaceId) -> WireSessionId {
     WireSessionId(surface.as_str().to_string())
 }
@@ -295,7 +256,6 @@ fn surface_err(surface: &SurfaceId, reason: impl std::fmt::Display) -> Orchestra
     }
 }
 
-/// Consume daemon frames until the stream ends or the session exits.
 async fn read_loop(ctx: ProxyCtx, mut rx: tokio::sync::mpsc::Receiver<SessionFrame>) {
     while let Some(frame) = rx.recv().await {
         if !handle_frame(&ctx, frame).await {
@@ -304,10 +264,10 @@ async fn read_loop(ctx: ProxyCtx, mut rx: tokio::sync::mpsc::Receiver<SessionFra
     }
 }
 
-/// Handle one decoded frame. Returns `false` once the session has exited.
 async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
     match frame {
         SessionFrame::SpawnAck { .. } => {
+            // Drain-and-set-Live atomically so input queued during Attaching isn't lost.
             let queued = {
                 let mut st = ctx.state.lock().await;
                 match std::mem::replace(&mut *st, ProxyState::Live) {
@@ -344,7 +304,6 @@ async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
     }
 }
 
-/// Preserve a non-`Attaching` state when a stray `spawn-ack` arrives.
 fn other_to_live(state: ProxyState) -> ProxyState {
     match state {
         ProxyState::Closed => ProxyState::Closed,
@@ -380,7 +339,6 @@ mod tests {
         }
     }
 
-    /// Read one full frame from `rx` into `decoder`, blocking until available.
     async fn read_frame(rx: &mut tokio::net::unix::OwnedReadHalf, decoder: &mut FrameDecoder) -> RawFrameMeta {
         let mut buf = vec![0u8; 1024];
         loop {
@@ -450,7 +408,6 @@ mod tests {
             .await
             .expect("open");
 
-        // Allow the read task to process the scripted frames.
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         assert_eq!(runtime.proxy_count().await, 1);
@@ -530,8 +487,6 @@ mod tests {
         daemon.abort();
     }
 
-    /// A fake daemon that records every received frame type and auto-replies:
-    /// `hello-ack` to hello, `spawn-ack` to spawn, a live `status` to subscribe.
     async fn recording_daemon(listener: UnixListener, recorded: Arc<StdMutex<Vec<String>>>) {
         let Ok((stream, _)) = listener.accept().await else {
             return;
@@ -571,7 +526,6 @@ mod tests {
         }
     }
 
-    /// Poll until `recorded` contains `ty`, up to ~500ms.
     async fn saw(recorded: &Arc<StdMutex<Vec<String>>>, ty: &str) -> bool {
         for _ in 0..50 {
             if recorded.lock().unwrap().iter().any(|t| t == ty) {
