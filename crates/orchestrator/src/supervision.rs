@@ -1,16 +1,3 @@
-//! Adopt-or-spawn supervision of the shared services (gate, daemon) and the
-//! readiness gate over them.
-//!
-//! Supervision composes [`process_launch`]: liveness is a control-socket connect
-//! and version is read from the service's manifest — exactly the service
-//! contract. Per ADR-0019 there is no health socket; each service self-checks
-//! in-process, and the orchestrator observes availability through the control
-//! socket. `process_launch::adopt_or_spawn` is keyed to the daemon's fixed file
-//! names, so [`ensure_service`] generalizes the same adopt-or-spawn decision over
-//! an explicit manifest/socket path per service, letting one routine supervise
-//! both the daemon (`daemon.json`/`daemon.sock`) and the gate
-//! (`gate.json`/`gate.sock`).
-
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -19,67 +6,40 @@ use process_launch::{ManifestData, Probes};
 
 use crate::error::{OrchestratorError, Result};
 
-/// Identity and on-disk locations of a supervised service.
 #[derive(Debug, Clone)]
 pub struct ServiceSpec {
-    /// The service name, e.g. `gate` or `daemon`.
     pub name: String,
-    /// Path to the service's manifest (`{pid, version}`).
     pub manifest_path: PathBuf,
-    /// Path to the service's control socket; a successful connect is liveness.
     pub socket_path: PathBuf,
-    /// The version required for adoption (an exact match adopts; otherwise spawn).
     pub version: String,
 }
 
-/// Whether a supervised service is reachable on its control socket.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Liveness {
-    /// The service is reachable and serving.
     Available,
-    /// The service is not reachable.
     Unavailable,
 }
 
-/// The tracked status of a supervised service: its liveness and version, sourced
-/// from a control-socket connect and the service manifest (ADR-0019 — no health
-/// socket).
 #[derive(Debug, Clone)]
 pub struct ServiceStatus {
-    /// The service name.
     pub name: String,
-    /// The service version from its manifest, when known.
     pub version: Option<String>,
-    /// Whether the service is reachable on its control socket.
     pub liveness: Liveness,
-    /// The service pid, when known.
     pub pid: Option<u32>,
-    /// Whether a running instance was adopted (vs freshly spawned).
     pub adopted: bool,
 }
 
 impl ServiceStatus {
-    /// Whether the service is available (reachable).
     pub fn is_available(&self) -> bool {
         self.liveness == Liveness::Available
     }
 }
 
-/// Read a `{pid, version}` manifest at an arbitrary path, or `None` if absent or
-/// malformed. Generalizes `process_launch::manifest::read`, which is keyed to the
-/// daemon's fixed file name.
 fn read_manifest(path: &Path) -> Option<ManifestData> {
     let raw = std::fs::read(path).ok()?;
     serde_json::from_slice(&raw).ok()
 }
 
-/// Adopt a live, compatible instance of `spec`, or spawn one and wait until it is
-/// reachable on its control socket.
-///
-/// Adoption requires a manifest naming a live pid at an exact version match whose
-/// control socket accepts a connection. Any other state falls through to spawn. A
-/// service that cannot be made reachable within the startup window yields a typed
-/// [`OrchestratorError::ServiceUnavailable`].
 pub fn ensure_service(
     spec: &ServiceSpec,
     timing: &SpawnTiming,
@@ -134,35 +94,22 @@ pub fn ensure_service(
     }
 }
 
-/// Readiness over a set of supervised services: every service must be available.
-/// An empty set is not ready — readiness requires the supervised services to
-/// actually be present (orchestrator-supervision: readiness gated on services).
 pub fn all_available(statuses: &[ServiceStatus]) -> bool {
     !statuses.is_empty() && statuses.iter().all(ServiceStatus::is_available)
 }
 
-/// Ensures every required service is available at boot, surfacing a typed failure
-/// if any cannot be. Boot depends on this trait so it can be faked in tests.
 pub trait Supervise {
-    /// Adopt-or-spawn every required service and return their statuses, or a
-    /// typed failure if one cannot be made available.
     fn ensure_all(&mut self) -> Result<Vec<ServiceStatus>>;
 }
 
-/// How to launch a service when it must be spawned. The host supplies the
-/// resolved binary and environment behind this closure, keeping binary
-/// resolution out of the runtime-agnostic crate.
 pub type SpawnFn = Box<dyn Fn() -> std::result::Result<u32, LaunchError>>;
 
-/// The production supervisor: adopt-or-spawns each configured service through the
-/// OS via `process_launch::OsProbes`.
 pub struct ProcessSupervisor {
     services: Vec<(ServiceSpec, SpawnFn)>,
     timing: SpawnTiming,
 }
 
 impl ProcessSupervisor {
-    /// An empty supervisor with default spawn timing.
     pub fn new() -> Self {
         Self {
             services: Vec::new(),
@@ -170,14 +117,11 @@ impl ProcessSupervisor {
         }
     }
 
-    /// Override the spawn timing applied to every service.
     pub fn with_timing(mut self, timing: SpawnTiming) -> Self {
         self.timing = timing;
         self
     }
 
-    /// Register a service and how to spawn it. Services are ensured in
-    /// registration order.
     pub fn service(mut self, spec: ServiceSpec, spawn: SpawnFn) -> Self {
         self.services.push((spec, spawn));
         self
@@ -299,7 +243,6 @@ mod tests {
     #[test]
     fn spawns_absent_service() {
         let (_dir, spec) = temp_spec("spawn", "1.0.0");
-        // No manifest written: the service is absent.
         let probes = FakeProbes::spawnable();
 
         let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();

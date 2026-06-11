@@ -1,8 +1,3 @@
-//! An in-memory [`Store`] fake. Behaves like a freshly opened store — current
-//! schema version, seeded Unfiled project, session/surface creation — without
-//! touching SQLite, so boot/readiness tests and other crates' tests need no real
-//! database.
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -13,7 +8,6 @@ use super::{
 };
 use crate::error::Result;
 
-/// A fake store backed by in-process maps.
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
 }
@@ -26,7 +20,6 @@ struct Inner {
 }
 
 impl InMemoryStore {
-    /// A fresh fake: current schema version and the seeded Unfiled project.
     pub fn new() -> Self {
         let mut projects = HashMap::new();
         projects.insert(

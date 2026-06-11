@@ -43,8 +43,6 @@ pub fn resolve_daemon_bin() -> Option<PathBuf> {
     None
 }
 
-/// Resolve the gate binary: `TILLERD_GATE_BIN`, then a cwd/bundled
-/// `bin/tillerd-gate`, then `~/.local/bin`. Mirrors [`resolve_daemon_bin`].
 pub fn resolve_gate_bin() -> Option<PathBuf> {
     if let Ok(bin) = std::env::var("TILLERD_GATE_BIN") {
         let p = PathBuf::from(bin);

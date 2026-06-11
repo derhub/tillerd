@@ -1,15 +1,5 @@
-//! The product schema as ordered, append-only migrations (ADR-0023).
-//!
-//! [`MIGRATIONS`] holds one SQL script per schema version, applied in order. The
-//! current version is the count of migrations; the lazy runner in
-//! [`super::sqlite`] applies any the store is missing on open. Migrations are
-//! never edited or reordered once shipped — a new version is a new entry.
-
 use super::ProjectId;
 
-/// Schema version 1: the full ADR-0023 product schema plus the seeded Unfiled
-/// project. The Unfiled id is interpolated from [`ProjectId::UNFILED`] so the
-/// constant stays the single source of truth.
 fn migration_v1() -> String {
     format!(
         "CREATE TABLE meta (
@@ -105,13 +95,10 @@ fn migration_v1() -> String {
     )
 }
 
-/// All schema migrations in order. Index `n` is the migration that brings the
-/// store from version `n` to version `n + 1`.
 pub fn migrations() -> Vec<String> {
     vec![migration_v1()]
 }
 
-/// The schema version this binary expects: the number of migrations.
 pub fn current_version() -> u32 {
     migrations().len() as u32
 }

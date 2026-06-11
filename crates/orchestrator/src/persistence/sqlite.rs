@@ -1,8 +1,5 @@
-//! The rusqlite-backed [`Store`] and the lazy migration runner. All SQL in the
-//! crate is confined to this module.
-
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -13,34 +10,23 @@ use super::{
 };
 use crate::error::{OrchestratorError, Result};
 
-/// The embedded product store at `tillerd.db`, accessed only in Rust.
 pub struct SqliteStore {
     conn: Mutex<Connection>,
 }
 
 impl SqliteStore {
-    /// The default store path: `tillerd.db` flat at the runtime-dir root
-    /// (`~/.tillerd`, honoring `TILLERD_DIR`).
     pub fn default_path() -> PathBuf {
         process_launch::tillerd_dir().join("tillerd.db")
     }
 
-    /// Open (creating if absent) the store at the default path, running any
-    /// pending migrations before returning.
     pub fn open_default() -> Result<Self> {
         Self::open(&Self::default_path())
     }
 
-    /// Open (creating if absent) the store at `path`, running any pending
-    /// migrations to bring it to the current schema version. Refuses a store
-    /// whose recorded version is newer than this binary supports.
     pub fn open(path: &Path) -> Result<Self> {
         Self::open_with(path, &schema::migrations())
     }
 
-    /// Open at `path` against an explicit migration list. The default
-    /// [`open`](Self::open) uses the real schema; tests use synthetic lists to
-    /// exercise the forward-migration and newer-than-binary paths.
     fn open_with(path: &Path, migrations: &[String]) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
@@ -55,18 +41,17 @@ impl SqliteStore {
         })
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().expect("store mutex poisoned")
+    fn lock(&self) -> Result<MutexGuard<'_, Connection>> {
+        self.conn
+            .lock()
+            .map_err(|_| OrchestratorError::Persistence("store mutex poisoned".to_string()))
     }
 }
 
-/// Map any rusqlite error onto the typed persistence variant.
 fn persist(e: rusqlite::Error) -> OrchestratorError {
     OrchestratorError::Persistence(e.to_string())
 }
 
-/// Read the recorded schema version, or `0` when the store has no `meta` table
-/// yet (a fresh database).
 fn read_schema_version(conn: &Connection) -> Result<u32> {
     let has_meta: i64 = conn
         .query_row(
@@ -89,9 +74,6 @@ fn read_schema_version(conn: &Connection) -> Result<u32> {
     Ok(recorded.and_then(|v| v.parse().ok()).unwrap_or(0))
 }
 
-/// Apply pending migrations in order. Each migration and its version bump commit
-/// together so a crash never leaves a half-migrated store. A store recorded
-/// newer than `migrations` supports is refused with a typed error.
 fn run_migrations(conn: &Connection, migrations: &[String]) -> Result<u32> {
     let supported = migrations.len() as u32;
     let current = read_schema_version(conn)?;
@@ -126,11 +108,12 @@ fn parse_source_kind(s: &str) -> SourceKind {
 
 impl Store for SqliteStore {
     fn schema_version(&self) -> Result<u32> {
-        read_schema_version(&self.lock())
+        let conn = self.lock()?;
+        read_schema_version(&conn)
     }
 
     fn get_project(&self, id: &ProjectId) -> Result<Option<Project>> {
-        self.lock()
+        self.lock()?
             .query_row(
                 "SELECT id, name, source_kind, root_path
                  FROM project
@@ -156,7 +139,7 @@ impl Store for SqliteStore {
     fn create_session(&self, draft: NewSession) -> Result<Session> {
         let id = SessionId::mint();
         let project_id = draft.project.unwrap_or_else(ProjectId::unfiled);
-        self.lock()
+        self.lock()?
             .execute(
                 "INSERT INTO session (id, project_id, title) VALUES (?1, ?2, ?3)",
                 params![id.as_str(), project_id.as_str(), draft.title],
@@ -171,7 +154,7 @@ impl Store for SqliteStore {
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
         let id = SurfaceId::mint();
-        self.lock()
+        self.lock()?
             .execute(
                 "INSERT INTO surface (id, session_id, kind, cwd) VALUES (?1, ?2, ?3, ?4)",
                 params![
@@ -202,9 +185,6 @@ mod tests {
         (dir, path)
     }
 
-    // Synthetic migrations: each creates the `meta` table (v1) then a marker
-    // table, so the runner has somewhere to record the version and tests can
-    // observe which migrations ran without depending on the real schema count.
     fn synthetic_migrations() -> Vec<String> {
         vec![
             "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -215,7 +195,7 @@ mod tests {
     }
 
     fn table_exists(store: &SqliteStore, name: &str) -> bool {
-        let conn = store.lock();
+        let conn = store.lock().unwrap();
         let count: i64 = conn
             .query_row(
                 "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
@@ -246,15 +226,12 @@ mod tests {
         let (_dir, path) = temp_db("forward");
         let migrations = synthetic_migrations();
 
-        // Open at version 0 with only the first migration available.
         let store = SqliteStore::open_with(&path, &migrations[..1]).unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
         assert!(table_exists(&store, "marker_one"));
         assert!(!table_exists(&store, "marker_two"));
         drop(store);
 
-        // Reopen the same file with the next migration now available: it is
-        // applied forward and the recorded version advances.
         let store = SqliteStore::open_with(&path, &migrations).unwrap();
         assert_eq!(store.schema_version().unwrap(), 2);
         assert!(table_exists(&store, "marker_two"));
@@ -265,10 +242,8 @@ mod tests {
         let (_dir, path) = temp_db("newer");
         let migrations = synthetic_migrations();
 
-        // Migrate the store to version 2.
         SqliteStore::open_with(&path, &migrations).unwrap();
 
-        // A binary that only knows version 1 must refuse it with a typed error.
         let result = SqliteStore::open_with(&path, &migrations[..1]);
         assert!(matches!(
             result,
@@ -303,7 +278,6 @@ mod tests {
             })
             .unwrap();
 
-        // The id handed to backends is the surface id, never the session id.
         assert_eq!(surface.correlation_id(), &surface.id);
         assert_ne!(surface.id.as_str(), session.id.as_str());
     }

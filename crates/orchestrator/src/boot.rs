@@ -1,49 +1,20 @@
-//! The boot lifecycle, the transport-agnostic API surface, and the host
-//! [`EventSink`].
-//!
-//! Boot is a defined sequence — open and migrate the store, then adopt-or-spawn
-//! and health-check the services — that ends in an observable [`Status::Ready`].
-//! The orchestrator never reports `Ready` until the store is open and every
-//! supervised service is available; a failed prerequisite emits a terminal
-//! [`Status::Failed`] carrying a typed reason and is returned as an error. The
-//! current state is queryable via [`Orchestrator::status`], and every transition
-//! is emitted through the [`EventSink`] the host binds to its own transport, so
-//! the orchestrator encodes no transport of its own (ADR-0022).
-
 use crate::error::{OrchestratorError, Result};
 use crate::persistence::Store;
 use crate::supervision::{all_available, ServiceStatus, Supervise};
 
-/// The orchestrator's lifecycle state. It is both the value returned by the
-/// `status()` request method and the payload of each streamed lifecycle event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
-    /// Boot has started.
     Booting,
-    /// The durable product store is being opened and migrated.
     OpeningStore,
-    /// The shared services are being adopted or spawned and health-checked.
     Supervising,
-    /// The store is open and every supervised service is available.
     Ready,
-    /// Boot failed; the reason is a typed error rendered to a string. Terminal.
-    Failed {
-        /// Why boot failed.
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
-/// The outbound event channel the host implements and binds to its transport.
-/// The orchestrator calls [`EventSink::emit`] on each lifecycle transition; how
-/// the event reaches a client is entirely the host's concern.
 pub trait EventSink {
-    /// Deliver a lifecycle event to the host.
     fn emit(&self, event: &Status);
 }
 
-/// The embedded backend: one instance owns the store and the supervised service
-/// statuses for a host process. Constructed only by [`boot`]; it is not `Clone`,
-/// so a host cannot duplicate the single owning instance.
 pub struct Orchestrator {
     status: Status,
     store: Box<dyn Store>,
@@ -51,36 +22,23 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    /// The current lifecycle state (the `status()` request method).
     pub fn status(&self) -> &Status {
         &self.status
     }
 
-    /// Whether the orchestrator has reached `Ready`.
     pub fn is_ready(&self) -> bool {
         self.status == Status::Ready
     }
 
-    /// The owned product store.
     pub fn store(&self) -> &dyn Store {
         self.store.as_ref()
     }
 
-    /// The statuses of the supervised services as of boot.
     pub fn service_statuses(&self) -> &[ServiceStatus] {
         &self.services
     }
 }
 
-/// Boot the orchestrator: emit `Booting`, open and migrate the store
-/// (`OpeningStore`), adopt-or-spawn and health-check the services
-/// (`Supervising`), then reach `Ready` once both hold.
-///
-/// The store opener and supervisor are injected so boot is exercised against an
-/// in-memory store and a fake supervisor without touching disk or spawning
-/// processes. On any failed prerequisite, a terminal `Failed { reason }` event is
-/// emitted with the typed error rendered into it, and that typed error is
-/// returned; `Ready` is never emitted.
 pub fn boot<F>(
     open_store: F,
     supervisor: &mut impl Supervise,
@@ -121,7 +79,6 @@ where
     Ok(orchestrator)
 }
 
-/// Emit a terminal `Failed` event for `error` and return it.
 fn emit_failure(error: OrchestratorError, sink: &impl EventSink) -> OrchestratorError {
     sink.emit(&Status::Failed {
         reason: error.to_string(),
@@ -129,7 +86,6 @@ fn emit_failure(error: OrchestratorError, sink: &impl EventSink) -> Orchestrator
     error
 }
 
-/// Unwrap a boot step, emitting a terminal `Failed` and propagating on error.
 fn fail_on<T>(step: Result<T>, sink: &impl EventSink) -> Result<T> {
     step.map_err(|e| emit_failure(e, sink))
 }
@@ -277,8 +233,6 @@ mod tests {
 
         let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
 
-        // The single instance owns the backend: the store is reachable and
-        // migrated, and the supervised services are tracked through it.
         assert_eq!(
             orch.store().schema_version().unwrap(),
             current_schema_version()

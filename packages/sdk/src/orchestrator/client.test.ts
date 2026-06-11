@@ -40,8 +40,6 @@ test("subscribe() delivers status events emitted over the host transport", async
   const received: OrchestratorStatus[] = [];
   await client.subscribe((s) => received.push(s));
 
-  // The host transport emits an event on its channel; the client forwards it
-  // unchanged — it synthesizes nothing of its own.
   listeners.get(ORCHESTRATOR_STATUS_EVENT)?.({ state: "supervising" });
   listeners.get(ORCHESTRATOR_STATUS_EVENT)?.({ state: "ready" });
 

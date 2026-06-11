@@ -17,13 +17,6 @@ function toState(status: OrchestratorStatus): DesktopHostState {
   return { status: "booting" };
 }
 
-/**
- * Observes the embedded orchestrator's readiness through the SDK client and
- * provides it to the tree. The renderer constructs no agent engine of its own
- * (ADR-0022): all backend interaction goes through the orchestrator API. On the
- * web deployment it is inert (`status: "web"`). A blank renderer that reaches
- * `ready` is the bar for this slice.
- */
 export function DesktopHostProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DesktopHostState>(() =>
     isDesktopHost() ? { status: "booting" } : { status: "web" },
@@ -36,9 +29,7 @@ export function DesktopHostProvider({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         const client = createDesktopOrchestratorClient();
-        // Subscribe before the first read so no transition is missed; the
-        // orchestrator never reports ready until its store is open and its
-        // services are available.
+        // subscribe before the first read so no transition is missed
         unlisten = await client.subscribe((status) => {
           if (!cancelled) setState(toState(status));
         });

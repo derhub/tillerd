@@ -1,16 +1,3 @@
-//! Integration: the orchestrator boots against the REAL gate and daemon
-//! binaries (no GUI), covering the desktop end-to-end bar (tasks 7.1/7.2) minus
-//! the renderer — cold boot spawns the services and opens a fresh store; a
-//! re-boot adopts the running services without a duplicate spawn.
-//!
-//! Ignored by default: it spawns real services and is environment-dependent. Run
-//! it explicitly after building both binaries:
-//!
-//! ```text
-//! cargo build --bin tillerd-daemon --bin tillerd-gate
-//! cargo test -p tillerd-orchestrator --test boot_services -- --ignored
-//! ```
-
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -26,9 +13,7 @@ impl EventSink for NullSink {
     fn emit(&self, _event: &Status) {}
 }
 
-/// The workspace `target/<profile>` directory the test binary was built into.
 fn target_dir() -> PathBuf {
-    // current_exe is `<target>/<profile>/deps/<test-bin>`; binaries sit one level up.
     let exe = std::env::current_exe().expect("current_exe");
     exe.parent()
         .and_then(Path::parent)
@@ -36,7 +21,6 @@ fn target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-/// Resolve the gate and daemon binaries, or `None` if they have not been built.
 fn binaries() -> Option<(PathBuf, PathBuf)> {
     let dir = target_dir();
     let gate = dir.join("tillerd-gate");
@@ -103,8 +87,6 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     let dir = tmp.path();
     let store_path = dir.join("tillerd.db");
 
-    // 7.1 — cold boot: no services running. The orchestrator spawns the gate and
-    // daemon, opens a fresh tillerd.db with the Unfiled seed, and reaches ready.
     let mut sup = supervisor(dir, &gate, &daemon);
     let orch = boot(
         || SqliteStore::open(&store_path).map(|s| Box::new(s) as Box<dyn Store>),
@@ -134,8 +116,6 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     );
     let spawned_pids: Vec<u32> = cold.iter().filter_map(|s| s.pid).collect();
 
-    // 7.2 — re-boot with the services already running: the orchestrator adopts
-    // them (no duplicate spawn) and reaches ready.
     let mut sup2 = supervisor(dir, &gate, &daemon);
     let orch2 = boot(
         || SqliteStore::open(&store_path).map(|s| Box::new(s) as Box<dyn Store>),

@@ -25,8 +25,6 @@ function DesktopSession({ routeId }: { routeId: string | null }) {
     return <div className="p-6 text-[0.917rem] text-muted-foreground/50">Starting…</div>;
   }
 
-  // The orchestrator is ready; the surface itself is driven by the Rust surface
-  // runtime in a later slice. A blank pane is acceptable here.
   const sessionId = routeId === "new" || routeId === null ? null : routeId;
   return <DesktopTerminalPane sessionId={sessionId} cwd="" />;
 }

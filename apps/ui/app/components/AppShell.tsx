@@ -204,8 +204,6 @@ export function AppShell({ sessions }: AppShellProps) {
   );
 }
 
-// Always-visible chip reflecting the embedded orchestrator's boot state — the
-// renderer observes readiness through the SDK client (ADR-0022). Inert on web.
 function HostStatusBadge() {
   const host = useDesktopHost();
   if (host.status === "web") return null;
