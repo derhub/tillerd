@@ -1,6 +1,6 @@
 {
   "name": "@tillerd/cli",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "bin": {
     "tillerd": "src/index.ts"
   },

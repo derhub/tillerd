@@ -1,6 +1,6 @@
 {
   "name": "@tillerd/daemon-pty",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "bin": {
     "tillerd-daemon": "../../target/release/tillerd-daemon"
   },
