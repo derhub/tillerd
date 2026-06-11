@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use orchestrator::persistence::{SqliteStore, Store};
-use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn};
+use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
 use orchestrator::{boot, EventSink, Orchestrator, Status};
 use process_launch::LaunchError;
 use serde::Serialize;
@@ -88,7 +89,13 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
 fn build_supervisor() -> ProcessSupervisor {
     let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
+    // Cold-starting a freshly-built service can exceed the 10s default under load; fail-fast on a
+    // dead child keeps a genuine crash from waiting this out.
     ProcessSupervisor::new()
+        .with_timing(SpawnTiming {
+            startup_timeout: Duration::from_secs(30),
+            poll_interval: Duration::from_millis(100),
+        })
         .service(
             ServiceSpec {
                 name: "gate".to_string(),

@@ -81,6 +81,13 @@ pub fn ensure_service(
                 adopted: false,
             });
         }
+        // Fail fast if the child exited rather than wait out the whole timeout.
+        if !probes.is_alive(pid) {
+            return Err(OrchestratorError::ServiceUnavailable {
+                service: spec.name.clone(),
+                reason: "process exited during startup".to_string(),
+            });
+        }
         if Instant::now() >= deadline {
             return Err(OrchestratorError::ServiceUnavailable {
                 service: spec.name.clone(),
@@ -178,6 +185,14 @@ mod tests {
         }
         fn never_reachable() -> Self {
             Self {
+                alive: true,
+                reachable: false,
+                spawn_result: Ok(4242),
+                spawned: Cell::new(false),
+            }
+        }
+        fn dies_after_spawn() -> Self {
+            Self {
                 alive: false,
                 reachable: false,
                 spawn_result: Ok(4242),
@@ -265,15 +280,33 @@ mod tests {
     }
 
     #[test]
-    fn service_that_cannot_be_made_available_is_a_typed_failure() {
-        let (_dir, spec) = temp_spec("dead", "1.0.0");
+    fn service_that_never_binds_times_out() {
+        let (_dir, spec) = temp_spec("hung", "1.0.0");
         let probes = FakeProbes::never_reachable();
 
         let result = ensure_service(&spec, &fast_timing(), &probes);
 
         assert!(matches!(
             result,
-            Err(OrchestratorError::ServiceUnavailable { .. })
+            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("did not become reachable")
+        ));
+    }
+
+    #[test]
+    fn child_that_exits_during_startup_fails_fast() {
+        let (_dir, spec) = temp_spec("dead", "1.0.0");
+        // A generous timeout that the fail-fast must short-circuit rather than wait out.
+        let timing = SpawnTiming {
+            startup_timeout: Duration::from_secs(60),
+            poll_interval: Duration::ZERO,
+        };
+        let probes = FakeProbes::dies_after_spawn();
+
+        let result = ensure_service(&spec, &timing, &probes);
+
+        assert!(matches!(
+            result,
+            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("exited during startup")
         ));
     }
 

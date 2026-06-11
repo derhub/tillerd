@@ -81,4 +81,4 @@
 - [x] 13.1 Embed `tauri-plugin-webdriver` behind a `webdriver` cargo feature (off in normal/release builds) in `apps/desktop/src-tauri` so the app can be driven over W3C WebDriver — cross-platform incl. macOS (desktop-engine-runtime).
 - [x] 13.2 Add the `@tillerd/desktop-e2e` harness (`tauri-webdriver` + WebdriverIO): build services + UI + the app, launch it, wait for `orchestrator: ready`, click New session, and assert the xterm pane renders streamed shell output — proving 12.1 through the real GUI (ui-terminal-pane: terminal output rendering; acceptance 1).
 - [x] 13.3 Wire a Linux CI job (xvfb + `webkit2gtk-driver`) that runs the smoke (testing gate).
-- [ ] 13.4 Follow-up: the gate cold-start occasionally exceeds the orchestrator's 10s supervision timeout under e2e load (flaky boot). Track under orchestrator-supervision, not this change.
+- [x] 13.4 Fix the gate cold-start flake: supervision fails fast when a spawned child dies, and the desktop allows a 30s cold-start window (a freshly-built service's first exec under load can exceed the 10s default) (orchestrator-supervision; ADR-0007).
