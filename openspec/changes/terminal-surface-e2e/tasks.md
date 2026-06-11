@@ -1,64 +1,72 @@
-## 1. Contracts and shared types
+## 1. Daemon wire codec (`crates/daemon-pty-client`)
 
-- [ ] 1.1 Define the surface + terminal contract types in `contracts`: `surface_id`, the terminal-surface kind, the create-terminal-surface request/result, the input and resize requests, and the outbound byte event and terminal-status event — all keyed by `surface_id` (orchestrator-core: terminal-surface lifecycle; ADR-0023 surface_id kernel). Hand-author the wire types (generation deferred to 0.1.4).
-- [ ] 1.2 Write failing serde round-trip tests for the new contract types, using fixtures per the contracts fixtures convention (contracts: typed frame catalogue).
+- [ ] 1.1 Write failing tests: `encode_spawn`, `encode_input`, `encode_resize`, `encode_ack`, `encode_kill`, `encode_unsubscribe` produce the exact `[u32 BE len][JSON meta][0x0a?][raw body]` frames the daemon accepts, and `decode_session_frame` gains a `SpawnAck { session_id, pid }` variant — fixtures matching the `apps/daemon-pty` frame shapes (daemon-wire-protocol; ADR-0009).
+- [ ] 1.2 Implement the encoders + `SpawnAck` decode in `daemon-pty-client`, keeping raw body bytes intact (no re-encode); `input` carries raw bytes in the body plane.
 
-## 2. Terminal surface persistence
+## 2. Surface + terminal contract types (`crates/contracts` + TS mirror)
 
-- [ ] 2.1 Write failing test: creating a terminal surface writes a durable surface row (`surface_id`, owning session reference, kind) that is readable after the store is reopened (workspace-persistence: terminal surface row persistence and resume).
-- [ ] 2.2 Add the terminal `surface` row to the schema as an ordered lazy migration on the existing runner; Rust-only access, no service-local state in the store (workspace-persistence; ADR-0023 migration runner).
-- [ ] 2.3 Implement Store methods behind the repository trait — insert surface, get surface by `surface_id`, list resumable surfaces, remove surface — and extend the in-memory fake Store (workspace-persistence: surface row lifecycle).
-- [ ] 2.4 Write test: a removed surface is not returned by the resumable-surfaces query (workspace-persistence: removed surface is not resumed).
+- [ ] 2.1 Write failing serde round-trip tests (camelCase, fixtures) for `SurfaceId`, the create-terminal-surface request/result, the input and resize requests, and the outbound surface byte event + terminal-status event (orchestrator-core: terminal-surface lifecycle; ADR-0023 surface_id kernel).
+- [ ] 2.2 Implement the types in `contracts`; mirror the minimal wire types in `packages/sdk` (hand-authored; generation deferred to 0.1.4).
 
-## 3. Surface-runtime: per-surface PTY proxy
+## 3. Terminal surface persistence (`crates/orchestrator`)
 
-- [ ] 3.1 Write failing tests against a fake daemon client: opening a surface establishes exactly one proxy bound to `surface_id` and one pseudo-terminal, and no second proxy exists for the same surface (surface-runtime: one PTY proxy per surface).
-- [ ] 3.2 Implement the surface-runtime module in `crates/orchestrator`: a proxy that opens or attaches a daemon pseudo-terminal via `daemon-pty-client` using `surface_id` as the daemon session key (surface-runtime: one PTY proxy per surface; ADR-0020/0024).
-- [ ] 3.3 Implement outbound raw-byte streaming: forward exact pseudo-terminal bytes tagged with `surface_id`, no stripping or re-decode; test that output containing control and escape sequences passes through unchanged (surface-runtime: outbound raw-byte streaming; ADR-0007).
-- [ ] 3.4 Implement the input send-queue: accept input immediately, flush in arrival order once attached, queue while attaching; test ordering across an attach gap (surface-runtime: input send-queue).
-- [ ] 3.5 Implement bounded backpressure on input when the pseudo-terminal cannot keep up; test it does not buffer without bound (surface-runtime: backpressure under load; ADR-0007).
-- [ ] 3.6 Implement resize propagation: forward dimensions to the pseudo-terminal and apply the latest known dimensions on attach and reattach; test both (surface-runtime: resize propagation).
-- [ ] 3.7 Implement terminal-status tracking: map the daemon's terminal-status frames to surface-scoped status events on the `EventSink`, and deliver the current status on subscribe; test (surface-runtime: terminal status emission; terminal-status contract).
-- [ ] 3.8 Implement detach vs removal: a detach from host shutdown or a dropped client leaves the pseudo-terminal alive, while removing the surface terminates it and releases the proxy; test both (surface-runtime: detach preserves the pseudo-terminal; removal terminates it).
+- [ ] 3.1 Write failing test: creating a terminal surface writes a durable surface row (`surface_id`, owning session, kind, cwd) readable after the store is reopened (workspace-persistence: terminal surface row persistence and resume).
+- [ ] 3.2 Extend the `Store` trait + `SqliteStore` + `InMemoryStore`: `get_surface`, `list_resumable_surfaces`, `update_surface_status`, mapping the existing `surface` columns (`last_status`, `cwd`, `deleted_at`) (workspace-persistence: surface row lifecycle).
+- [ ] 3.3 Write test: a removed (soft-deleted) surface is excluded from `list_resumable_surfaces` (workspace-persistence: removed surface is not resumed).
 
-## 4. Resume by surface identifier
+## 4. Daemon transport (tokio, in the surface-runtime)
 
-- [ ] 4.1 Write failing test: after a simulated host restart, a persisted surface whose pseudo-terminal is still alive reattaches by `surface_id` without spawning a new pseudo-terminal (surface-runtime: reconnect by surface identifier).
-- [ ] 4.2 Implement boot-time resume: read resumable surface rows and reattach each proxy by `surface_id` (surface-runtime: reconnect by surface identifier; ADR-0008 detached daemon).
-- [ ] 4.3 Write test: when the pseudo-terminal is gone, reattach surfaces a typed error and does not silently attach to a different pseudo-terminal (surface-runtime: pseudo-terminal gone after restart).
+- [ ] 4.1 Write failing tests against a fake daemon socket: the transport connects, sends `hello` with `["snapshot"]`, asserts `hello-ack` v1, then round-trips `spawn` → `spawn-ack` keyed by `surface_id` (daemon-wire-protocol; ADR-0008/0009).
+- [ ] 4.2 Implement a `tokio::net::UnixStream` transport in `crates/orchestrator`: connect, handshake, framed read loop via `FrameDecoder`, framed writes; typed errors on handshake/version failure. Discover the socket via `service-host` paths (`<TILLERD_DIR>/daemon.sock`).
+- [ ] 4.3 Add `tokio` to `crates/orchestrator` deps and a runtime handle the surface-runtime spawns tasks on; `boot()`/`EventSink` stay synchronous.
 
-## 5. Orchestrator API and event streams
+## 5. Surface-runtime proxy (`crates/orchestrator`)
 
-- [ ] 5.1 Write failing tests for the API: create-terminal-surface returns a `surface_id` and starts the proxy; input and resize route to the proxy; output and status emit as `EventSink` events tagged with `surface_id` (orchestrator-core: terminal-surface lifecycle).
-- [ ] 5.2 Implement the API methods (create-terminal-surface in a session, send input, resize), wiring session-or-Unfiled resolution to the surface row and the surface-runtime proxy (orchestrator-core; workspace-persistence: default project).
-- [ ] 5.3 Extend the host `EventSink` event set with the surface byte and status events and emit them from the runtime (orchestrator-core: output and status delivered as events; ADR-0022).
-- [ ] 5.4 Write test: creating a terminal surface without an explicit project places its session under the seeded Unfiled project (orchestrator-core: default project when none given).
+- [ ] 5.1 Write failing tests (fake daemon): opening a terminal surface spawns a daemon session keyed by `surface_id`, with exactly one proxy per surface and no second proxy for the same id (surface-runtime: one PTY proxy per surface; ADR-0020/0024).
+- [ ] 5.2 Implement the per-surface proxy as a tokio task: spawn-or-subscribe by `surface_id`, decode `data`/`status`/`exit`, and fan raw bytes + status to the surface event sink tagged with `surface_id`, preserving control sequences unchanged (surface-runtime: outbound raw-byte streaming, terminal status emission; ADR-0007).
+- [ ] 5.3 Implement flow control: return credit via `ack` frames as `data` is forwarded, and apply bounded backpressure on the outbound path (surface-runtime: backpressure under load; daemon-flow-control; ADR-0007).
+- [ ] 5.4 Implement the input send-queue: accept input immediately, flush in arrival order once the daemon session is live, queue while spawning/attaching (surface-runtime: input send-queue).
+- [ ] 5.5 Implement resize: forward `resize`, and apply the latest known dimensions on attach and reattach (surface-runtime: resize propagation).
+- [ ] 5.6 Implement detach vs removal: detach (host shutdown / dropped client) sends `unsubscribe` and leaves the daemon session alive; removing the surface sends `kill`/`stop` and releases the proxy (surface-runtime: detach preserves the pseudo-terminal; removal terminates it).
 
-## 6. Desktop host transport
+## 6. Resume by surface identifier
 
-- [ ] 6.1 Bind each surface's byte stream to a per-surface streaming `ipc::Channel` (ordered, high-throughput; not the event system) and bind status changes to the event channel (design: desktop host binds the byte stream to a streaming channel; ADR-0024).
-- [ ] 6.2 Bind the create-terminal-surface, input, and resize request methods to host commands (orchestrator-core: embedded in-process by a host).
+- [ ] 6.1 Write failing test: after a simulated host restart, a persisted surface whose daemon session is alive re-subscribes by `surface_id` without re-spawning (surface-runtime: reconnect by surface identifier).
+- [ ] 6.2 Implement boot-time resume: read resumable surface rows and `subscribe` each by `surface_id`; the daemon's snapshot/replay + `status` supplies initial paint (surface-runtime: reconnect by surface identifier; ADR-0008).
+- [ ] 6.3 Write test: subscribing to a missing daemon session surfaces a typed error and does not silently re-spawn (surface-runtime: pseudo-terminal gone after restart).
 
-## 7. SDK terminal-surface client
+## 7. Orchestrator API and event streams
 
-- [ ] 7.1 Write failing tests: the SDK create returns a `surface_id`; subscribe delivers raw bytes over the surface channel and status; input and resize forward keyed by `surface_id` and never open a daemon connection (sdk-orchestrator-client: typed terminal-surface client).
-- [ ] 7.2 Implement the typed terminal-surface client over the orchestrator API and host transport, reading the per-surface byte channel, with wire types centralized in one module (sdk-orchestrator-client; generation deferred to 0.1.4).
+- [ ] 7.1 Write failing tests: a create-terminal-surface method returns a `surface_id` and starts the proxy; input and resize route to the proxy; output and status emit as surface events tagged with `surface_id` (orchestrator-core: terminal-surface lifecycle).
+- [ ] 7.2 Implement the API methods (create-terminal-surface in a session, send input, resize), resolving session-or-Unfiled, writing the surface row, and starting the runtime proxy (orchestrator-core; workspace-persistence: default project).
+- [ ] 7.3 Extend the host event surface with surface byte + status events distinct from the boot `Status` stream; emit them from the runtime (orchestrator-core: output and status as events; ADR-0022).
+- [ ] 7.4 Write test: creating a terminal surface without an explicit project places its session under the seeded Unfiled project (orchestrator-core: default project when none given).
 
-## 8. UI terminal pane
+## 8. Desktop host transport (`apps/desktop/src-tauri`)
 
-- [ ] 8.1 Rewire the terminal pane to accept a `surface_id` and attach through the SDK to the surface byte stream, render raw bytes preserving ANSI, clear and reattach on `surface_id` change, and tear down cleanly on unmount leaving the pseudo-terminal running (ui-terminal-pane: session-scoped terminal connection; terminal output rendering).
-- [ ] 8.2 Send a resize for the surface to the orchestrator via the SDK when the container resizes (ui-terminal-pane: resize propagates).
-- [ ] 8.3 Drive the connection status indicator and manual reconnect from the surface attachment state (ui-terminal-pane: connection status indicator).
+- [ ] 8.1 Add commands for create-terminal-surface, input, and resize that call the orchestrator, and bind each surface's byte stream to a per-surface `tauri::ipc::Channel<Vec<u8>>` (mirroring the existing `bridge.rs` byte-channel pattern); status changes ride the event channel (design: desktop host binds the byte stream to a streaming channel; ADR-0024).
+- [ ] 8.2 Verify the orchestrator (not the renderer bridge) owns the daemon connection for terminal surfaces (design: the orchestrator owns the daemon socket).
 
-## 9. Retire the engine for the terminal path
+## 9. SDK terminal-surface client (`packages/sdk`)
 
-- [ ] 9.1 Remove the engine-era WebSocket-to-server terminal transport from the desktop terminal pane and route terminal I/O through the orchestrator over the native transport (desktop-engine-runtime: desktop terminal I/O flows through the surface-runtime; ui-terminal-pane).
-- [ ] 9.2 Verify no in-renderer engine carries the terminal pseudo-terminal I/O on the desktop host (desktop-engine-runtime: engine is off the terminal path).
+- [ ] 9.1 Write failing tests: the SDK create returns a `surface_id`; subscribe delivers raw bytes over the surface channel and status; input and resize forward keyed by `surface_id` and never open a daemon connection (sdk-orchestrator-client: typed terminal-surface client).
+- [ ] 9.2 Implement the typed terminal-surface client over the orchestrator commands + the per-surface byte channel, with wire types centralized in one module (sdk-orchestrator-client).
 
-## 10. Verification
+## 10. UI terminal pane (`apps/ui`)
 
-- [ ] 10.1 Create a session in the Unfiled project with a terminal surface; the terminal renders and streams live pseudo-terminal bytes through the orchestrator API / `EventSink`, not the engine (acceptance 1).
-- [ ] 10.2 Confirm the surface-runtime proxies one pseudo-terminal per surface over `daemon-pty-client`, exposes status, and queues sends (acceptance 2).
-- [ ] 10.3 Confirm a surface row persists and, after a host restart, the runtime reconnects to the running daemon by `surface_id` and the live session reattaches (acceptance 3).
-- [ ] 10.4 Confirm the engine path for terminal surfaces is off on the desktop host (acceptance 4).
-- [ ] 10.5 `turbo test`, `turbo lint`, and `turbo build` pass for the touched packages, and `cargo test` passes for the touched crates (testing gate).
+- [ ] 10.1 Wire `DesktopTerminalPane` to accept a `surface_id`, attach through the SDK to the surface byte channel, render raw bytes into the xterm pane preserving ANSI, clear and reattach on `surface_id` change, and tear down cleanly on unmount leaving the daemon session alive (ui-terminal-pane: session-scoped terminal connection; terminal output rendering).
+- [ ] 10.2 Send a resize for the surface to the orchestrator via the SDK when the container resizes (ui-terminal-pane: resize propagates).
+- [ ] 10.3 Drive the connection status indicator and manual reconnect from the surface attachment state (ui-terminal-pane: connection status indicator).
+
+## 11. Retire the engine for the terminal path
+
+- [ ] 11.1 Route the desktop terminal through the orchestrator surface-runtime; remove the in-renderer engine + WebSocket-to-server terminal transport from the desktop terminal flow (desktop-engine-runtime: desktop terminal I/O flows through the surface-runtime; ui-terminal-pane).
+- [ ] 11.2 Verify no in-renderer engine carries the terminal pseudo-terminal I/O on the desktop host (desktop-engine-runtime: engine is off the terminal path).
+
+## 12. Verification
+
+- [ ] 12.1 Create a session in the Unfiled project with a terminal surface; the terminal renders and streams live pseudo-terminal bytes through the orchestrator API / surface channel, not the engine (acceptance 1).
+- [ ] 12.2 Confirm the surface-runtime proxies one daemon session per surface over the tokio transport, exposes status, and queues sends with flow control (acceptance 2).
+- [ ] 12.3 Confirm a surface row persists and, after a host restart, the runtime re-subscribes by `surface_id` and the live session reattaches with snapshot paint (acceptance 3).
+- [ ] 12.4 Confirm the engine path for terminal surfaces is off on the desktop host (acceptance 4).
+- [ ] 12.5 `cargo test` passes for `daemon-pty-client`, `contracts`, `orchestrator`; `turbo test`, `turbo lint`, `turbo build` pass for the touched packages; `cargo clippy --all-targets -- -D warnings` is clean (testing gate; rust-best-practices).

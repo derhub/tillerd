@@ -71,11 +71,12 @@ payloads and is "not designed for low latency or high throughput," while channel
 exactly this streaming case. The `EventSink` contract is unchanged; the channel is purely the desktop
 binding. Lower-rate terminal-status changes stay on the event system.
 
-**No new crate or package.** The surface-runtime is a module inside `crates/orchestrator`; contract
-types extend `crates/contracts`; the daemon link reuses `crates/daemon-pty-client` (a new
-attach-by-`surface_id` method on the existing crate, not a split); the client extends `packages/sdk`;
-the pane and host wiring extend `apps/ui` and `apps/desktop/src-tauri`. A new crate is introduced only
-with an explicit, approved reason — none exists here.
+**No new crate or package.** The surface-runtime is a module inside `crates/orchestrator`; surface +
+terminal API/event types extend `crates/contracts`; the daemon wire encoders extend
+`crates/daemon-pty-client` (codec colocated with its existing `encode_hello`/`encode_subscribe`, not a
+split); the client extends `packages/sdk`; the pane and host wiring extend `apps/ui` and
+`apps/desktop/src-tauri`. `tokio` is added as a dependency (not a workspace crate). A new crate is
+introduced only with an explicit, approved reason — none exists here.
 
 **Input is queued during attach, with bounded backpressure.** The proxy accepts input immediately
 and flushes it in order once attached (open or reattach), and applies backpressure rather than
@@ -83,21 +84,56 @@ buffering without bound when the pseudo-terminal cannot keep up (ADR-0007). This
 ordered across an attach gap without unbounded memory.
 
 **Terminal status is derived from the daemon signal and emitted per surface.** The runtime maps the
-daemon's terminal-status frames to surface-scoped status events on the `EventSink`, delivered to a
-subscriber on subscribe (current status) independent of the byte stream, reusing the existing
-`terminal-status` contract. Initial scrollback on attach comes from the daemon's existing replay
-buffer.
+daemon's `status` frames to surface-scoped status events on the `EventSink`, delivered to a subscriber
+on subscribe (current status) independent of the byte stream, reusing the existing `terminal-status`
+contract.
 
 **Engine retirement is scoped to the desktop terminal path.** `ui-terminal-pane` stops using the
 engine-era WebSocket-to-server transport and attaches through the orchestrator over the native
 transport; the engine no longer carries terminal pseudo-terminal I/O on desktop. `apps/server` and
 `packages/engine` are not deleted wholesale here — the web transport revival is 0.2.2.
 
+### Implementation reality (post-recon)
+
+Recon of the running code (not the spec's idealized shape) fixes the build to these facts:
+
+**`tokio` is the IO model.** The surface-runtime runs each surface's daemon connection as a tokio
+task over `tokio::net::UnixStream`; the orchestrator owns a tokio runtime handle. _Alternative:_
+blocking threads (matches the rest of the stack today) — not chosen; tokio is the selected model for
+the surface IO path. `boot()`/`EventSink` stay synchronous; the runtime bridges async↔sync at the
+sink boundary.
+
+**The orchestrator owns the daemon socket.** Today the renderer-driven bridge (`bridge.rs`
+`daemon_connect`) owns the daemon connection. For terminal surfaces that moves into the orchestrator:
+the surface-runtime opens its own `UnixStream` to `<TILLERD_DIR>/daemon.sock` (discovered via the
+`service-host` paths), one connection per surface for 0.0.2 (the daemon multiplexes by `sessionId`;
+per-surface connections are simplest and isolate lifecycle — multiplexing is a later optimization).
+
+**The daemon wire is already defined; the client crate only lacks encoders.** `crates/daemon-pty-client`
+has the framing (`[u32 BE len][JSON meta][0x0a?][raw body]`), `encode_hello`, `encode_subscribe`, and
+`decode_session_frame`. This change adds `encode_spawn`/`encode_input`/`encode_resize`/`encode_ack`/
+`encode_kill`/`encode_unsubscribe` and a `SpawnAck` decode variant, matching the daemon's
+`apps/daemon-pty` frame shapes. `surface_id` is sent verbatim as the daemon `sessionId` on `spawn`
+(the daemon accepts a client-supplied id and echoes `spawn-ack`), so the shared-kernel rule needs no
+mapping table.
+
+**Flow control is honored.** The daemon meters output by credit; the proxy returns credit via `ack`
+frames as it forwards `data`, matching the existing engine proxy and `daemon-flow-control` (ADR-0007
+backpressure). The input send-queue and outbound credit are the two backpressure points.
+
+**Initial paint is the daemon snapshot.** The proxy advertises `capabilities: ["snapshot"]` in
+`hello`; on `subscribe` the daemon sends a `snapshot` (VT cell grid) — or raw replay for
+non-snapshot — followed by a `status` frame. That snapshot is the scrollback source on attach and
+resume; no separate reconstruction is built here.
+
 ## Risks / Trade-offs
 
-- **Raw bytes over a serialized host event channel** → base64 framing adds ~33% size and encode/decode
-  cost on high-throughput output. Mitigation: chunking + backpressure now; a binary side-channel is a
-  later optimization, not a contract change.
+- **Per-surface daemon connection** → one `UnixStream` per surface is simpler but does not share the
+  socket. Fine at 0.0.2's single-terminal scale; multiplex by `sessionId` over one connection later if
+  surface counts grow.
+- **Async↔sync bridge at the `EventSink`** → the surface-runtime is async (tokio) while `EventSink` is
+  sync; care is needed not to block the runtime in `emit`. Mitigation: `emit` only hands bytes to the
+  host channel (non-blocking); no heavy work on the sink thread.
 - **Reattach race: the pseudo-terminal exits between restart and reattach** → the surface cannot
   resume. Mitigation: the typed-error path reports the surface as not resumable rather than silently
   attaching elsewhere; re-spawn arrives with the launch system (0.0.5).
