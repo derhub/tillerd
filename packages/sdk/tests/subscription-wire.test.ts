@@ -11,7 +11,7 @@ import {
   negotiateReady,
 } from "../src/types/subscription";
 
-const FIXTURES_DIR = join(import.meta.dir, "../../gate-client/tests/fixtures");
+const FIXTURES_DIR = join(import.meta.dir, "../../../crates/gate-client/tests/fixtures");
 
 function rawFromFile(name: string): RawFrame {
   const payload = readFileSync(join(FIXTURES_DIR, name));

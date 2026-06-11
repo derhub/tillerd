@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./protocol": "./src/protocol/index.ts"
+    "./protocol": "./src/protocol/index.ts",
+    "./orchestrator": "./src/orchestrator/index.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",

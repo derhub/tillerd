@@ -4542,6 +4542,7 @@ dependencies = [
  "tauri-build",
  "tempfile",
  "tillerd-contracts",
+ "tillerd-orchestrator",
  "tillerd-process-launch",
  "tokio",
  "uuid",
@@ -4602,6 +4603,24 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "tillerd-orchestrator"
+version = "0.0.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tillerd-contracts",
+ "tillerd-daemon-pty-client",
+ "tillerd-gate-client",
+ "tillerd-process-launch",
+ "tillerd-service-host",
+ "tracing",
  "uuid",
 ]
 

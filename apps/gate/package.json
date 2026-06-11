@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "cargo build --release && ../../target/release/tillerd-gate",
-    "build": "cargo build --release",
+    "build": "cargo build --release && { [ -z \"$TILLERD_GATE_BIN\" ] || { mkdir -p \"$(dirname \"$TILLERD_GATE_BIN\")\" && cp ../../target/release/tillerd-gate \"$TILLERD_GATE_BIN\"; }; }",
     "lint": "cargo clippy --all-targets --locked -- -D warnings",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",

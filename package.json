@@ -13,7 +13,8 @@
   "module": "index.ts",
   "scripts": {
     "build": "TILLERD_DIR=$(pwd)/.tillerd turbo run build",
-    "dev": "TILLERD_DIR=$(pwd)/.tillerd TILLERD_DAEMON_BIN=$(pwd)/bin/tillerd-daemon turbo run dev",
+    "build:ci": "TILLERD_DIR=$(pwd)/.tillerd turbo run build --filter=!tillerd-desktop",
+    "dev": "TILLERD_DIR=$(pwd)/.tillerd TILLERD_DAEMON_BIN=$(pwd)/bin/tillerd-daemon TILLERD_GATE_BIN=$(pwd)/bin/tillerd-gate turbo run dev --filter=!@tillerd/server",
     "check-types": "turbo run check-types",
     "test": "turbo run test --filter='!./tests/*'",
     "eval": "turbo run eval",

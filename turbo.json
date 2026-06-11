@@ -9,6 +9,18 @@
       "outputs": ["dist/**", "build/**"],
       "env": ["TILLERD_DIR"]
     },
+    "@tillerd/daemon-pty#build": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "@tillerd/gate#build": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "@tillerd/gate-notify#build": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
     "check-types": {
       "dependsOn": ["^check-types"]
     },

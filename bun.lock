@@ -16,7 +16,7 @@
     },
     "apps/cli": {
       "name": "@tillerd/cli",
-      "version": "0.0.1",
+      "version": "0.0.0",
       "bin": {
         "tillerd": "src/index.ts",
       },
@@ -31,9 +31,16 @@
         "typescript": "^6.0.3",
       },
     },
+    "apps/daemon-pty": {
+      "name": "@tillerd/daemon-pty",
+      "version": "0.0.0",
+      "bin": {
+        "tillerd-daemon": "../../target/release/tillerd-daemon",
+      },
+    },
     "apps/desktop": {
       "name": "tillerd-desktop",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/ui": "workspace:*",
       },
@@ -43,29 +50,25 @@
     },
     "apps/gate": {
       "name": "@tillerd/gate",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "bin": {
         "tillerd-gate": "../../target/release/tillerd-gate",
       },
     },
     "apps/gate-notify": {
       "name": "@tillerd/gate-notify",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "bin": {
         "tillerd-notify": "../../bin/tillerd-notify",
       },
     },
-    "apps/mcp-gateway-rs": {
-      "name": "@tillerd/mcp-gateway-rs",
-      "version": "0.1.0",
-    },
     "apps/memorya": {
       "name": "@tillerd/memorya",
-      "version": "0.0.1",
+      "version": "0.0.0",
     },
     "apps/server": {
       "name": "@tillerd/server",
-      "version": "0.0.1",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/adapter-claude-code": "workspace:*",
         "@tillerd/engine": "workspace:*",
@@ -117,7 +120,7 @@
     },
     "packages/adapter-claude-code": {
       "name": "@tillerd/adapter-claude-code",
-      "version": "0.0.1",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/sdk": "workspace:*",
       },
@@ -125,24 +128,9 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/contracts-rs": {
-      "name": "@tillerd/contracts-rs",
-      "version": "0.1.0",
-    },
-    "packages/daemon-pty": {
-      "name": "@tillerd/daemon-pty",
-      "version": "0.1.0",
-      "bin": {
-        "tillerd-daemon": "../../target/release/tillerd-daemon",
-      },
-    },
-    "packages/daemon-pty-client": {
-      "name": "@tillerd/daemon-pty-client",
-      "version": "0.1.0",
-    },
     "packages/engine": {
       "name": "@tillerd/engine",
-      "version": "0.0.1",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/sdk": "workspace:*",
         "valibot": "^1.4.1",
@@ -151,13 +139,9 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/gate-client": {
-      "name": "@tillerd/gate-client",
-      "version": "0.1.0",
-    },
     "packages/logger": {
       "name": "@tillerd/logger",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/sdk": "workspace:*",
         "pino": "^10.3.1",
@@ -169,7 +153,7 @@
     },
     "packages/platform-bun": {
       "name": "@tillerd/platform-bun",
-      "version": "0.0.1",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/sdk": "workspace:*",
       },
@@ -177,24 +161,12 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/process-launch": {
-      "name": "@tillerd/process-launch",
-      "version": "0.1.0",
-    },
-    "packages/redact-rs": {
-      "name": "@tillerd/redact-rs",
-      "version": "0.1.0",
-    },
     "packages/sdk": {
       "name": "@tillerd/sdk",
-      "version": "0.1.0",
+      "version": "0.0.0",
       "devDependencies": {
         "typescript": "^5.9.2",
       },
-    },
-    "packages/service-host": {
-      "name": "@tillerd/service-host",
-      "version": "0.1.0",
     },
     "tests/benchmark": {
       "name": "@tillerd/benchmark",
@@ -698,11 +670,7 @@
 
     "@tillerd/cli": ["@tillerd/cli@workspace:apps/cli"],
 
-    "@tillerd/contracts-rs": ["@tillerd/contracts-rs@workspace:packages/contracts-rs"],
-
-    "@tillerd/daemon-pty": ["@tillerd/daemon-pty@workspace:packages/daemon-pty"],
-
-    "@tillerd/daemon-pty-client": ["@tillerd/daemon-pty-client@workspace:packages/daemon-pty-client"],
+    "@tillerd/daemon-pty": ["@tillerd/daemon-pty@workspace:apps/daemon-pty"],
 
     "@tillerd/e2e-test": ["@tillerd/e2e-test@workspace:tests/e2e"],
 
@@ -710,29 +678,19 @@
 
     "@tillerd/gate": ["@tillerd/gate@workspace:apps/gate"],
 
-    "@tillerd/gate-client": ["@tillerd/gate-client@workspace:packages/gate-client"],
-
     "@tillerd/gate-notify": ["@tillerd/gate-notify@workspace:apps/gate-notify"],
 
     "@tillerd/integration-tests": ["@tillerd/integration-tests@workspace:tests/integration"],
 
     "@tillerd/logger": ["@tillerd/logger@workspace:packages/logger"],
 
-    "@tillerd/mcp-gateway-rs": ["@tillerd/mcp-gateway-rs@workspace:apps/mcp-gateway-rs"],
-
     "@tillerd/memorya": ["@tillerd/memorya@workspace:apps/memorya"],
 
     "@tillerd/platform-bun": ["@tillerd/platform-bun@workspace:packages/platform-bun"],
 
-    "@tillerd/process-launch": ["@tillerd/process-launch@workspace:packages/process-launch"],
-
-    "@tillerd/redact-rs": ["@tillerd/redact-rs@workspace:packages/redact-rs"],
-
     "@tillerd/sdk": ["@tillerd/sdk@workspace:packages/sdk"],
 
     "@tillerd/server": ["@tillerd/server@workspace:apps/server"],
-
-    "@tillerd/service-host": ["@tillerd/service-host@workspace:packages/service-host"],
 
     "@tillerd/ui": ["@tillerd/ui@workspace:apps/ui"],
 

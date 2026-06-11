@@ -43,6 +43,28 @@ pub fn resolve_daemon_bin() -> Option<PathBuf> {
     None
 }
 
+pub fn resolve_gate_bin() -> Option<PathBuf> {
+    if let Ok(bin) = std::env::var("TILLERD_GATE_BIN") {
+        let p = PathBuf::from(bin);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_bin = cwd.join("bin/tillerd-gate");
+        if cwd_bin.exists() {
+            return Some(cwd_bin);
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        let user_bin = home.join(".local/bin/tillerd-gate");
+        if user_bin.exists() {
+            return Some(user_bin);
+        }
+    }
+    None
+}
+
 /// The committed runtime-free hook callback client (`notify-bash-client`).
 pub fn resolve_notify_bin() -> Option<PathBuf> {
     if let Ok(bin) = std::env::var("TILLERD_NOTIFY_BIN") {
