@@ -29,6 +29,12 @@ contracts.workspace = true
 process-launch.workspace = true
 orchestrator.workspace = true
 uuid.workspace = true
+# Enabled by the `webdriver` feature for the desktop e2e harness; off in normal/release builds.
+tauri-plugin-webdriver = { version = "0.2", optional = true }
+
+[features]
+# Embeds a W3C WebDriver server so the e2e harness can drive the app.
+webdriver = ["dep:tauri-plugin-webdriver"]
 
 [dev-dependencies]
 tempfile.workspace = true

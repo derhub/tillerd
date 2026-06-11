@@ -120,7 +120,10 @@ complete release ships at **0.1.7**.
 
 ### 0.1.6 — Desktop end-to-end test
 
-- [ ] Pick the Tauri-driving harness `[HELP]`.
+- [ ] Tauri-driving harness: embed `tauri-plugin-webdriver` (test-gated) + drive with `tauri-webdriver`
+  (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform incl. macOS (WKWebView native
+  APIs), so it runs locally and in CI — unlike official `tauri-driver`, which has no macOS WKWebView
+  driver (tauri#7068).
 - [ ] Visual test: spawn a session, assert the terminal and agent render and stream.
 
 ### 0.1.7 — Desktop distribution (ships the first complete release)

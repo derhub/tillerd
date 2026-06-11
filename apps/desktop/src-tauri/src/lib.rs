@@ -18,7 +18,10 @@ use supervisor::SupervisorState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "webdriver")]
+    let builder = builder.plugin(tauri_plugin_webdriver::init());
+    builder
         .manage(BridgeState::default())
         .manage(StoreState::load())
         .manage(SupervisorState::default())
