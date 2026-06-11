@@ -59,7 +59,14 @@ function makeFakeTransport(surfaceId = "surf-123"): {
     },
   };
 
-  return { transport, invokes, listeners, get lastChannel() { return lastChannel; } };
+  return {
+    transport,
+    invokes,
+    listeners,
+    get lastChannel() {
+      return lastChannel;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

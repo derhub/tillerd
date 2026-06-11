@@ -52,8 +52,7 @@ export function createTerminalSurfaceClient(
     },
     input: (surfaceId, bytes) =>
       transport.invoke(SURFACE_INPUT, { surfaceId, bytes: Array.from(bytes) }),
-    resize: (surfaceId, cols, rows) =>
-      transport.invoke(SURFACE_RESIZE, { surfaceId, cols, rows }),
+    resize: (surfaceId, cols, rows) => transport.invoke(SURFACE_RESIZE, { surfaceId, cols, rows }),
     detach: (surfaceId) => transport.invoke(SURFACE_DETACH, { surfaceId }),
     onStatus: (handler) => transport.listen<SurfaceStatusEvent>(SURFACE_STATUS_EVENT, handler),
     onExit: (handler) => transport.listen<SurfaceExitEvent>(SURFACE_EXIT_EVENT, handler),

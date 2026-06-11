@@ -22,11 +22,25 @@ thiserror.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
-tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "macros", "time"] }
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "net",
+  "io-util",
+  "sync",
+  "macros",
+  "time",
+] }
 
 [dev-dependencies]
 tempfile.workspace = true
-tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "macros", "time"] }
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "net",
+  "io-util",
+  "sync",
+  "macros",
+  "time",
+] }
 
 [lints]
 workspace = true
