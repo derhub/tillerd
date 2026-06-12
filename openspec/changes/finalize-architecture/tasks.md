@@ -37,9 +37,14 @@
 
 ## 4. Design tokens
 
-- [ ] 4.1 Close DESIGN.md token gaps (motion/transition scale, icon sizing token,
+- [~] 4.1 Close DESIGN.md token gaps (motion/transition scale, icon sizing token,
   light-mode counterparts), then apply tokens across the shell with no ad-hoc values
   outside the terminal palette exemption (ui-shell spec, design D8).
+  [done: frozen motion (`--motion-*`, `--ease-standard`) + icon (`--icon-*`) tokens in
+  app.css; DESIGN.md gains Motion/Icon Sizing/Light Mode sections; color light-mode
+  counterparts already existed. deferred: comprehensive token application across every
+  shell component (incl. vendored shadcn ui/ primitives) — mechanical but needs visual
+  verification; one exact-value tokenization landed as the pattern.]
 
 ## 5. Sweep and gate
 
