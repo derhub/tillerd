@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use orchestrator::persistence::{
-    CommandOrigin, NewCommand, ProjectId, SessionId, SourceKind, Store,
+    Command, CommandOrigin, NewCommand, ProjectId, SessionId, SourceKind, Store,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -94,6 +94,38 @@ pub fn project_create(
     do_project_create(&store, name).map_err(|e| format!("{e:?}"))
 }
 
+pub fn do_project_rename(
+    store: &Arc<dyn Store>,
+    id: String,
+    name: String,
+) -> Result<(), WorkspaceError> {
+    store
+        .rename_project(&ProjectId::new(id), &name)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn project_rename(
+    id: String,
+    name: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_rename(&store, id, name).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_project_archive(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    store
+        .archive_project(&ProjectId::new(id))
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn project_archive(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_archive(&store, id).map_err(|e| format!("{e:?}"))
+}
+
 // ── session ───────────────────────────────────────────────────────────────────
 
 pub fn do_session_list(
@@ -119,6 +151,38 @@ pub fn session_list(
 ) -> Result<Vec<SessionResponse>, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
     do_session_list(&store, project_id).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_session_rename(
+    store: &Arc<dyn Store>,
+    id: String,
+    title: String,
+) -> Result<(), WorkspaceError> {
+    store
+        .rename_session(&SessionId::from_string(id), &title)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn session_rename(
+    id: String,
+    title: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_session_rename(&store, id, title).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_session_archive(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    store
+        .archive_session(&SessionId::from_string(id))
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn session_archive(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_session_archive(&store, id).map_err(|e| format!("{e:?}"))
 }
 
 pub fn do_session_layout_set(
@@ -161,19 +225,47 @@ pub fn session_layout_get(
 
 // ── command library ───────────────────────────────────────────────────────────
 
+fn command_response(c: Command) -> CommandResponse {
+    CommandResponse {
+        id: c.id.as_str().to_string(),
+        name: c.name,
+        origin: c.origin.as_str().to_string(),
+        cli: c.cli,
+        args: c.args,
+        env: c.env,
+    }
+}
+
 pub fn do_command_list(store: &Arc<dyn Store>) -> Result<Vec<CommandResponse>, WorkspaceError> {
     let cmds = store.list_commands().map_err(map_store_err)?;
-    Ok(cmds
-        .into_iter()
-        .map(|c| CommandResponse {
-            id: c.id.as_str().to_string(),
-            name: c.name,
-            origin: c.origin.as_str().to_string(),
-            cli: c.cli,
-            args: c.args,
-            env: c.env,
-        })
-        .collect())
+    Ok(cmds.into_iter().map(command_response).collect())
+}
+
+pub fn do_command_get(
+    store: &Arc<dyn Store>,
+    id: String,
+) -> Result<Option<CommandResponse>, WorkspaceError> {
+    let cmd = store.get_command(&id).map_err(map_store_err)?;
+    Ok(cmd.map(command_response))
+}
+
+#[tauri::command]
+pub fn command_get(
+    id: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<Option<CommandResponse>, String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_command_get(&store, id).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_command_delete(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    store.delete_command(&id).map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn command_delete(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_command_delete(&store, id).map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
@@ -206,14 +298,7 @@ pub fn do_command_create(
             env: req.env,
         })
         .map_err(map_store_err)?;
-    Ok(CommandResponse {
-        id: cmd.id.as_str().to_string(),
-        name: cmd.name,
-        origin: cmd.origin.as_str().to_string(),
-        cli: cmd.cli,
-        args: cmd.args,
-        env: cmd.env,
-    })
+    Ok(command_response(cmd))
 }
 
 #[tauri::command]
@@ -303,5 +388,105 @@ mod tests {
         let result = do_command_create(&store, req).unwrap();
         assert_eq!(result.name, "my-tool");
         assert_eq!(result.origin, "custom");
+    }
+
+    fn make_project(store: &Arc<dyn Store>, name: &str) -> ProjectId {
+        store
+            .create_project(orchestrator::persistence::NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some(name.to_string()),
+            })
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn project_rename_reaches_the_store() {
+        let store = fake_store();
+        let id = make_project(&store, "Old");
+        do_project_rename(&store, id.as_str().to_string(), "New".to_string()).unwrap();
+        assert_eq!(store.get_project(&id).unwrap().unwrap().name, "New");
+    }
+
+    #[test]
+    fn project_rename_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_project_rename(&store, "no-such".to_string(), "x".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn project_archive_reaches_the_store() {
+        let store = fake_store();
+        let id = make_project(&store, "Doomed");
+        do_project_archive(&store, id.as_str().to_string()).unwrap();
+        assert!(store.get_project(&id).unwrap().is_none());
+    }
+
+    #[test]
+    fn project_archive_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_project_archive(&store, "no-such".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn session_rename_reaches_the_store() {
+        let store = fake_store();
+        let sess = store
+            .create_session(orchestrator::persistence::NewSession::default())
+            .unwrap();
+        do_session_rename(&store, sess.id.as_str().to_string(), "Renamed".to_string()).unwrap();
+        let listed = do_session_list(&store, None).unwrap();
+        assert!(listed
+            .iter()
+            .any(|s| s.id == sess.id.as_str() && s.title == "Renamed"));
+    }
+
+    #[test]
+    fn session_rename_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_session_rename(&store, "no-such".to_string(), "x".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn session_archive_reaches_the_store() {
+        let store = fake_store();
+        let sess = store
+            .create_session(orchestrator::persistence::NewSession::default())
+            .unwrap();
+        do_session_archive(&store, sess.id.as_str().to_string()).unwrap();
+        let listed = do_session_list(&store, None).unwrap();
+        assert!(!listed.iter().any(|s| s.id == sess.id.as_str()));
+    }
+
+    #[test]
+    fn session_archive_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_session_archive(&store, "no-such".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn command_get_returns_entry_then_none_after_delete() {
+        let store = fake_store();
+        let created = do_command_create(
+            &store,
+            CreateCommandRequest {
+                name: "tool".to_string(),
+                cli: "/tool".to_string(),
+                args: vec![],
+                env: Default::default(),
+            },
+        )
+        .unwrap();
+
+        let got = do_command_get(&store, created.id.clone()).unwrap();
+        assert_eq!(got.map(|c| c.id), Some(created.id.clone()));
+
+        do_command_delete(&store, created.id.clone()).unwrap();
+        assert!(do_command_get(&store, created.id).unwrap().is_none());
     }
 }

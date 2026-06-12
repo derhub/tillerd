@@ -54,11 +54,17 @@ pub fn run() {
             surface_host::surface_resize,
             surface_host::surface_detach,
             workspace_host::project_create,
+            workspace_host::project_rename,
+            workspace_host::project_archive,
             workspace_host::session_list,
+            workspace_host::session_rename,
+            workspace_host::session_archive,
             workspace_host::session_layout_set,
             workspace_host::session_layout_get,
             workspace_host::command_list,
             workspace_host::command_create,
+            workspace_host::command_get,
+            workspace_host::command_delete,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
