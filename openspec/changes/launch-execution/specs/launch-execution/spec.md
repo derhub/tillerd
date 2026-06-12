@@ -64,21 +64,6 @@ worktree step SHALL fail the item and create no surface.
 - **WHEN** the worktree step returns an error
 - **THEN** the item outcome records the error and no surface is created
 
-### Requirement: Pre, post, and auto-spawn scripts run around the surface
-
-The executor SHALL run an item's pre-scripts before the surface is created, its post-scripts after
-the surface starts, and its auto-spawn scripts as background processes alongside the surface. A
-failing pre-script SHALL skip that item's surface and record the error while other items continue.
-Scripts run under local trust and SHALL NOT be sandboxed.
-
-#### Scenario: Pre-script failure skips the surface
-- **WHEN** an item's pre-script exits non-zero
-- **THEN** the item records the error, no surface is created for it, and remaining items continue
-
-#### Scenario: Post-script runs after the surface starts
-- **WHEN** an item with a post-script succeeds
-- **THEN** the surface is created and the post-script runs after the surface starts
-
 ### Requirement: Item placement is recorded on the surface
 
 The executor SHALL store an item's placement on the created surface so the host can position it.

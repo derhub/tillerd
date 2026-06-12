@@ -2,11 +2,10 @@
 
 ## Why
 
-The launch system models commands, worktrees, placement, and pre/post scripts, but the
-executor never acts on them: it resolves a launch item's command only to discard it, always
-creates a bare login-shell terminal, and ignores the item's target kind, worktree step, and
-scripts. The command library and worktree step are implemented and tested in isolation but
-never invoked.
+The launch system models commands, worktrees, and placement, but the executor never acts on
+them: it resolves a launch item's command only to discard it, always creates a bare login-shell
+terminal, and ignores the item's target kind and worktree step. The command library and worktree
+step are implemented and tested in isolation but never invoked.
 
 The deeper problem is shape, not wiring. Surface creation is split into kind-specific entry
 points (`open_terminal`, `open_agent`) that each bake in how to spawn and, for the agent, the
@@ -37,11 +36,12 @@ not a separate spawn path.
   and hook install/teardown. This deletes the duplicated "how to launch the agent" that lived in
   both the agent definition and the command library.
 - The executor wires the remaining item fields: dispatch on `target` to the correct surface
-  kind; run the `worktree` step (create → cd → returns the cwd) when present and record
-  `worktree_id`; run `pre` scripts before spawn (a failing pre-script records the error and
-  skips that item), `post` scripts after the surface starts, and `auto-spawn` background scripts.
-  Scripts run under local trust — no sandboxing (decision #7); validation is launch-spec schema
-  plus command resolution (fail fast on an unresolvable command).
+  kind, and run the `worktree` step (create → returns the cwd) when present, recording
+  `worktree_id`. Auxiliary runners (e.g. a dev server) are ordinary launch items with
+  `target = terminal` and a placement — their output streams to the placed pane and closing the
+  pane leaves the process running (soft-delete keeps the PTY). Commands run under local trust —
+  no sandboxing (decision #7); validation is launch-spec schema plus command resolution (fail
+  fast on an unresolvable command).
 - The workspace IPC exposes the remaining store operations: rename and archive for project and
   session, and get/delete for command-library entries (store methods exist; only the host
   handlers are missing).
@@ -54,8 +54,8 @@ not a separate spawn path.
 
 ### New Capabilities
 
-- `launch-execution` — the coordinator: per-item parse/validate, target dispatch, worktree and
-  script handoff, best-effort continuation, placement.
+- `launch-execution` — the coordinator: per-item parse/validate, target dispatch, worktree
+  handoff, best-effort continuation, placement.
 - `surface-spawn` — one generic spawn: hand a resolved command to the pseudo-terminal daemon;
   kind-agnostic; absent command means login shell.
 

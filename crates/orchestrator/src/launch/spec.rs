@@ -15,12 +15,6 @@ pub struct LaunchItem {
     pub target: String,
     pub placement: Option<String>,
     pub command: CommandRef,
-    #[serde(default)]
-    pub pre: Vec<String>,
-    #[serde(default)]
-    pub post: Vec<String>,
-    #[serde(default, rename = "autoSpawn")]
-    pub auto_spawn: Vec<String>,
     pub worktree: Option<WorktreeStep>,
 }
 
@@ -111,7 +105,7 @@ mod tests {
     use super::*;
 
     fn v1_blob_with_items() -> &'static str {
-        r#"{"version":1,"items":[{"target":"terminal","command":{"library_ref":"login-shell"},"pre":[],"post":[],"autoSpawn":[]}]}"#
+        r#"{"version":1,"items":[{"target":"terminal","command":{"library_ref":"login-shell"}}]}"#
     }
 
     fn v1_blob_empty() -> &'static str {

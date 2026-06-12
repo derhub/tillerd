@@ -162,9 +162,6 @@ mod tests {
                 executable: "/bin/sh".to_string(),
                 args: vec![],
             },
-            pre: vec![],
-            post: vec![],
-            auto_spawn: vec![],
             worktree: None,
         }
     }
@@ -203,9 +200,6 @@ mod tests {
                     command: CommandRef::LibraryRef {
                         library_ref: "no-such-command".to_string(),
                     },
-                    pre: vec![],
-                    post: vec![],
-                    auto_spawn: vec![],
                     worktree: None,
                 },
                 item_with_inline(None),

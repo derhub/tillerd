@@ -32,7 +32,7 @@ ADR-0024's invariants, which it keeps.
 - Complete the workspace IPC; ship the correctness fixes.
 
 **Non-Goals**
-- No sandboxing of pre/post/auto-spawn scripts (roadmap decision #7 — local trust).
+- No sandboxing of launched commands (roadmap decision #7 — local trust).
 - `diff` and other non-command kinds are not implemented here (decision #9, deferred) — only the
   uniform seam that admits them.
 - No second agent adapter (0.2.0), no placement geometry beyond named regions (0.2.4), no web host.
@@ -40,10 +40,10 @@ ADR-0024's invariants, which it keeps.
 ## Decisions
 
 ### 1. The launch executor is a thin parse→handoff router
-Per item it owns only the kind-agnostic orchestration: validate, resolve the command, run `pre`
-scripts, run the `worktree` step, persist the surface row, call the adapter, run `post` +
-`auto-spawn`, and record a best-effort outcome (a failed item is recorded; the rest continue,
-roadmap decision #13). It contains no `match` on kind beyond selecting the adapter.
+Per item it owns only the kind-agnostic orchestration: validate, resolve the command, run the
+`worktree` step, persist the surface row, call the adapter, and record a best-effort outcome (a
+failed item is recorded; the rest continue, roadmap decision #13). It contains no `match` on kind
+beyond selecting the adapter.
 *Alternative:* a fat executor with per-kind branches — rejected: re-introduces the special-casing
 this change exists to remove, and every new kind would edit the executor.
 
@@ -97,7 +97,7 @@ collapse, the remaining IPC, and the correctness fixes on top.
   registry can collapse to an enum without touching callers of `spawn`.
 - [Removing `open_*` changes the host-facing surface API (`create_terminal_surface` /
   `create_agent_surface` from 0.0.4)] → callers updated in this one branch; pre-v1, internal API.
-- [Best-effort scripts under local trust] → accepted (decision #7); a hostile launch template is
+- [Launched commands run under local trust] → accepted (decision #7); a hostile launch template is
   out of the threat model for a local single-user tool.
 
 ## Migration Plan
@@ -106,7 +106,7 @@ Pre-v1, no data migration. On the `feature/launch-execution` branch (descendant 
 0.0.3 + 0.0.4): (1) introduce `ResolvedCommand` + the generic `spawn`; (2) extract `TerminalAdapter`
 and `AgentAdapter` behind `SurfaceAdapter`; remove `open_terminal`/`open_agent`; rewire
 `create_*_surface` and the daemon-host callers; (3) slim `AGENT_DEF`; (4) implement the executor
-(dispatch, worktree, scripts, best-effort) on the registry; (5) add the missing IPC handlers; (6)
+(dispatch, worktree, best-effort) on the registry; (5) add the missing IPC handlers; (6)
 apply the four correctness fixes. Rollback = revert the branch; the parked
 `feature/0-0-5-launch-system` scaffold is untouched.
 
@@ -120,5 +120,3 @@ apply the four correctness fixes. Rollback = revert the branch; the parked
 - `diff` is a non-command kind with no adapter yet (deferred): does the executor treat
   `target = diff` as a typed "unsupported kind" error for now, or skip it? Lean typed error so a
   template referencing diff fails loudly until the diff adapter lands.
-- `pre`/`post`/`auto-spawn` runner: process spawn via `process-launch`, inheriting the resolved
-  `cwd`/env; confirm it reuses the existing crate rather than a new one.
