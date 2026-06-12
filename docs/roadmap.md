@@ -64,9 +64,9 @@ Projects group sessions; sessions group surfaces; both persist and survive resta
 - [x] Archive — `deleted_at` soft-delete (cascades to surfaces); hard-delete; worktree
   directory kept.
 
-### 0.0.5 — Launch system `[WIP]`
+### 0.0.5 — Launch system
 
-Declarative startup: a session is an instance of a project's launch template. Shipping as
+Declarative startup: a session is an instance of a project's launch template. Shipped as
 the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 
 - [x] Launch spec — versioned JSON blob; lazy migration (ADR-0021).
@@ -76,9 +76,9 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   worktree step (create → returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
   an auxiliary runner (e.g. a dev server) is an ordinary terminal item with a placement;
   closing the pane leaves the process running (soft-delete keeps the PTY).
-- [ ] Templates → instances — a project template instantiates a session's surfaces; the
-  session may diverge. (Spec-copy on session create done; remaining executor wiring +
-  workspace IPC handlers + idempotent seed pending.)
+- [x] Templates → instances — a project template instantiates a session's surfaces; the
+  session may diverge. (Spec-copy on session create, executor wiring, workspace IPC
+  handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
 
 ---
