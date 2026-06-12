@@ -66,8 +66,9 @@ export function DesktopTerminalPane(_props: {
 
       const client = createTerminalSurfaceClient(transport);
 
-      const surfaceId = await client.create({ cols: term.cols, rows: term.rows }, (bytes) =>
-        term.write(bytes),
+      const surfaceId = await client.create(
+        { sessionId: _props.sessionId ?? "", cols: term.cols, rows: term.rows },
+        (bytes) => term.write(bytes),
       );
 
       if (cancelled) {

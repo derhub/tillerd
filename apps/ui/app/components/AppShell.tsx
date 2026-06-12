@@ -25,7 +25,12 @@ export function AppShell({ sessions }: AppShellProps) {
   const params = useParams();
   const sessionId = params["id"] ?? null;
   const [status, setStatus] = useState("");
-  const { tree, split, close, setContent, setActiveTab } = usePanelTree();
+  const host = useDesktopHost();
+  const orchestratorClient = host.status === "ready" ? host.orchestratorClient : null;
+  const { tree, split, close, setContent, setActiveTab } = usePanelTree(
+    sessionId,
+    orchestratorClient,
+  );
   const totalPanels = countLeaves(tree);
 
   const renderNode = useCallback(
@@ -185,7 +190,7 @@ export function AppShell({ sessions }: AppShellProps) {
   function renderContent(content: PanelContent, panelId: string): React.ReactNode {
     switch (content.type) {
       case "sidebar":
-        return <SessionSidebar sessions={sessions} />;
+        return <SessionSidebar />;
       case "terminal":
         return <Outlet />;
       case "agent":

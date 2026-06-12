@@ -73,16 +73,20 @@ function makeFakeTransport(surfaceId = "surf-123"): {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("create() creates a byte channel, invokes surface_create with cols/rows/cwd, and returns the surfaceId", async () => {
+test("create() creates a byte channel, invokes surface_create with sessionId/cols/rows/cwd, and returns the surfaceId", async () => {
   const { transport, invokes } = makeFakeTransport("surf-abc");
   const client = createTerminalSurfaceClient(transport);
 
-  const id = await client.create({ cols: 80, rows: 24, cwd: "/home/user" }, () => {});
+  const id = await client.create(
+    { sessionId: "sess-1", cols: 80, rows: 24, cwd: "/home/user" },
+    () => {},
+  );
 
   expect(id).toBe("surf-abc");
   expect(invokes).toHaveLength(1);
   const call0 = invokes[0]!;
   expect(call0.command).toBe(SURFACE_CREATE);
+  expect(call0.args?.sessionId).toBe("sess-1");
   expect(call0.args?.cols).toBe(80);
   expect(call0.args?.rows).toBe(24);
   expect(call0.args?.cwd).toBe("/home/user");
@@ -94,7 +98,7 @@ test("create() routes channel bytes to onBytes", async () => {
   const client = createTerminalSurfaceClient(fake.transport);
 
   const received: Uint8Array[] = [];
-  await client.create({ cols: 80, rows: 24 }, (b) => received.push(b));
+  await client.create({ sessionId: "sess-1", cols: 80, rows: 24 }, (b) => received.push(b));
 
   const chunk = new Uint8Array([72, 101, 108, 108, 111]);
   fake.lastChannel!.push(chunk);

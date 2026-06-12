@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::error::Result;
-use crate::persistence::{NewSession, NewSurface, Store, SurfaceId, SurfaceKind};
+use crate::persistence::{NewSurface, SessionId, Store, SurfaceId, SurfaceKind};
 use crate::surface::runtime::{SurfaceEventSink, SurfaceRuntime};
 
 pub struct SurfaceApi {
@@ -33,16 +33,15 @@ impl SurfaceApi {
 
     pub async fn create_terminal_surface(
         &self,
+        session_id: SessionId,
         surface_id: SurfaceId,
         cols: u16,
         rows: u16,
         cwd: Option<String>,
     ) -> Result<SurfaceId> {
-        // Sessions without an explicit project go to the seeded Unfiled project.
-        let session = self.store.create_session(NewSession::default())?;
         let surface = self.store.create_surface(NewSurface {
             id: Some(surface_id.clone()),
-            session_id: session.id,
+            session_id,
             kind: SurfaceKind::Terminal,
             cwd: cwd.clone(),
         })?;
@@ -71,8 +70,10 @@ impl SurfaceApi {
         self.runtime.detach(surface).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_agent_surface(
         &self,
+        session_id: SessionId,
         surface_id: SurfaceId,
         agent_home: &Path,
         notify_command: &str,
@@ -80,10 +81,9 @@ impl SurfaceApi {
         rows: u16,
         cwd: Option<String>,
     ) -> Result<SurfaceId> {
-        let session = self.store.create_session(NewSession::default())?;
         let surface = self.store.create_surface(NewSurface {
             id: Some(surface_id.clone()),
-            session_id: session.id,
+            session_id,
             kind: SurfaceKind::Agent,
             cwd: cwd.clone(),
         })?;
@@ -193,11 +193,14 @@ mod tests {
         let daemon = tokio::spawn(fake_daemon(listener));
 
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let session = store
+            .create_session(crate::persistence::NewSession::default())
+            .unwrap();
         let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), sock);
 
         let id = SurfaceId::from_string("surf-api-1");
         let returned = api
-            .create_terminal_surface(id.clone(), 80, 24, Some("/tmp".into()))
+            .create_terminal_surface(session.id, id.clone(), 80, 24, Some("/tmp".into()))
             .await
             .expect("create");
 
@@ -223,12 +226,16 @@ mod tests {
         let _gate = tokio::spawn(fake_gate(gate_listener));
 
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let session = store
+            .create_session(crate::persistence::NewSession::default())
+            .unwrap();
         let api =
             SurfaceApi::with_gate_socket(store.clone(), Arc::new(NullSink), daemon_sock, gate_sock);
 
         let id = SurfaceId::from_string("agent-api-1");
         let returned = api
             .create_agent_surface(
+                session.id,
                 id.clone(),
                 &agent_home,
                 "tillerd-notify",
