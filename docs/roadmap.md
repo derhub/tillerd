@@ -8,9 +8,10 @@ nothing is shortcut to a `.0` bucket.
 
 > Status: 0.0.x, pre-release. The **0.0.x** line ships a **working app**: the
 > foundation is in (Rust orchestrator, persistence, surface runtime, launch system —
-> 0.0.1–0.0.5); what remains is the cross-cutting foundations (service contract,
-> correlation, design tokens, E2E test), then observability, health / first-run UX,
-> settings, and a UX/UI pass. **0.x is terminal-only**: the agent surface
+> 0.0.1–0.0.5). **0.0.6 finalizes the architecture** — service contract, daemon
+> upgrade path, correlation, design tokens, E2E test; after it, every 0.x version is
+> additive on frozen seams, never a change to them. Then observability, health /
+> first-run UX, settings, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
 > ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
 > After the working app, **0.x is stabilization and enhancement**: **0.1.x** hardens and
@@ -87,15 +88,21 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
 
-### 0.0.6 — Foundations
+### 0.0.6 — Finalize the architecture
 
-Everything cross-cutting that the rest of the line builds on, landed first so no
-later version forces rework of an earlier one.
+The last architecture-changing version of 0.x. Everything frozen here — service
+contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
+(ADR-0025), design tokens — holds for the rest of 0.x; every later version is
+additive on these seams, never a change to them.
 
 - [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
   (socket / manifest), health (ADR-0019), identity / version.
-  Gate + daemon conform; future services inherit the contract. (The drain primitive
-  is what the 0.1.1 daemon upgrade builds on; health feeds the 0.0.8 indicators.)
+  Gate + daemon conform; future services inherit the contract. (Health feeds the
+  0.0.8 indicators.)
+- [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
+  daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
+  starts fresh. Builds on the contract's drain primitive — re-check the
+  `daemon-upgrade-drain-restart` proposal against it before implementing.
 - [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
   (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
 - [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
@@ -141,19 +148,13 @@ Harden the working app and make it installable.
 
 - [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
 
-### 0.1.1 — Daemon drain-and-restart upgrade
-
-- [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
-  daemon drains (refuses new sessions, lets active ones finish), swaps the binary, starts
-  fresh. Proposed against the `daemon-upgrade` spec (`daemon-upgrade-drain-restart`).
-
-### 0.1.2 — Desktop distribution
+### 0.1.1 — Desktop distribution
 
 - [ ] Signed, notarized bundles (dmg / AppImage / deb) across macOS + Linux `[HELP]` (Windows?).
 - [ ] Auto-update.
 - [ ] Release pipeline — versioned releases + generated changelogs via changesets.
 
-### 0.1.3 — Docs reconciliation
+### 0.1.2 — Docs reconciliation
 
 - [ ] README and guides match the Rust-backend, desktop-only architecture.
 
