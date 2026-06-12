@@ -37,22 +37,22 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 ## 5. Template instantiation fixes (spec: launch-execution)
 
-- [ ] 5.1 Copy the template's launch spec + version into a new session in a single transaction
-- [ ] 5.2 `set_launch_template_spec` returns a typed not-found for an absent template
-- [ ] 5.3 Tests: session created from a template carries a copy of the spec and diverges; updating an absent template is not-found
+- [x] 5.1 Copy the template's launch spec + version into a new session in a single transaction (serialized by the connection lock; not-found on absent template)
+- [x] 5.2 `set_launch_template_spec` returns a typed not-found for an absent template (checks rows affected; both stores)
+- [x] 5.3 Tests: session created from a template carries a copy of the spec and diverges; updating an absent template is not-found
 
 ## 6. Workspace IPC completeness (spec: workspace-ipc)
 
-- [ ] 6.1 Add host handlers for project rename/archive, session rename/archive, and command get/delete; confirm project/session create/list, layout get/set, and command list/create are present; register all in the host command set
-- [ ] 6.2 Tests: each client call reaches its store operation; an operation on an absent identifier returns a typed not-found
+- [x] 6.1 Added host handlers for project rename/archive, session rename/archive, and command get/delete; project/session create/list, layout get/set, command list/create present; all registered in the host command set
+- [x] 6.2 Tests: each `do_*` handler reaches its store operation; an operation on an absent identifier returns a typed not-found
 
 ## 7. Command library (spec: command-library)
 
-- [ ] 7.1 Make `seed_commands` idempotent via a single insert-or-ignore statement (no lock-release-relock); safe under concurrent open
-- [ ] 7.2 Tests: repeated open and concurrent open each leave one copy of every prebuilt command; create → get → list → delete round-trip
+- [x] 7.1 `seed_commands` is a single `INSERT OR IGNORE` per prebuilt under one lock (no exists-check/release/re-insert window); `busy_timeout` added so concurrent opens serialize
+- [x] 7.2 Tests: repeated open and concurrent open (4 threads) each leave one copy of every prebuilt command; create → get → list → delete round-trip
 
 ## 8. Verify + cleanup
 
 - [x] 8.1 `cargo test -p tillerd-orchestrator` green; `cargo clippy -p tillerd-orchestrator --all-targets --locked -- -D warnings` clean
 - [x] 8.2 `bun run verify` green (format / check-types / lint / test / e2e) — EXIT=0 after the agent purge
-- [ ] 8.3 Confirm no dead code remains: the stub executor, the `open_*` methods, and the entire agent surface (orchestrator module, `SurfaceKind::Agent`, desktop IPC + bootstrap, TS agent + retired packages) are gone with no dangling references
+- [x] 8.3 Confirmed no dead code remains: the stub executor, the `open_*` methods, and the entire agent surface (orchestrator module, `SurfaceKind::Agent`, desktop IPC + bootstrap, TS agent + retired packages) are gone with no dangling references
