@@ -687,4 +687,17 @@ mod tests {
         let fetched = store.get_surface(&surface.id).unwrap().unwrap();
         assert_eq!(fetched.last_status.as_deref(), Some("running"));
     }
+
+    #[test]
+    fn set_launch_template_spec_on_absent_template_is_not_found() {
+        let store = InMemoryStore::new();
+        let err = store
+            .set_launch_template_spec(
+                &LaunchTemplateId::from_string("no-such-template"),
+                2,
+                r#"{"version":2,"items":[]}"#,
+            )
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::LaunchTemplateNotFound(_)));
+    }
 }
