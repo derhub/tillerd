@@ -37,6 +37,10 @@ impl SqliteStore {
         let conn = Connection::open(path).map_err(persist)?;
         conn.pragma_update(None, "foreign_keys", true)
             .map_err(persist)?;
+        // Wait on a contended write lock instead of erroring immediately, so concurrent opens
+        // (each seeding via INSERT OR IGNORE) serialize cleanly rather than hit SQLITE_BUSY.
+        conn.busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(persist)?;
         run_migrations(&conn, migrations)?;
         let store = Self {
             conn: Mutex::new(conn),
@@ -778,33 +782,26 @@ impl Store for SqliteStore {
     }
 
     fn seed_commands(&self) -> Result<()> {
+        // One lock, one insert-or-ignore per prebuilt: idempotent and race-free under
+        // concurrent open (the primary key resolves the conflict atomically — no
+        // exists-check / lock-release / re-insert window).
+        let conn = self.lock()?;
         for cmd in prebuilt_commands() {
-            let exists: i64 = self
-                .lock()?
-                .query_row(
-                    "SELECT count(*) FROM command WHERE id = ?1",
-                    params![cmd.id.as_str()],
-                    |r| r.get(0),
-                )
-                .map_err(persist)?;
-            if exists == 0 {
-                let args_json = serde_json::to_string(&cmd.args).unwrap_or_default();
-                let env_json = serde_json::to_string(&cmd.env).unwrap_or_default();
-                self.lock()?
-                    .execute(
-                        "INSERT INTO command (id, name, origin, cli, args_json, env_json)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                        params![
-                            cmd.id.as_str(),
-                            &cmd.name,
-                            cmd.origin.as_str(),
-                            &cmd.cli,
-                            &args_json,
-                            &env_json
-                        ],
-                    )
-                    .map_err(persist)?;
-            }
+            let args_json = serde_json::to_string(&cmd.args).unwrap_or_default();
+            let env_json = serde_json::to_string(&cmd.env).unwrap_or_default();
+            conn.execute(
+                "INSERT OR IGNORE INTO command (id, name, origin, cli, args_json, env_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    cmd.id.as_str(),
+                    &cmd.name,
+                    cmd.origin.as_str(),
+                    &cmd.cli,
+                    &args_json,
+                    &env_json
+                ],
+            )
+            .map_err(persist)?;
         }
         Ok(())
     }
@@ -902,7 +899,8 @@ impl Store for SqliteStore {
         spec_version: u32,
         spec_json: &str,
     ) -> Result<()> {
-        self.lock()?
+        let affected = self
+            .lock()?
             .execute(
                 "UPDATE launch_template SET spec_version = ?1, spec_json = ?2,
                                            updated_at = datetime('now')
@@ -910,6 +908,11 @@ impl Store for SqliteStore {
                 params![spec_version, spec_json, id.as_str()],
             )
             .map_err(persist)?;
+        if affected == 0 {
+            return Err(OrchestratorError::LaunchTemplateNotFound(
+                id.as_str().to_string(),
+            ));
+        }
         Ok(())
     }
 }
@@ -1761,6 +1764,50 @@ mod tests {
         let cmds = store.list_commands().unwrap();
         let login_count = cmds.iter().filter(|c| c.name == "login-shell").count();
         assert_eq!(login_count, 1);
+    }
+
+    #[test]
+    fn seed_under_concurrent_open_leaves_one_copy() {
+        let (_dir, path) = temp_db("cmd-seed-concurrent");
+        // Pre-create schema + seed once so the threads only contend on the idempotent insert.
+        SqliteStore::open(&path).unwrap();
+
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                let p = path.clone();
+                std::thread::spawn(move || {
+                    let store = SqliteStore::open(&p).unwrap();
+                    store.seed_commands().unwrap();
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let store = SqliteStore::open(&path).unwrap();
+        let cmds = store.list_commands().unwrap();
+        assert_eq!(
+            cmds.iter().filter(|c| c.name == "login-shell").count(),
+            1,
+            "concurrent open must leave exactly one copy of each prebuilt command"
+        );
+    }
+
+    #[test]
+    fn set_launch_template_spec_on_absent_template_is_not_found() {
+        let (_dir, path) = temp_db("tmpl-set-absent");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let err = store
+            .set_launch_template_spec(
+                &LaunchTemplateId::from_string("no-such-template"),
+                2,
+                r#"{"version":2,"items":[]}"#,
+            )
+            .unwrap_err();
+
+        assert!(matches!(err, OrchestratorError::LaunchTemplateNotFound(_)));
     }
 
     #[test]

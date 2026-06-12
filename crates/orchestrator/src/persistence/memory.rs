@@ -562,11 +562,16 @@ impl Store for InMemoryStore {
         spec_json: &str,
     ) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        if let Some(t) = inner.launch_templates.get_mut(id.as_str()) {
-            t.spec_version = spec_version;
-            t.spec_json = spec_json.to_string();
+        match inner.launch_templates.get_mut(id.as_str()) {
+            Some(t) => {
+                t.spec_version = spec_version;
+                t.spec_json = spec_json.to_string();
+                Ok(())
+            }
+            None => Err(OrchestratorError::LaunchTemplateNotFound(
+                id.as_str().to_string(),
+            )),
         }
-        Ok(())
     }
 }
 
