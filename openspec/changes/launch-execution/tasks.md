@@ -23,7 +23,7 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 - [x] 3.1 Orchestrator: delete the `agent` module (`definition`/`parse`/`setup`), `launch_agent`/`AgentProxy`/`resolve_agent_command`/`agent_def`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed; `launch_surface` is terminal-only (diff → unsupported). The gate stays (shared hook-ingress/MCP infra; only the agent's gate subscription is removed)
 - [x] 3.2 Desktop host: remove `surface_create_agent` + `agent_bootstrap` IPC commands and the agent bootstrap module; `SurfaceApi::new` (no gate socket)
-- [ ] 3.3 TS: delete `packages/adapter-claude-code`, `packages/engine`, `packages/platform-bun`; remove agent types from `packages/sdk`; remove the renderer agent path (`agent_bootstrap`, agent surface UI/transport); strip the deps from every package.json
+- [x] 3.3 TS: delete `packages/adapter-claude-code`, `packages/engine`, `packages/platform-bun`; remove agent types from `packages/sdk`; remove the renderer agent path (`agent_bootstrap`, agent surface UI/transport); strip the deps from every package.json. (CLI install/uninstall + `apps/server/src/index.ts` left as vestigial stubs — flagged for cleanup)
 - [x] 3.4 Tests: `cargo test -p tillerd-orchestrator` green after removal; terminal streaming/status/resize/reattach unaffected
 - [x] 3.5 Keep the gate, hook ingress, mcp-gateway, and memorya (shared infra) untouched
 
@@ -53,6 +53,6 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 ## 8. Verify + cleanup
 
-- [ ] 8.1 `cargo test -p tillerd-orchestrator` green; `cargo clippy -p tillerd-orchestrator --all-targets --locked -- -D warnings` clean
-- [ ] 8.2 `bun run verify` green (format / check-types / lint / test / e2e)
+- [x] 8.1 `cargo test -p tillerd-orchestrator` green; `cargo clippy -p tillerd-orchestrator --all-targets --locked -- -D warnings` clean
+- [x] 8.2 `bun run verify` green (format / check-types / lint / test / e2e) — EXIT=0 after the agent purge
 - [ ] 8.3 Confirm no dead code remains: the stub executor, the `open_*` methods, and the entire agent surface (orchestrator module, `SurfaceKind::Agent`, desktop IPC + bootstrap, TS agent + retired packages) are gone with no dangling references
