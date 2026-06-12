@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod agent;
 pub mod boot;
 pub mod error;
 pub mod persistence;
