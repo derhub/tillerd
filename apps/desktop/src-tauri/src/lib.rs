@@ -1,4 +1,3 @@
-mod bootstrap;
 mod bridge;
 mod daemon_session;
 mod diag;
@@ -49,13 +48,11 @@ pub fn run() {
             store::registry_remove,
             store::registry_list,
             supervisor::daemon_ensure,
-            bootstrap::agent_bootstrap,
             orchestrator_host::orchestrator_status,
             surface_host::surface_create,
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
-            surface_host::surface_create_agent,
             workspace_host::project_create,
             workspace_host::session_list,
             workspace_host::session_layout_set,

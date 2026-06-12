@@ -57,8 +57,6 @@ async fn live_terminal_streams_and_echoes_input() {
             surface.clone(),
             SurfaceKind::Terminal,
             None,
-            None,
-            None,
             "live-token".into(),
             80,
             24,
@@ -93,8 +91,6 @@ async fn live_resume_replays_scrollback_after_reattach() {
         .launch_surface(
             surface.clone(),
             SurfaceKind::Terminal,
-            None,
-            None,
             None,
             "live-token".into(),
             80,

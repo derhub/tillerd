@@ -115,7 +115,6 @@ fn resolve_command(command: &CommandRef, store: &Arc<dyn Store>) -> Result<Resol
 fn surface_kind_for(target: &str) -> Result<SurfaceKind> {
     match target {
         "terminal" => Ok(SurfaceKind::Terminal),
-        "agent" => Ok(SurfaceKind::Agent),
         "diff" => Ok(SurfaceKind::Diff),
         other => Err(OrchestratorError::UnsupportedSurfaceKind(other.to_string())),
     }

@@ -580,14 +580,6 @@ fn prebuilt_commands_mem() -> Vec<Command> {
             args: vec!["-l".to_string()],
             env: Default::default(),
         },
-        Command {
-            id: CommandId::from_string("00000000-0000-0000-0000-000000000102"),
-            name: "agent-cli".to_string(),
-            origin: CommandOrigin::Prebuilt,
-            cli: "claude".to_string(),
-            args: vec![],
-            env: Default::default(),
-        },
     ]
 }
 

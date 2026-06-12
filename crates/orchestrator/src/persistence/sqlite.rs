@@ -123,7 +123,6 @@ fn parse_source_kind(s: &str) -> SourceKind {
 
 fn parse_surface_kind(s: &str) -> SurfaceKind {
     match s {
-        "agent" => SurfaceKind::Agent,
         "diff" => SurfaceKind::Diff,
         _ => SurfaceKind::Terminal,
     }
@@ -1017,14 +1016,6 @@ fn prebuilt_commands() -> Vec<Command> {
             args: vec!["-l".to_string()],
             env: Default::default(),
         },
-        Command {
-            id: CommandId::from_string("00000000-0000-0000-0000-000000000102"),
-            name: "agent-cli".to_string(),
-            origin: CommandOrigin::Prebuilt,
-            cli: "claude".to_string(),
-            args: vec![],
-            env: Default::default(),
-        },
     ]
 }
 
@@ -1760,7 +1751,6 @@ mod tests {
 
         let cmds = store.list_commands().unwrap();
         assert!(cmds.iter().any(|c| c.name == "login-shell"));
-        assert!(cmds.iter().any(|c| c.name == "agent-cli"));
     }
 
     #[test]

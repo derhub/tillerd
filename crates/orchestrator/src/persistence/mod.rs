@@ -86,7 +86,6 @@ impl SourceKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurfaceKind {
     Terminal,
-    Agent,
     Diff,
 }
 
@@ -94,7 +93,6 @@ impl SurfaceKind {
     pub fn as_str(self) -> &'static str {
         match self {
             SurfaceKind::Terminal => "terminal",
-            SurfaceKind::Agent => "agent",
             SurfaceKind::Diff => "diff",
         }
     }
