@@ -9,7 +9,7 @@
 0.0.3 added an agent surface kind: a PTY surface that also subscribes to the gate by `surface_id`,
 installs the agent's hooks, and drains hook events into a status/content model (`AgentProxy`,
 `AGENT_DEF`/`AgentDefinition`, the orchestrator `agent` module, the desktop `surface_create_agent`
-and `agent_bootstrap` IPC, and the TS `adapter-claude-code` plus the retired TS backend `engine` /
+and `agent_bootstrap` IPC, and the TS agent-adapter package plus the retired TS backend `engine` /
 `platform-bun`). ADR-0026 then proposed generalizing surface creation into a uniform
 `Box<dyn SurfaceAdapter>` registry, with the agent as one adapter, to make new kinds additive.
 
@@ -30,8 +30,8 @@ ships the agent surface or narrows to terminals.
   unsupported-launch error. No `Box<dyn SurfaceAdapter>` registry, no `async-trait` dependency.
 - Delete the desktop `surface_create_agent` + `agent_bootstrap` IPC commands and the bootstrap
   module; the surface host constructs `SurfaceApi::new` without a gate socket.
-- Delete the TS agent layer (`adapter-claude-code`) and the retired TS backend (`engine`,
-  `platform-bun`), and remove agent types from the SDK and the agent path from the renderer.
+- Delete the TS agent-adapter package and the retired TS backend (`engine`, `platform-bun`), and
+  remove agent types from the SDK and the agent path from the renderer.
 - **The gate, hook ingress, mcp-gateway, and memorya stay.** The gate is shared infrastructure
   (ADR-0016/0018) consumed by mcp-gateway and memorya's hook capture; only the agent surface's
   subscription to it is removed.

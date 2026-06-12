@@ -28,8 +28,8 @@ paths.
 - **BREAKING — REMOVE the agent surface entirely (terminal-only 0.x; agent deferred to 1.x,
   ADR-0027).** Delete the orchestrator agent module (`definition`/`parse`/`setup`), `launch_agent`,
   `AgentProxy`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed;
-  the desktop `surface_create_agent` + `agent_bootstrap` IPC and bootstrap; and the TS agent layer
-  (`adapter-claude-code`) plus the retired TS backend (`engine`, `platform-bun`). The **gate**,
+  the desktop `surface_create_agent` + `agent_bootstrap` IPC and bootstrap; and the TS agent-adapter
+  package plus the retired TS backend (`engine`, `platform-bun`). The **gate**,
   hook ingress, mcp-gateway, and memorya stay — they are shared infrastructure; only the agent
   surface's subscription to the gate is removed. 0.x surfaces are terminal (with a `diff` viewer
   stub); runnable surfaces are terminals.
@@ -72,8 +72,9 @@ paths.
 - Delete the orchestrator `agent` module and the `apps/desktop/src-tauri` agent host
   (`surface_create_agent`, `agent_bootstrap`/bootstrap); `apps/desktop/src-tauri`:
   `workspace_host.rs`, `lib.rs` (new handlers).
-- TS: delete `packages/{adapter-claude-code,engine,platform-bun}`, remove agent types from
-  `packages/sdk`, and the renderer agent path (`apps/ui`); strip the deps from each package.json.
+- TS: delete the agent-adapter package and the retired `engine` / `platform-bun` packages, remove
+  agent types from `packages/sdk`, and the renderer agent path (`apps/ui`); strip the deps from
+  each package.json.
 - **BREAKING** — reverses the agent surface merged in 0.0.3; the gate / hook ingress / mcp-gateway
   / memorya stay (shared infra). Agent returns in 1.x (ADR-0027).
 - `daemon-pty-client` spawn already carries `command`/`args` — no protocol change.

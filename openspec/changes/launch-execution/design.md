@@ -63,7 +63,7 @@ terminal behavior). Spawning lives in one place. *Alternative:* per-kind spawn p
 ### 4. Remove the agent surface — terminal-only 0.x (ADR-0027)
 The agent surface (gate subscribe-before-spawn, hook install, drain→status/content, interrupt,
 teardown, `AgentProxy`, `AGENT_DEF`) is deleted from the orchestrator, the desktop host
-(`surface_create_agent`/`agent_bootstrap`), and the TS layer (`adapter-claude-code` plus the
+(`surface_create_agent`/`agent_bootstrap`), and the TS layer (the agent-adapter package plus the
 retired `engine`/`platform-bun`). The **gate**, hook ingress, mcp-gateway, and memorya stay — they
 are shared infrastructure; only the agent surface's subscription to the gate is removed. The agent
 returns in 1.x with the gate lifecycle, where its launch command comes from the command library
@@ -79,7 +79,7 @@ collapse, the remaining IPC, and the correctness fixes on top.
 
 - [Removing the agent surface reverses 0.0.3] → accepted product decision (ADR-0027): 0.x ships
   terminal-first. The deletion is broad (orchestrator agent module, `SurfaceKind::Agent`, desktop
-  IPC + bootstrap, TS `adapter-claude-code` + retired `engine`/`platform-bun`) but the gate / hook
+  IPC + bootstrap, the TS agent-adapter package + retired `engine`/`platform-bun`) but the gate / hook
   ingress / mcp-gateway / memorya — the shared infra — are untouched; only the agent surface's gate
   subscription is removed. Pre-v1, no migration. The agent returns in 1.x.
 - [Removing `open_*` changes the host-facing surface API (`create_terminal_surface` /
