@@ -3,16 +3,19 @@ use std::sync::Arc;
 use crate::error::{OrchestratorError, Result};
 use crate::persistence::{NewWorktree, ProjectId, Store, Worktree};
 
-/// Execute the worktree step: run `git worktree add <path> <branch>`, write a row to the store,
-/// and return the created `Worktree` (the caller uses `worktree.path` as the surface's `cwd`).
+/// Execute the worktree step: run `git worktree add <path> <branch>` against an explicit repository
+/// root (never the process working directory), write a row to the store, and return the created
+/// `Worktree` (the caller uses `worktree.path` as the surface's `cwd`).
 pub fn execute(
     project_id: &ProjectId,
     branch: &str,
     path: &str,
+    repo_root: &str,
     store: &Arc<dyn Store>,
 ) -> Result<Worktree> {
     let status = std::process::Command::new("git")
         .args(["worktree", "add", path, branch])
+        .current_dir(repo_root)
         .output()
         .map_err(|e| OrchestratorError::WorktreeStepFailed(e.to_string()))?;
 
@@ -83,13 +86,8 @@ mod tests {
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
         let project_id = ProjectId::unfiled();
 
-        // execute runs `git worktree add` from the cwd; set cwd to the repo
-        let saved = std::env::current_dir().ok();
-        let _ = std::env::set_current_dir(repo.path());
-        let worktree = execute(&project_id, "wt-test", &wt_path_str, &store).unwrap();
-        if let Some(d) = saved {
-            let _ = std::env::set_current_dir(d);
-        }
+        let repo_root = repo.path().to_str().unwrap();
+        let worktree = execute(&project_id, "wt-test", &wt_path_str, repo_root, &store).unwrap();
 
         assert_eq!(worktree.path, wt_path_str);
         assert_eq!(worktree.branch.as_deref(), Some("wt-test"));
@@ -105,11 +103,13 @@ mod tests {
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
         let project_id = ProjectId::unfiled();
 
-        // Use a non-existent path that will fail git (not in a git repo, no branch)
+        // A repo root that is not a git repository: `git worktree add` fails deterministically.
+        let not_a_repo = tempfile::tempdir().expect("tempdir");
         let err = execute(
             &project_id,
             "no-such-branch",
             "/tmp/tillerd-wt-test-nonexistent-xyzzy",
+            not_a_repo.path().to_str().unwrap(),
             &store,
         )
         .unwrap_err();
