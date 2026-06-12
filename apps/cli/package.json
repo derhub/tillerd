@@ -10,11 +10,7 @@
     "test": "bun test",
     "check-deps": "bun outdated"
   },
-  "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "@tillerd/logger": "workspace:*",
-    "@tillerd/sdk": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^6.0.3"
   }

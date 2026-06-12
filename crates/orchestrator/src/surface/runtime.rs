@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use contracts::{ContentEvent, SessionId as WireSessionId};
+use contracts::SessionId as WireSessionId;
 use daemon_pty_client::{SessionFrame, SpawnParams};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -24,8 +24,6 @@ pub trait SurfaceEventSink: Send + Sync + 'static {
     fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]);
     fn on_status(&self, surface: &SurfaceId, status: &str);
     fn on_exit(&self, surface: &SurfaceId, qualifier: &str);
-    /// Called when a content event is derived from a hook event.
-    fn on_content(&self, _surface: &SurfaceId, _event: &ContentEvent) {}
     /// Called when a non-recoverable surface-level error occurs after open.
     fn on_error(&self, _surface: &SurfaceId, _reason: &str) {}
 }
@@ -378,7 +376,6 @@ mod tests {
         bytes: StdMutex<Vec<u8>>,
         statuses: StdMutex<Vec<String>>,
         exits: StdMutex<Vec<String>>,
-        contents: StdMutex<Vec<ContentEvent>>,
         errors: StdMutex<Vec<String>>,
     }
 
@@ -391,9 +388,6 @@ mod tests {
         }
         fn on_exit(&self, _surface: &SurfaceId, qualifier: &str) {
             self.exits.lock().unwrap().push(qualifier.to_string());
-        }
-        fn on_content(&self, _surface: &SurfaceId, event: &ContentEvent) {
-            self.contents.lock().unwrap().push(event.clone());
         }
         fn on_error(&self, _surface: &SurfaceId, reason: &str) {
             self.errors.lock().unwrap().push(reason.to_string());

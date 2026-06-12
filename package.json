@@ -16,7 +16,7 @@
     "build:ci": "turbo run build --filter=!tillerd-desktop",
     "build:services": "bash tools/build-services.sh",
     "predev": "bash tools/build-services.sh",
-    "dev": "turbo run dev --filter=!@tillerd/server",
+    "dev": "turbo run dev",
     "check-types": "turbo run check-types",
     "test": "turbo run test --filter='!./tests/*'",
     "eval": "turbo run eval",
