@@ -65,4 +65,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: bun install --frozen-lockfile
       - run: cargo install tauri-webdriver --locked
+        # E2E_BUNDLED also boot-checks the release binary, so the suite runs against both a dev and
+        # a bundled build (dev-verification spec).
       - run: xvfb-run -a bun --filter @tillerd/desktop-e2e e2e
+        env:
+          E2E_BUNDLED: "1"
