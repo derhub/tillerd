@@ -730,7 +730,10 @@ mod tests {
         let frame = out_rx.recv().await.expect("a frame was sent back");
         let v: serde_json::Value = serde_json::from_slice(&frame[4..]).unwrap();
         assert_eq!(v["type"], "error");
-        assert_eq!(v["code"], "EDRAINING", "a draining daemon refuses new sessions");
+        assert_eq!(
+            v["code"], "EDRAINING",
+            "a draining daemon refuses new sessions"
+        );
         assert!(
             daemon.state.lock().unwrap().sessions.is_empty(),
             "no session was created while draining"

@@ -332,7 +332,10 @@ mod tests {
             probes.drained.get(),
             "a live version mismatch must drain the old instance before restarting"
         );
-        assert!(probes.spawned.get(), "the expected binary is then spawned fresh");
+        assert!(
+            probes.spawned.get(),
+            "the expected binary is then spawned fresh"
+        );
         assert!(!status.adopted, "the fresh instance is not an adoption");
     }
 

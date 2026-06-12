@@ -11,8 +11,8 @@ pub mod shutdown;
 pub mod signals;
 
 pub use host::{
-    run, run_blocking, Drain, HealthReport, HealthStatus, Ready, Service, ServiceConfig,
-    ServeContext,
+    run, run_blocking, Drain, HealthReport, HealthStatus, Ready, ServeContext, Service,
+    ServiceConfig,
 };
 pub use manifest::{Manifest, ManifestData, ServiceStatus};
 pub use paths::Paths;

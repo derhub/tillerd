@@ -145,33 +145,84 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         // `daemon_connect` excluded — see the handler list (concrete `AppHandle`, channel-only).
         ("daemon_send", serde_json::json!({ "bytes": [0u8, 1, 2] })),
         ("daemon_disconnect", serde_json::json!({})),
-        ("file_size", serde_json::json!({ "path": "/no/such/contract/file" })),
-        ("file_read", serde_json::json!({ "path": "/no/such/contract/file", "offset": 0, "length": 16 })),
-        ("log_forward", serde_json::json!({ "level": "info", "msg": "contract", "extra": null })),
+        (
+            "file_size",
+            serde_json::json!({ "path": "/no/such/contract/file" }),
+        ),
+        (
+            "file_read",
+            serde_json::json!({ "path": "/no/such/contract/file", "offset": 0, "length": 16 }),
+        ),
+        (
+            "log_forward",
+            serde_json::json!({ "level": "info", "msg": "contract", "extra": null }),
+        ),
         ("pref_get", serde_json::json!({ "key": "contract" })),
-        ("pref_set", serde_json::json!({ "key": "contract", "value": 1 })),
-        ("registry_get", serde_json::json!({ "sessionId": "contract" })),
-        ("registry_set", serde_json::json!({ "sessionId": "contract", "cwd": "/tmp" })),
-        ("registry_remove", serde_json::json!({ "sessionId": "contract" })),
+        (
+            "pref_set",
+            serde_json::json!({ "key": "contract", "value": 1 }),
+        ),
+        (
+            "registry_get",
+            serde_json::json!({ "sessionId": "contract" }),
+        ),
+        (
+            "registry_set",
+            serde_json::json!({ "sessionId": "contract", "cwd": "/tmp" }),
+        ),
+        (
+            "registry_remove",
+            serde_json::json!({ "sessionId": "contract" }),
+        ),
         ("registry_list", serde_json::json!({})),
         ("daemon_ensure", serde_json::json!({})),
         ("orchestrator_status", serde_json::json!({})),
-        ("surface_create", serde_json::json!({ "channel": channel, "sessionId": "contract", "cols": 80, "rows": 24, "cwd": null })),
-        ("surface_input", serde_json::json!({ "surfaceId": "contract", "bytes": [1u8] })),
-        ("surface_resize", serde_json::json!({ "surfaceId": "contract", "cols": 80, "rows": 24 })),
-        ("surface_detach", serde_json::json!({ "surfaceId": "contract" })),
+        (
+            "surface_create",
+            serde_json::json!({ "channel": channel, "sessionId": "contract", "cols": 80, "rows": 24, "cwd": null }),
+        ),
+        (
+            "surface_input",
+            serde_json::json!({ "surfaceId": "contract", "bytes": [1u8] }),
+        ),
+        (
+            "surface_resize",
+            serde_json::json!({ "surfaceId": "contract", "cols": 80, "rows": 24 }),
+        ),
+        (
+            "surface_detach",
+            serde_json::json!({ "surfaceId": "contract" }),
+        ),
         ("project_create", serde_json::json!({ "name": "contract" })),
         ("project_list", serde_json::json!({})),
-        ("project_rename", serde_json::json!({ "id": "contract", "name": "x" })),
+        (
+            "project_rename",
+            serde_json::json!({ "id": "contract", "name": "x" }),
+        ),
         ("project_archive", serde_json::json!({ "id": "contract" })),
         ("session_list", serde_json::json!({ "projectId": null })),
-        ("session_create", serde_json::json!({ "projectId": null, "title": "x", "titleSource": "agentTitle", "templateId": null })),
-        ("session_rename", serde_json::json!({ "id": "contract", "title": "x" })),
+        (
+            "session_create",
+            serde_json::json!({ "projectId": null, "title": "x", "titleSource": "agentTitle", "templateId": null }),
+        ),
+        (
+            "session_rename",
+            serde_json::json!({ "id": "contract", "title": "x" }),
+        ),
         ("session_archive", serde_json::json!({ "id": "contract" })),
-        ("session_layout_set", serde_json::json!({ "sessionId": "contract", "layoutJson": "{}" })),
-        ("session_layout_get", serde_json::json!({ "sessionId": "contract" })),
+        (
+            "session_layout_set",
+            serde_json::json!({ "sessionId": "contract", "layoutJson": "{}" }),
+        ),
+        (
+            "session_layout_get",
+            serde_json::json!({ "sessionId": "contract" }),
+        ),
         ("command_list", serde_json::json!({})),
-        ("command_create", serde_json::json!({ "req": { "name": "x", "cli": "/x", "args": [], "env": {} } })),
+        (
+            "command_create",
+            serde_json::json!({ "req": { "name": "x", "cli": "/x", "args": [], "env": {} } }),
+        ),
         ("command_get", serde_json::json!({ "id": "contract" })),
         ("command_delete", serde_json::json!({ "id": "contract" })),
     ];

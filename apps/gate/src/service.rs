@@ -156,7 +156,10 @@ impl Service for Gate {
 
     async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
         let ServeContext {
-            paths, ready, drain, ..
+            paths,
+            ready,
+            drain,
+            ..
         } = ctx;
         self.bind_socket(paths.base_dir())?;
         // Listening: announce readiness so the host flips the manifest to `ready` for discovery.
