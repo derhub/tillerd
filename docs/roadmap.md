@@ -4,21 +4,24 @@ Status legend: `- [ ]` planned · `- [x]` done · `[WIP]` in progress · `[HELP]
 input. Within a milestone, items are ordered most to least foundational. Every version
 is a small, demoable step; nothing is shortcut to a `.0` bucket.
 
-> Status: 0.0.x, pre-release. Core components are scaffolded — PTY daemon, gate,
-> desktop shell — but the app does not yet work end-to-end. The **0.0.x** line builds
-> the foundation (a Rust orchestrator, persistence, the surface runtime). **0.x is
-> terminal-only**: the agent surface (built in 0.0.3) was removed in the launch-execution
-> cut and is deferred to **1.0.0** ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
-> The first complete working release ships at the **end of the 0.1.x** line. **0.2.x**
-> adds more services; **1.0.0** is the stable horizon. See ADRs
+> Status: 0.0.x, pre-release. The **0.0.x** line ships a **working app**: the
+> foundation is in (Rust orchestrator, persistence, surface runtime, launch system —
+> 0.0.1–0.0.5); what remains is contracts + test coverage, observability, health /
+> first-run UX, settings, and a UX/UI pass. **0.x is terminal-only**: the agent surface
+> (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
+> ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
+> After the working app, **0.x is stabilization and enhancement**: **0.1.x** hardens and
+> distributes (secrets, daemon upgrade, signed bundles); **0.2.x** extends (more services
+> and surface kinds); **1.0.0** is the stable horizon. See ADRs
 > [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
 > for the workspace model and the 0.0.x build. See [CHANGELOG](../CHANGELOG.md).
 
 ---
 
-## 0.0.x — Foundation
+## 0.0.x — Working app
 
-The Rust inversion and a working vertical slice.
+The Rust inversion, then everything a daily-usable app needs. The line ends with the
+working app shipping at **0.0.10**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -93,42 +96,53 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   spawn a session, assert the terminal renders and streams. (Agent render deferred
   to 1.0.0 with the agent surface.)
 
----
-
-## 0.1.x — Working workspace (first complete release)
-
-Harden the working slice into a shippable workspace on a standardized foundation. The
-complete release ships at **0.1.4**.
-
-### 0.1.0 — Observability
+### 0.0.7 — Observability
 
 - [ ] `correlation_id` threaded across hops in structured logs.
 - [ ] Log-viewer surface in the desktop.
 
-### 0.1.1 — Secrets and settings
-
-- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
-- [ ] Settings: global (default agent, theme, default command library / template) +
-  per-project.
-
-### 0.1.2 — Health and first-run UX
+### 0.0.8 — Health and first-run UX
 
 - [ ] Per-service health indicators (gate / daemon) with failure surfacing.
-- [ ] First-run / onboarding: agent binary missing, version out of range, services down.
+- [ ] First-run / onboarding: services down, version out of range, fresh-machine setup.
 
-### 0.1.3 — Daemon drain-and-restart upgrade
+### 0.0.9 — Settings
+
+- [ ] Global settings: theme, default command library / default template.
+- [ ] Per-project overrides: launch template, project env.
+
+### 0.0.10 — UX/UI (ships the working app)
+
+- [ ] Apply [`DESIGN.md`](../apps/ui/DESIGN.md) tokens across the shell: consistent
+  dark / light modes, zero-radius density rules on every component.
+- [ ] Close the DESIGN.md known gaps: motion / transition scale, light-mode component
+  coverage, icon sizing token.
+- [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
+  failure states.
+
+---
+
+## 0.1.x — Stabilization and distribution
+
+Harden the working app and make it installable.
+
+### 0.1.0 — Secrets
+
+- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
+
+### 0.1.1 — Daemon drain-and-restart upgrade
 
 - [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
   daemon drains (refuses new sessions, lets active ones finish), swaps the binary, starts
   fresh. Proposed against the `daemon-upgrade` spec (`daemon-upgrade-drain-restart`).
 
-### 0.1.4 — Desktop distribution (ships the first complete release)
+### 0.1.2 — Desktop distribution
 
 - [ ] Signed, notarized bundles (dmg / AppImage / deb) across macOS + Linux `[HELP]` (Windows?).
 - [ ] Auto-update.
 - [ ] Release pipeline — versioned releases + generated changelogs via changesets.
 
-### 0.1.5 — Docs reconciliation
+### 0.1.3 — Docs reconciliation
 
 - [ ] README and guides match the Rust-backend, desktop-only architecture.
 

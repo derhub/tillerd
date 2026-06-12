@@ -7,8 +7,8 @@ and APIs may break between minor versions.
 ## [Unreleased]
 
 0.0.6 in progress: one service contract on `service-host` (lifecycle / discovery /
-health / identity) and a desktop end-to-end test. The first complete working release
-ships at the end of the 0.1.x line.
+health / identity) and a desktop end-to-end test. The working app ships at the end
+of the 0.0.x line (0.0.10); 0.1.x stabilizes and distributes it.
 
 ## [0.0.5] — 2026-06-13
 
