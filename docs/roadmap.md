@@ -99,9 +99,11 @@ additive on these seams, never a change to them.
   of manual checks: embed `tauri-plugin-webdriver` (test-gated) + drive with
   `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
   incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
-  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Visual test:
-  spawn a session, assert the terminal renders and streams. (Agent render deferred
-  to 1.0.0 with the agent surface.)
+  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Coverage: boot to
+  ready in both dev and bundled modes, create project / session / surface flows, the
+  terminal renders and streams, resume after restart. (Agent render deferred to 1.0.0
+  with the agent surface.)
+- [ ] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
 - [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
   (socket / manifest), health (ADR-0019), identity / version.
   Gate + daemon conform; future services inherit the contract. (Health feeds the
@@ -116,6 +118,10 @@ additive on these seams, never a change to them.
   shell and close its token-level gaps (motion / transition scale, icon sizing
   token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
   settings) is built on final tokens.
+- [ ] Dead-code sweep: delete the retired TS packages left from the Rust inversion
+  (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`,
+  …) where nothing live references them; dormant `apps/server` keeps only what it
+  needs until its 0.1.4 rewrite.
 
 ### 0.0.7 — Observability
 
@@ -131,6 +137,7 @@ additive on these seams, never a change to them.
 - [ ] Global settings: theme, default command library / default template.
 - [ ] Per-project overrides: launch template, project env.
 - [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
+- [ ] Window state restore: size / position persisted, restored on relaunch.
 
 ### 0.0.10 — UX/UI (ships the working app)
 
@@ -174,6 +181,20 @@ additive on the architecture frozen at 0.0.6.
 ### 0.1.5 — Docs reconciliation
 
 - [ ] README and guides match the shipped architecture.
+
+---
+
+## Parked
+
+On the line, not scheduled:
+
+- **memorya** (`apps/memorya`) — knowledge capture over the gate's hook fan-out;
+  dormant until the agent surface returns (1.0.0+).
+- **mcp-gateway** (`apps/mcp-gateway`) — agent-facing MCP front (ADR-0013–0015);
+  dormant and unsupervised in 0.x; returns with the agent surface (1.0.0).
+- **`apps/server`** — dormant; revived in Rust as the web host at 0.1.4.
+- **CLI** (`apps/cli`) — thin daemon-status tool; stays minimal until a real
+  controller need appears.
 
 ---
 
