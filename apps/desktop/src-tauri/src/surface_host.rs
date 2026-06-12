@@ -79,9 +79,8 @@ pub async fn surface_create(
 ) -> Result<String, String> {
     let session = SessionId::from_string(session_id);
 
-    // Revisit: if this session already has a terminal surface, re-attach to it (its live PTY replays
-    // the scrollback) so the same terminal — and its content — comes back instead of a fresh one. A
-    // stale surface (its shell exited) is dropped and replaced by a fresh create below.
+    // Revisit: re-attach to the session's existing terminal (resume replays its scrollback) rather
+    // than spawn a fresh one; a stale surface (shell exited) falls through to create below.
     if let Some(existing) = state
         .api
         .find_session_terminal_surface(&session)
@@ -93,8 +92,8 @@ pub async fn surface_create(
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert(existing.as_str().to_string(), channel.clone());
-        // Drop any lingering proxy from the previous mount, then resume — a fresh subscribe replays
-        // the scrollback into the remounted terminal rather than taking the idempotent no-op path.
+        // Drop any lingering proxy first so resume does a fresh subscribe (replays scrollback)
+        // instead of its idempotent no-op.
         let _ = state.api.detach(&existing).await;
         match state.api.resume_surface(&existing).await {
             Ok(()) => return Ok(existing.as_str().to_string()),

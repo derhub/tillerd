@@ -1658,7 +1658,7 @@ mod tests {
         let surf1 = store.create_surface(new_terminal(s1.id.clone())).unwrap();
         let surf2 = store.create_surface(new_terminal(s2.id.clone())).unwrap();
 
-        // Two sessions get two distinct surfaces, each bound to its own session — no sharing.
+        // Two sessions get two distinct surfaces, each bound to its own session (no sharing).
         assert_ne!(surf1.id, surf2.id, "sessions must not share a surface id");
         assert_eq!(surf1.session_id, s1.id);
         assert_eq!(surf2.session_id, s2.id);
@@ -1671,7 +1671,7 @@ mod tests {
             s2.id
         );
 
-        // Each session owns exactly its surface — no cross-contamination across the registry.
+        // Each session owns exactly its surface (no cross-contamination across the registry).
         let resumable = store.list_resumable_surfaces().unwrap();
         let owned_by = |sid: &SessionId| {
             resumable

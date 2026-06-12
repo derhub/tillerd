@@ -124,8 +124,6 @@ impl SurfaceApi {
         self.runtime.resume_all().await
     }
 
-    /// The session's existing terminal surface, if any — re-attach to it on revisit (see
-    /// [`Self::resume_surface`]) instead of creating a fresh terminal.
     pub fn find_session_terminal_surface(
         &self,
         session_id: &SessionId,
@@ -136,8 +134,8 @@ impl SurfaceApi {
             .map(|s| s.id))
     }
 
-    /// Re-attach to an existing surface's live PTY, replaying its scrollback. Errors if its session
-    /// is gone (the caller then creates a fresh surface).
+    /// Re-attach to an existing surface's live PTY, replaying scrollback. Errors if its session is
+    /// gone, so the caller can create a fresh surface instead.
     pub async fn resume_surface(&self, surface: &SurfaceId) -> Result<()> {
         self.runtime.resume(surface.clone()).await
     }
@@ -315,5 +313,35 @@ mod tests {
         assert_eq!(row.cwd.as_deref(), Some("/tmp"));
         assert_eq!(api.runtime.proxy_count().await, 1);
         daemon.abort();
+    }
+
+    #[test]
+    fn find_session_terminal_surface_resolves_a_session_to_its_own_terminal() {
+        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let with_surface = store.create_session(NewSession::default()).unwrap();
+        let without_surface = store.create_session(NewSession::default()).unwrap();
+        let surface = store
+            .create_surface(NewSurface {
+                id: Some(SurfaceId::from_string("revisit-surf")),
+                session_id: with_surface.id.clone(),
+                kind: SurfaceKind::Terminal,
+                cwd: None,
+                placement: None,
+                worktree_id: None,
+            })
+            .unwrap();
+        let api = SurfaceApi::new(store, Arc::new(NullSink), "/tmp/unused.sock".into());
+
+        // The revisit path resolves a session to its own terminal surface, and to None when it has
+        // never opened one.
+        assert_eq!(
+            api.find_session_terminal_surface(&with_surface.id).unwrap(),
+            Some(surface.id),
+        );
+        assert_eq!(
+            api.find_session_terminal_surface(&without_surface.id)
+                .unwrap(),
+            None,
+        );
     }
 }

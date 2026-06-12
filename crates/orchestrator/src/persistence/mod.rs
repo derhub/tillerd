@@ -361,8 +361,7 @@ pub trait Store: Send + Sync {
 
     fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>>;
 
-    /// The session's live terminal surface, if any — the one to re-attach to when the session is
-    /// revisited (so its terminal comes back instead of a fresh one).
+    /// The session's live terminal surface, if any (the one to re-attach to on revisit).
     fn find_session_terminal_surface(&self, session_id: &SessionId) -> Result<Option<Surface>>;
 
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>>;
