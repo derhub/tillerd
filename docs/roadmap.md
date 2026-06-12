@@ -11,8 +11,8 @@ is a small, demoable step; nothing is shortcut to a `.0` bucket.
 > cut and is deferred to **1.0.0** ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
 > The first complete working release ships at the **end of the 0.1.x** line. **0.2.x**
 > adds more services; **1.0.0** is the stable horizon. See ADRs
-> [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0023](./adr/0023-workspace-data-model-and-two-level-id.md)
-> and [`roadmap-plan.md`](./roadmap-plan.md). See [CHANGELOG](../CHANGELOG.md).
+> [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
+> for the workspace model and the 0.0.x build. See [CHANGELOG](../CHANGELOG.md).
 
 ---
 
@@ -118,9 +118,9 @@ complete release ships at **0.1.4**.
 
 ### 0.1.3 — Daemon drain-and-restart upgrade
 
-- [ ] Replace fd-handoff with a simpler planned-upgrade path. Deferred: the 0.0.x Rust
-  inversion retires the TS-engine handoff this targets, so the change is re-authored
-  against the orchestrator + `daemon-upgrade` / `rust-pty-daemon` specs once 0.0.x lands.
+- [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
+  daemon drains (refuses new sessions, lets active ones finish), swaps the binary, starts
+  fresh. Proposed against the `daemon-upgrade` spec (`daemon-upgrade-drain-restart`).
 
 ### 0.1.4 — Desktop distribution (ships the first complete release)
 
