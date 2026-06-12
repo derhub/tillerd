@@ -167,9 +167,16 @@ impl SurfaceRuntime {
         Ok((wire, conn, rx))
     }
 
-    pub async fn open_terminal(
+    /// Uniform surface launch: dispatch by kind to the kind's adapter. The launch executor
+    /// and the surface API call only this; a kind with no adapter is a typed error.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn launch_surface(
         &self,
         surface: SurfaceId,
+        kind: SurfaceKind,
+        command: Option<ResolvedCommand>,
+        agent_home: Option<&Path>,
+        notify_command: Option<&str>,
         token: String,
         cols: u16,
         rows: u16,
@@ -178,19 +185,79 @@ impl SurfaceRuntime {
         if self.proxies.lock().await.contains_key(&surface) {
             return Err(surface_err(&surface, "surface already has a proxy"));
         }
+        match kind {
+            SurfaceKind::Terminal => {
+                self.launch_terminal(surface, command, token, cols, rows, cwd)
+                    .await
+            }
+            SurfaceKind::Agent => {
+                let command = match command {
+                    Some(c) => c,
+                    None => self.resolve_agent_command(&surface)?,
+                };
+                let agent_home = agent_home
+                    .ok_or_else(|| surface_err(&surface, "agent surface requires agent_home"))?;
+                let notify_command = notify_command.ok_or_else(|| {
+                    surface_err(&surface, "agent surface requires a notify command")
+                })?;
+                self.launch_agent(
+                    surface,
+                    command,
+                    agent_home,
+                    notify_command,
+                    token,
+                    cols,
+                    rows,
+                    cwd,
+                )
+                .await
+            }
+            SurfaceKind::Diff => Err(surface_err(
+                &surface,
+                "unsupported surface kind for launch: diff",
+            )),
+        }
+    }
 
-        let (wire, conn, rx) = self.spawn(&surface, None, &cwd, cols, rows, &token).await?;
+    async fn launch_terminal(
+        &self,
+        surface: SurfaceId,
+        command: Option<ResolvedCommand>,
+        token: String,
+        cols: u16,
+        rows: u16,
+        cwd: String,
+    ) -> Result<()> {
+        let (wire, conn, rx) = self
+            .spawn(&surface, command.as_ref(), &cwd, cols, rows, &token)
+            .await?;
         let state = Arc::new(Mutex::new(ProxyState::Attaching(Vec::new())));
         self.spawn_terminal_proxy(surface, wire, conn, rx, state)
             .await;
         Ok(())
     }
 
-    /// Open an agent surface: subscribe to the gate, install hooks, spawn via daemon.
+    fn resolve_agent_command(&self, surface: &SurfaceId) -> Result<ResolvedCommand> {
+        let exe = self.agent_def.resolve_binary().ok_or_else(|| {
+            surface_err(
+                surface,
+                format!("agent binary '{}' not found on PATH", self.agent_def.binary),
+            )
+        })?;
+        Ok(ResolvedCommand {
+            exe,
+            args: self.agent_def.args_for(surface.as_str()),
+            env: BTreeMap::new(),
+        })
+    }
+
+    /// Bring an agent surface to life: subscribe to the gate before spawn so no hook event is
+    /// missed, install hooks, spawn the supplied command, and drain hooks into status/content.
     #[allow(clippy::too_many_arguments)]
-    pub async fn open_agent(
+    async fn launch_agent(
         &self,
         surface: SurfaceId,
+        command: ResolvedCommand,
         agent_home: &Path,
         notify_command: &str,
         token: String,
@@ -198,20 +265,7 @@ impl SurfaceRuntime {
         rows: u16,
         cwd: String,
     ) -> Result<()> {
-        if self.proxies.lock().await.contains_key(&surface) {
-            return Err(surface_err(&surface, "surface already has a proxy"));
-        }
-
-        // Resolve the agent binary up front so a missing CLI fails before any side effects.
-        let agent_bin = self.agent_def.resolve_binary().ok_or_else(|| {
-            surface_err(
-                &surface,
-                format!("agent binary '{}' not found on PATH", self.agent_def.binary),
-            )
-        })?;
-        let agent_args = self.agent_def.args_for(surface.as_str());
-
-        // 1. Open gate subscription (before spawn so no hook events are missed).
+        // Open gate subscription (before spawn so no hook events are missed).
         let wire_sid = WireSessionId(surface.as_str().to_string());
         let preamble = encode_subscribe_preamble(&wire_sid);
         let mut gate_stream = UnixStream::connect(&self.gate_socket)
@@ -252,12 +306,7 @@ impl SurfaceRuntime {
         setup::install(agent_home, notify_command)
             .map_err(|e| surface_err(&surface, format!("hook install: {e}")))?;
 
-        // 3. Spawn the agent command via the generic spawn (shared with every kind).
-        let command = ResolvedCommand {
-            exe: agent_bin,
-            args: agent_args,
-            env: BTreeMap::new(),
-        };
+        // Spawn the agent command via the generic spawn.
         let (wire, conn, rx) = self
             .spawn(&surface, Some(&command), &cwd, cols, rows, &token)
             .await?;
@@ -685,8 +734,12 @@ mod tests {
         let runtime = SurfaceRuntime::new(store, sink.clone(), sock);
 
         runtime
-            .open_terminal(
+            .launch_surface(
                 SurfaceId::from_string("surf-1"),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
                 "tok".into(),
                 80,
                 24,
@@ -767,7 +820,17 @@ mod tests {
 
         let surface = SurfaceId::from_string("s");
         runtime
-            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .launch_surface(
+                surface.clone(),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
+                "t".into(),
+                80,
+                24,
+                "/".into(),
+            )
             .await
             .expect("open");
         // Send input while still attaching (spawn-ack delayed).
@@ -850,7 +913,17 @@ mod tests {
 
         let surface = SurfaceId::from_string("rs");
         runtime
-            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .launch_surface(
+                surface.clone(),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
+                "t".into(),
+                80,
+                24,
+                "/".into(),
+            )
             .await
             .unwrap();
         runtime.resize(&surface, 100, 30).await.unwrap();
@@ -869,7 +942,17 @@ mod tests {
 
         let surface = SurfaceId::from_string("dt");
         runtime
-            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .launch_surface(
+                surface.clone(),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
+                "t".into(),
+                80,
+                24,
+                "/".into(),
+            )
             .await
             .unwrap();
         runtime.detach(&surface).await.unwrap();
@@ -889,7 +972,17 @@ mod tests {
 
         let surface = SurfaceId::from_string("rm");
         runtime
-            .open_terminal(surface.clone(), "t".into(), 80, 24, "/".into())
+            .launch_surface(
+                surface.clone(),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
+                "t".into(),
+                80,
+                24,
+                "/".into(),
+            )
             .await
             .unwrap();
         runtime.remove(&surface).await.unwrap();
@@ -999,10 +1092,12 @@ mod tests {
 
         let runtime = agent_runtime(daemon_sock, gate_sock, Arc::new(CollectingSink::default()));
         runtime
-            .open_agent(
+            .launch_surface(
                 SurfaceId::from_string("ag-x"),
-                &agent_home,
-                "tillerd-notify",
+                SurfaceKind::Agent,
+                None,
+                Some(agent_home.as_path()),
+                Some("tillerd-notify"),
                 "tok".into(),
                 80,
                 24,
@@ -1051,10 +1146,12 @@ mod tests {
         };
 
         let result = runtime
-            .open_agent(
+            .launch_surface(
                 SurfaceId::from_string("ag-y"),
-                &agent_home,
-                "tillerd-notify",
+                SurfaceKind::Agent,
+                None,
+                Some(agent_home.as_path()),
+                Some("tillerd-notify"),
                 "tok".into(),
                 80,
                 24,
@@ -1141,6 +1238,30 @@ mod tests {
         assert_eq!(args, vec!["hi"]);
     }
 
+    #[tokio::test]
+    async fn launch_surface_rejects_unsupported_kind() {
+        let dir = tempfile::tempdir().unwrap();
+        let runtime = agent_runtime(
+            dir.path().join("daemon.sock"),
+            dir.path().join("gate.sock"),
+            Arc::new(CollectingSink::default()),
+        );
+        let result = runtime
+            .launch_surface(
+                SurfaceId::from_string("d-1"),
+                SurfaceKind::Diff,
+                None,
+                None,
+                None,
+                "t".into(),
+                80,
+                24,
+                "/".into(),
+            )
+            .await;
+        assert!(result.is_err(), "diff has no adapter; launch must error");
+    }
+
     fn agent_runtime(
         daemon_sock: PathBuf,
         gate_sock: PathBuf,
@@ -1205,10 +1326,12 @@ mod tests {
         let runtime = agent_runtime(daemon_sock, gate_sock, sink.clone());
 
         runtime
-            .open_agent(
+            .launch_surface(
                 SurfaceId::from_string("ag-1"),
-                &agent_home,
-                "tillerd-notify",
+                SurfaceKind::Agent,
+                None,
+                Some(agent_home.as_path()),
+                Some("tillerd-notify"),
                 "tok".into(),
                 80,
                 24,
@@ -1252,10 +1375,12 @@ mod tests {
         let runtime = agent_runtime(daemon_sock, gate_sock, sink.clone());
 
         runtime
-            .open_agent(
+            .launch_surface(
                 SurfaceId::from_string("ag-err"),
-                &agent_home,
-                "tillerd-notify",
+                SurfaceKind::Agent,
+                None,
+                Some(agent_home.as_path()),
+                Some("tillerd-notify"),
                 "tok".into(),
                 80,
                 24,

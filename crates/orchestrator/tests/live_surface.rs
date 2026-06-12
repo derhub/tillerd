@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use orchestrator::persistence::memory::InMemoryStore;
-use orchestrator::persistence::{Store, SurfaceId};
+use orchestrator::persistence::{Store, SurfaceId, SurfaceKind};
 use orchestrator::surface::{SurfaceEventSink, SurfaceRuntime};
 
 struct Collect(Mutex<Vec<u8>>);
@@ -53,7 +53,17 @@ async fn live_terminal_streams_and_echoes_input() {
     let (runtime, sink) = setup(&sock_from_env());
     let surface = SurfaceId::from_string("live-terminal-1");
     runtime
-        .open_terminal(surface.clone(), "live-token".into(), 80, 24, "/tmp".into())
+        .launch_surface(
+            surface.clone(),
+            SurfaceKind::Terminal,
+            None,
+            None,
+            None,
+            "live-token".into(),
+            80,
+            24,
+            "/tmp".into(),
+        )
         .await
         .expect("open terminal against the live daemon");
 
@@ -80,7 +90,17 @@ async fn live_resume_replays_scrollback_after_reattach() {
 
     let (runtime_a, _sink_a) = setup(&sock);
     runtime_a
-        .open_terminal(surface.clone(), "live-token".into(), 80, 24, "/tmp".into())
+        .launch_surface(
+            surface.clone(),
+            SurfaceKind::Terminal,
+            None,
+            None,
+            None,
+            "live-token".into(),
+            80,
+            24,
+            "/tmp".into(),
+        )
         .await
         .expect("open");
     tokio::time::sleep(Duration::from_millis(900)).await;

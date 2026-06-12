@@ -51,7 +51,17 @@ impl SurfaceApi {
         let token = uuid::Uuid::new_v4().to_string();
         let work_dir = cwd.unwrap_or_else(default_cwd);
         self.runtime
-            .open_terminal(surface.id.clone(), token, cols, rows, work_dir)
+            .launch_surface(
+                surface.id.clone(),
+                SurfaceKind::Terminal,
+                None,
+                None,
+                None,
+                token,
+                cols,
+                rows,
+                work_dir,
+            )
             .await?;
         Ok(surface.id)
     }
@@ -95,10 +105,12 @@ impl SurfaceApi {
         let token = uuid::Uuid::new_v4().to_string();
         let work_dir = cwd.unwrap_or_else(default_cwd);
         self.runtime
-            .open_agent(
+            .launch_surface(
                 surface.id.clone(),
-                agent_home,
-                notify_command,
+                SurfaceKind::Agent,
+                None,
+                Some(agent_home),
+                Some(notify_command),
                 token,
                 cols,
                 rows,
