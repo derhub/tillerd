@@ -389,6 +389,49 @@ zero radius. Contains Resume ({colors.terminal-success} fill) and Dismiss
 (emerald-500/emerald-300), error (red-500/red-300). Pointer-events none —
 informational only.
 
+## Motion
+
+Named transition scale. Theme-independent; defined in `app.css`. Token names are frozen at
+0.0.6. Apply with Tailwind arbitrary values, e.g. `transition-colors duration-[var(--motion-base)]
+ease-standard`.
+
+| Token | value | Use |
+|---|---|---|
+| `--motion-instant` | 0ms | No transition (immediate state flips) |
+| `--motion-fast` | 100ms | Hover/active feedback on small targets |
+| `--motion-base` | 150ms | Default for color/background transitions |
+| `--motion-slow` | 250ms | Larger surface changes (panel reveal) |
+| `--ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | The single shell easing curve |
+
+Prefer `transition-colors`/`transition-opacity` over `transition-all`. One easing curve only —
+no bounce, no per-component custom timing.
+
+## Icon Sizing
+
+Three sizes cover the shell. Defined in `app.css`; token names frozen at 0.0.6. Apply with
+`size-[var(--icon-md)]`.
+
+| Token | rem | px | Use |
+|---|---|---|---|
+| `--icon-sm` | 0.75rem | 12px | Dense inline / sidebar action icons |
+| `--icon-md` | 0.875rem | 14px | Default action icons |
+| `--icon-lg` | 1rem | 16px | Panel headers / primary controls |
+
+## Light Mode
+
+Every color token has a light-mode counterpart (`light-2026.css`, `:root`) mirroring the dark set
+(`.dark`); the shell renders identically structured in both. Light-mode specifics:
+
+- **Canvas lifts:** background is off-white ({colors.background} `#fafafd`); cards are pure white
+  ({colors.card} `#ffffff`) — the one-stop-lighter card elevation from dark mode inverts to
+  one-stop-whiter.
+- **Borders read darker than the canvas** ({colors.border} `#e4e5e6`) rather than lighter, keeping
+  the 1px-border depth model intact without shadows.
+- **Primary deepens** to {colors.primary} `#0069cc` for contrast on light surfaces; destructive
+  deepens to `#ad0707`.
+- **The terminal palette is exempt** — `terminal-*` tokens stay GitHub-dark in both themes, so the
+  terminal canvas is dark even in light mode (by design; do not theme it).
+
 ## Do's and Don'ts
 
 - Do use {colors.border} 1px borders for all surface separation — never
@@ -413,14 +456,7 @@ informational only.
 
 ## Known Gaps
 
-- Animation and transition timings are not documented. Tailwind `transition-all`
-  with default duration (150ms) is used throughout; no named motion scale.
-- Dark mode is the primary documented mode. Light mode token counterparts are
-  listed but the prose does not describe light-mode-specific component
-  appearances.
 - Diff panel component (`DiffPanel`) styles not extracted — uses an external
   renderer whose token integration is not yet defined.
 - Agent pane (`AgentPane`) styles not extracted — surface in flux (deferred to
   1.x per roadmap).
-- No icon sizing scale documented. Icons are used at `size-3` (12px),
-  `size-3.5` (14px), `size-4` (16px) contextually; no formal token.

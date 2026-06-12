@@ -85,7 +85,7 @@ function PanelToolbar({ children, className }: { children: ReactNode; className?
     <div
       className={cn(
         "flex items-center gap-0.5 ml-auto shrink-0",
-        "opacity-0 group-hover/panel:opacity-100 transition-opacity duration-100",
+        "opacity-0 group-hover/panel:opacity-100 transition-opacity duration-[var(--motion-fast)] ease-standard",
         className,
       )}
     >
