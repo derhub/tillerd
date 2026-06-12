@@ -1,4 +1,6 @@
 mod bridge;
+#[cfg(test)]
+mod command_contract;
 mod daemon_session;
 mod diag;
 mod files;

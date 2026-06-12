@@ -408,6 +408,63 @@ mod tests {
         Arc::new(InMemoryStore::new())
     }
 
+    /// Assert a serialized response carries exactly the camelCase keys the SDK type declares, so
+    /// host response shapes can't silently drift from the `@tillerd/sdk` contract.
+    fn assert_keys(value: &serde_json::Value, expected: &[&str]) {
+        let obj = value.as_object().expect("response serializes to an object");
+        let mut got: Vec<&str> = obj.keys().map(String::as_str).collect();
+        got.sort_unstable();
+        let mut want = expected.to_vec();
+        want.sort_unstable();
+        assert_eq!(got, want, "response keys drifted from the SDK contract");
+    }
+
+    #[test]
+    fn project_response_matches_sdk_project_shape() {
+        let store = fake_store();
+        let p = do_project_create(&store, "P".to_string()).unwrap();
+        assert_keys(
+            &serde_json::to_value(p).unwrap(),
+            &["id", "name", "sourceKind", "rootPath"],
+        );
+    }
+
+    #[test]
+    fn session_response_matches_sdk_session_shape() {
+        let store = fake_store();
+        let s = do_session_create(
+            &store,
+            SessionCreateRequest {
+                title: Some("S".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_keys(
+            &serde_json::to_value(session_response(s)).unwrap(),
+            &["id", "projectId", "title", "titleSource", "createdAt"],
+        );
+    }
+
+    #[test]
+    fn command_response_matches_sdk_command_shape() {
+        let store = fake_store();
+        let c = do_command_create(
+            &store,
+            CreateCommandRequest {
+                name: "c".to_string(),
+                cli: "/c".to_string(),
+                args: vec![],
+                env: Default::default(),
+            },
+        )
+        .unwrap();
+        assert_keys(
+            &serde_json::to_value(c).unwrap(),
+            &["id", "name", "origin", "cli", "args", "env"],
+        );
+    }
+
     #[test]
     fn project_create_delegates_to_store() {
         let store = fake_store();

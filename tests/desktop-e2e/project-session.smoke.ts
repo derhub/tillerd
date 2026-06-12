@@ -59,10 +59,10 @@ try {
   const firstSessionUrl = await browser.getUrl();
 
   // The project now appears in the sidebar with its own "New session" control.
-  await browser.waitUntil(
-    async () => (await browser.$("body").getText()).includes(PROJECT_NAME),
-    { timeout: 10_000, timeoutMsg: "created project did not appear in the sidebar" },
-  );
+  await browser.waitUntil(async () => (await browser.$("body").getText()).includes(PROJECT_NAME), {
+    timeout: 10_000,
+    timeoutMsg: "created project did not appear in the sidebar",
+  });
 
   // Create a second session WITHIN that project and assert it routes to a different session.
   const newSession = await browser.$(`button[title="New session in ${PROJECT_NAME}"]`);
