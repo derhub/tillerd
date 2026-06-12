@@ -152,5 +152,4 @@ mod tests {
         assert_eq!(api.runtime.proxy_count().await, 1);
         daemon.abort();
     }
-
 }

@@ -87,7 +87,13 @@ fn run_worktree_step(
     let repo_root = project.root_path.ok_or_else(|| {
         OrchestratorError::WorktreeStepFailed("project has no repository root".to_string())
     })?;
-    worktree::execute(&session.project_id, &step.branch, &step.path, &repo_root, store)
+    worktree::execute(
+        &session.project_id,
+        &step.branch,
+        &step.path,
+        &repo_root,
+        store,
+    )
 }
 
 /// Resolve a launch item's command: a library reference resolves to the stored command; an inline
@@ -350,7 +356,10 @@ mod tests {
             .find(|s| s.session_id == session_id)
             .expect("surface created");
         assert_eq!(surface.cwd.as_deref(), Some(wt_path.as_str()));
-        assert!(surface.worktree_id.is_some(), "worktree recorded on surface");
+        assert!(
+            surface.worktree_id.is_some(),
+            "worktree recorded on surface"
+        );
         let calls = launcher.calls.lock().unwrap();
         assert_eq!(
             calls[0].2.as_deref(),

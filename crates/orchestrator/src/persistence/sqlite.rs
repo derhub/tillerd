@@ -1007,16 +1007,14 @@ fn row_to_launch_template(row: &rusqlite::Row<'_>) -> rusqlite::Result<LaunchTem
 
 /// Hard-coded prebuilt command seeds.
 fn prebuilt_commands() -> Vec<Command> {
-    vec![
-        Command {
-            id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
-            name: "login-shell".to_string(),
-            origin: CommandOrigin::Prebuilt,
-            cli: "/bin/bash".to_string(),
-            args: vec!["-l".to_string()],
-            env: Default::default(),
-        },
-    ]
+    vec![Command {
+        id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
+        name: "login-shell".to_string(),
+        origin: CommandOrigin::Prebuilt,
+        cli: "/bin/bash".to_string(),
+        args: vec!["-l".to_string()],
+        env: Default::default(),
+    }]
 }
 
 #[cfg(test)]

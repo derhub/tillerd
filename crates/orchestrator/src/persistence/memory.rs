@@ -571,16 +571,14 @@ impl Store for InMemoryStore {
 }
 
 fn prebuilt_commands_mem() -> Vec<Command> {
-    vec![
-        Command {
-            id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
-            name: "login-shell".to_string(),
-            origin: CommandOrigin::Prebuilt,
-            cli: "/bin/bash".to_string(),
-            args: vec!["-l".to_string()],
-            env: Default::default(),
-        },
-    ]
+    vec![Command {
+        id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
+        name: "login-shell".to_string(),
+        origin: CommandOrigin::Prebuilt,
+        cli: "/bin/bash".to_string(),
+        args: vec!["-l".to_string()],
+        env: Default::default(),
+    }]
 }
 
 fn infer_project_name(source: SourceKind, root_path: Option<&str>) -> Option<String> {
