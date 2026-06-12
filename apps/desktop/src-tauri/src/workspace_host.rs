@@ -2,12 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use orchestrator::persistence::{
-    Command, CommandOrigin, NewCommand, ProjectId, SessionId, SourceKind, Store,
+    Command, CommandOrigin, LaunchTemplateId, NewCommand, NewSession, ProjectId, Session,
+    SessionId, SourceKind, Store, TitleSource,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::orchestrator_host::OrchestratorState;
+use crate::surface_host::SurfaceState;
 
 // ── serializable response types ───────────────────────────────────────────────
 
@@ -183,6 +185,56 @@ pub fn do_session_archive(store: &Arc<dyn Store>, id: String) -> Result<(), Work
 pub fn session_archive(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
     do_session_archive(&store, id).map_err(|e| format!("{e:?}"))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCreateRequest {
+    pub project_id: Option<String>,
+    pub template_id: Option<String>,
+    pub title: Option<String>,
+}
+
+pub fn do_session_create(
+    store: &Arc<dyn Store>,
+    req: SessionCreateRequest,
+) -> Result<Session, WorkspaceError> {
+    let title_source = if req.title.is_some() {
+        TitleSource::Custom
+    } else {
+        TitleSource::default()
+    };
+    store
+        .create_session(NewSession {
+            project_id: req.project_id.map(ProjectId::new),
+            title_source,
+            title: req.title,
+            template_id: req.template_id.map(LaunchTemplateId::from_string),
+        })
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub async fn session_create(
+    req: SessionCreateRequest,
+    orchestrator: State<'_, OrchestratorState>,
+    surfaces: State<'_, SurfaceState>,
+) -> Result<SessionResponse, String> {
+    let store = get_store(&orchestrator).map_err(|e| format!("{e:?}"))?;
+    let session = do_session_create(&store, req).map_err(|e| format!("{e:?}"))?;
+    // Best-effort: instantiate the session's launch spec onto the runtime. A launch failure does
+    // not undo the created session; per-item failures are recorded inside the executor's results.
+    if let Err(e) = surfaces.api.launch_session(&session.id).await {
+        eprintln!(
+            "launch_session failed for {} (non-fatal): {e}",
+            session.id.as_str()
+        );
+    }
+    Ok(SessionResponse {
+        id: session.id.as_str().to_string(),
+        project_id: session.project_id.as_str().to_string(),
+        title: session.title,
+    })
 }
 
 pub fn do_session_layout_set(
@@ -488,5 +540,31 @@ mod tests {
 
         do_command_delete(&store, created.id.clone()).unwrap();
         assert!(do_command_get(&store, created.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn session_create_with_template_carries_the_spec_and_title() {
+        let store = fake_store();
+        let template = store
+            .create_launch_template(orchestrator::persistence::NewLaunchTemplate {
+                project_id: ProjectId::unfiled(),
+                spec_version: 1,
+                spec_json: r#"{"version":1,"items":[]}"#.to_string(),
+            })
+            .unwrap();
+
+        let session = do_session_create(
+            &store,
+            SessionCreateRequest {
+                project_id: None,
+                template_id: Some(template.id.as_str().to_string()),
+                title: Some("My Session".to_string()),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(session.title, "My Session");
+        let fetched = store.get_session(&session.id).unwrap().unwrap();
+        assert_eq!(fetched.spec_version, Some(1));
     }
 }

@@ -57,6 +57,7 @@ pub fn run() {
             workspace_host::project_rename,
             workspace_host::project_archive,
             workspace_host::session_list,
+            workspace_host::session_create,
             workspace_host::session_rename,
             workspace_host::session_archive,
             workspace_host::session_layout_set,
