@@ -1,47 +1,26 @@
-//! PTY session: credit-based per-subscriber flow control, on-demand snapshots.
+//! PTY session: credit-based per-subscriber flow control.
 
-use crate::cell::SnapshotPayload;
 use crate::messages::SpawnFrame;
 use crate::replay::ReplayBuffer;
 use crate::resolve::{resolve_command, BinaryNotFound};
-use crate::snapshot::SnapshotRecord;
-use crate::vt::VtState;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::{Read, Write};
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::RawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::UnboundedSender;
 
-// TIOCSWINSZ for resizing an adopted (raw-fd) PTY master — portable-pty owns the
-// resize for spawned sessions, but an inherited fd has no portable-pty handle.
-nix::ioctl_write_ptr_bad!(set_winsize, nix::libc::TIOCSWINSZ, nix::libc::winsize);
-
-/// The PTY transport behind a session: either spawned by us (portable-pty owns
-/// the master/child) or adopted from a predecessor daemon over an inherited fd
-/// (we own a raw `File` on the master; the child is signalled by pid).
+/// The PTY transport behind a session: spawned by us, with portable-pty owning the master/child.
 enum Pty {
     Spawned {
         master: Box<dyn MasterPty + Send>,
         writer: Box<dyn Write + Send>,
         child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
     },
-    Adopted {
-        file: Arc<File>,
-    },
-}
-
-// `&File` is `Read`, so the reader thread and the writer can share the same owned fd via `Arc`.
-struct ArcFileReader(Arc<File>);
-impl Read for ArcFileReader {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        (&*self.0).read(buf)
-    }
 }
 
 pub const INITIAL_CREDIT: i64 = 65_536;
@@ -126,14 +105,6 @@ struct Subscription {
 }
 
 pub struct Session {
-    pub session_id: String,
-    pub token: String,
-    pub cwd: String,
-    // Kept for handoff symmetry; live path uses cur_cols/cur_rows via current_size().
-    #[expect(dead_code)]
-    pub cols: u16,
-    #[expect(dead_code)]
-    pub rows: u16,
     pub pid: u32,
 
     cur_cols: u16,
@@ -340,11 +311,6 @@ impl Session {
         }
 
         Ok(Session {
-            session_id: frame.session_id.clone(),
-            token: frame.token.clone(),
-            cwd: frame.cwd.clone(),
-            cols,
-            rows,
             pid,
             cur_cols: cols,
             cur_rows: rows,
@@ -364,121 +330,35 @@ impl Session {
         })
     }
 
-    pub fn adopt(
-        record: &SnapshotRecord,
-        master_fd: RawFd,
-        events_tx: UnboundedSender<SessionEvent>,
-    ) -> Session {
-        // SAFETY: `master_fd` was passed to us by the predecessor daemon as an
-        // inherited fd at the agreed index; it is a valid, open PTY master and we
-        // take sole ownership of it (the `Arc<File>` closes it on last drop).
-        #[allow(unsafe_code)]
-        let file = Arc::new(unsafe { File::from_raw_fd(master_fd) });
-
-        let gate = Arc::new(ReadGate::new());
-        let stopped = Arc::new(AtomicBool::new(false));
-
-        let mut replay = ReplayBuffer::new();
-        let seed = record.decode_replay();
-        if !seed.is_empty() {
-            replay.push(&seed);
-        }
-
-        start_reader(
-            Box::new(ArcFileReader(Arc::clone(&file))),
-            Arc::from(record.session_id.as_str()),
-            Arc::clone(&gate),
-            Arc::clone(&stopped),
-            events_tx,
-            true,
-        );
-
-        Session {
-            session_id: record.session_id.clone(),
-            token: record.token.clone(),
-            cwd: record.cwd.clone(),
-            cols: record.cols,
-            rows: record.rows,
-            pid: record.pid,
-            cur_cols: record.cols,
-            cur_rows: record.rows,
-            replay,
-            subscribers: HashMap::new(),
-            last_output_at: Instant::now(),
-            term_status: TermStatus::Working,
-            pty: Pty::Adopted { file },
-            gate,
-            stopped,
-            killed_by_user: false,
-            exit_emitted: false,
-        }
-    }
-
     pub fn write_input(&mut self, bytes: &[u8]) {
-        match &mut self.pty {
-            Pty::Spawned { writer, .. } => {
-                let _ = writer.write_all(bytes);
-                let _ = writer.flush();
-            }
-            Pty::Adopted { file } => {
-                let _ = (&**file).write_all(bytes);
-                let _ = (&**file).flush();
-            }
-        }
+        let Pty::Spawned { writer, .. } = &mut self.pty;
+        let _ = writer.write_all(bytes);
+        let _ = writer.flush();
     }
 
     pub fn resize(&mut self, cols: u16, rows: u16) {
         self.cur_cols = cols;
         self.cur_rows = rows;
-        match &self.pty {
-            Pty::Spawned { master, .. } => {
-                let _ = master.resize(PtySize {
-                    rows,
-                    cols,
-                    pixel_width: 0,
-                    pixel_height: 0,
-                });
-            }
-            Pty::Adopted { file } => {
-                let ws = nix::libc::winsize {
-                    ws_row: rows,
-                    ws_col: cols,
-                    ws_xpixel: 0,
-                    ws_ypixel: 0,
-                };
-                // SAFETY: TIOCSWINSZ reads a `winsize` we own and writes only the
-                // kernel's terminal size for our valid master fd; best-effort.
-                #[allow(unsafe_code)]
-                unsafe {
-                    let _ = set_winsize(file.as_raw_fd(), &ws);
-                }
-            }
-        }
+        let Pty::Spawned { master, .. } = &self.pty;
+        let _ = master.resize(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        });
     }
 
     pub fn replay_bytes(&self) -> Vec<u8> {
         self.replay.bytes()
     }
 
-    pub fn current_size(&self) -> (u16, u16) {
-        (self.cur_cols, self.cur_rows)
-    }
-
     pub fn append_replay(&mut self, bytes: &[u8]) {
         self.replay.push(bytes);
     }
 
-    pub fn build_snapshot(&self) -> SnapshotPayload {
-        let mut vt = VtState::new(self.cur_rows as usize, self.cur_cols as usize);
-        vt.feed(&self.replay.bytes());
-        vt.get_snapshot()
-    }
-
     pub fn raw_master_fd(&self) -> Option<RawFd> {
-        match &self.pty {
-            Pty::Spawned { master, .. } => master.as_raw_fd(),
-            Pty::Adopted { file } => Some(file.as_raw_fd()),
-        }
+        let Pty::Spawned { master, .. } = &self.pty;
+        master.as_raw_fd()
     }
 
     // ── Terminal status ────────────────────────────────────────────────────
@@ -599,10 +479,8 @@ impl Session {
         self.gate.set_paused(false); // unpark the reader so it can exit
         send_signal(self.pid, Signal::Term);
         let pid = self.pid;
-        let mut killer = match &self.pty {
-            Pty::Spawned { child_killer, .. } => Some(child_killer.clone_killer()),
-            Pty::Adopted { .. } => None,
-        };
+        let Pty::Spawned { child_killer, .. } = &self.pty;
+        let mut killer = Some(child_killer.clone_killer());
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(SHUTDOWN_GRACE_MS));
             send_signal(pid, Signal::Kill);
@@ -624,9 +502,8 @@ impl Session {
         self.stopped.store(true, Ordering::SeqCst);
         self.gate.set_paused(false);
         send_signal(self.pid, Signal::Kill);
-        if let Pty::Spawned { child_killer, .. } = &mut self.pty {
-            let _ = child_killer.kill();
-        }
+        let Pty::Spawned { child_killer, .. } = &mut self.pty;
+        let _ = child_killer.kill();
     }
 }
 
@@ -742,7 +619,6 @@ mod tests {
             command: None,
             args: vec![],
             env: None,
-            token: "t".into(),
             cols: 80,
             rows: 24,
             cwd: "/".into(),
@@ -772,45 +648,6 @@ mod tests {
         assert_eq!(session.foreground_pgrp(), want);
         // Forcing the quiet branch (zero threshold): root holds the foreground ⇒
         // Working → Idle. Exercises the real master fd + derivation end to end.
-        assert_eq!(
-            session.sample_term_status(Duration::ZERO),
-            Some(TermStatus::Idle)
-        );
-    }
-
-    #[test]
-    fn adopted_session_derives_status_over_raw_fd() {
-        // Adopt over an inherited PTY master with no owning child — the upgrade
-        // handoff shape. A childless master has no foreground process group.
-        let pair = native_pty_system()
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .expect("openpty");
-        let master_fd = pair.master.as_raw_fd().expect("master fd");
-        // `adopt` takes sole ownership of the fd (File::from_raw_fd); forget the
-        // portable-pty master so its Drop does not also close it.
-        std::mem::forget(pair.master);
-        let _slave = pair.slave; // keep open so the reader parks instead of EOF
-        let record = SnapshotRecord {
-            session_id: "adopt-term-test".into(),
-            token: "t".into(),
-            pid: 999_999,
-            cols: 80,
-            rows: 24,
-            cwd: "/".into(),
-            fd_index: 0,
-            replay_buffer: String::new(),
-        };
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        let mut session = Session::adopt(&record, master_fd, tx);
-        assert_eq!(session.term_status(), TermStatus::Working);
-        // No foreground process group on a childless master → degrade to
-        // quiescence over the adopted raw fd ⇒ Working → Idle.
-        assert_eq!(session.foreground_pgrp(), None);
         assert_eq!(
             session.sample_term_status(Duration::ZERO),
             Some(TermStatus::Idle)
@@ -854,7 +691,6 @@ mod tests {
                 "trap '' TERM; while :; do sleep 1; done".into(),
             ],
             env: None,
-            token: "t".into(),
             cols: 80,
             rows: 24,
             cwd: "/".into(),
