@@ -14,7 +14,7 @@ nothing is shortcut to a `.0` bucket.
 > first-run UX, settings + secrets, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
 > ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
-> After the working app, **0.1.x extends** — placement / multi-surface, diff surface, workflow
+> After the working app, **0.1.x extends** — diff surface, placement geometry, workflow
 > library, container backend, web remote — ordered cheapest-first on the frozen seams;
 > **1.0.0** is the stable horizon and ships distribution. See ADRs
 > [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
@@ -92,8 +92,8 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 
 The last architecture-changing version of 0.x. Everything frozen here — service
 contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
-(ADR-0025), design tokens — holds for the rest of 0.x; every later version is
-additive on these seams, never a change to them.
+(ADR-0025), the panel-surface binding (ADR-0030), design tokens — holds for the rest
+of 0.x; every later version is additive on these seams, never a change to them.
 
 - [ ] Desktop E2E suite — first, so every later milestone verifies against it instead
   of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
@@ -111,6 +111,12 @@ additive on these seams, never a change to them.
   daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
   starts fresh. Builds on the contract's drain primitive — re-check the
   `daemon-upgrade-drain-restart` proposal against it before implementing.
+- [ ] Placement and multi-surface: placement becomes a unique slot id (not named
+  regions) so a session holds N surfaces; panels bind surfaces by placement; revisit
+  resumes each by `(session, placement)`; spawning a surface diverges the session's
+  launch spec ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). The
+  panel-surface seam freezes here; the terminal revisit already shipped is the first
+  slice. Sizes / nested splits stay 0.1.x (additive geometry).
 - [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
   (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
 - [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
@@ -160,20 +166,15 @@ additive on these seams, never a change to them.
 Prove the seams and scale the surface area. Ordered cheapest-first; every step is
 additive on the architecture frozen at 0.0.6.
 
-### 0.1.0 — Placement and multi-surface
-
-- [ ] Placement becomes a unique slot id, not named regions: a session holds N
-  surfaces, panels bind surfaces by placement, and revisit resumes each by
-  `(session, placement)`; spawning a surface diverges the session's launch spec
-  ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). Lands before diff
-  because terminal + diff in one session is two placements.
-- [ ] Sizes and nested splits on top.
-
-### 0.1.1 — Diff surface
+### 0.1.0 — Diff surface
 
 - [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
-  pressure-testing the extension seam on the placement model. (Agent adapters are
-  validated in 1.0.0, after the agent surface returns — ADR-0027.)
+  pressure-testing the extension seam on the placement model (frozen in 0.0.6). (Agent
+  adapters are validated in 1.0.0, after the agent surface returns — ADR-0027.)
+
+### 0.1.1 — Placement geometry
+
+- [ ] Sizes and nested splits on top of the 0.0.6 placement model (additive geometry).
 
 ### 0.1.2 — Prebuilt workflow library
 
