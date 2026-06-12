@@ -1626,6 +1626,50 @@ mod tests {
     }
 
     #[test]
+    fn each_session_gets_its_own_distinct_surface() {
+        let (_dir, path) = temp_db("surf-per-session");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let s1 = make_session(&store);
+        let s2 = make_session(&store);
+        let new_terminal = |session_id: SessionId| NewSurface {
+            id: None,
+            session_id,
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            placement: None,
+            worktree_id: None,
+        };
+        let surf1 = store.create_surface(new_terminal(s1.id.clone())).unwrap();
+        let surf2 = store.create_surface(new_terminal(s2.id.clone())).unwrap();
+
+        // Two sessions get two distinct surfaces, each bound to its own session — no sharing.
+        assert_ne!(surf1.id, surf2.id, "sessions must not share a surface id");
+        assert_eq!(surf1.session_id, s1.id);
+        assert_eq!(surf2.session_id, s2.id);
+        assert_eq!(
+            store.get_surface(&surf1.id).unwrap().unwrap().session_id,
+            s1.id
+        );
+        assert_eq!(
+            store.get_surface(&surf2.id).unwrap().unwrap().session_id,
+            s2.id
+        );
+
+        // Each session owns exactly its surface — no cross-contamination across the registry.
+        let resumable = store.list_resumable_surfaces().unwrap();
+        let owned_by = |sid: &SessionId| {
+            resumable
+                .iter()
+                .filter(|s| &s.session_id == sid)
+                .map(|s| s.id.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(owned_by(&s1.id), vec![surf1.id]);
+        assert_eq!(owned_by(&s2.id), vec![surf2.id]);
+    }
+
+    #[test]
     fn remove_surface_from_session_soft_deletes_row() {
         let (_dir, path) = temp_db("surf-remove");
         let store = SqliteStore::open(&path).unwrap();
