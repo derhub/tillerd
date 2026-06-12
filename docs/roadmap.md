@@ -81,61 +81,54 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
 
+### 0.0.6 — Contracts and test coverage
+
+- [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
+  (socket / manifest), health (ADR-0019), identity / version.
+  Gate + daemon conform; future services inherit the contract.
+- [ ] Desktop E2E test: embed `tauri-plugin-webdriver` (test-gated) + drive with
+  `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
+  incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
+  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Visual test:
+  spawn a session, assert the terminal renders and streams. (Agent render deferred
+  to 1.0.0 with the agent surface.)
+
 ---
 
 ## 0.1.x — Working workspace (first complete release)
 
 Harden the working slice into a shippable workspace on a standardized foundation. The
-complete release ships at **0.1.7**.
+complete release ships at **0.1.4**.
 
-### 0.1.0 — One service contract
-
-- [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
-  (socket / manifest), health (ADR-0019), identity / version.
-- [ ] Gate + daemon conform; future services inherit the contract.
-
-### 0.1.1 — Observability
+### 0.1.0 — Observability
 
 - [ ] `correlation_id` threaded across hops in structured logs.
 - [ ] Log-viewer surface in the desktop.
 
-### 0.1.2 — Secrets and settings
+### 0.1.1 — Secrets and settings
 
 - [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
 - [ ] Settings: global (default agent, theme, default command library / template) +
   per-project.
 
-### 0.1.3 — Health and first-run UX
+### 0.1.2 — Health and first-run UX
 
 - [ ] Per-service health indicators (gate / daemon) with failure surfacing.
 - [ ] First-run / onboarding: agent binary missing, version out of range, services down.
 
-### 0.1.4 — SDK wire types
-
-- [ ] Generate the TS SDK wire types from `contracts-rs` (single source of truth).
-
-### 0.1.5 — Daemon drain-and-restart upgrade
+### 0.1.3 — Daemon drain-and-restart upgrade
 
 - [ ] Replace fd-handoff with a simpler planned-upgrade path. Deferred: the 0.0.x Rust
   inversion retires the TS-engine handoff this targets, so the change is re-authored
   against the orchestrator + `daemon-upgrade` / `rust-pty-daemon` specs once 0.0.x lands.
 
-### 0.1.6 — Desktop end-to-end test
-
-- [ ] Tauri-driving harness: embed `tauri-plugin-webdriver` (test-gated) + drive with `tauri-webdriver`
-  (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform incl. macOS (WKWebView native
-  APIs), so it runs locally and in CI — unlike official `tauri-driver`, which has no macOS WKWebView
-  driver (tauri#7068).
-- [ ] Visual test: spawn a session, assert the terminal renders and streams. (Agent render
-  deferred to 1.0.0 with the agent surface.)
-
-### 0.1.7 — Desktop distribution (ships the first complete release)
+### 0.1.4 — Desktop distribution (ships the first complete release)
 
 - [ ] Signed, notarized bundles (dmg / AppImage / deb) across macOS + Linux `[HELP]` (Windows?).
 - [ ] Auto-update.
 - [ ] Release pipeline — versioned releases + generated changelogs via changesets.
 
-### 0.1.8 — Docs reconciliation
+### 0.1.5 — Docs reconciliation
 
 - [ ] README and guides match the Rust-backend, desktop-only architecture.
 
