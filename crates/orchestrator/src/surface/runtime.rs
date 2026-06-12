@@ -252,26 +252,15 @@ impl SurfaceRuntime {
         setup::install(agent_home, notify_command)
             .map_err(|e| surface_err(&surface, format!("hook install: {e}")))?;
 
-        // 3. Spawn terminal via daemon.
-        let wire = wire_id(&surface);
-        let (conn, rx) = DaemonConnection::connect(&self.socket)
-            .await
-            .map_err(|e| surface_err(&surface, e))?;
-        let conn = Arc::new(conn);
-        let params = SpawnParams {
-            session_id: &wire,
-            token: &token,
-            cols,
-            rows,
-            cwd: &cwd,
-            command: Some(&agent_bin),
-            args: &agent_args,
-            env: None,
-            resume: None,
+        // 3. Spawn the agent command via the generic spawn (shared with every kind).
+        let command = ResolvedCommand {
+            exe: agent_bin,
+            args: agent_args,
+            env: BTreeMap::new(),
         };
-        conn.spawn(&params)
-            .await
-            .map_err(|e| surface_err(&surface, e))?;
+        let (wire, conn, rx) = self
+            .spawn(&surface, Some(&command), &cwd, cols, rows, &token)
+            .await?;
 
         let state = Arc::new(Mutex::new(ProxyState::Attaching(Vec::new())));
         let ctx = self.ctx(surface.clone(), wire, conn.clone(), state.clone());
