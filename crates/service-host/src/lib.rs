@@ -10,7 +10,10 @@ pub mod paths;
 pub mod shutdown;
 pub mod signals;
 
-pub use host::{run, run_blocking, HealthReport, HealthStatus, Service, ServiceConfig};
-pub use manifest::{Manifest, ManifestData};
+pub use host::{
+    run, run_blocking, Drain, HealthReport, HealthStatus, Ready, Service, ServiceConfig,
+    ServeContext,
+};
+pub use manifest::{Manifest, ManifestData, ServiceStatus};
 pub use paths::Paths;
 pub use shutdown::{ChildRegistry, DEFAULT_GRACE_PERIOD};

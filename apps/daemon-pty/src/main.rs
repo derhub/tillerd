@@ -126,10 +126,10 @@ impl Service for DaemonService {
             .with_base_override(std::env::var(tillerd_paths::ENV_TILLERD_DIR).ok())
     }
 
-    async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
+    async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
         let events_rx = self.events_rx.take().expect("serve runs once");
         self.daemon
-            .serve(events_rx)
+            .serve(events_rx, ctx.ready, ctx.drain)
             .instrument(self.root.clone())
             .await
     }

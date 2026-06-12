@@ -1,9 +1,13 @@
-//! Graceful termination signals: SIGTERM / SIGINT → graceful-then-forced teardown.
+//! Lifecycle signals. SIGTERM / SIGINT → graceful-then-forced teardown now (stop). SIGUSR2 → drain
+//! (refuse new work, finish active work, exit when idle — design D1).
 
 use tokio::signal::unix::{signal, SignalKind};
 
 /// The graceful-termination signals the host listens for.
 pub const GRACEFUL_TERMINATION_SIGNALS: [&str; 2] = ["SIGTERM", "SIGINT"];
+
+/// The drain signal: refuse new work, let active work finish, exit when idle.
+pub const DRAIN_SIGNAL: &str = "SIGUSR2";
 
 /// Resolve on the first graceful-termination signal (`SIGTERM` or `SIGINT`).
 ///
@@ -15,6 +19,14 @@ pub async fn wait_for_stop_signal() -> std::io::Result<&'static str> {
         _ = term.recv() => Ok("SIGTERM"),
         _ = int.recv() => Ok("SIGINT"),
     }
+}
+
+/// Resolve on the drain signal (`SIGUSR2`). Distinct from stop: the host flips the service into its
+/// drain phase rather than tearing it down immediately.
+pub async fn wait_for_drain_signal() -> std::io::Result<&'static str> {
+    let mut usr2 = signal(SignalKind::user_defined2())?;
+    usr2.recv().await;
+    Ok(DRAIN_SIGNAL)
 }
 
 #[cfg(test)]
