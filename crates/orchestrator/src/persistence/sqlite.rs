@@ -602,6 +602,21 @@ impl Store for SqliteStore {
             .map_err(persist)
     }
 
+    fn find_session_terminal_surface(&self, session_id: &SessionId) -> Result<Option<Surface>> {
+        self.lock()?
+            .query_row(
+                "SELECT id, session_id, kind, cwd, last_status, placement, worktree_id
+                 FROM surface
+                 WHERE session_id = ?1 AND kind = ?2 AND deleted_at IS NULL
+                 ORDER BY rowid DESC
+                 LIMIT 1",
+                params![session_id.as_str(), SurfaceKind::Terminal.as_str()],
+                row_to_surface,
+            )
+            .optional()
+            .map_err(persist)
+    }
+
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
         let conn = self.lock()?;
         let mut stmt = conn
@@ -1667,6 +1682,47 @@ mod tests {
         };
         assert_eq!(owned_by(&s1.id), vec![surf1.id]);
         assert_eq!(owned_by(&s2.id), vec![surf2.id]);
+    }
+
+    #[test]
+    fn find_session_terminal_surface_resolves_each_session_to_its_own() {
+        let (_dir, path) = temp_db("find-term-surf");
+        let store = SqliteStore::open(&path).unwrap();
+        let s1 = make_session(&store);
+        let s2 = make_session(&store);
+        let new_terminal = |session_id: SessionId| NewSurface {
+            id: None,
+            session_id,
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            placement: None,
+            worktree_id: None,
+        };
+        let surf1 = store.create_surface(new_terminal(s1.id.clone())).unwrap();
+        let surf2 = store.create_surface(new_terminal(s2.id.clone())).unwrap();
+
+        // The lookup the revisit path uses: each session resolves to its OWN terminal surface.
+        assert_eq!(
+            store
+                .find_session_terminal_surface(&s1.id)
+                .unwrap()
+                .map(|s| s.id),
+            Some(surf1.id.clone())
+        );
+        assert_eq!(
+            store
+                .find_session_terminal_surface(&s2.id)
+                .unwrap()
+                .map(|s| s.id),
+            Some(surf2.id)
+        );
+
+        // Once the surface is gone there is nothing to re-attach to.
+        store.soft_delete_surface(&surf1.id).unwrap();
+        assert!(store
+            .find_session_terminal_surface(&s1.id)
+            .unwrap()
+            .is_none());
     }
 
     #[test]

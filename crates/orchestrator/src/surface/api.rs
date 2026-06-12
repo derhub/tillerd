@@ -124,6 +124,24 @@ impl SurfaceApi {
         self.runtime.resume_all().await
     }
 
+    /// The session's existing terminal surface, if any — re-attach to it on revisit (see
+    /// [`Self::resume_surface`]) instead of creating a fresh terminal.
+    pub fn find_session_terminal_surface(
+        &self,
+        session_id: &SessionId,
+    ) -> Result<Option<SurfaceId>> {
+        Ok(self
+            .store
+            .find_session_terminal_surface(session_id)?
+            .map(|s| s.id))
+    }
+
+    /// Re-attach to an existing surface's live PTY, replaying its scrollback. Errors if its session
+    /// is gone (the caller then creates a fresh surface).
+    pub async fn resume_surface(&self, surface: &SurfaceId) -> Result<()> {
+        self.runtime.resume(surface.clone()).await
+    }
+
     #[tracing::instrument(skip_all, fields(correlation_id = %surface.as_str()))]
     pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
         tracing::info!("detaching surface");

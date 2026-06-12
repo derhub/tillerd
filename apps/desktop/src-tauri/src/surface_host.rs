@@ -77,6 +77,38 @@ pub async fn surface_create(
     rows: u16,
     cwd: Option<String>,
 ) -> Result<String, String> {
+    let session = SessionId::from_string(session_id);
+
+    // Revisit: if this session already has a terminal surface, re-attach to it (its live PTY replays
+    // the scrollback) so the same terminal — and its content — comes back instead of a fresh one. A
+    // stale surface (its shell exited) is dropped and replaced by a fresh create below.
+    if let Some(existing) = state
+        .api
+        .find_session_terminal_surface(&session)
+        .map_err(|e| e.to_string())?
+    {
+        // Register the channel before resume so no replayed output is lost.
+        state
+            .channels
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(existing.as_str().to_string(), channel.clone());
+        // Drop any lingering proxy from the previous mount, then resume — a fresh subscribe replays
+        // the scrollback into the remounted terminal rather than taking the idempotent no-op path.
+        let _ = state.api.detach(&existing).await;
+        match state.api.resume_surface(&existing).await {
+            Ok(()) => return Ok(existing.as_str().to_string()),
+            Err(_) => {
+                state
+                    .channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(existing.as_str());
+                let _ = state.api.remove(&existing).await;
+            }
+        }
+    }
+
     let id = uuid::Uuid::new_v4().to_string();
     // Register the channel before create so no initial output is lost.
     state
@@ -86,13 +118,7 @@ pub async fn surface_create(
         .insert(id.clone(), channel);
     state
         .api
-        .create_terminal_surface(
-            SessionId::from_string(session_id),
-            SurfaceId::from_string(id.clone()),
-            cols,
-            rows,
-            cwd,
-        )
+        .create_terminal_surface(session, SurfaceId::from_string(id.clone()), cols, rows, cwd)
         .await
         .map_err(|e| e.to_string())?;
     Ok(id)

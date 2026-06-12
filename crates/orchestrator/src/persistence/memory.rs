@@ -6,7 +6,8 @@ use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
     NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SourceKind, Store, Surface, SurfaceId, TitleSource, Worktree, WorktreeId,
+    Session, SessionId, SourceKind, Store, Surface, SurfaceId, SurfaceKind, TitleSource, Worktree,
+    WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -351,6 +352,20 @@ impl Store for InMemoryStore {
             .get(id.as_str())
             .filter(|r| !r.deleted)
             .map(|r| r.surface.clone()))
+    }
+
+    fn find_session_terminal_surface(&self, session_id: &SessionId) -> Result<Option<Surface>> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner
+            .surfaces
+            .values()
+            .filter(|r| {
+                !r.deleted
+                    && r.surface.session_id.as_str() == session_id.as_str()
+                    && r.surface.kind == SurfaceKind::Terminal
+            })
+            .map(|r| r.surface.clone())
+            .next())
     }
 
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
