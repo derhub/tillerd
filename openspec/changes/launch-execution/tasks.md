@@ -29,7 +29,7 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 ## 4. Launch executor (spec: launch-execution)
 
-- [x] 4.1 Resolve each item's command (library reference → stored command; inline → as given; unknown → typed not-found, no surface). The executor hands the `ResolvedCommand` to a `SurfaceLauncher` trait (production impl dispatches to `launch_surface`; tests record). NOTE: the production launcher (runtime + agent config) and wiring the executor into session-creation are still pending — the executor has no production caller yet (pre-existing gap).
+- [x] 4.1 Resolve each item's command (library reference → stored command; inline → as given; unknown → typed not-found, no surface). The executor hands the `ResolvedCommand` to a `SurfaceLauncher` trait. Production caller wired: `RuntimeLauncher` dispatches to `launch_surface` (mints token, default 80×24, resize-on-attach); `SurfaceApi::launch_session` loads+migrates the session's spec and runs the executor; the desktop `session_create` command creates the session and best-effort launches its spec.
 - [x] 4.2 Dispatch by `surface_kind_for(target)`; unsupported target → typed `UnsupportedSurfaceKind`
 - [x] 4.3 Worktree step: run against an explicit repository root (not the process cwd), set the surface working directory and `worktree_id`; a failing step fails the item, no surface
 - [x] 4.5 Record placement on the surface; run items in declared order; record best-effort per-item outcomes. Auxiliary runners (e.g. a dev server) are ordinary terminal items with a placement; closing the pane leaves the process running (soft-delete keeps the PTY) — no separate script concept
