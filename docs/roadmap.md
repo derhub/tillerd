@@ -11,12 +11,12 @@ nothing is shortcut to a `.0` bucket.
 > 0.0.1–0.0.5). **0.0.6 finalizes the architecture** — service contract, daemon
 > upgrade path, correlation, design tokens, E2E test; after it, every 0.x version is
 > additive on frozen seams, never a change to them. Then observability, health /
-> first-run UX, settings, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
+> first-run UX, settings + secrets, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
 > ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
-> After the working app, **0.x is stabilization and enhancement**: **0.1.x** hardens and
-> distributes (secrets, daemon upgrade, signed bundles); **0.2.x** extends (more services
-> and surface kinds); **1.0.0** is the stable horizon. See ADRs
+> After the working app, **0.1.x extends** — diff surface, placement geometry, workflow
+> library, container backend, web remote — ordered cheapest-first on the frozen seams;
+> **1.0.0** is the stable horizon and ships distribution. See ADRs
 > [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
 > for the workspace model and the 0.0.x build. See [CHANGELOG](../CHANGELOG.md).
 
@@ -95,6 +95,13 @@ contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
 (ADR-0025), design tokens — holds for the rest of 0.x; every later version is
 additive on these seams, never a change to them.
 
+- [ ] Desktop E2E test — first, so every later milestone verifies against it instead
+  of manual checks: embed `tauri-plugin-webdriver` (test-gated) + drive with
+  `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
+  incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
+  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Visual test:
+  spawn a session, assert the terminal renders and streams. (Agent render deferred
+  to 1.0.0 with the agent surface.)
 - [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
   (socket / manifest), health (ADR-0019), identity / version.
   Gate + daemon conform; future services inherit the contract. (Health feeds the
@@ -109,12 +116,6 @@ additive on these seams, never a change to them.
   shell and close its token-level gaps (motion / transition scale, icon sizing
   token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
   settings) is built on final tokens.
-- [ ] Desktop E2E test: embed `tauri-plugin-webdriver` (test-gated) + drive with
-  `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
-  incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
-  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Visual test:
-  spawn a session, assert the terminal renders and streams. (Agent render deferred
-  to 1.0.0 with the agent surface.)
 
 ### 0.0.7 — Observability
 
@@ -125,10 +126,11 @@ additive on these seams, never a change to them.
 - [ ] Per-service health indicators (gate / daemon) with failure surfacing.
 - [ ] First-run / onboarding: services down, version out of range, fresh-machine setup.
 
-### 0.0.9 — Settings
+### 0.0.9 — Settings and secrets
 
 - [ ] Global settings: theme, default command library / default template.
 - [ ] Per-project overrides: launch template, project env.
+- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
 
 ### 0.0.10 — UX/UI (ships the working app)
 
@@ -140,57 +142,38 @@ additive on these seams, never a change to them.
 
 ---
 
-## 0.1.x — Stabilization and distribution
+## 0.1.x — Enhancement and extension
 
-Harden the working app and make it installable.
+Prove the seams and scale the surface area. Ordered cheapest-first; every step is
+additive on the architecture frozen at 0.0.6.
 
-### 0.1.0 — Secrets
+### 0.1.0 — Diff surface
 
-- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
+- [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
+  pressure-testing the extension seam before anything else relies on it. (Agent
+  adapters are validated in 1.0.0, after the agent surface returns — ADR-0027.)
 
-### 0.1.1 — Desktop distribution
+### 0.1.1 — Placement geometry
 
-- [ ] Signed, notarized bundles (dmg / AppImage / deb) across macOS + Linux `[HELP]` (Windows?).
-- [ ] Auto-update.
-- [ ] Release pipeline — versioned releases + generated changelogs via changesets.
+- [ ] Sizes and nested splits beyond named regions.
 
-### 0.1.2 — Docs reconciliation
+### 0.1.2 — Prebuilt workflow library
 
-- [ ] README and guides match the Rust-backend, desktop-only architecture.
+- [ ] Bespoke workflow sessions and dev-setup presets.
 
----
-
-## 0.2.x — More services and extension
-
-Prove the seams and scale beyond one agent and one host.
-
-### 0.2.0 — Validate the extension point
-
-- [ ] Prove the surface-kind / execution-backend seam with a second implementation (the
-  container backend, 0.2.1, or the diff surface, 0.2.3) — pressure-test before relying on it.
-  Agent adapters are validated in 1.0.0, after the agent surface returns (ADR-0027).
-
-### 0.2.1 — Container execution backend
+### 0.1.3 — Container execution backend
 
 - [ ] Dev-container spec / OCI runtimes behind the launch-item contract (execution-backend
   seam).
 
-### 0.2.2 — Web remote control
+### 0.1.4 — Web remote control
 
 - [ ] Revive the server as a Rust host embedding the same orchestrator.
 - [ ] SDK over HTTP / WS; auth for remote access.
 
-### 0.2.3 — Diff surface
+### 0.1.5 — Docs reconciliation
 
-- [ ] Wire the diff panel as a surface kind.
-
-### 0.2.4 — Placement geometry
-
-- [ ] Sizes and nested splits beyond named regions.
-
-### 0.2.5 — Prebuilt workflow library
-
-- [ ] Bespoke workflow sessions and dev-setup presets.
+- [ ] README and guides match the shipped architecture.
 
 ---
 
@@ -202,4 +185,6 @@ Prove the seams and scale beyond one agent and one host.
 - [ ] Cross-platform desktop with a polished, stable UX and solid performance.
 - [ ] Agent as a first-class surface kind, with a rich status model and content stream over the
   gate's hook fan-out (deferred from 0.x — ADR-0027).
-- [ ] Production-ready: distribution, observability, and upgrade paths hardened.
+- [ ] Distribution: signed, notarized bundles (dmg / AppImage / deb) across macOS +
+  Linux `[HELP]` (Windows?); auto-update; release pipeline — versioned releases +
+  generated changelogs via changesets.

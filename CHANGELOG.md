@@ -6,11 +6,11 @@ and APIs may break between minor versions.
 
 ## [Unreleased]
 
-0.0.6 in progress: finalize the architecture — service contract on `service-host`
-(lifecycle / discovery / health / identity), daemon drain-and-restart upgrade,
-`correlation_id` threading, design tokens, and a desktop end-to-end test. After 0.0.6
+0.0.6 in progress: finalize the architecture — desktop end-to-end test, service
+contract on `service-host` (lifecycle / discovery / health / identity), daemon
+drain-and-restart upgrade, `correlation_id` threading, and design tokens. After 0.0.6
 the architecture is frozen for 0.x; later versions are additive. The working app ships
-at the end of the 0.0.x line (0.0.10); 0.1.x stabilizes and distributes it.
+at the end of the 0.0.x line (0.0.10); 0.1.x extends it; 1.0.0 ships distribution.
 
 ## [0.0.5] — 2026-06-13
 
