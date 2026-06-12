@@ -29,12 +29,12 @@ ADR-0026 (uniform adapter dispatch over a generic spawn) and ADR-0024 (one proxy
 
 ## 4. Launch executor (spec: launch-execution)
 
-- [ ] 4.1 Resolve each item's command (library reference → stored command; inline → as given; unknown → typed not-found, no surface)
-- [ ] 4.2 Dispatch by target kind via the registry; unsupported target → typed unsupported-kind error
+- [x] 4.1 Resolve each item's command (library reference → stored command; inline → as given; unknown → typed not-found, no surface). The executor hands the `ResolvedCommand` to a `SurfaceLauncher` trait (production impl dispatches to `launch_surface`; tests record). NOTE: the production launcher (runtime + agent config) and wiring the executor into session-creation are still pending — the executor has no production caller yet (pre-existing gap).
+- [x] 4.2 Dispatch by `surface_kind_for(target)`; unsupported target → typed `UnsupportedSurfaceKind`
 - [ ] 4.3 Worktree step: run against an explicit repository root (not the process cwd), set the surface working directory and `worktree_id`; a failing step fails the item, no surface
 - [ ] 4.4 Pre/post/auto-spawn scripts via the existing process-launch crate: pre before the surface (failure skips it, others continue), post after start, auto-spawn as background processes
-- [ ] 4.5 Record placement on the surface; run items in declared order; record best-effort per-item outcomes
-- [ ] 4.6 Tests: order + best-effort; command resolution (3 cases); target dispatch (2 cases); worktree (2 cases); scripts (pre-fail-skip, post-after-start); placement persisted
+- [x] 4.5 Record placement on the surface; run items in declared order; record best-effort per-item outcomes
+- [ ] 4.6 Tests: order + best-effort ✓; command resolution ✓; target dispatch ✓; placement ✓ — worktree (2 cases) + scripts (pre-fail-skip, post-after-start) pending with 4.3/4.4
 
 ## 5. Template instantiation fixes (spec: launch-execution)
 

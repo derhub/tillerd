@@ -49,6 +49,9 @@ pub enum OrchestratorError {
 
     #[error("worktree not found: {0}")]
     WorktreeNotFound(String),
+
+    #[error("unsupported surface kind: {0}")]
+    UnsupportedSurfaceKind(String),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;
