@@ -54,6 +54,7 @@ pub fn run() {
             surface_host::surface_resize,
             surface_host::surface_detach,
             workspace_host::project_create,
+            workspace_host::project_list,
             workspace_host::project_rename,
             workspace_host::project_archive,
             workspace_host::session_list,

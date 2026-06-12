@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use orchestrator::persistence::{
-    Command, CommandOrigin, LaunchTemplateId, NewCommand, NewSession, ProjectId, Session,
+    Command, CommandOrigin, LaunchTemplateId, NewCommand, NewSession, Project, ProjectId, Session,
     SessionId, SourceKind, Store, TitleSource,
 };
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,17 @@ use crate::surface_host::SurfaceState;
 pub struct ProjectResponse {
     pub id: String,
     pub name: String,
+    pub source_kind: String,
+    pub root_path: Option<String>,
+}
+
+fn project_response(p: Project) -> ProjectResponse {
+    ProjectResponse {
+        id: p.id.as_str().to_string(),
+        name: p.name,
+        source_kind: p.source_kind.as_str().to_string(),
+        root_path: p.root_path,
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -93,10 +104,7 @@ pub fn do_project_create(
             name: Some(name),
         })
         .map_err(map_store_err)?;
-    Ok(ProjectResponse {
-        id: project.id.as_str().to_string(),
-        name: project.name,
-    })
+    Ok(project_response(project))
 }
 
 #[tauri::command]
@@ -106,6 +114,17 @@ pub fn project_create(
 ) -> Result<ProjectResponse, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
     do_project_create(&store, name).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_project_list(store: &Arc<dyn Store>) -> Result<Vec<ProjectResponse>, WorkspaceError> {
+    let projects = store.list_projects().map_err(map_store_err)?;
+    Ok(projects.into_iter().map(project_response).collect())
+}
+
+#[tauri::command]
+pub fn project_list(state: State<'_, OrchestratorState>) -> Result<Vec<ProjectResponse>, String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_list(&store).map_err(|e| format!("{e:?}"))
 }
 
 pub fn do_project_rename(
@@ -394,6 +413,17 @@ mod tests {
         let store = fake_store();
         let result = do_project_create(&store, "MyProject".to_string()).unwrap();
         assert_eq!(result.name, "MyProject");
+        assert_eq!(result.source_kind, "blank");
+    }
+
+    #[test]
+    fn project_list_includes_created_projects() {
+        let store = fake_store();
+        let created = do_project_create(&store, "Listed".to_string()).unwrap();
+        let projects = do_project_list(&store).unwrap();
+        assert!(projects
+            .iter()
+            .any(|p| p.id == created.id && p.name == "Listed"));
     }
 
     #[test]
