@@ -406,7 +406,10 @@ impl Daemon {
                         let pid = session.pid;
                         session.add_subscriber(conn_id, INITIAL_CREDIT);
                         st.sessions.insert(spawn.session_id.clone(), session);
-                        tracing::info!(session.id = %spawn.session_id, pid = pid, "session spawned");
+                        // The daemon's session id is the surface id, which is the operation's
+                        // correlation id end to end — emit it so records join the orchestrator's
+                        // on the standardized `correlation_id` key (design D5).
+                        tracing::info!(correlation_id = %spawn.session_id, pid = pid, "session spawned");
                         st.send_to(conn_id, encode_frame(&json!({ "type": "spawn-ack", "sessionId": spawn.session_id, "pid": pid }), None));
                     }
                     Err(e) => {

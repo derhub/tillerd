@@ -52,6 +52,9 @@ impl SurfaceApi {
         Self { runtime, store }
     }
 
+    /// `correlation_id` (= the surface id) is bound into the span so the orchestrator's records for
+    /// this operation join the daemon's on the same key across the process hop (design D5).
+    #[tracing::instrument(skip_all, fields(correlation_id = %surface_id.as_str()))]
     pub async fn create_terminal_surface(
         &self,
         session_id: SessionId,
@@ -60,6 +63,7 @@ impl SurfaceApi {
         rows: u16,
         cwd: Option<String>,
     ) -> Result<SurfaceId> {
+        tracing::info!(cols, rows, "creating terminal surface");
         let surface = self.store.create_surface(NewSurface {
             id: Some(surface_id.clone()),
             session_id,
@@ -104,11 +108,15 @@ impl SurfaceApi {
         Ok(run_launch(&spec, session_id, &self.store, &launcher).await)
     }
 
+    #[tracing::instrument(skip_all, fields(correlation_id = %surface.as_str()))]
     pub async fn input(&self, surface: &SurfaceId, bytes: &[u8]) -> Result<()> {
+        tracing::debug!(bytes = bytes.len(), "surface input");
         self.runtime.input(surface, bytes).await
     }
 
+    #[tracing::instrument(skip_all, fields(correlation_id = %surface.as_str()))]
     pub async fn resize(&self, surface: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
+        tracing::debug!(cols, rows, "surface resize");
         self.runtime.resize(surface, cols, rows).await
     }
 
@@ -116,7 +124,9 @@ impl SurfaceApi {
         self.runtime.resume_all().await
     }
 
+    #[tracing::instrument(skip_all, fields(correlation_id = %surface.as_str()))]
     pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
+        tracing::info!("detaching surface");
         self.runtime.detach(surface).await
     }
 
