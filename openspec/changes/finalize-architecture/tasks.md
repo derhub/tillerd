@@ -27,9 +27,13 @@
 
 ## 3. Observability
 
-- [ ] 3.1 `correlation_id`: generate at ingress (desktop IPC / surface op), bind into
+- [x] 3.1 `correlation_id`: generate at ingress (desktop IPC / surface op), bind into
   logger context, carry on request envelopes orchestrator -> daemon/gate, add the key to
   the standardized vocabulary (observability-logging spec, design D5).
+  [surface_id (generated at surface ingress) = correlation_id rides the wire; orchestrator
+  surface ops + daemon session records now bind the `correlation_id` span key so they join;
+  `contracts::CorrelationId` documents the standardized key. Desktop renderer logs use
+  `diag` (no tracing subscriber), so binding there is out of the tracing path.]
 
 ## 4. Design tokens
 
