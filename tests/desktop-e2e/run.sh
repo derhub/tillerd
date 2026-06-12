@@ -5,14 +5,14 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 # Isolated runtime dir so the e2e never touches a real ~/.tillerd. Every app launch in this run
-# (each spec, and both restart launches of resume.smoke) inherits it, which is also what makes the
-# resume-after-restart spec a real restart against the same persisted workspace.
+# (each test, and both restart launches of resume.test) inherits it, which is also what makes the
+# resume-after-restart test a real restart against the same persisted workspace.
 WORK="$(mktemp -d)"
 export TILLERD_DIR="$WORK/.tillerd"
 mkdir -p "$TILLERD_DIR"
 
 # WebdriverIO logs every command's RESULT at info level — tens of thousands of lines that bury the
-# smokes' own PASS/error output. Keep only errors; each spec prints its own outcome.
+# test output. Keep only errors (bun:test reports pass/fail structurally; no log parsing).
 export WDIO_LOG_LEVEL=error
 
 # ── builds ──────────────────────────────────────────────────────────────────
@@ -52,18 +52,17 @@ trap '
 ' EXIT
 sleep 1
 
-# ── specs ─────────────────────────────────────────────────────────────────────
-run_spec() { # <binary> <spec.ts>
-  echo "── running $(basename "$2") [$(basename "$1")] ──────────────────────────────"
-  TILLERD_DESKTOP_BIN="$1" bun "$2"
-}
+# ── tests ─────────────────────────────────────────────────────────────────────
+# `bun test` runs every *.test.ts sequentially in one process (no parallel app launches), reports
+# pass/fail structurally, and exits non-zero on any failure — no log parsing. Each test defers its
+# own app launch via the WebDriver session it opens. `--bail` stops at the first failure.
 
-# Dev build: boot, full project/session create flows, resume-after-restart, terminal.
-for smoke in "$REPO_ROOT"/tests/desktop-e2e/*.smoke.ts; do
-  run_spec "$DEV_BIN" "$smoke"
-done
+# Dev build: boot, full project/session create flows, resume-after-restart, surface isolation,
+# terminal — the whole suite.
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$REPO_ROOT/tests/desktop-e2e"
 
-# Bundled build: boot-to-ready only.
+# Bundled build: boot-to-ready only (isolated so a release-only packaging failure does not mask the
+# rest of the suite — design D9).
 if [[ -n "$BUNDLED_BIN" ]]; then
-  run_spec "$BUNDLED_BIN" "$REPO_ROOT/tests/desktop-e2e/boot.smoke.ts"
+  TILLERD_DESKTOP_BIN="$BUNDLED_BIN" bun test --bail "$REPO_ROOT/tests/desktop-e2e/boot.test.ts"
 fi
