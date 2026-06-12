@@ -21,7 +21,19 @@ BIN="$REPO_ROOT/target/debug/tillerd-desktop"
 # Start the WebDriver intermediary (it launches the app per session) and clean up on exit.
 tauri-webdriver --port 4444 &
 WD=$!
-trap 'kill "$WD" 2>/dev/null || true; pkill -f tillerd-desktop 2>/dev/null || true; rm -rf "$WORK"' EXIT
+# Tear down the WebDriver intermediary, the app, AND the services the app spawned (the
+# orchestrator leaves the gate/daemon running by design; the e2e must reap them so repeated runs
+# do not accumulate orphans that exhaust resources and wedge a later boot).
+trap '
+  kill "$WD" 2>/dev/null || true
+  pkill -f tillerd-desktop 2>/dev/null || true
+  pkill -f "bin/tillerd-daemon" 2>/dev/null || true
+  pkill -f "bin/tillerd-gate" 2>/dev/null || true
+  rm -rf "$WORK"
+' EXIT
 sleep 1
 
-TILLERD_DESKTOP_BIN="$BIN" bun "$REPO_ROOT/tests/desktop-e2e/terminal.smoke.ts"
+for smoke in "$REPO_ROOT"/tests/desktop-e2e/*.smoke.ts; do
+  echo "── running $(basename "$smoke") ──────────────────────────────────────────────"
+  TILLERD_DESKTOP_BIN="$BIN" bun "$smoke"
+done
