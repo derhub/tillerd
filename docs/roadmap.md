@@ -142,6 +142,15 @@ additive on these seams, never a change to them.
 
 - [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
   failure states.
+- [ ] Motion: transitions for surface lifecycle (create / destroy); layout changes
+  (resizing, adding, removing surfaces).
+- [ ] Polish: icons, spacing, density, typography, popups, menus, top bar toolbox, bottom bar style,
+- [ ] Polish: panel titles (session name + surface kind + running time); status badges (starting,
+  running, failed); terminal font and color scheme; drag-and-drop rearrangement of
+  surfaces in the layout.
+- [ ] Polish: panel resizing (drag to resize, double-click to reset); terminal copy/paste; keyboard
+  shortcuts for common actions (new project/session/surface, close surface, switch
+  session, …).
 - [ ] Light-mode coverage: component-level appearance verified and documented (tokens
   landed in 0.0.6).
 - [ ] Final coherence pass across all surfaces: density, spacing, motion.
