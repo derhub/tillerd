@@ -14,7 +14,7 @@ nothing is shortcut to a `.0` bucket.
 > first-run UX, settings + secrets, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
 > ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
-> After the working app, **0.1.x extends** — diff surface, placement geometry, workflow
+> After the working app, **0.1.x extends** — placement / multi-surface, diff surface, workflow
 > library, container backend, web remote — ordered cheapest-first on the frozen seams;
 > **1.0.0** is the stable horizon and ships distribution. See ADRs
 > [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
@@ -160,19 +160,20 @@ additive on these seams, never a change to them.
 Prove the seams and scale the surface area. Ordered cheapest-first; every step is
 additive on the architecture frozen at 0.0.6.
 
-### 0.1.0 — Diff surface
-
-- [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
-  pressure-testing the extension seam before anything else relies on it. (Agent
-  adapters are validated in 1.0.0, after the agent surface returns — ADR-0027.)
-
-### 0.1.1 — Placement geometry
+### 0.1.0 — Placement and multi-surface
 
 - [ ] Placement becomes a unique slot id, not named regions: a session holds N
   surfaces, panels bind surfaces by placement, and revisit resumes each by
   `(session, placement)`; spawning a surface diverges the session's launch spec
-  ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)).
+  ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). Lands before diff
+  because terminal + diff in one session is two placements.
 - [ ] Sizes and nested splits on top.
+
+### 0.1.1 — Diff surface
+
+- [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
+  pressure-testing the extension seam on the placement model. (Agent adapters are
+  validated in 1.0.0, after the agent surface returns — ADR-0027.)
 
 ### 0.1.2 — Prebuilt workflow library
 
