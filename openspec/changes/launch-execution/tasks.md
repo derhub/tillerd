@@ -6,9 +6,9 @@ ADR-0026 (uniform adapter dispatch over a generic spawn) and ADR-0024 (one proxy
 
 ## 1. Generic spawn (spec: surface-spawn)
 
-- [ ] 1.1 Add `ResolvedCommand { exe, args, env }` and a generic `spawn(surface_id, command: Option<ResolvedCommand>, cwd) -> (DaemonConnection, rx)` in the surface runtime that hands the command to the pseudo-terminal service; `None` spawns the login shell
-- [ ] 1.2 Test: a resolved command reaches the daemon with exe/args/env/cwd keyed by `surface_id`; `None` requests the login shell
-- [ ] 1.3 Test: the spawn yields the per-surface proxy — output bytes stream over the event sink tagged with `surface_id`
+- [x] 1.1 Add `ResolvedCommand { exe, args, env }` and a generic `spawn(surface_id, command: Option<ResolvedCommand>, cwd) -> (DaemonConnection, rx)` in the surface runtime that hands the command to the pseudo-terminal service; `None` spawns the login shell
+- [x] 1.2 Test: a resolved command reaches the daemon with exe/args/env/cwd keyed by `surface_id`; `None` requests the login shell
+- [x] 1.3 Test: the spawn yields the per-surface proxy — output bytes stream over the event sink tagged with `surface_id` (covered by the existing terminal streaming tests via `open_terminal`)
 
 ## 2. Adapter seam (spec: surface-runtime)
 

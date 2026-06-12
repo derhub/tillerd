@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -15,6 +15,15 @@ use crate::agent::{parse, setup};
 use crate::error::{OrchestratorError, Result};
 use crate::persistence::{Store, SurfaceId, SurfaceKind};
 use crate::surface::transport::DaemonConnection;
+
+/// A fully resolved launch command: a concrete executable, its arguments, and extra
+/// environment. `None` at a spawn site means the login shell.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ResolvedCommand {
+    pub exe: String,
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
+}
 
 pub trait SurfaceEventSink: Send + Sync + 'static {
     fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]);
@@ -118,6 +127,46 @@ impl SurfaceRuntime {
         self.proxies.lock().await.len()
     }
 
+    /// Generic spawn shared by every surface kind: connect to the pseudo-terminal service,
+    /// spawn `command` (or the login shell when `None`), and return the live connection and
+    /// frame stream. `surface_id` is the daemon session key (ADR-0024).
+    async fn spawn(
+        &self,
+        surface: &SurfaceId,
+        command: Option<&ResolvedCommand>,
+        cwd: &str,
+        cols: u16,
+        rows: u16,
+        token: &str,
+    ) -> Result<(
+        WireSessionId,
+        Arc<DaemonConnection>,
+        tokio::sync::mpsc::Receiver<SessionFrame>,
+    )> {
+        let wire = wire_id(surface);
+        let (conn, rx) = DaemonConnection::connect(&self.socket)
+            .await
+            .map_err(|e| surface_err(surface, e))?;
+        let conn = Arc::new(conn);
+
+        const NO_ARGS: &[String] = &[];
+        let params = SpawnParams {
+            session_id: &wire,
+            token,
+            cols,
+            rows,
+            cwd,
+            command: command.map(|c| c.exe.as_str()),
+            args: command.map(|c| c.args.as_slice()).unwrap_or(NO_ARGS),
+            env: command.map(|c| &c.env),
+            resume: None,
+        };
+        conn.spawn(&params)
+            .await
+            .map_err(|e| surface_err(surface, e))?;
+        Ok((wire, conn, rx))
+    }
+
     pub async fn open_terminal(
         &self,
         surface: SurfaceId,
@@ -130,27 +179,7 @@ impl SurfaceRuntime {
             return Err(surface_err(&surface, "surface already has a proxy"));
         }
 
-        let wire = wire_id(&surface);
-        let (conn, rx) = DaemonConnection::connect(&self.socket)
-            .await
-            .map_err(|e| surface_err(&surface, e))?;
-        let conn = Arc::new(conn);
-
-        let params = SpawnParams {
-            session_id: &wire,
-            token: &token,
-            cols,
-            rows,
-            cwd: &cwd,
-            command: None,
-            args: &[],
-            env: None,
-            resume: None,
-        };
-        conn.spawn(&params)
-            .await
-            .map_err(|e| surface_err(&surface, e))?;
-
+        let (wire, conn, rx) = self.spawn(&surface, None, &cwd, cols, rows, &token).await?;
         let state = Arc::new(Mutex::new(ProxyState::Attaching(Vec::new())));
         self.spawn_terminal_proxy(surface, wire, conn, rx, state)
             .await;
@@ -1077,6 +1106,50 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[tokio::test]
+    async fn generic_spawn_sends_resolved_command_to_daemon() {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon_sock = dir.path().join("daemon.sock");
+        let gate_sock = dir.path().join("gate.sock");
+        let daemon_listener = UnixListener::bind(&daemon_sock).unwrap();
+        let _gate_listener = UnixListener::bind(&gate_sock).unwrap();
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let _daemon = tokio::spawn(fake_spawn_daemon_capturing(
+            daemon_listener,
+            captured.clone(),
+        ));
+
+        let runtime = agent_runtime(daemon_sock, gate_sock, Arc::new(CollectingSink::default()));
+        let cmd = ResolvedCommand {
+            exe: "/bin/echo".into(),
+            args: vec!["hi".into()],
+            env: BTreeMap::new(),
+        };
+        runtime
+            .spawn(
+                &SurfaceId::from_string("s-1"),
+                Some(&cmd),
+                "/tmp",
+                80,
+                24,
+                "tok",
+            )
+            .await
+            .expect("spawn");
+
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let spawns = captured.lock().unwrap().clone();
+        assert_eq!(spawns.len(), 1, "expected one spawn frame");
+        assert_eq!(spawns[0]["command"].as_str(), Some("/bin/echo"));
+        let args: Vec<&str> = spawns[0]["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(args, vec!["hi"]);
     }
 
     fn agent_runtime(
