@@ -29,6 +29,8 @@ The sidebar SHALL display the list of active sessions grouped by project. Each p
 - **WHEN** at least one active session belongs to the Unfiled project and at least one belongs to a named project
 - **THEN** the Unfiled group is rendered after all named project groups
 
+## ADDED Requirements
+
 ### Requirement: Project and session create actions
 
 The sidebar SHALL provide controls to create a new project and to create a new session under a selected project. Activating the new-project control SHALL open a form or prompt that accepts a source kind and an optional name. Activating the new-session control for a project SHALL create a session under that project and navigate to it.
@@ -61,3 +63,10 @@ The sidebar SHALL provide a control per session row to archive that session. Act
 
 - **WHEN** the user activates the archive control for the currently active session
 - **THEN** the sidebar sends an archive-session request, removes the row from the list, and navigates to a neutral route
+
+## REMOVED Requirements
+
+### Requirement: New session action
+
+**Reason**: Superseded by the project-grouped create controls.
+**Migration**: Use the "Project and session create actions" requirement; session creation now happens under a selected project.

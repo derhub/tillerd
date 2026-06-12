@@ -119,7 +119,10 @@ different pseudo-terminal.
 A proxy detach caused by host shutdown or a dropped client SHALL leave the pseudo-terminal running
 in the daemon so the surface can resume; the pseudo-terminal's lifetime SHALL follow the surface,
 not the client connection. Removing the surface SHALL terminate its pseudo-terminal and release the
-proxy.
+proxy. Surface creation SHALL require a caller-supplied `session_id`; the surface-runtime SHALL NOT
+mint an implicit session when creating a surface. Soft-deleting a surface via the session container
+SHALL mark the surface record as archived without terminating the pseudo-terminal; hard removal via
+the session container SHALL terminate the pseudo-terminal.
 
 #### Scenario: Detach keeps the pseudo-terminal alive
 
@@ -128,8 +131,18 @@ proxy.
 
 #### Scenario: Removal terminates the pseudo-terminal
 
-- **WHEN** the surface is removed
+- **WHEN** the surface is removed via a hard-remove operation
 - **THEN** its pseudo-terminal is terminated and the proxy is released
+
+#### Scenario: Surface creation requires caller-supplied session id
+
+- **WHEN** a create-surface request is received
+- **THEN** the surface-runtime uses the caller-supplied `session_id` to associate the surface record and does not create a new session
+
+#### Scenario: Soft-delete does not terminate pseudo-terminal
+
+- **WHEN** a surface is soft-deleted through a session container archive operation
+- **THEN** the surface record's `deleted_at` is set and the pseudo-terminal is not terminated
 
 ### Requirement: Surface creation dispatches by kind
 
@@ -147,3 +160,37 @@ no launch adapter (e.g. `diff`) SHALL fail with a typed unsupported-kind error a
 
 - **WHEN** a surface of a kind with no launch adapter (e.g. `diff`) is created
 - **THEN** the runtime returns a typed unsupported-kind error and stores no proxy
+
+### Requirement: Placement hint accepted at surface creation
+
+Surface creation SHALL accept an optional placement string. When present, the placement string
+SHALL be stored on the surface row and later made available to the UI for routing the surface to
+a named region of the panel tree. The placement hint has no effect on the proxy or pseudo-terminal
+assignment; it is a metadata annotation only.
+
+#### Scenario: Placement stored when surface is created with a hint
+
+- **WHEN** a surface creation call includes a placement string
+- **THEN** the surface row records that placement string
+
+#### Scenario: Absent placement is stored as null
+
+- **WHEN** a surface creation call does not include a placement string
+- **THEN** the surface row's placement field is null
+
+### Requirement: Worktree reference accepted at surface creation
+
+Surface creation SHALL accept an optional worktree identifier. When present, the worktree
+identifier SHALL be stored on the surface row, associating the surface with the worktree that
+provides its working directory. When absent, the surface row's worktree reference SHALL be null.
+
+#### Scenario: Worktree reference stored when provided
+
+- **WHEN** a surface is created with a worktree identifier
+- **THEN** the surface row records the worktree identifier
+
+#### Scenario: Absent worktree reference is stored as null
+
+- **WHEN** a surface is created without a worktree identifier
+- **THEN** the surface row's worktree reference is null
+

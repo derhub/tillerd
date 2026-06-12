@@ -66,6 +66,8 @@ and read only through the orchestrator; the renderer SHALL NOT access it directl
 - **WHEN** the orchestrator reattaches a surface to the daemon
 - **THEN** it uses the surface identifier recorded in the surface row
 
+## ADDED Requirements
+
 ### Requirement: Session creation with optional template reference
 
 `NewSession` SHALL accept an optional template identifier. When a template identifier is

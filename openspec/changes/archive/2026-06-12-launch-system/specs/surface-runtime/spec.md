@@ -19,6 +19,8 @@ daemon directly.
 - **THEN** it receives it through the orchestrator
 - **AND** it does not open its own connection to the daemon
 
+## ADDED Requirements
+
 ### Requirement: Placement hint accepted at surface creation
 
 Surface creation SHALL accept an optional placement string. When present, the placement string
