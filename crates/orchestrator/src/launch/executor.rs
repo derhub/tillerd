@@ -71,8 +71,7 @@ async fn try_run_item<L: SurfaceLauncher>(
     launcher.launch(&surface.id, kind, command, cwd).await
 }
 
-/// Run an item's worktree step against the session's project repository root, returning the created
-/// worktree. Resolving the repo root requires the session, its project, and the project's root path.
+/// Run an item's worktree step against the session's project repository root.
 fn run_worktree_step(
     step: &WorktreeStep,
     session_id: &SessionId,

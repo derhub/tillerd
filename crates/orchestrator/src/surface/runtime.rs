@@ -112,7 +112,10 @@ impl SurfaceRuntime {
 
     /// Uniform surface launch: dispatch by kind to the kind's adapter. The launch executor
     /// and the surface API call only this; a kind with no adapter is a typed error.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the full surface-spawn input set: kind, command, token, terminal size, and cwd"
+    )]
     pub async fn launch_surface(
         &self,
         surface: SurfaceId,

@@ -782,8 +782,7 @@ impl Store for SqliteStore {
     }
 
     fn seed_commands(&self) -> Result<()> {
-        // One lock, one insert-or-ignore per prebuilt: idempotent and race-free under
-        // concurrent open (the primary key resolves the conflict atomically — no
+        // One lock + INSERT OR IGNORE per prebuilt: race-free under concurrent open (no
         // exists-check / lock-release / re-insert window).
         let conn = self.lock()?;
         for cmd in prebuilt_commands() {
