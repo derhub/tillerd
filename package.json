@@ -28,7 +28,7 @@
     "cargo:lint": "cargo clippy --all-targets --locked -- -D warnings",
     "cargo:fmt": "cargo fmt",
     "cargo:fmt:check": "cargo fmt --check",
-    "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@tillerd/integration-tests",
+    "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e",
     "check-deps": "turbo run check-deps",
     "changeset": "changeset",
     "version-packages": "changeset version",
