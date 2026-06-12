@@ -12,9 +12,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@tillerd/adapter-claude-code": "workspace:*",
     "@tillerd/logger": "workspace:*",
-    "@tillerd/platform-bun": "workspace:*",
     "@tillerd/sdk": "workspace:*"
   },
   "devDependencies": {

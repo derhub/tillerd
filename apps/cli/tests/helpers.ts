@@ -1,10 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Logger, SetupContext, SetupFs } from "@tillerd/sdk";
-import { setup } from "@tillerd/adapter-claude-code";
+import type { Logger, SetupContext, SetupFs, SetupDefinition } from "@tillerd/sdk";
+import { defineSetup } from "@tillerd/sdk";
 import type { CliDeps, ManifestData } from "../src/cli";
 
 const FIXTURES = path.join(import.meta.dir, "fixtures");
+
+const noopSetup: SetupDefinition = defineSetup({
+  async install() {},
+  async uninstall() {},
+});
 export const AGENT_HOME = "/agent/.claude";
 export const SETTINGS = `${AGENT_HOME}/settings.json`;
 export const NOTIFY = "/fake/bin/tillerd-notify";
@@ -52,7 +57,7 @@ export function harness(o: HarnessOverrides = {}): Harness {
   let confirmCalls = 0;
 
   const deps: CliDeps = {
-    setup,
+    setup: noopSetup,
     buildContext: (notifyCommand: string, logger: Logger): SetupContext => ({
       notifyCommand,
       agentHome: AGENT_HOME,

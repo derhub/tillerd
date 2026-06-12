@@ -16,8 +16,6 @@
     "@react-router/node": "7.17.0",
     "@react-router/serve": "7.17.0",
     "@tauri-apps/api": "^2.11.0",
-    "@tillerd/adapter-claude-code": "workspace:*",
-    "@tillerd/engine": "workspace:*",
     "@tillerd/sdk": "workspace:*",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
