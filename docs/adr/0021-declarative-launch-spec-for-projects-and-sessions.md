@@ -2,6 +2,7 @@
 
 - Status: proposed
 - Date: 2026-06-11
+- Amended by: ADR-0030 (placement is a unique slot id, not a fixed `center/side` set)
 
 ## Context
 
