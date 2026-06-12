@@ -103,10 +103,10 @@ additive on these seams, never a change to them.
   modes, full create flows, resume after restart, runs in CI. (Agent render deferred
   to 1.0.0 with the agent surface.)
 - [ ] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
-- [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
-  (socket / manifest), health (ADR-0019), identity / version.
-  Gate + daemon conform; future services inherit the contract. (Health feeds the
-  0.0.8 indicators.)
+- [ ] Solidify `service-host`: add first-class ready / drain lifecycle phases and the
+  discovery convention (socket / manifest) to the `Service` trait — health (ADR-0019)
+  and identity / version are already in. Gate + daemon conform; future services
+  inherit the contract. (Health feeds the 0.0.8 indicators.)
 - [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
   daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
   starts fresh. Builds on the contract's drain primitive — re-check the
