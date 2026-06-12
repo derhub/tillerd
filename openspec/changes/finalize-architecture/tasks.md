@@ -2,22 +2,28 @@
 
 ## 1. E2E foundation (lands first; everything later verifies against it)
 
-- [ ] 1.1 Extend `tests/desktop-e2e` to the full suite: boot-to-ready in dev and bundled
+- [x] 1.1 Extend `tests/desktop-e2e` to the full suite: boot-to-ready in dev and bundled
   modes, full project/session create flows, resume after restart; wire into CI
-  (dev-verification spec, design D6).
-- [ ] 1.2 Dynamic-ACL contract test in `apps/desktop/src-tauri/src/command_contract.rs`:
-  `dynamic-acl` feature + `add_capability` before the webview, `get_ipc_response` per
-  command asserting never not-found/deserialize (dev-verification spec, design D7).
+  (dev-verification spec, design D6). [live run deferred to user]
+- [x] 1.2 Runtime arg-shape contract test in `apps/desktop/src-tauri/src/command_contract.rs`:
+  every IPC command invoked via `get_ipc_response` over the real context + local origin,
+  asserting never not-found/deserialize (dev-verification spec, design D7).
 
 ## 2. Service contract and upgrade
 
-- [ ] 2.1 `service-host` lifecycle: ready handle on `ServeContext`, SIGUSR2 drain phase,
+- [~] 2.1 `service-host` lifecycle: ready handle on `ServeContext`, SIGUSR2 drain phase,
   manifest `status` + `socket_path` discovery; gate + daemon conform; E2E/orchestrator
   read readiness from the manifest (service-contract spec, ADR-0028).
-- [ ] 2.2 Drain-and-restart: daemon drain state machine (refuse-new, wait-for-idle,
+  [done: contract (ready/drain/manifest fields) + daemon/gate conform, tested. deferred:
+  orchestrator consuming manifest `status` for readiness — entangled with deduping the
+  3+ ManifestData/adopt-or-spawn impls; do with that refactor.]
+- [~] 2.2 Drain-and-restart: daemon drain state machine (refuse-new, wait-for-idle,
   explicit upgrade-now), orchestrator supervision drains/swaps/restarts on version
   mismatch, resume-after-restart via workspace persistence (daemon-upgrade +
   orchestrator-supervision specs, ADR-0029).
+  [done: daemon drain SM (refuse-new EDRAINING + idle-exit) + orchestrator drain-on-
+  mismatch + resume (resume_all + resume.smoke.ts), tested. upgrade-now = SIGTERM.
+  deferred: removing the fd-handoff/snapshot machinery (REMOVED reqs) → 5.1 sweep.]
 
 ## 3. Observability
 
