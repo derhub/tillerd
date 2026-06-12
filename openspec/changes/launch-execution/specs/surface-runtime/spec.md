@@ -2,21 +2,17 @@
 
 ## ADDED Requirements
 
-### Requirement: Surface creation dispatches to a kind adapter
+### Requirement: Surface creation dispatches by kind
 
-The surface runtime SHALL create a surface by selecting an adapter for the surface's kind and
-delegating to it; the runtime SHALL NOT branch on kind beyond adapter selection. Each adapter SHALL
-produce the per-surface proxy the runtime owns. Adding a surface kind SHALL require only a new
-adapter, not a change to the dispatch.
+The surface runtime SHALL bring a surface to life only through `launch_surface`, which dispatches by
+the surface's kind. In 0.x the only runnable kind is `terminal`; a `terminal` surface SHALL spawn
+its command through the generic spawn and yield the per-surface proxy the runtime owns. A kind with
+no launch adapter (e.g. `diff`) SHALL fail with a typed unsupported-kind error and create no proxy.
 
-#### Scenario: Terminal kind dispatches to the terminal adapter
+#### Scenario: Terminal kind spawns and yields a proxy
 - **WHEN** a terminal surface is created
-- **THEN** the terminal adapter spawns the command and returns the proxy the runtime stores
+- **THEN** the generic spawn runs the command and returns the proxy the runtime stores
 
-#### Scenario: Agent kind dispatches to the agent adapter
-- **WHEN** an agent surface is created
-- **THEN** the agent adapter establishes the agent lifecycle and returns the proxy the runtime stores
-
-#### Scenario: A new kind needs no dispatch change
-- **WHEN** an adapter for a new kind is registered
-- **THEN** surfaces of that kind are created through the same dispatch with no change to the runtime's selection logic
+#### Scenario: An unsupported kind fails loudly
+- **WHEN** a surface of a kind with no launch adapter (e.g. `diff`) is created
+- **THEN** the runtime returns a typed unsupported-kind error and stores no proxy

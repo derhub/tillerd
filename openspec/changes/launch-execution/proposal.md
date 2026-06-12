@@ -8,12 +8,12 @@ terminal, and ignores the item's target kind and worktree step. The command libr
 step are implemented and tested in isolation but never invoked.
 
 The deeper problem is shape, not wiring. Surface creation is split into kind-specific entry
-points (`open_terminal`, `open_agent`) that each bake in how to spawn and, for the agent, the
-whole hook lifecycle. That is not extensible: every new surface kind needs a new entry point.
-The launch layer should instead be thin — **parse a launch item, then hand off to the right
-service** (the pseudo-terminal daemon to spawn a command; the gate adapter to drive an agent's
-hooks; the worktree service to create a worktree). The kind of surface is a routing detail,
-not a separate spawn path.
+points (`open_terminal`, `open_agent`) that each bake in how to spawn. The launch layer should
+instead be thin — **parse a launch item, then hand off to the right service** (the pseudo-terminal
+daemon to spawn a command; the worktree service to create a worktree). Spawning is one generic
+operation. In parallel, 0.x narrows to a terminal-only surface model: the agent surface is removed
+and deferred to 1.x (ADR-0027), so the launch layer dispatches terminals without per-kind spawn
+paths.
 
 ## What Changes
 
@@ -25,16 +25,14 @@ not a separate spawn path.
   (executable / args / env / cwd) to the pseudo-terminal daemon, which spawns it. Absent
   command keeps the login-shell default. The surface kind no longer changes how a surface is
   spawned.
-- **Agent becomes a layered adapter, not a spawn path.** The agent lifecycle currently inside
-  `open_agent` (subscribe to the gate before spawn, install hooks, route hook→status/content,
-  interrupt) is extracted into an **agent adapter** the executor attaches when `target = agent`.
-  The adapter wraps the generic spawn (subscribe → spawn → drain). A new agent or kind is a new
-  adapter with zero launch-layer changes.
-- **BREAKING — REMOVE** the launch fields on the agent definition (binary, argument template,
-  binary resolution). The launch command comes from the command library item. `AgentDefinition`
-  keeps only adapter semantics: hook→status/content parsing, interrupt sequence, version range,
-  and hook install/teardown. This deletes the duplicated "how to launch the agent" that lived in
-  both the agent definition and the command library.
+- **BREAKING — REMOVE the agent surface entirely (terminal-only 0.x; agent deferred to 1.x,
+  ADR-0027).** Delete the orchestrator agent module (`definition`/`parse`/`setup`), `launch_agent`,
+  `AgentProxy`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed;
+  the desktop `surface_create_agent` + `agent_bootstrap` IPC and bootstrap; and the TS agent layer
+  (`adapter-claude-code`) plus the retired TS backend (`engine`, `platform-bun`). The **gate**,
+  hook ingress, mcp-gateway, and memorya stay — they are shared infrastructure; only the agent
+  surface's subscription to the gate is removed. 0.x surfaces are terminal (with a `diff` viewer
+  stub); runnable surfaces are terminals.
 - The executor wires the remaining item fields: dispatch on `target` to the correct surface
   kind, and run the `worktree` step (create → returns the cwd) when present, recording
   `worktree_id`. Auxiliary runners (e.g. a dev server) are ordinary launch items with
@@ -61,23 +59,23 @@ not a separate spawn path.
 
 ### Modified Capabilities
 
-- `surface-runtime` — remove `open_terminal` / `open_agent`; a single generic spawn plus a
-  kind-keyed adapter attach.
-- `agent-adapter` — extracted into a layered adapter that wraps the generic spawn; sheds launch
-  fields; keeps hook parse, interrupt, version range, and hook setup.
+- `surface-runtime` — remove `open_terminal` / `open_agent` and the agent surface entirely; a
+  single generic spawn plus terminal dispatch (terminal-only 0.x).
 - `workspace-ipc` — add rename/archive (project, session) and get/delete (command) handlers.
 - `command-library` — seeding is idempotent under concurrent open.
 
 ## Impact
 
-- Refactor `crates/orchestrator/src/surface/runtime.rs` (remove the two `open_*` methods; add
-  one generic spawn + adapter attach), `agent/definition.rs` (slim the definition),
-  `surface/api.rs`, `launch/executor.rs` (the coordinator), `launch/worktree.rs`,
-  `persistence/{sqlite,memory}.rs`.
-- `apps/desktop/src-tauri`: `workspace_host.rs`, `lib.rs` (new handlers).
-- Refactors backend code merged in 0.0.2 and 0.0.3 (the `open_*` split and the agent
-  definition's launch fields). The agent UI pane and the hook parse/status/interrupt/setup
-  logic are kept — they move into the adapter; behavior is preserved.
+- Refactor `crates/orchestrator/src/surface/runtime.rs` (remove the two `open_*` methods + the
+  agent surface; add one generic spawn + terminal dispatch), `surface/api.rs`,
+  `launch/executor.rs` (the coordinator), `launch/worktree.rs`, `persistence/{sqlite,memory}.rs`.
+- Delete the orchestrator `agent` module and the `apps/desktop/src-tauri` agent host
+  (`surface_create_agent`, `agent_bootstrap`/bootstrap); `apps/desktop/src-tauri`:
+  `workspace_host.rs`, `lib.rs` (new handlers).
+- TS: delete `packages/{adapter-claude-code,engine,platform-bun}`, remove agent types from
+  `packages/sdk`, and the renderer agent path (`apps/ui`); strip the deps from each package.json.
+- **BREAKING** — reverses the agent surface merged in 0.0.3; the gate / hook ingress / mcp-gateway
+  / memorya stay (shared infra). Agent returns in 1.x (ADR-0027).
 - `daemon-pty-client` spawn already carries `command`/`args` — no protocol change.
 - Builds on the parked `feature/0-0-5-launch-system` scaffold (launch spec + lazy migration,
   command-library store, worktree step, base IPC, SDK types) — reused, not re-implemented.

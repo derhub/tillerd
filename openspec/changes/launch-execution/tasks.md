@@ -1,8 +1,8 @@
 # Tasks — Launch Execution
 
 Test-first throughout (red → green → refactor). Each task traces to a spec requirement and honors
-ADR-0026 (uniform adapter dispatch over a generic spawn) and ADR-0024 (one proxy per surface;
-`surface_id` is the daemon key). Built on the parked `feature/0-0-5-launch-system` scaffold.
+ADR-0024 (one proxy per surface; `surface_id` is the daemon key) and ADR-0027 (0.x is terminal-only;
+the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch-system` scaffold.
 
 ## 1. Generic spawn (spec: surface-spawn)
 
@@ -12,20 +12,20 @@ ADR-0026 (uniform adapter dispatch over a generic spawn) and ADR-0024 (one proxy
 
 ## 2. Adapter seam (spec: surface-runtime)
 
-- [x] 2.1 Uniform `launch_surface(surface, kind, command, ...)` dispatch + per-kind `launch_terminal`/`launch_agent` methods (the pragmatic registry; a `Box<dyn SurfaceAdapter>` trait+registry is deferred per ADR-0026's enum allowance, avoiding the `async-trait` dep)
-- [x] 2.2 Dispatch keyed by `SurfaceKind`; the runtime brings a surface to life only through `launch_surface` with no other kind branching
+- [x] 2.1 Uniform `launch_surface(surface, kind, command, ...)` dispatch keyed by `SurfaceKind`; `launch_terminal` calls the generic spawn
+- [x] 2.2 The runtime brings a surface to life only through `launch_surface` with no other kind branching
 - [x] 2.3 Terminal adapter (`launch_terminal`) calls the generic spawn
-- [x] 2.4 **Removed** `open_terminal` and `open_agent`; rewired `create_terminal_surface` / `create_agent_surface` and every test call site to `launch_surface`
-- [x] 2.5 Test: `launch_surface_rejects_unsupported_kind` (diff) + terminal/agent dispatch covered by existing tests
+- [x] 2.4 **Removed** `open_terminal`; rewired `create_terminal_surface` and every test call site to `launch_surface`
+- [x] 2.5 Test: `launch_surface_rejects_unsupported_kind` (diff) + terminal dispatch covered by existing tests
 - [x] 2.6 Existing terminal streaming/status/resize/reattach tests pass through the new seam
 
-## 3. Agent adapter (spec: agent-adapter)
+## 3. Remove the agent surface — terminal-only 0.x (ADR-0027)
 
-- [x] 3.1 `launch_agent` extracted: subscribe to the gate by `surface_id` before spawn → install hooks → generic spawn → drain hooks into status/content; teardown on removal
-- [x] 3.2 Existing agent tests pass through `launch_surface` (subscription→status/content routing; gate-error path; unresolvable-binary error)
-- [ ] 3.3 Slim `AGENT_DEF` / `AgentDefinition`: remove `binary`, `args_template`, resolution; keep hook parse, `interrupt_seq`, version range, hook install/teardown — deferred until the executor supplies the command (task 4); transitional `resolve_agent_command` resolves it for now
-- [ ] 3.4 Test: the launch command comes from the item, not the definition — needs task 4
-- [x] 3.5 Keep the agent UI pane and hook parse/status logic (unchanged)
+- [x] 3.1 Orchestrator: delete the `agent` module (`definition`/`parse`/`setup`), `launch_agent`/`AgentProxy`/`resolve_agent_command`/`agent_def`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed; `launch_surface` is terminal-only (diff → unsupported). The gate stays (shared hook-ingress/MCP infra; only the agent's gate subscription is removed)
+- [x] 3.2 Desktop host: remove `surface_create_agent` + `agent_bootstrap` IPC commands and the agent bootstrap module; `SurfaceApi::new` (no gate socket)
+- [ ] 3.3 TS: delete `packages/adapter-claude-code`, `packages/engine`, `packages/platform-bun`; remove agent types from `packages/sdk`; remove the renderer agent path (`agent_bootstrap`, agent surface UI/transport); strip the deps from every package.json
+- [x] 3.4 Tests: `cargo test -p tillerd-orchestrator` green after removal; terminal streaming/status/resize/reattach unaffected
+- [x] 3.5 Keep the gate, hook ingress, mcp-gateway, and memorya (shared infra) untouched
 
 ## 4. Launch executor (spec: launch-execution)
 
@@ -55,4 +55,4 @@ ADR-0026 (uniform adapter dispatch over a generic spawn) and ADR-0024 (one proxy
 
 - [ ] 8.1 `cargo test -p tillerd-orchestrator` green; `cargo clippy -p tillerd-orchestrator --all-targets --locked -- -D warnings` clean
 - [ ] 8.2 `bun run verify` green (format / check-types / lint / test / e2e)
-- [ ] 8.3 Confirm no dead code remains: the stub executor, the `open_*` methods, and the agent definition's launch fields are gone with no dangling references
+- [ ] 8.3 Confirm no dead code remains: the stub executor, the `open_*` methods, and the entire agent surface (orchestrator module, `SurfaceKind::Agent`, desktop IPC + bootstrap, TS agent + retired packages) are gone with no dangling references

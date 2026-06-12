@@ -3,6 +3,10 @@
 - Status: proposed
 - Date: 2026-06-12
 - Supersedes: none
+- Superseded in part by: ADR-0027 — 0.x is terminal-only, so the agent adapter, the gate-drain
+  lifecycle, and the `Box<dyn SurfaceAdapter>` registry are deferred to 1.x; `launch_surface`
+  dispatches terminals via a plain `SurfaceKind` match. The thin executor, the generic spawn, and
+  item-supplied commands survive unchanged.
 
 ## Context
 

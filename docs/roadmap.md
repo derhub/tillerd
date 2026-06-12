@@ -175,4 +175,7 @@ Prove the seams and scale beyond one agent and one host.
 - [ ] Stable, versioned API and launch-spec schema.
 - [ ] Extension contract (surface kinds, command library, execution backends) proven by
   real second implementations.
+- [ ] Cross-platform desktop with a polished, stable UX and solid performance.
+- [ ] Agent as a first-class surface kind, with a rich status model and content stream over the
+  gate's hook fan-out (deferred from 0.x — ADR-0027).
 - [ ] Production-ready: distribution, observability, and upgrade paths hardened.
