@@ -26,6 +26,18 @@ pub struct SessionResponse {
     pub id: String,
     pub project_id: String,
     pub title: String,
+    pub title_source: String,
+    pub created_at: String,
+}
+
+fn session_response(s: Session) -> SessionResponse {
+    SessionResponse {
+        id: s.id.as_str().to_string(),
+        project_id: s.project_id.as_str().to_string(),
+        title: s.title,
+        title_source: s.title_source.as_str().to_string(),
+        created_at: s.created_at,
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -136,14 +148,7 @@ pub fn do_session_list(
 ) -> Result<Vec<SessionResponse>, WorkspaceError> {
     let pid = project_id.map(ProjectId::new);
     let sessions = store.list_sessions(pid.as_ref()).map_err(map_store_err)?;
-    Ok(sessions
-        .into_iter()
-        .map(|s| SessionResponse {
-            id: s.id.as_str().to_string(),
-            project_id: s.project_id.as_str().to_string(),
-            title: s.title,
-        })
-        .collect())
+    Ok(sessions.into_iter().map(session_response).collect())
 }
 
 #[tauri::command]
@@ -187,27 +192,32 @@ pub fn session_archive(id: String, state: State<'_, OrchestratorState>) -> Resul
     do_session_archive(&store, id).map_err(|e| format!("{e:?}"))
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// Session-creation draft (built by the `session_create` command from the client's flat args).
+#[derive(Debug, Default)]
 pub struct SessionCreateRequest {
     pub project_id: Option<String>,
-    pub template_id: Option<String>,
     pub title: Option<String>,
+    pub title_source: Option<String>,
+    pub template_id: Option<String>,
+}
+
+fn parse_title_source(s: Option<&str>) -> TitleSource {
+    match s {
+        Some("branch") => TitleSource::Branch,
+        Some("both") => TitleSource::Both,
+        Some("custom") => TitleSource::Custom,
+        _ => TitleSource::AgentTitle,
+    }
 }
 
 pub fn do_session_create(
     store: &Arc<dyn Store>,
     req: SessionCreateRequest,
 ) -> Result<Session, WorkspaceError> {
-    let title_source = if req.title.is_some() {
-        TitleSource::Custom
-    } else {
-        TitleSource::default()
-    };
     store
         .create_session(NewSession {
             project_id: req.project_id.map(ProjectId::new),
-            title_source,
+            title_source: parse_title_source(req.title_source.as_deref()),
             title: req.title,
             template_id: req.template_id.map(LaunchTemplateId::from_string),
         })
@@ -216,12 +226,24 @@ pub fn do_session_create(
 
 #[tauri::command]
 pub async fn session_create(
-    req: SessionCreateRequest,
+    project_id: Option<String>,
+    title: Option<String>,
+    title_source: Option<String>,
+    template_id: Option<String>,
     orchestrator: State<'_, OrchestratorState>,
     surfaces: State<'_, SurfaceState>,
 ) -> Result<SessionResponse, String> {
     let store = get_store(&orchestrator).map_err(|e| format!("{e:?}"))?;
-    let session = do_session_create(&store, req).map_err(|e| format!("{e:?}"))?;
+    let session = do_session_create(
+        &store,
+        SessionCreateRequest {
+            project_id,
+            title,
+            title_source,
+            template_id,
+        },
+    )
+    .map_err(|e| format!("{e:?}"))?;
     // Best-effort: instantiate the session's launch spec onto the runtime. A launch failure does
     // not undo the created session; per-item failures are recorded inside the executor's results.
     if let Err(e) = surfaces.api.launch_session(&session.id).await {
@@ -230,11 +252,7 @@ pub async fn session_create(
             session.id.as_str()
         );
     }
-    Ok(SessionResponse {
-        id: session.id.as_str().to_string(),
-        project_id: session.project_id.as_str().to_string(),
-        title: session.title,
-    })
+    Ok(session_response(session))
 }
 
 pub fn do_session_layout_set(
@@ -556,9 +574,9 @@ mod tests {
         let session = do_session_create(
             &store,
             SessionCreateRequest {
-                project_id: None,
                 template_id: Some(template.id.as_str().to_string()),
                 title: Some("My Session".to_string()),
+                ..Default::default()
             },
         )
         .unwrap();
