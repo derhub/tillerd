@@ -1,13 +1,16 @@
 # Roadmap
 
 Status legend: `- [ ]` planned · `- [x]` done · `[WIP]` in progress · `[HELP]` wants
-input. Within a milestone, items are ordered most to least foundational. Every version
-is a small, demoable step; nothing is shortcut to a `.0` bucket.
+input. Within a milestone, items are ordered most to least foundational. Across
+milestones, cross-cutting foundations land before their consumers — a later version
+must never force rework of an earlier one. Every version is a small, demoable step;
+nothing is shortcut to a `.0` bucket.
 
 > Status: 0.0.x, pre-release. The **0.0.x** line ships a **working app**: the
 > foundation is in (Rust orchestrator, persistence, surface runtime, launch system —
-> 0.0.1–0.0.5); what remains is contracts + test coverage, observability, health /
-> first-run UX, settings, and a UX/UI pass. **0.x is terminal-only**: the agent surface
+> 0.0.1–0.0.5); what remains is the cross-cutting foundations (service contract,
+> correlation, design tokens, E2E test), then observability, health / first-run UX,
+> settings, and a UX/UI pass. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
 > ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
 > After the working app, **0.x is stabilization and enhancement**: **0.1.x** hardens and
@@ -84,11 +87,21 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
 
-### 0.0.6 — Contracts and test coverage
+### 0.0.6 — Foundations
+
+Everything cross-cutting that the rest of the line builds on, landed first so no
+later version forces rework of an earlier one.
 
 - [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
   (socket / manifest), health (ADR-0019), identity / version.
-  Gate + daemon conform; future services inherit the contract.
+  Gate + daemon conform; future services inherit the contract. (The drain primitive
+  is what the 0.1.1 daemon upgrade builds on; health feeds the 0.0.8 indicators.)
+- [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
+  (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
+- [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
+  shell and close its token-level gaps (motion / transition scale, icon sizing
+  token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
+  settings) is built on final tokens.
 - [ ] Desktop E2E test: embed `tauri-plugin-webdriver` (test-gated) + drive with
   `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
   incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
@@ -98,8 +111,7 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 
 ### 0.0.7 — Observability
 
-- [ ] `correlation_id` threaded across hops in structured logs.
-- [ ] Log-viewer surface in the desktop.
+- [ ] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
 
 ### 0.0.8 — Health and first-run UX
 
@@ -113,12 +125,11 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 
 ### 0.0.10 — UX/UI (ships the working app)
 
-- [ ] Apply [`DESIGN.md`](../apps/ui/DESIGN.md) tokens across the shell: consistent
-  dark / light modes, zero-radius density rules on every component.
-- [ ] Close the DESIGN.md known gaps: motion / transition scale, light-mode component
-  coverage, icon sizing token.
 - [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
   failure states.
+- [ ] Light-mode coverage: component-level appearance verified and documented (tokens
+  landed in 0.0.6).
+- [ ] Final coherence pass across all surfaces: density, spacing, motion.
 
 ---
 
