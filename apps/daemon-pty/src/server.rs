@@ -44,6 +44,9 @@ pub struct State {
     stopped: StoppedSessionsStore,
     next_conn_id: u64,
     events_tx: UnboundedSender<SessionEvent>,
+    /// Set once the host signals drain (SIGUSR2): new sessions are refused while active ones
+    /// finish. A clean exit follows when the last session ends (ADR-0029).
+    draining: bool,
 }
 
 impl State {
@@ -59,6 +62,8 @@ impl State {
 pub struct Daemon {
     state: Arc<Mutex<State>>,
     sock_path: PathBuf,
+    /// Notified whenever the last active session ends, so the drain phase can exit when idle.
+    idle: Arc<tokio::sync::Notify>,
 }
 
 impl Daemon {
@@ -71,10 +76,12 @@ impl Daemon {
             stopped,
             next_conn_id: 1,
             events_tx,
+            draining: false,
         };
         Daemon {
             state: Arc::new(Mutex::new(state)),
             sock_path: tillerd_paths::daemon_socket_in(dir),
+            idle: Arc::new(tokio::sync::Notify::new()),
         }
     }
 
@@ -93,10 +100,16 @@ impl Daemon {
     pub async fn serve(
         &self,
         mut events_rx: tokio::sync::mpsc::UnboundedReceiver<SessionEvent>,
+        ready: service_host::Ready,
+        drain: service_host::Drain,
     ) -> std::io::Result<()> {
         let _ = std::fs::remove_file(&self.sock_path);
         let listener = UnixListener::bind(&self.sock_path)?;
         tracing::info!(sock = %self.sock_path.display(), "daemon started");
+
+        // Listening: announce readiness so the host flips the manifest to `ready` and consumers
+        // (orchestrator adopt-or-spawn, the e2e rig) can discover us from the manifest.
+        ready.signal();
 
         {
             let daemon = self.clone();
@@ -118,12 +131,45 @@ impl Daemon {
             });
         }
 
+        // Phase 1 — serve normally until drained.
         loop {
-            let (stream, _) = listener.accept().await?;
-            let daemon = self.clone();
-            tokio::spawn(async move {
-                daemon.handle_connection(stream).await;
-            });
+            tokio::select! {
+                accepted = listener.accept() => {
+                    let (stream, _) = accepted?;
+                    let daemon = self.clone();
+                    tokio::spawn(async move {
+                        daemon.handle_connection(stream).await;
+                    });
+                }
+                _ = drain.draining() => {
+                    self.state.lock().unwrap().draining = true;
+                    tracing::info!("daemon draining: refusing new sessions, finishing active ones");
+                    break;
+                }
+            }
+        }
+
+        // Phase 2 — drained. Keep serving existing connections (subscribe/input/kill on active
+        // sessions) and refuse new spawns, exiting cleanly once the last session ends. No timer
+        // kills sessions: SIGTERM is the explicit upgrade-now pressure valve (ADR-0029, design D4).
+        loop {
+            // Register the idle wakeup before checking, so a session ending between the check and
+            // the await is not missed.
+            let idle = self.idle.notified();
+            if self.state.lock().unwrap().sessions.is_empty() {
+                tracing::info!("daemon drained: no active sessions, exiting");
+                return Ok(());
+            }
+            tokio::select! {
+                accepted = listener.accept() => {
+                    let (stream, _) = accepted?;
+                    let daemon = self.clone();
+                    tokio::spawn(async move {
+                        daemon.handle_connection(stream).await;
+                    });
+                }
+                _ = idle => {}
+            }
         }
     }
 
@@ -173,6 +219,10 @@ impl Daemon {
                 let frame: Arc<[u8]> = frame.into();
                 for id in session.subscriber_ids() {
                     st.send_to(id, Arc::clone(&frame));
+                }
+                // A draining daemon exits once the last session ends; wake the drain loop to check.
+                if st.sessions.is_empty() {
+                    self.idle.notify_waiters();
                 }
             }
         }
@@ -319,6 +369,17 @@ impl Daemon {
             }
 
             ClientFrame::Spawn(spawn) => {
+                if st.draining {
+                    st.send_to(
+                        conn_id,
+                        error_frame(
+                            "EDRAINING",
+                            "daemon is draining; no new sessions",
+                            Some(&spawn.session_id),
+                        ),
+                    );
+                    return;
+                }
                 if st.sessions.contains_key(&spawn.session_id) {
                     st.send_to(
                         conn_id,
@@ -631,6 +692,46 @@ mod tests {
     fn advertised_capabilities_carry_no_hook_face() {
         assert!(!ADVERTISED_CAPABILITIES.contains(&"hook"));
         assert_eq!(ADVERTISED_CAPABILITIES, &["snapshot"]);
+    }
+
+    #[tokio::test]
+    async fn draining_daemon_refuses_new_session_with_typed_error() {
+        let dir = std::env::temp_dir().join(format!("tillerd-drain-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let (events_tx, _events_rx) = tokio::sync::mpsc::unbounded_channel();
+        let daemon = Daemon::new(&dir, events_tx);
+
+        // Register a negotiated connection whose outbound frames we can read.
+        let (out_tx, mut out_rx) = tokio::sync::mpsc::unbounded_channel::<Arc<[u8]>>();
+        let spawn = match crate::messages::parse_client_frame(
+            br#"{"type":"spawn","sessionId":"s1","args":[],"token":"t","cols":80,"rows":24,"cwd":"/tmp"}"#,
+        ) {
+            Some(ClientFrame::Spawn(s)) => s,
+            _ => panic!("expected a spawn frame"),
+        };
+
+        {
+            let mut st = daemon.state.lock().unwrap();
+            st.connections.insert(
+                1,
+                Connection {
+                    out_tx,
+                    negotiated: true,
+                    snapshot_capable: false,
+                },
+            );
+            st.draining = true;
+            daemon.dispatch(&mut st, 1, ClientFrame::Spawn(spawn), None);
+        }
+
+        let frame = out_rx.recv().await.expect("a frame was sent back");
+        let v: serde_json::Value = serde_json::from_slice(&frame[4..]).unwrap();
+        assert_eq!(v["type"], "error");
+        assert_eq!(v["code"], "EDRAINING", "a draining daemon refuses new sessions");
+        assert!(
+            daemon.state.lock().unwrap().sessions.is_empty(),
+            "no session was created while draining"
+        );
     }
 
     // ── daemon-session-subscription: consumer-oblivious scenarios ────────────

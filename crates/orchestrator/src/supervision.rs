@@ -46,21 +46,28 @@ pub fn ensure_service(
     probes: &impl Probes,
 ) -> Result<ServiceStatus> {
     if let Some(manifest) = read_manifest(&spec.manifest_path) {
-        if probes.is_alive(manifest.pid)
-            && manifest.version == spec.version
-            && probes.is_reachable(&spec.socket_path)
-        {
-            return Ok(ServiceStatus {
-                name: spec.name.clone(),
-                version: Some(manifest.version),
-                liveness: Liveness::Available,
-                pid: Some(manifest.pid),
-                adopted: true,
-            });
+        if probes.is_alive(manifest.pid) {
+            if manifest.version == spec.version && probes.is_reachable(&spec.socket_path) {
+                return Ok(ServiceStatus {
+                    name: spec.name.clone(),
+                    version: Some(manifest.version),
+                    liveness: Liveness::Available,
+                    pid: Some(manifest.pid),
+                    adopted: true,
+                });
+            }
+
+            // Live but the wrong version: drain-and-restart (ADR-0029). Signal the old instance to
+            // drain (refuse new work, finish active work, exit) and wait for it to release the
+            // socket before starting the expected binary. No state handoff between old and new.
+            if manifest.version != spec.version {
+                probes.drain(manifest.pid);
+                wait_for_exit(probes, manifest.pid, timing);
+            }
         }
     }
 
-    // A stale socket from a dead instance blocks a clean bind; clear it first.
+    // A stale socket from a dead/drained instance blocks a clean bind; clear it first.
     probes.remove_socket(&spec.socket_path);
 
     let pid = probes
@@ -96,6 +103,20 @@ pub fn ensure_service(
                     timing.startup_timeout.as_millis()
                 ),
             });
+        }
+        probes.sleep(timing.poll_interval);
+    }
+}
+
+/// Poll until the draining process exits or the startup window elapses. No force-kill here: an
+/// instance with active sessions exits only when it idles or an explicit upgrade-now (SIGTERM)
+/// retires it (ADR-0029). If it has not exited by the deadline, the caller proceeds anyway — the
+/// fresh spawn surfaces an unavailable service rather than this blocking forever.
+fn wait_for_exit(probes: &impl Probes, pid: u32, timing: &SpawnTiming) {
+    let deadline = Instant::now() + timing.startup_timeout;
+    while probes.is_alive(pid) {
+        if Instant::now() >= deadline {
+            break;
         }
         probes.sleep(timing.poll_interval);
     }
@@ -164,6 +185,7 @@ mod tests {
         reachable: bool,
         spawn_result: std::result::Result<u32, LaunchError>,
         spawned: Cell<bool>,
+        drained: Cell<bool>,
     }
 
     impl FakeProbes {
@@ -173,6 +195,7 @@ mod tests {
                 reachable: true,
                 spawn_result: Ok(999),
                 spawned: Cell::new(false),
+                drained: Cell::new(false),
             }
         }
         fn spawnable() -> Self {
@@ -181,6 +204,7 @@ mod tests {
                 reachable: true,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
+                drained: Cell::new(false),
             }
         }
         fn never_reachable() -> Self {
@@ -189,6 +213,7 @@ mod tests {
                 reachable: false,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
+                drained: Cell::new(false),
             }
         }
         fn dies_after_spawn() -> Self {
@@ -197,6 +222,18 @@ mod tests {
                 reachable: false,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
+                drained: Cell::new(false),
+            }
+        }
+        /// A live instance serving the wrong version: adoption is refused and it must be drained
+        /// before a fresh spawn.
+        fn live_mismatch() -> Self {
+            Self {
+                alive: true,
+                reachable: true,
+                spawn_result: Ok(7777),
+                spawned: Cell::new(false),
+                drained: Cell::new(false),
             }
         }
     }
@@ -207,6 +244,9 @@ mod tests {
         }
         fn is_reachable(&self, _path: &Path) -> bool {
             self.reachable
+        }
+        fn drain(&self, _pid: u32) {
+            self.drained.set(true);
         }
         fn remove_socket(&self, _path: &Path) {}
         fn spawn(&self) -> std::result::Result<u32, LaunchError> {
@@ -277,6 +317,23 @@ mod tests {
 
         assert!(probes.spawned.get(), "a version mismatch must re-spawn");
         assert!(!status.adopted);
+    }
+
+    #[test]
+    fn live_version_mismatch_drains_old_then_spawns_fresh() {
+        let (_dir, spec) = temp_spec("drain-restart", "2.0.0");
+        // A live instance serving the old version is recorded in the manifest.
+        write_manifest(&spec.manifest_path, 7777, "1.0.0");
+        let probes = FakeProbes::live_mismatch();
+
+        let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();
+
+        assert!(
+            probes.drained.get(),
+            "a live version mismatch must drain the old instance before restarting"
+        );
+        assert!(probes.spawned.get(), "the expected binary is then spawned fresh");
+        assert!(!status.adopted, "the fresh instance is not an adoption");
     }
 
     #[test]
