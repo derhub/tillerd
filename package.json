@@ -29,7 +29,6 @@
     "cargo:fmt": "cargo fmt",
     "cargo:fmt:check": "cargo fmt --check",
     "verify": "bun run format:check && bun run check-types && bun run lint && bun run test && turbo run e2e --filter=@tillerd/integration-tests",
-    "e2e:ui": "turbo run e2e --filter=@tillerd/e2e-test",
     "check-deps": "turbo run check-deps",
     "changeset": "changeset",
     "version-packages": "changeset version",
