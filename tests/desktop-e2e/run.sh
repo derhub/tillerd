@@ -11,6 +11,10 @@ WORK="$(mktemp -d)"
 export TILLERD_DIR="$WORK/.tillerd"
 mkdir -p "$TILLERD_DIR"
 
+# WebdriverIO logs every command's RESULT at info level — tens of thousands of lines that bury the
+# smokes' own PASS/error output. Keep only errors; each spec prints its own outcome.
+export WDIO_LOG_LEVEL=error
+
 # ── builds ──────────────────────────────────────────────────────────────────
 # Build the services the app spawns and the UI bundle (frontendDist) once; both desktop builds
 # embed that same frontend. Build the desktop binary via the tauri CLI (not raw cargo) so the app
