@@ -95,14 +95,13 @@ contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
 (ADR-0025), design tokens — holds for the rest of 0.x; every later version is
 additive on these seams, never a change to them.
 
-- [ ] Desktop E2E test — first, so every later milestone verifies against it instead
-  of manual checks: embed `tauri-plugin-webdriver` (test-gated) + drive with
-  `tauri-webdriver` (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform
-  incl. macOS (WKWebView native APIs), runs locally and in CI — unlike official
-  `tauri-driver`, which has no macOS WKWebView driver (tauri#7068). Coverage: boot to
-  ready in both dev and bundled modes, create project / session / surface flows, the
-  terminal renders and streams, resume after restart. (Agent render deferred to 1.0.0
-  with the agent surface.)
+- [ ] Desktop E2E suite — first, so every later milestone verifies against it instead
+  of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
+  `tauri-webdriver` over test-gated `tauri-plugin-webdriver`; macOS WKWebView works,
+  unlike official `tauri-driver` — tauri#7068; smoke specs: boot, project / session,
+  terminal stream). Extend to a solid suite: boot to ready in both dev and bundled
+  modes, full create flows, resume after restart, runs in CI. (Agent render deferred
+  to 1.0.0 with the agent surface.)
 - [ ] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
 - [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
   (socket / manifest), health (ADR-0019), identity / version.
