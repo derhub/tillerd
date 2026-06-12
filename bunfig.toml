@@ -1,3 +1,3 @@
 [test]
 # Playwright e2e specs must be run via `bun run test:ui`, not `bun test`
-# Use explicit package paths: bun test packages/sdk packages/engine packages/adapter-claude-code apps/server
+# Use explicit package paths, e.g.: bun test packages/sdk apps/server

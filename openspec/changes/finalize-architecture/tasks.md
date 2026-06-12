@@ -23,7 +23,7 @@
   orchestrator-supervision specs, ADR-0029).
   [done: daemon drain SM (refuse-new EDRAINING + idle-exit) + orchestrator drain-on-
   mismatch + resume (resume_all + resume.smoke.ts), tested. upgrade-now = SIGTERM.
-  deferred: removing the fd-handoff/snapshot machinery (REMOVED reqs) → 5.1 sweep.]
+  fd-handoff/snapshot machinery removed in 5.1 (REMOVED reqs satisfied).]
 
 ## 3. Observability
 
@@ -48,9 +48,14 @@
 
 ## 5. Sweep and gate
 
-- [ ] 5.1 Dead-code sweep: delete retired TS packages (`engine`, `platform-bun`,
+- [x] 5.1 Dead-code sweep: delete retired TS packages (`engine`, `platform-bun`,
   `adapter-claude-code`, TS `daemon-pty`/`gate-client`, ...) where check-deps + workspace
   references show nothing live; trim dormant `apps/server`; close the deferred
   `daemon-upgrade-drain-restart` change (absorbed here).
+  [done: retired TS package dirs removed (already-gutted, 0 importers); fd-handoff/snapshot
+  machinery removed from the Rust daemon (vt/cell/snapshot modules, adopt, Upgrade frame,
+  snapshot capability, command-fds dep) — verify green. apps/server has 0 refs to deleted
+  packages (dormant, left for its 0.1.4 rewrite). Closing the deferred change is an
+  /opsx:archive action — left for you (archive is user-only per workflow rules).]
 - [ ] 5.2 Final gate: run `/opsx:verify` and fix all issues, then `bun run verify` and
   fix all issues, then `bun run e2e` and fix all issues.
