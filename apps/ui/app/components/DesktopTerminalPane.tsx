@@ -30,6 +30,9 @@ export function DesktopTerminalPane(_props: {
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<string>("connecting");
+  // Exposed as `data-surface-id` so a session's surface is observable (e.g. the desktop e2e asserts
+  // two sessions get two distinct surfaces).
+  const [surfaceId, setSurfaceId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +80,10 @@ export function DesktopTerminalPane(_props: {
         return;
       }
 
-      if (!cancelled) setStatus("connected");
+      if (!cancelled) {
+        setSurfaceId(surfaceId);
+        setStatus("connected");
+      }
 
       term.onData((data) => {
         void client.input(surfaceId, new TextEncoder().encode(data));
@@ -117,7 +123,11 @@ export function DesktopTerminalPane(_props: {
   const dotColor = status === "connected" ? "#3fb950" : status === "exited" ? "#ff7b72" : "#8b949e";
 
   return (
-    <div className="h-full w-full relative" style={{ background: "#0d1117" }}>
+    <div
+      className="h-full w-full relative"
+      style={{ background: "#0d1117" }}
+      data-surface-id={surfaceId ?? undefined}
+    >
       <div
         ref={containerRef}
         className="h-full w-full"
