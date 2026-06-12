@@ -1,24 +1,31 @@
 # Roadmap
 
 Status legend: `- [ ]` planned · `- [x]` done · `[WIP]` in progress · `[HELP]` wants
-input. Within a milestone, items are ordered most to least foundational. Every version
-is a small, demoable step; nothing is shortcut to a `.0` bucket.
+input. Within a milestone, items are ordered most to least foundational. Across
+milestones, cross-cutting foundations land before their consumers — a later version
+must never force rework of an earlier one. Every version is a small, demoable step;
+nothing is shortcut to a `.0` bucket.
 
-> Status: 0.0.x, pre-release. Core components are scaffolded — PTY daemon, gate,
-> desktop shell — but the app does not yet work end-to-end. The **0.0.x** line builds
-> the foundation (a Rust orchestrator, persistence, the surface runtime). **0.x is
-> terminal-only**: the agent surface (built in 0.0.3) was removed in the launch-execution
-> cut and is deferred to **1.0.0** ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
-> The first complete working release ships at the **end of the 0.1.x** line. **0.2.x**
-> adds more services; **1.0.0** is the stable horizon. See ADRs
-> [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0023](./adr/0023-workspace-data-model-and-two-level-id.md)
-> and [`roadmap-plan.md`](./roadmap-plan.md). See [CHANGELOG](../CHANGELOG.md).
+> Status: 0.0.x, pre-release. The **0.0.x** line ships a **working app**: the
+> foundation is in (Rust orchestrator, persistence, surface runtime, launch system —
+> 0.0.1–0.0.5). **0.0.6 finalizes the architecture** — service contract, daemon
+> upgrade path, correlation, design tokens, E2E test; after it, every 0.x version is
+> additive on frozen seams, never a change to them. Then observability, health /
+> first-run UX, settings + secrets, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
+> (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
+> ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
+> After the working app, **0.1.x extends** — diff surface, placement geometry, workflow
+> library, container backend, web remote — ordered cheapest-first on the frozen seams;
+> **1.0.0** is the stable horizon and ships distribution. See ADRs
+> [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
+> for the workspace model and the 0.0.x build. See [CHANGELOG](../CHANGELOG.md).
 
 ---
 
-## 0.0.x — Foundation
+## 0.0.x — Working app
 
-The Rust inversion and a working vertical slice.
+The Rust inversion, then everything a daily-usable app needs. The line ends with the
+working app shipping at **0.0.10**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -81,97 +88,112 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
 
----
+### 0.0.6 — Finalize the architecture
 
-## 0.1.x — Working workspace (first complete release)
+The last architecture-changing version of 0.x. Everything frozen here — service
+contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
+(ADR-0025), design tokens — holds for the rest of 0.x; every later version is
+additive on these seams, never a change to them.
 
-Harden the working slice into a shippable workspace on a standardized foundation. The
-complete release ships at **0.1.7**.
+- [ ] Desktop E2E suite — first, so every later milestone verifies against it instead
+  of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
+  `tauri-webdriver` over test-gated `tauri-plugin-webdriver`; macOS WKWebView works,
+  unlike official `tauri-driver` — tauri#7068; smoke specs: boot, project / session,
+  terminal stream). Extend to a solid suite: boot to ready in both dev and bundled
+  modes, full create flows, resume after restart, runs in CI. (Agent render deferred
+  to 1.0.0 with the agent surface.)
+- [ ] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
+- [ ] Solidify `service-host`: add first-class ready / drain lifecycle phases and the
+  discovery convention (socket / manifest) to the `Service` trait — health (ADR-0019)
+  and identity / version are already in. Gate + daemon conform; future services
+  inherit the contract. (Health feeds the 0.0.8 indicators.)
+- [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
+  daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
+  starts fresh. Builds on the contract's drain primitive — re-check the
+  `daemon-upgrade-drain-restart` proposal against it before implementing.
+- [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
+  (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
+- [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
+  shell and close its token-level gaps (motion / transition scale, icon sizing
+  token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
+  settings) is built on final tokens.
+- [ ] Dead-code sweep: delete the retired TS packages left from the Rust inversion
+  (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`,
+  …) where nothing live references them; dormant `apps/server` keeps only what it
+  needs until its 0.1.4 rewrite.
 
-### 0.1.0 — One service contract
+### 0.0.7 — Observability
 
-- [ ] Solidify `service-host`: lifecycle (start / ready / drain / stop), discovery
-  (socket / manifest), health (ADR-0019), identity / version.
-- [ ] Gate + daemon conform; future services inherit the contract.
+- [ ] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
 
-### 0.1.1 — Observability
-
-- [ ] `correlation_id` threaded across hops in structured logs.
-- [ ] Log-viewer surface in the desktop.
-
-### 0.1.2 — Secrets and settings
-
-- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
-- [ ] Settings: global (default agent, theme, default command library / template) +
-  per-project.
-
-### 0.1.3 — Health and first-run UX
+### 0.0.8 — Health and first-run UX
 
 - [ ] Per-service health indicators (gate / daemon) with failure surfacing.
-- [ ] First-run / onboarding: agent binary missing, version out of range, services down.
+- [ ] First-run / onboarding: services down, version out of range, fresh-machine setup.
 
-### 0.1.4 — SDK wire types
+### 0.0.9 — Settings and secrets
 
-- [ ] Generate the TS SDK wire types from `contracts-rs` (single source of truth).
+- [ ] Global settings: theme, default command library / default template.
+- [ ] Per-project overrides: launch template, project env.
+- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
+- [ ] Window state restore: size / position persisted, restored on relaunch.
 
-### 0.1.5 — Daemon drain-and-restart upgrade
+### 0.0.10 — UX/UI (ships the working app)
 
-- [ ] Replace fd-handoff with a simpler planned-upgrade path. Deferred: the 0.0.x Rust
-  inversion retires the TS-engine handoff this targets, so the change is re-authored
-  against the orchestrator + `daemon-upgrade` / `rust-pty-daemon` specs once 0.0.x lands.
-
-### 0.1.6 — Desktop end-to-end test
-
-- [ ] Tauri-driving harness: embed `tauri-plugin-webdriver` (test-gated) + drive with `tauri-webdriver`
-  (Choochmeque) over W3C WebDriver via WebdriverIO. Cross-platform incl. macOS (WKWebView native
-  APIs), so it runs locally and in CI — unlike official `tauri-driver`, which has no macOS WKWebView
-  driver (tauri#7068).
-- [ ] Visual test: spawn a session, assert the terminal renders and streams. (Agent render
-  deferred to 1.0.0 with the agent surface.)
-
-### 0.1.7 — Desktop distribution (ships the first complete release)
-
-- [ ] Signed, notarized bundles (dmg / AppImage / deb) across macOS + Linux `[HELP]` (Windows?).
-- [ ] Auto-update.
-- [ ] Release pipeline — versioned releases + generated changelogs via changesets.
-
-### 0.1.8 — Docs reconciliation
-
-- [ ] README and guides match the Rust-backend, desktop-only architecture.
+- [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
+  failure states.
+- [ ] Light-mode coverage: component-level appearance verified and documented (tokens
+  landed in 0.0.6).
+- [ ] Final coherence pass across all surfaces: density, spacing, motion.
 
 ---
 
-## 0.2.x — More services and extension
+## 0.1.x — Enhancement and extension
 
-Prove the seams and scale beyond one agent and one host.
+Prove the seams and scale the surface area. Ordered cheapest-first; every step is
+additive on the architecture frozen at 0.0.6.
 
-### 0.2.0 — Validate the extension point
+### 0.1.0 — Diff surface
 
-- [ ] Prove the surface-kind / execution-backend seam with a second implementation (the
-  container backend, 0.2.1, or the diff surface, 0.2.3) — pressure-test before relying on it.
-  Agent adapters are validated in 1.0.0, after the agent surface returns (ADR-0027).
+- [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
+  pressure-testing the extension seam before anything else relies on it. (Agent
+  adapters are validated in 1.0.0, after the agent surface returns — ADR-0027.)
 
-### 0.2.1 — Container execution backend
+### 0.1.1 — Placement geometry
+
+- [ ] Sizes and nested splits beyond named regions.
+
+### 0.1.2 — Prebuilt workflow library
+
+- [ ] Bespoke workflow sessions and dev-setup presets.
+
+### 0.1.3 — Container execution backend
 
 - [ ] Dev-container spec / OCI runtimes behind the launch-item contract (execution-backend
   seam).
 
-### 0.2.2 — Web remote control
+### 0.1.4 — Web remote control
 
 - [ ] Revive the server as a Rust host embedding the same orchestrator.
 - [ ] SDK over HTTP / WS; auth for remote access.
 
-### 0.2.3 — Diff surface
+### 0.1.5 — Docs reconciliation
 
-- [ ] Wire the diff panel as a surface kind.
+- [ ] README and guides match the shipped architecture.
 
-### 0.2.4 — Placement geometry
+---
 
-- [ ] Sizes and nested splits beyond named regions.
+## Parked
 
-### 0.2.5 — Prebuilt workflow library
+On the line, not scheduled:
 
-- [ ] Bespoke workflow sessions and dev-setup presets.
+- **memorya** (`apps/memorya`) — knowledge capture over the gate's hook fan-out;
+  dormant until the agent surface returns (1.0.0+).
+- **mcp-gateway** (`apps/mcp-gateway`) — agent-facing MCP front (ADR-0013–0015);
+  dormant and unsupervised in 0.x; returns with the agent surface (1.0.0).
+- **`apps/server`** — dormant; revived in Rust as the web host at 0.1.4.
+- **CLI** (`apps/cli`) — thin daemon-status tool; stays minimal until a real
+  controller need appears.
 
 ---
 
@@ -183,4 +205,6 @@ Prove the seams and scale beyond one agent and one host.
 - [ ] Cross-platform desktop with a polished, stable UX and solid performance.
 - [ ] Agent as a first-class surface kind, with a rich status model and content stream over the
   gate's hook fan-out (deferred from 0.x — ADR-0027).
-- [ ] Production-ready: distribution, observability, and upgrade paths hardened.
+- [ ] Distribution: signed, notarized bundles (dmg / AppImage / deb) across macOS +
+  Linux `[HELP]` (Windows?); auto-update; release pipeline — versioned releases +
+  generated changelogs via changesets.
