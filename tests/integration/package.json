@@ -9,9 +9,7 @@
   },
   "dependencies": {
     "@tillerd/daemon-pty": "workspace:*",
-    "@tillerd/engine": "workspace:*",
     "@tillerd/logger": "workspace:*",
-    "@tillerd/platform-bun": "workspace:*",
     "@tillerd/sdk": "workspace:*"
   },
   "devDependencies": {

@@ -1,6 +1,4 @@
 import { parseArgs, type ParseArgsConfig } from "util";
-import type { Logger } from "@tillerd/logger";
-import type { SetupContext, SetupDefinition } from "@tillerd/sdk";
 
 export interface ManifestData {
   pid: number;
@@ -9,57 +7,27 @@ export interface ManifestData {
 
 /**
  * Everything the CLI touches, injected so the core is exercised against fixtures
- * and fakes — never the operator's real settings file or daemon manifest.
+ * and fakes — never the operator's real manifest file.
  */
 export interface CliDeps {
-  setup: SetupDefinition;
-  buildContext(notifyCommand: string, logger: Logger): SetupContext;
-  resolveNotify(): string;
   readManifest(): ManifestData | null;
   isAlive(pid: number): boolean;
-  isTTY: boolean;
-  confirm(message: string): Promise<boolean>;
   out(line: string): void;
   err(line: string): void;
 }
 
-export const USAGE = `tillerd — controller/installer
+export const USAGE = `tillerd — daemon controller
 
 Usage:
-  tillerd install [--yes]    Install agent hooks into the agent settings file
-  tillerd uninstall          Remove the hooks this tool installed
   tillerd status [--json]    Report whether the daemon is running
 
 Flags:
-  --yes         Skip interactive confirmation (also implied when not a TTY)
-  --json        Machine-readable output (status only)
+  --json        Machine-readable output
   -h, --help    Show this help`;
-
-interface LogRecord {
-  msg: string;
-  extra?: Record<string, unknown>;
-}
-
-function recordingLogger(sink: LogRecord[]): Logger {
-  const rec = () => (msg: string, extra?: Record<string, unknown>) => {
-    sink.push({ msg, extra });
-  };
-  const logger: Logger = {
-    debug: rec(),
-    info: rec(),
-    warn: rec(),
-    error: rec(),
-    // Setup recording is context-agnostic; child writes to the same sink.
-    child: () => logger,
-  };
-  return logger;
-}
 
 type OptionSpec = ParseArgsConfig["options"];
 
 const COMMAND_OPTIONS: Record<string, OptionSpec> = {
-  install: { yes: { type: "boolean", default: false } },
-  uninstall: {},
   status: { json: { type: "boolean", default: false } },
 };
 
@@ -103,53 +71,7 @@ export async function run(argv: string[], deps: CliDeps): Promise<number> {
     return 1;
   }
 
-  switch (sub) {
-    case "install":
-      return install(deps, Boolean(values["yes"]));
-    case "uninstall":
-      return uninstall(deps);
-    default:
-      return status(deps, Boolean(values["json"]));
-  }
-}
-
-async function install(deps: CliDeps, yes: boolean): Promise<number> {
-  if (deps.isTTY && !yes) {
-    const ok = await deps.confirm("Install agent hooks into the agent settings file?");
-    if (!ok) {
-      deps.err("install cancelled");
-      return 1;
-    }
-  }
-
-  let notify: string;
-  try {
-    notify = deps.resolveNotify();
-  } catch (e) {
-    deps.err(`install failed: ${(e as Error).message}`);
-    return 1;
-  }
-
-  const records: LogRecord[] = [];
-  await deps.setup.install(deps.buildContext(notify, recordingLogger(records)));
-
-  const installed = records.find((r) => r.msg === "hooks installed");
-  if (installed) {
-    const events = (installed.extra?.["events"] as string[] | undefined) ?? [];
-    deps.out(`installed hooks: ${events.join(", ")}`);
-  } else {
-    deps.out("hooks already installed");
-  }
-  return 0;
-}
-
-async function uninstall(deps: CliDeps): Promise<number> {
-  const records: LogRecord[] = [];
-  await deps.setup.uninstall(deps.buildContext("", recordingLogger(records)));
-
-  const removed = records.find((r) => r.msg === "hooks uninstalled");
-  deps.out(removed ? "hooks uninstalled" : "nothing to remove");
-  return 0;
+  return status(deps, Boolean(values["json"]));
 }
 
 function status(deps: CliDeps, json: boolean): number {

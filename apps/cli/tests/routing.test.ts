@@ -26,9 +26,9 @@ describe("command routing", () => {
   });
 
   test("known subcommand routes to its handler", async () => {
-    const h = harness({ fixture: "empty-settings.json", isTTY: false });
-    const code = await run(["install"], h.deps);
-    expect(code).toBe(0);
+    const h = harness({ manifest: null });
+    const code = await run(["status"], h.deps);
+    expect(code).not.toBe(0); // daemon absent -> non-zero
   });
 });
 
@@ -45,22 +45,6 @@ describe("argument validation", () => {
     const code = await run(["status", "wat"], h.deps);
     expect(code).not.toBe(0);
     expect(h.err.join("\n")).toContain("unexpected argument: wat");
-  });
-
-  test("flag valid for another command is rejected", async () => {
-    const h = harness({ fixture: "empty-settings.json", isTTY: false });
-    const code = await run(["install", "--json"], h.deps);
-    expect(code).not.toBe(0);
-    expect(h.err.join("\n")).toContain("invalid arguments");
-    // rejected before any write
-    expect(JSON.parse(h.files.get("/agent/.claude/settings.json")!).hooks).toBeUndefined();
-  });
-
-  test("--yes is rejected on status", async () => {
-    const h = harness({ manifest: null });
-    const code = await run(["status", "--yes"], h.deps);
-    expect(code).not.toBe(0);
-    expect(h.err.join("\n")).toContain("invalid arguments");
   });
 
   test("leading flag with no subcommand prints usage non-zero", async () => {

@@ -12,7 +12,6 @@ path = "src/lib.rs"
 [dependencies]
 contracts.workspace = true
 tillerd-paths.workspace = true
-gate-client.workspace = true
 daemon-pty-client.workspace = true
 process-launch.workspace = true
 service-host.workspace = true

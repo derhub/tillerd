@@ -39,6 +39,8 @@ webdriver = ["dep:tauri-plugin-webdriver"]
 [dev-dependencies]
 tempfile.workspace = true
 serial_test = "3"
+# `tauri::test` mock runtime for the IPC command-contract test.
+tauri = { version = "2", features = ["test"] }
 
 [lints]
 workspace = true

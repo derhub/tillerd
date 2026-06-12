@@ -33,7 +33,9 @@ try {
     { timeout: 45_000, timeoutMsg: "orchestrator did not reach ready" },
   );
 
-  const newSession = await browser.$("button*=New session");
+  // The "New session" control is an icon button (no text), named by its title attribute.
+  const newSession = await browser.$('button[title*="New session"]');
+  await newSession.waitForExist({ timeout: 10_000 });
   await newSession.click();
   await browser.waitUntil(async () => (await browser.getUrl()).includes("/session/"), {
     timeout: 10_000,

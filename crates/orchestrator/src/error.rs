@@ -31,6 +31,27 @@ pub enum OrchestratorError {
 
     #[error("surface {0} is already associated with a different session")]
     SurfaceConflict(String),
+
+    #[error("launch spec is invalid: {0}")]
+    LaunchSpecInvalid(String),
+
+    #[error("launch spec version {found} is newer than this binary supports ({supported})")]
+    LaunchSpecVersionTooNew { found: u32, supported: u32 },
+
+    #[error("command not found: {0}")]
+    CommandNotFound(String),
+
+    #[error("launch template not found: {0}")]
+    LaunchTemplateNotFound(String),
+
+    #[error("worktree step failed: {0}")]
+    WorktreeStepFailed(String),
+
+    #[error("worktree not found: {0}")]
+    WorktreeNotFound(String),
+
+    #[error("unsupported surface kind: {0}")]
+    UnsupportedSurfaceKind(String),
 }
 
 pub type Result<T> = std::result::Result<T, OrchestratorError>;

@@ -4816,7 +4816,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tillerd-contracts",
  "tillerd-daemon-pty-client",
- "tillerd-gate-client",
  "tillerd-paths",
  "tillerd-process-launch",
  "tillerd-service-host",

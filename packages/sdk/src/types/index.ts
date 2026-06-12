@@ -12,11 +12,10 @@ export type {
   ExitEventRaw,
   ExitEvent,
 } from "./events";
-export type { LaunchConfig, AgentDefinition, BinaryResolutionSpec } from "./adapter";
 export type { SetupFs, SetupContext, SetupDefinition } from "./setup";
 export { defineSetup } from "./setup";
 export type { Logger, AttrValue, LogContext, Resource } from "./logger";
-export type { SessionOptions, AgentSession, Engine } from "./session";
+export type { SessionOptions, AgentSession } from "./session";
 export { AtError } from "./errors";
 export type { ErrorKind } from "./errors";
 export {

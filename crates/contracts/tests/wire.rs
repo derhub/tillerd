@@ -1,6 +1,6 @@
 use contracts::{
-    AgentStatus, ContentEvent, CorrelationId, HookEvent, HookKind, Route, RoutePreamble, SessionId,
-    ToolInbound, HOOK_SUBSCRIPTION_WIRE_VERSION, SESSION_EVENT_WIRE_VERSION,
+    CorrelationId, HookEvent, HookKind, Route, RoutePreamble, SessionId, ToolInbound,
+    HOOK_SUBSCRIPTION_WIRE_VERSION, SESSION_EVENT_WIRE_VERSION,
 };
 use serde_json::{json, Value};
 
@@ -132,39 +132,4 @@ fn session_and_hook_subscription_wires_are_versioned_independently() {
         (SESSION_EVENT_WIRE_VERSION, HOOK_SUBSCRIPTION_WIRE_VERSION),
         (1, 1)
     );
-}
-
-#[test]
-fn agent_status_variants_round_trip() {
-    for (variant, expected) in [
-        (AgentStatus::Idle, json!("Idle")),
-        (AgentStatus::Working, json!("Working")),
-        (AgentStatus::WaitingInput, json!("WaitingInput")),
-        (AgentStatus::Done, json!("Done")),
-    ] {
-        let wire = serde_json::to_value(variant).expect("encode");
-        assert_eq!(wire, expected);
-        let back: AgentStatus = serde_json::from_value(wire).expect("decode");
-        assert_eq!(back, variant);
-    }
-}
-
-#[test]
-fn content_event_round_trips() {
-    let event = ContentEvent {
-        kind: "tool_use".to_string(),
-        tool_name: "Bash".to_string(),
-        tool_input: json!({ "command": "ls" }),
-    };
-    let wire = serde_json::to_value(&event).expect("encode");
-    assert_eq!(
-        wire,
-        json!({
-            "kind": "tool_use",
-            "toolName": "Bash",
-            "toolInput": { "command": "ls" }
-        })
-    );
-    let back: ContentEvent = serde_json::from_value(wire).expect("decode");
-    assert_eq!(back, event);
 }

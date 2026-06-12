@@ -4,8 +4,9 @@ use std::sync::Mutex;
 
 use super::schema::current_version;
 use super::{
-    NewProject, NewSession, NewSurface, Project, ProjectId, Session, SessionId, SourceKind, Store,
-    Surface, SurfaceId, TitleSource,
+    Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
+    Session, SessionId, SourceKind, Store, Surface, SurfaceId, TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -18,6 +19,15 @@ struct Inner {
     projects: HashMap<String, ProjectRecord>,
     sessions: HashMap<String, SessionRecord>,
     surfaces: HashMap<String, SurfaceRecord>,
+    commands: HashMap<String, CommandRecord>,
+    worktrees: HashMap<String, Worktree>,
+    launch_templates: HashMap<String, LaunchTemplate>,
+}
+
+#[derive(Clone)]
+struct CommandRecord {
+    command: Command,
+    deleted: bool,
 }
 
 #[derive(Clone)]
@@ -56,14 +66,20 @@ impl InMemoryStore {
                 created_seq: 0,
             },
         );
-        Self {
+        let store = Self {
             inner: Mutex::new(Inner {
                 version: current_version(),
                 projects,
                 sessions: HashMap::new(),
                 surfaces: HashMap::new(),
+                commands: HashMap::new(),
+                worktrees: HashMap::new(),
+                launch_templates: HashMap::new(),
             }),
-        }
+        };
+        // Seed prebuilt commands on creation (idempotent).
+        let _ = store.seed_commands();
+        store
     }
 }
 
@@ -200,12 +216,29 @@ impl Store for InMemoryStore {
     // ── session ───────────────────────────────────────────────────────────
 
     fn create_session(&self, draft: NewSession) -> Result<Session> {
+        // Resolve template spec if provided.
+        let (spec_version, spec_json) = if let Some(ref tid) = draft.template_id {
+            let inner = self.inner.lock().unwrap();
+            match inner.launch_templates.get(tid.as_str()) {
+                Some(t) => (Some(t.spec_version), Some(t.spec_json.clone())),
+                None => {
+                    return Err(OrchestratorError::LaunchTemplateNotFound(
+                        tid.as_str().to_string(),
+                    ))
+                }
+            }
+        } else {
+            (None, None)
+        };
+
         let session = Session {
             id: SessionId::mint(),
             project_id: draft.project_id.unwrap_or_else(ProjectId::unfiled),
             title: draft.title.unwrap_or_default(),
             title_source: draft.title_source,
             created_at: chrono_now(),
+            spec_version,
+            spec_json,
         };
         self.inner.lock().unwrap().sessions.insert(
             session.id.as_str().to_string(),
@@ -298,6 +331,8 @@ impl Store for InMemoryStore {
             kind: draft.kind,
             cwd: draft.cwd,
             last_status: None,
+            placement: draft.placement,
+            worktree_id: draft.worktree_id,
         };
         self.inner.lock().unwrap().surfaces.insert(
             surface.id.as_str().to_string(),
@@ -395,6 +430,160 @@ impl Store for InMemoryStore {
             _ => Err(OrchestratorError::SessionNotFound(id.as_str().to_string())),
         }
     }
+
+    // ── command library ───────────────────────────────────────────────────
+
+    fn list_commands(&self) -> Result<Vec<Command>> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner
+            .commands
+            .values()
+            .filter(|r| !r.deleted)
+            .map(|r| r.command.clone())
+            .collect())
+    }
+
+    fn get_command(&self, id: &str) -> Result<Option<Command>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .commands
+            .get(id)
+            .filter(|r| !r.deleted)
+            .map(|r| r.command.clone()))
+    }
+
+    fn create_command(&self, draft: NewCommand) -> Result<Command> {
+        let command = Command {
+            id: CommandId::mint(),
+            name: draft.name,
+            origin: draft.origin,
+            cli: draft.cli,
+            args: draft.args,
+            env: draft.env,
+        };
+        self.inner.lock().unwrap().commands.insert(
+            command.id.as_str().to_string(),
+            CommandRecord {
+                command: command.clone(),
+                deleted: false,
+            },
+        );
+        Ok(command)
+    }
+
+    fn delete_command(&self, id: &str) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(r) = inner.commands.get_mut(id) {
+            r.deleted = true;
+        }
+        Ok(())
+    }
+
+    fn seed_commands(&self) -> Result<()> {
+        let seeds = prebuilt_commands_mem();
+        let mut inner = self.inner.lock().unwrap();
+        for cmd in seeds {
+            inner
+                .commands
+                .entry(cmd.id.as_str().to_string())
+                .or_insert(CommandRecord {
+                    command: cmd,
+                    deleted: false,
+                });
+        }
+        Ok(())
+    }
+
+    // ── worktree ──────────────────────────────────────────────────────────
+
+    fn create_worktree(&self, draft: NewWorktree) -> Result<Worktree> {
+        let worktree = Worktree {
+            id: WorktreeId::mint(),
+            project_id: draft.project_id,
+            path: draft.path,
+            branch: draft.branch,
+        };
+        self.inner
+            .lock()
+            .unwrap()
+            .worktrees
+            .insert(worktree.id.as_str().to_string(), worktree.clone());
+        Ok(worktree)
+    }
+
+    fn list_worktrees(&self, project_id: &ProjectId) -> Result<Vec<Worktree>> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner
+            .worktrees
+            .values()
+            .filter(|w| w.project_id == *project_id)
+            .cloned()
+            .collect())
+    }
+
+    fn archive_worktree(&self, id: &WorktreeId) -> Result<()> {
+        self.inner.lock().unwrap().worktrees.remove(id.as_str());
+        Ok(())
+    }
+
+    // ── launch template ───────────────────────────────────────────────────
+
+    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate> {
+        let template = LaunchTemplate {
+            id: LaunchTemplateId::mint(),
+            project_id: draft.project_id,
+            spec_version: draft.spec_version,
+            spec_json: draft.spec_json,
+        };
+        self.inner
+            .lock()
+            .unwrap()
+            .launch_templates
+            .insert(template.id.as_str().to_string(), template.clone());
+        Ok(template)
+    }
+
+    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .launch_templates
+            .get(id.as_str())
+            .cloned())
+    }
+
+    fn set_launch_template_spec(
+        &self,
+        id: &LaunchTemplateId,
+        spec_version: u32,
+        spec_json: &str,
+    ) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        match inner.launch_templates.get_mut(id.as_str()) {
+            Some(t) => {
+                t.spec_version = spec_version;
+                t.spec_json = spec_json.to_string();
+                Ok(())
+            }
+            None => Err(OrchestratorError::LaunchTemplateNotFound(
+                id.as_str().to_string(),
+            )),
+        }
+    }
+}
+
+fn prebuilt_commands_mem() -> Vec<Command> {
+    vec![Command {
+        id: CommandId::from_string("00000000-0000-0000-0000-000000000101"),
+        name: "login-shell".to_string(),
+        origin: CommandOrigin::Prebuilt,
+        cli: "/bin/bash".to_string(),
+        args: vec!["-l".to_string()],
+        env: Default::default(),
+    }]
 }
 
 fn infer_project_name(source: SourceKind, root_path: Option<&str>) -> Option<String> {
@@ -449,6 +638,8 @@ mod tests {
                 session_id: session.id,
                 kind: SurfaceKind::Terminal,
                 cwd: None,
+                placement: None,
+                worktree_id: None,
             })
             .unwrap()
     }
@@ -495,5 +686,18 @@ mod tests {
 
         let fetched = store.get_surface(&surface.id).unwrap().unwrap();
         assert_eq!(fetched.last_status.as_deref(), Some("running"));
+    }
+
+    #[test]
+    fn set_launch_template_spec_on_absent_template_is_not_found() {
+        let store = InMemoryStore::new();
+        let err = store
+            .set_launch_template_spec(
+                &LaunchTemplateId::from_string("no-such-template"),
+                2,
+                r#"{"version":2,"items":[]}"#,
+            )
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::LaunchTemplateNotFound(_)));
     }
 }

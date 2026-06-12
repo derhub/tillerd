@@ -1,5 +1,6 @@
-mod bootstrap;
 mod bridge;
+#[cfg(test)]
+mod command_contract;
 mod daemon_session;
 mod diag;
 mod files;
@@ -8,6 +9,7 @@ mod orchestrator_host;
 mod store;
 mod supervisor;
 mod surface_host;
+mod workspace_host;
 
 use tauri::Manager;
 
@@ -48,13 +50,25 @@ pub fn run() {
             store::registry_remove,
             store::registry_list,
             supervisor::daemon_ensure,
-            bootstrap::agent_bootstrap,
             orchestrator_host::orchestrator_status,
             surface_host::surface_create,
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
-            surface_host::surface_create_agent,
+            workspace_host::project_create,
+            workspace_host::project_list,
+            workspace_host::project_rename,
+            workspace_host::project_archive,
+            workspace_host::session_list,
+            workspace_host::session_create,
+            workspace_host::session_rename,
+            workspace_host::session_archive,
+            workspace_host::session_layout_set,
+            workspace_host::session_layout_get,
+            workspace_host::command_list,
+            workspace_host::command_create,
+            workspace_host::command_get,
+            workspace_host::command_delete,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

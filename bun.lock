@@ -20,13 +20,6 @@
       "bin": {
         "tillerd": "src/index.ts",
       },
-      "dependencies": {
-        "@clack/prompts": "^0.11.0",
-        "@tillerd/adapter-claude-code": "workspace:*",
-        "@tillerd/logger": "workspace:*",
-        "@tillerd/platform-bun": "workspace:*",
-        "@tillerd/sdk": "workspace:*",
-      },
       "devDependencies": {
         "typescript": "^6.0.3",
       },
@@ -66,21 +59,6 @@
       "name": "@tillerd/memorya",
       "version": "0.0.0",
     },
-    "apps/server": {
-      "name": "@tillerd/server",
-      "version": "0.0.0",
-      "dependencies": {
-        "@tillerd/adapter-claude-code": "workspace:*",
-        "@tillerd/engine": "workspace:*",
-        "@tillerd/logger": "workspace:*",
-        "@tillerd/platform-bun": "workspace:*",
-        "@tillerd/sdk": "workspace:*",
-        "valibot": "^1.4.1",
-      },
-      "devDependencies": {
-        "typescript": "^6.0.3",
-      },
-    },
     "apps/ui": {
       "name": "@tillerd/ui",
       "dependencies": {
@@ -90,8 +68,6 @@
         "@react-router/node": "7.17.0",
         "@react-router/serve": "7.17.0",
         "@tauri-apps/api": "^2.11.0",
-        "@tillerd/adapter-claude-code": "workspace:*",
-        "@tillerd/engine": "workspace:*",
         "@tillerd/sdk": "workspace:*",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
@@ -118,27 +94,6 @@
         "vite": "^8.0.16",
       },
     },
-    "packages/adapter-claude-code": {
-      "name": "@tillerd/adapter-claude-code",
-      "version": "0.0.0",
-      "dependencies": {
-        "@tillerd/sdk": "workspace:*",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.2",
-      },
-    },
-    "packages/engine": {
-      "name": "@tillerd/engine",
-      "version": "0.0.0",
-      "dependencies": {
-        "@tillerd/sdk": "workspace:*",
-        "valibot": "^1.4.1",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.2",
-      },
-    },
     "packages/logger": {
       "name": "@tillerd/logger",
       "version": "0.0.0",
@@ -146,16 +101,6 @@
         "@tillerd/sdk": "workspace:*",
         "pino": "^10.3.1",
         "pino-pretty": "^13.1.3",
-      },
-      "devDependencies": {
-        "typescript": "^5.9.2",
-      },
-    },
-    "packages/platform-bun": {
-      "name": "@tillerd/platform-bun",
-      "version": "0.0.0",
-      "dependencies": {
-        "@tillerd/sdk": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.9.2",
@@ -183,23 +128,11 @@
         "webdriverio": "^9.0.0",
       },
     },
-    "tests/e2e": {
-      "name": "@tillerd/e2e-test",
-      "dependencies": {
-        "@playwright/test": "^1.60.0",
-        "@tillerd/server": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.14",
-      },
-    },
     "tests/integration": {
       "name": "@tillerd/integration-tests",
       "dependencies": {
         "@tillerd/daemon-pty": "workspace:*",
-        "@tillerd/engine": "workspace:*",
         "@tillerd/logger": "workspace:*",
-        "@tillerd/platform-bun": "workspace:*",
         "@tillerd/sdk": "workspace:*",
       },
       "devDependencies": {
@@ -303,10 +236,6 @@
     "@changesets/types": ["@changesets/types@6.1.0", "", {}, "sha512-rKQcJ+o1nKNgeoYRHKOS07tAMNd3YSN0uHaJOZYjBAgxfV7TUE7JE+z4BzZdQwb5hKaYbayKN5KrYV7ODb2rAA=="],
 
     "@changesets/write": ["@changesets/write@0.4.0", "", { "dependencies": { "@changesets/types": "^6.1.0", "fs-extra": "^7.0.1", "human-id": "^4.1.1", "prettier": "^2.7.1" } }, "sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q=="],
-
-    "@clack/core": ["@clack/core@0.5.0", "", { "dependencies": { "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow=="],
-
-    "@clack/prompts": ["@clack/prompts@0.11.0", "", { "dependencies": { "@clack/core": "0.5.0", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-pMN5FcrEw9hUkZA4f+zLlzivQSeQf5dRGJjSUbvVYDLvpKCdQx5OaknvKzgbtXOizhP+SJJJjqEbOe55uKKfAw=="],
 
     "@dotenvx/dotenvx": ["@dotenvx/dotenvx@1.71.2", "", { "dependencies": { "commander": "^11.1.0", "dotenv": "^17.2.1", "eciesjs": "^0.4.10", "enquirer": "^2.4.1", "execa": "^5.1.1", "fdir": "^6.2.0", "ignore": "^5.3.0", "object-treeify": "1.1.33", "picomatch": "^4.0.4", "which": "^4.0.0", "yocto-spinner": "^1.1.0" }, "bin": { "dotenvx": "src/cli/dotenvx.js" } }, "sha512-Xj9T3Wr+Bo4ILKf9PZJBYJ4SJiZGC/pqIdzOMbX9jgAFb0oGuKkusLleYHN/N6zanZixNvmuMVWYR1T3YJuVTA=="],
 
@@ -680,8 +609,6 @@
 
     "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.11.2", "", { "os": "win32", "cpu": "x64" }, "sha512-d2JchlFIpZevZVReyqhQOekJmb1UH3rhZ5VX6sH3ty9ETE0TKQavpihvoScUXfKKpW6HZC0MrFGRU0ZtD+w3gA=="],
 
-    "@tillerd/adapter-claude-code": ["@tillerd/adapter-claude-code@workspace:packages/adapter-claude-code"],
-
     "@tillerd/benchmark": ["@tillerd/benchmark@workspace:tests/benchmark"],
 
     "@tillerd/cli": ["@tillerd/cli@workspace:apps/cli"],
@@ -689,10 +616,6 @@
     "@tillerd/daemon-pty": ["@tillerd/daemon-pty@workspace:apps/daemon-pty"],
 
     "@tillerd/desktop-e2e": ["@tillerd/desktop-e2e@workspace:tests/desktop-e2e"],
-
-    "@tillerd/e2e-test": ["@tillerd/e2e-test@workspace:tests/e2e"],
-
-    "@tillerd/engine": ["@tillerd/engine@workspace:packages/engine"],
 
     "@tillerd/gate": ["@tillerd/gate@workspace:apps/gate"],
 
@@ -704,11 +627,7 @@
 
     "@tillerd/memorya": ["@tillerd/memorya@workspace:apps/memorya"],
 
-    "@tillerd/platform-bun": ["@tillerd/platform-bun@workspace:packages/platform-bun"],
-
     "@tillerd/sdk": ["@tillerd/sdk@workspace:packages/sdk"],
-
-    "@tillerd/server": ["@tillerd/server@workspace:apps/server"],
 
     "@tillerd/ui": ["@tillerd/ui@workspace:apps/ui"],
 
@@ -1896,13 +1815,7 @@
 
     "@tailwindcss/oxide-wasm32-wasi/tslib": ["tslib@2.8.1", "", { "bundled": true }, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
-    "@tillerd/adapter-claude-code/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "@tillerd/engine/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
     "@tillerd/logger/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "@tillerd/platform-bun/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@tillerd/sdk/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
