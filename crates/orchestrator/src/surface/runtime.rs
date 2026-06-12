@@ -432,7 +432,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_terminal_streams_bytes_and_status_and_acks() {
+    async fn launch_surface_streams_bytes_and_status_and_acks() {
         let dir = tempfile::tempdir().unwrap();
         let sock = dir.path().join("daemon.sock");
         let listener = UnixListener::bind(&sock).unwrap();
