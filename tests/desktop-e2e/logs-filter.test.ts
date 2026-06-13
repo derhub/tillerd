@@ -1,7 +1,7 @@
 import { afterEach, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Browser, launchReadyApp, openLogViewer } from "./helpers";
+import { type Browser, clearLogSeeds, launchReadyApp, openLogViewer } from "./helpers";
 
 // The level filter is exact-match: choosing a level shows only records of that level. Seeds a log
 // file with distinct ERROR/INFO messages (far-future timestamps so they sort to the bottom) and
@@ -28,6 +28,7 @@ afterEach(async () => {
 test("the level filter shows only the chosen level", async () => {
   const dir = join(process.env.TILLERD_DIR ?? `${process.env.HOME}/.tillerd`, "logs");
   mkdirSync(dir, { recursive: true });
+  clearLogSeeds(dir);
   const seed = [
     ...Array.from({ length: 8 }, (_, i) => line("ERROR", `errline ${i}`, i)),
     ...Array.from({ length: 8 }, (_, i) => line("INFO", `infoline ${i}`, 8 + i)),

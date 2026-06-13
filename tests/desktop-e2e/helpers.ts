@@ -1,8 +1,23 @@
+import { readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+
 import { remote } from "webdriverio";
 
 export type Browser = Awaited<ReturnType<typeof remote>>;
 
 const application = process.env.TILLERD_DESKTOP_BIN;
+
+// Specs share one TILLERD_DIR/logs across the run; remove other specs' seed files so they don't
+// bury this spec's seeded rows in the merged, timestamp-ordered view.
+export function clearLogSeeds(logsDir: string): void {
+  try {
+    for (const f of readdirSync(logsDir)) {
+      if (f.startsWith("zzz-e2e-") && f.endsWith(".log")) unlinkSync(join(logsDir, f));
+    }
+  } catch {
+    // logs dir may not exist yet — nothing to clear
+  }
+}
 
 // Launch the desktop app through tauri-webdriver and wait for the embedded orchestrator to reach
 // ready. Called from inside a test so each app launch is DEFERRED to when its test runs; bun runs
