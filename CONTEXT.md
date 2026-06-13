@@ -26,7 +26,7 @@ The running leaf a launch item produces; kind-tagged (`terminal`, `diff`). Belon
 _Avoid_: pane, panel, terminal-as-noun
 
 **Placement**:
-The named region that binds a launch item's surface to a slot in the panel tree (e.g. `center` / `side`). The seam between a surface and where it renders.
+A per-session-unique slot id, minted by the orchestrator, that binds a launch item's surface to a slot in the panel tree. The seam between a surface and where it renders. Minted when a surface is added to a session (template instantiation or a later spawn); a template carries no placement of its own. Unique per session, distinct from surface_id.
 
 ### View
 
