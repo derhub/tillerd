@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import {
+  SURFACE_CLOSE,
   SURFACE_CREATE,
   SURFACE_DETACH,
   SURFACE_EXIT_EVENT,
   SURFACE_INPUT,
   SURFACE_RESIZE,
+  SURFACE_SPAWN,
   SURFACE_STATUS_EVENT,
   type SurfaceExitEvent,
   type SurfaceStatusEvent,
@@ -73,12 +75,12 @@ function makeFakeTransport(surfaceId = "surf-123"): {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("create() creates a byte channel, invokes surface_create with sessionId/cols/rows/cwd, and returns the surfaceId", async () => {
+test("create() creates a byte channel, invokes surface_create with sessionId/placement/cols/rows/cwd, and returns the surfaceId", async () => {
   const { transport, invokes } = makeFakeTransport("surf-abc");
   const client = createTerminalSurfaceClient(transport);
 
   const id = await client.create(
-    { sessionId: "sess-1", cols: 80, rows: 24, cwd: "/home/user" },
+    { sessionId: "sess-1", placement: "slot-1", cols: 80, rows: 24, cwd: "/home/user" },
     () => {},
   );
 
@@ -87,10 +89,34 @@ test("create() creates a byte channel, invokes surface_create with sessionId/col
   const call0 = invokes[0]!;
   expect(call0.command).toBe(SURFACE_CREATE);
   expect(call0.args?.sessionId).toBe("sess-1");
+  expect(call0.args?.placement).toBe("slot-1");
   expect(call0.args?.cols).toBe(80);
   expect(call0.args?.rows).toBe(24);
   expect(call0.args?.cwd).toBe("/home/user");
   expect(call0.args?.channel).toBeDefined();
+});
+
+test("spawn() invokes surface_spawn with sessionId and returns the minted placement", async () => {
+  const { transport, invokes } = makeFakeTransport();
+  const client = createTerminalSurfaceClient(transport);
+  // surface_spawn returns a placement string; the fake returns undefined, so assert the call shape.
+  await client.spawn("sess-1");
+
+  expect(invokes).toHaveLength(1);
+  const call0 = invokes[0]!;
+  expect(call0.command).toBe(SURFACE_SPAWN);
+  expect(call0.args).toEqual({ sessionId: "sess-1" });
+});
+
+test("close() invokes surface_close with sessionId and surfaceId", async () => {
+  const { transport, invokes } = makeFakeTransport();
+  const client = createTerminalSurfaceClient(transport);
+  await client.close("sess-1", "surf-123");
+
+  expect(invokes).toHaveLength(1);
+  const call0 = invokes[0]!;
+  expect(call0.command).toBe(SURFACE_CLOSE);
+  expect(call0.args).toEqual({ sessionId: "sess-1", surfaceId: "surf-123" });
 });
 
 test("create() routes channel bytes to onBytes", async () => {
@@ -98,7 +124,9 @@ test("create() routes channel bytes to onBytes", async () => {
   const client = createTerminalSurfaceClient(fake.transport);
 
   const received: Uint8Array[] = [];
-  await client.create({ sessionId: "sess-1", cols: 80, rows: 24 }, (b) => received.push(b));
+  await client.create({ sessionId: "sess-1", placement: "slot-1", cols: 80, rows: 24 }, (b) =>
+    received.push(b),
+  );
 
   const chunk = new Uint8Array([72, 101, 108, 108, 111]);
   fake.lastChannel!.push(chunk);

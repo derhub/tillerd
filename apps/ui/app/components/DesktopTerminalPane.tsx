@@ -25,6 +25,8 @@ const TERM_THEME = {
 
 export function DesktopTerminalPane(_props: {
   sessionId: string | null;
+  /** The slot this pane binds to; the surface is resolved or created at (session, placement). */
+  placement: string;
   cwd: string;
   onSessionStart?: (id: string) => void;
 }) {
@@ -70,7 +72,12 @@ export function DesktopTerminalPane(_props: {
       const client = createTerminalSurfaceClient(transport);
 
       const surfaceId = await client.create(
-        { sessionId: _props.sessionId ?? "", cols: term.cols, rows: term.rows },
+        {
+          sessionId: _props.sessionId ?? "",
+          placement: _props.placement,
+          cols: term.cols,
+          rows: term.rows,
+        },
         (bytes) => term.write(bytes),
       );
 

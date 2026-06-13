@@ -29,5 +29,7 @@ function DesktopSession({ routeId }: { routeId: string | null }) {
   // Key by session so switching sessions remounts the pane and creates that session's own surface —
   // without it the pane instance is reused and its mount-time `useEffect` never recreates the
   // surface, leaving every session showing the first one's terminal.
-  return <DesktopTerminalPane key={sessionId ?? "new"} sessionId={sessionId} cwd="" />;
+  return (
+    <DesktopTerminalPane key={sessionId ?? "new"} sessionId={sessionId} placement="main" cwd="" />
+  );
 }
