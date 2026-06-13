@@ -35,27 +35,26 @@ test("selecting a theme in the settings panel toggles the appearance in real tim
   const b = await launchReadyApp();
   browser = b;
 
-  // Default appearance is dark.
-  expect(await hasDarkClass(b)).toBe(true);
-
   // Open the settings popover from the bottom-right cluster.
   await (await b.$('[aria-label="Settings"]')).click();
   const panel = await b.$('[data-slot="popover-content"]');
   await panel.waitForExist({ timeout: 10_000 });
-  const themeSelect = await b.$('select[aria-label="Theme"]');
-  await themeSelect.waitForExist({ timeout: 10_000 });
+  await (await b.$('select[aria-label="Theme"]')).waitForExist({ timeout: 10_000 });
 
-  // Switch to light: the root drops `.dark` immediately, no reload.
-  await selectValue(b, "Theme", "light");
-  await b.waitUntil(async () => !(await hasDarkClass(b)), {
-    timeout: 10_000,
-    timeoutMsg: "selecting light did not remove the dark class",
-  });
-
-  // Switch back to dark: the change applies live the other direction too.
-  await selectValue(b, "Theme", "dark");
-  await b.waitUntil(async () => await hasDarkClass(b), {
-    timeout: 10_000,
-    timeoutMsg: "selecting dark did not restore the dark class",
-  });
+  // Cycle light -> dark -> light. Each selection applies live (toggles `.dark` on the root with
+  // no reload), in both directions, repeatedly. State-independent: the test sets each appearance
+  // rather than assuming the persisted starting one.
+  const steps: ReadonlyArray<readonly ["light" | "dark", boolean]> = [
+    ["light", false],
+    ["dark", true],
+    ["light", false],
+  ];
+  for (const [value, wantDark] of steps) {
+    await selectValue(b, "Theme", value);
+    await b.waitUntil(async () => (await hasDarkClass(b)) === wantDark, {
+      timeout: 10_000,
+      timeoutMsg: `selecting ${value} did not ${wantDark ? "add" : "remove"} the dark class`,
+    });
+  }
+  expect(await hasDarkClass(b)).toBe(false);
 }, 120_000);

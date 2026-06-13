@@ -40,19 +40,19 @@ test("changing the terminal scheme re-themes a mounted terminal live", async () 
   await createProject(b, "scheme-e2e");
   await openTerminal(b);
 
-  // Default scheme is github-dark.
-  await b.waitUntil(async () => (await terminalBackground(b)) === "rgb(13, 17, 23)", {
-    timeout: 15_000,
-    timeoutMsg: "terminal did not start with the dark scheme background",
-  });
-
-  // Open the settings popover and switch the terminal scheme to light.
   await (await b.$('[aria-label="Settings"]')).click();
   const schemeSelect = await b.$('select[aria-label="Terminal scheme"]');
   await schemeSelect.waitForExist({ timeout: 10_000 });
-  await selectValue(b, "Terminal scheme", "github-light");
 
-  // The mounted terminal's background flips live, without a respawn.
+  // Establish a known scheme on the mounted terminal (state-independent), then flip it; the
+  // background flips live with no respawn. dark = rgb(13, 17, 23), light = rgb(255, 255, 255).
+  await selectValue(b, "Terminal scheme", "github-dark");
+  await b.waitUntil(async () => (await terminalBackground(b)) === "rgb(13, 17, 23)", {
+    timeout: 15_000,
+    timeoutMsg: "setting the dark scheme did not reach the mounted terminal",
+  });
+
+  await selectValue(b, "Terminal scheme", "github-light");
   await b.waitUntil(async () => (await terminalBackground(b)) === "rgb(255, 255, 255)", {
     timeout: 10_000,
     timeoutMsg: "terminal scheme change did not reach the mounted terminal",
