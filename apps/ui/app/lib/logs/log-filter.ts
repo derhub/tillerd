@@ -1,7 +1,7 @@
 import type { LogRecord } from "./log-record";
 
 export interface LogFilter {
-  /** Minimum severity level; records below it are hidden. */
+  /** Exact severity level; only records of that level are shown. */
   level?: string;
   /** Free-text query over the body and attributes. */
   query?: string;
@@ -14,18 +14,12 @@ export interface LogFilter {
 /** Severity levels, low to high. Single source of truth for level ordering. */
 export const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;
 
-const LEVEL_RANK: Record<string, number> = Object.fromEntries(LEVELS.map((l, i) => [l, i]));
-
-function rank(level: string): number {
-  return LEVEL_RANK[level.toUpperCase()] ?? 0;
-}
-
 /** Apply a {@link LogFilter} to records. An empty filter returns them unchanged. */
 export function filterRecords(records: LogRecord[], filter: LogFilter): LogRecord[] {
-  const min = filter.level ? rank(filter.level) : -1;
+  const level = filter.level?.toUpperCase();
   const query = filter.query?.trim().toLowerCase() ?? "";
   return records.filter((r) => {
-    if (min >= 0 && rank(r.level) < min) return false;
+    if (level && r.level.toUpperCase() !== level) return false;
     if (filter.component && r.attributes.component !== filter.component) return false;
     if (filter.sessionId && r.attributes["session.id"] !== filter.sessionId) return false;
     if (query) {

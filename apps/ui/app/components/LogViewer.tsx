@@ -117,7 +117,7 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
           load older
         </button>
         <select
-          aria-label="Minimum level"
+          aria-label="Level"
           className="bg-transparent border border-border/40 rounded-sm px-1 py-0.5"
           value={filter.level ?? ""}
           onChange={(e) => setFilter((f) => ({ ...f, level: e.target.value || undefined }))}
@@ -149,7 +149,12 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
           onChange={(v) => setFilter((f) => ({ ...f, sessionId: v }))}
         />
       </div>
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        data-testid="log-scroll"
+        className="flex-1 overflow-auto"
+      >
         {shown.map((r, i) => (
           <LogRow key={`${r.timestamp}-${i}`} record={r} />
         ))}

@@ -91,13 +91,13 @@ records on demand by reading earlier byte ranges.
 
 ### Requirement: Filter and search records
 
-The viewer SHALL filter the shown records by minimum severity level, by free-text query over
+The viewer SHALL filter the shown records by exact severity level, by free-text query over
 the body and attributes, and by `component` and `session.id` facets.
 
 #### Scenario: Filter by level
 
-- **WHEN** the user selects a minimum severity level
-- **THEN** records below that level are hidden
+- **WHEN** the user selects a level
+- **THEN** only records of that level are shown
 
 #### Scenario: Free-text search
 

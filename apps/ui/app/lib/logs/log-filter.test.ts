@@ -13,9 +13,9 @@ const RECORDS: LogRecord[] = [
   record("ERROR", "socket refused", { component: "gate", "session.id": "s2" }),
 ];
 
-test("level filter hides records below the minimum severity", () => {
-  const got = filterRecords(RECORDS, { level: "INFO" });
-  expect(got.map((r) => r.body)).toEqual(["spawning pty", "socket refused"]);
+test("level filter shows only records of the chosen level", () => {
+  expect(filterRecords(RECORDS, { level: "INFO" }).map((r) => r.body)).toEqual(["spawning pty"]);
+  expect(filterRecords(RECORDS, { level: "ERROR" }).map((r) => r.body)).toEqual(["socket refused"]);
 });
 
 test("free-text search matches body and attributes", () => {
