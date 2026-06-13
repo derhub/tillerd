@@ -80,27 +80,32 @@ export function useGlobalSetting(
   const state = useSettingsState();
   const raw = state?.values[key];
   const value = typeof raw === "string" ? raw : fallback;
-  const setValue = useCallback((next: string) => state?.setValue(key, next), [state, key]);
+  // Depend on `setValue` (stable once the source resolves), not the whole `state` (new ref on
+  // every write), so an unrelated setting change doesn't recreate this consumer's setter.
+  const setter = state?.setValue;
+  const setValue = useCallback((next: string) => setter?.(key, next), [setter, key]);
   return { value, setValue };
 }
 
 /** Theme as reactive shared state, applied to the document root and the paint-time cache on change. */
 export function useTheme(): { theme: Theme; setTheme: (theme: Theme) => void } {
   const state = useSettingsState();
+  // The paint cache (read once) is the pre-hydration fallback; the durable value wins once loaded.
+  const cachedFallback = useMemo(
+    () => (typeof localStorage === "undefined" ? DEFAULT_THEME : readCachedTheme(localStorage)),
+    [],
+  );
   const raw = state?.values[THEME_KEY];
-  const theme: Theme = isTheme(raw)
-    ? raw
-    : typeof localStorage === "undefined"
-      ? DEFAULT_THEME
-      : readCachedTheme(localStorage);
+  const theme: Theme = isTheme(raw) ? raw : cachedFallback;
 
+  const setter = state?.setValue;
   const setTheme = useCallback(
     (next: Theme) => {
       applyTheme(document.documentElement, next);
       writeCachedTheme(localStorage, next);
-      state?.setValue(THEME_KEY, next);
+      setter?.(THEME_KEY, next);
     },
-    [state],
+    [setter],
   );
 
   return { theme, setTheme };

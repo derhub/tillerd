@@ -20,15 +20,15 @@ export function DesktopTerminalPane(_props: {
 
   // Terminal color scheme: applied at creation and updated live without recreating the PTY.
   // Read from the shared reactive settings state so a change in the panel reaches this terminal.
+  // `getTerminalTheme` returns a stable per-scheme object, so the effect fires only on change.
   const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
+  const terminalTheme = getTerminalTheme(scheme);
   const termRef = useRef<Terminal | null>(null);
-  const schemeRef = useRef(scheme);
-  schemeRef.current = scheme;
 
   useEffect(() => {
     const term = termRef.current;
-    if (term) term.options.theme = getTerminalTheme(scheme);
-  }, [scheme]);
+    if (term) term.options.theme = terminalTheme;
+  }, [terminalTheme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +47,7 @@ export function DesktopTerminalPane(_props: {
         cursorBlink: true,
         fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
         fontSize: 13,
-        theme: getTerminalTheme(schemeRef.current),
+        theme: terminalTheme,
       });
       termRef.current = term;
       const fitAddon = new FitAddon();
@@ -128,7 +128,7 @@ export function DesktopTerminalPane(_props: {
   return (
     <div
       className="h-full w-full relative"
-      style={{ background: getTerminalTheme(scheme).background }}
+      style={{ background: terminalTheme.background }}
       data-surface-id={surfaceId ?? undefined}
     >
       <div
