@@ -73,17 +73,18 @@ pub async fn surface_create(
     state: State<'_, SurfaceState>,
     channel: tauri::ipc::Channel<Vec<u8>>,
     session_id: String,
+    placement: String,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
 ) -> Result<String, String> {
     let session = SessionId::from_string(session_id);
 
-    // Revisit: re-attach to the session's existing terminal (resume replays its scrollback) rather
-    // than spawn a fresh one; a stale surface (shell exited) falls through to create below.
+    // Revisit: re-attach to the session's existing surface at this placement (resume replays its
+    // scrollback) rather than spawn a fresh one; a stale surface (shell exited) falls through.
     if let Some(existing) = state
         .api
-        .find_session_terminal_surface(&session)
+        .find_session_surface_by_placement(&session, &placement)
         .map_err(|e| e.to_string())?
     {
         // Register the channel before resume so no replayed output is lost.
@@ -117,10 +118,50 @@ pub async fn surface_create(
         .insert(id.clone(), channel);
     state
         .api
-        .create_terminal_surface(session, SurfaceId::from_string(id.clone()), cols, rows, cwd)
+        .create_terminal_surface(
+            session,
+            SurfaceId::from_string(id.clone()),
+            placement,
+            cols,
+            rows,
+            cwd,
+        )
         .await
         .map_err(|e| e.to_string())?;
     Ok(id)
+}
+
+/// Spawn a surface into a session: diverge the session's launch spec and return the minted
+/// placement. The renderer then mounts a pane at that placement, which calls `surface_create`.
+#[tauri::command]
+pub async fn surface_spawn(
+    state: State<'_, SurfaceState>,
+    session_id: String,
+) -> Result<String, String> {
+    state
+        .api
+        .spawn_surface(&SessionId::from_string(session_id))
+        .map_err(|e| e.to_string())
+}
+
+/// Close a surface: drop its launch item from the session spec and hard-remove it (terminate PTY).
+#[tauri::command]
+pub async fn surface_close(
+    state: State<'_, SurfaceState>,
+    session_id: String,
+    surface_id: String,
+) -> Result<(), String> {
+    let surface = SurfaceId::from_string(surface_id);
+    state
+        .channels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(surface.as_str());
+    state
+        .api
+        .remove_surface(&SessionId::from_string(session_id), &surface)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

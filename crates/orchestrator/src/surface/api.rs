@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::error::{OrchestratorError, Result};
 use crate::launch::executor::{run as run_launch, LaunchItemResult, SurfaceLauncher};
-use crate::launch::spec::migrate;
+use crate::launch::spec::{migrate, CommandRef, LaunchItem, LaunchSpec, CURRENT_SPEC_VERSION};
 use crate::persistence::{NewSurface, SessionId, Store, SurfaceId, SurfaceKind};
 use crate::surface::runtime::{ResolvedCommand, SurfaceEventSink, SurfaceRuntime};
 
@@ -59,6 +59,7 @@ impl SurfaceApi {
         &self,
         session_id: SessionId,
         surface_id: SurfaceId,
+        placement: String,
         cols: u16,
         rows: u16,
         cwd: Option<String>,
@@ -69,7 +70,7 @@ impl SurfaceApi {
             session_id,
             kind: SurfaceKind::Terminal,
             cwd: cwd.clone(),
-            placement: None,
+            placement: Some(placement),
             worktree_id: None,
         })?;
 
@@ -124,13 +125,14 @@ impl SurfaceApi {
         self.runtime.resume_all().await
     }
 
-    pub fn find_session_terminal_surface(
+    pub fn find_session_surface_by_placement(
         &self,
         session_id: &SessionId,
+        placement: &str,
     ) -> Result<Option<SurfaceId>> {
         Ok(self
             .store
-            .find_session_terminal_surface(session_id)?
+            .find_session_surface_by_placement(session_id, placement)?
             .map(|s| s.id))
     }
 
@@ -150,10 +152,67 @@ impl SurfaceApi {
         self.store.soft_delete_surface(surface)?;
         self.runtime.remove(surface).await
     }
+
+    /// Spawn a surface into a session: mint a placement, append a launch item to the session spec
+    /// (the spec is the authority for which surfaces exist, ADR-0030), and return the placement.
+    /// The renderer then creates the surface at this placement.
+    pub fn spawn_surface(&self, session_id: &SessionId) -> Result<String> {
+        let placement = uuid::Uuid::new_v4().to_string();
+        let mut spec = self.session_spec(session_id)?;
+        spec.items.push(LaunchItem {
+            target: SurfaceKind::Terminal.as_str().to_string(),
+            placement: Some(placement.clone()),
+            command: CommandRef::Inline {
+                executable: default_shell(),
+                args: Vec::new(),
+            },
+            worktree: None,
+        });
+        spec.ensure_unique_placements()?;
+        self.store_spec(session_id, &spec)?;
+        Ok(placement)
+    }
+
+    /// Close a surface: drop its launch item from the session spec (spec divergence) and hard-remove
+    /// it (soft-delete the row and terminate its pseudo-terminal). A closed surface is not resumed.
+    pub async fn remove_surface(&self, session_id: &SessionId, surface: &SurfaceId) -> Result<()> {
+        if let Some(placement) = self.store.get_surface(surface)?.and_then(|s| s.placement) {
+            let mut spec = self.session_spec(session_id)?;
+            spec.items
+                .retain(|item| item.placement.as_deref() != Some(placement.as_str()));
+            self.store_spec(session_id, &spec)?;
+        }
+        self.remove(surface).await
+    }
+
+    /// The session's current launch spec, or an empty current-version spec when none is stored.
+    fn session_spec(&self, session_id: &SessionId) -> Result<LaunchSpec> {
+        let session = self
+            .store
+            .get_session(session_id)?
+            .ok_or_else(|| OrchestratorError::SessionNotFound(session_id.as_str().to_string()))?;
+        match (session.spec_version, session.spec_json) {
+            (Some(version), Some(blob)) => Ok(migrate(&blob, version)?.0),
+            _ => Ok(LaunchSpec {
+                version: CURRENT_SPEC_VERSION,
+                items: Vec::new(),
+            }),
+        }
+    }
+
+    fn store_spec(&self, session_id: &SessionId, spec: &LaunchSpec) -> Result<()> {
+        let blob = serde_json::to_string(spec)
+            .map_err(|e| OrchestratorError::LaunchSpecInvalid(e.to_string()))?;
+        self.store.set_session_spec(session_id, spec.version, &blob)
+    }
 }
 
 fn default_cwd() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
+}
+
+fn default_shell() -> String {
+    std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
 }
 
 #[cfg(test)]
@@ -303,7 +362,7 @@ mod tests {
 
         let id = SurfaceId::from_string("surf-api-1");
         let returned = api
-            .create_terminal_surface(session.id, id.clone(), 80, 24, Some("/tmp".into()))
+            .create_terminal_surface(session.id, id.clone(), "p".into(), 80, 24, Some("/tmp".into()))
             .await
             .expect("create");
 
@@ -311,12 +370,13 @@ mod tests {
         let row = store.get_surface(&id).expect("get").expect("row exists");
         assert_eq!(row.kind, SurfaceKind::Terminal);
         assert_eq!(row.cwd.as_deref(), Some("/tmp"));
+        assert_eq!(row.placement.as_deref(), Some("p"));
         assert_eq!(api.runtime.proxy_count().await, 1);
         daemon.abort();
     }
 
     #[test]
-    fn find_session_terminal_surface_resolves_a_session_to_its_own_terminal() {
+    fn find_session_surface_by_placement_resolves_to_its_own_surface() {
         let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
         let with_surface = store.create_session(NewSession::default()).unwrap();
         let without_surface = store.create_session(NewSession::default()).unwrap();
@@ -326,22 +386,61 @@ mod tests {
                 session_id: with_surface.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
-                placement: None,
+                placement: Some("main".into()),
                 worktree_id: None,
             })
             .unwrap();
         let api = SurfaceApi::new(store, Arc::new(NullSink), "/tmp/unused.sock".into());
 
-        // The revisit path resolves a session to its own terminal surface, and to None when it has
-        // never opened one.
+        // The revisit path resolves (session, placement) to its own surface, and to None otherwise.
         assert_eq!(
-            api.find_session_terminal_surface(&with_surface.id).unwrap(),
+            api.find_session_surface_by_placement(&with_surface.id, "main")
+                .unwrap(),
             Some(surface.id),
         );
         assert_eq!(
-            api.find_session_terminal_surface(&without_surface.id)
+            api.find_session_surface_by_placement(&without_surface.id, "main")
                 .unwrap(),
             None,
         );
+    }
+
+    #[test]
+    fn spawn_surface_appends_a_launch_item_at_a_minted_placement() {
+        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let session = store.create_session(NewSession::default()).unwrap();
+        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), "/tmp/unused.sock".into());
+
+        let placement = api.spawn_surface(&session.id).unwrap();
+        let stored = store.get_session(&session.id).unwrap().unwrap();
+        let spec = crate::launch::spec::parse_spec(&stored.spec_json.unwrap()).unwrap();
+        assert_eq!(spec.items.len(), 1);
+        assert_eq!(spec.items[0].placement.as_deref(), Some(placement.as_str()));
+    }
+
+    #[tokio::test]
+    async fn remove_surface_drops_its_launch_item() {
+        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let session = store.create_session(NewSession::default()).unwrap();
+        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), "/tmp/unused.sock".into());
+
+        let placement = api.spawn_surface(&session.id).unwrap();
+        let surface = store
+            .create_surface(NewSurface {
+                id: Some(SurfaceId::from_string("close-surf")),
+                session_id: session.id.clone(),
+                kind: SurfaceKind::Terminal,
+                cwd: None,
+                placement: Some(placement),
+                worktree_id: None,
+            })
+            .unwrap();
+
+        api.remove_surface(&session.id, &surface.id).await.unwrap();
+
+        let stored = store.get_session(&session.id).unwrap().unwrap();
+        let spec = crate::launch::spec::parse_spec(&stored.spec_json.unwrap()).unwrap();
+        assert!(spec.items.is_empty());
+        assert!(store.get_surface(&surface.id).unwrap().is_none());
     }
 }

@@ -2,31 +2,38 @@
 
 ## 1. Placement model
 
-- [~] 1.1 Make `placement` an orchestrator-minted UUID, unique per session: mint one per launch
+- [x] 1.1 Make `placement` an orchestrator-minted UUID, unique per session: mint one per launch
   item when it enters a session spec (template instantiation or spawn); templates carry no
   placement; reject duplicates within a session; lazy-migrate the existing null-placement row to a
   minted placement; drop the `center`/`side` enum (launch-spec + launch-item specs, ADR-0030).
   Test-first: duplicate placement rejected; null row lazy-migrates on open.
-  [done: `LaunchSpec::mint_placements`/`ensure_unique_placements` + `instantiate_for_session`,
-  wired into both `create_session` paths (sqlite+memory); 6 unit tests; 114/114 lib green.
-  deferred: null-surface-row lazy-migration folds into the `(session, placement)` resolver slice
-  (2.1/2.2) where rows are read on open.]
+  [done: `mint_placements`/`ensure_unique_placements`/`instantiate_for_session` wired into both
+  `create_session` paths; null-row lazy-migration in `list_resumable_surfaces` (sqlite+memory).]
 
 ## 2. Orchestrator and persistence
 
-- [ ] 2.1 Generalize resume to `(session, placement)`: replace `find_session_terminal_surface`
+- [x] 2.1 Generalize resume to `(session, placement)`: replace `find_session_terminal_surface`
   with a `(session, placement)` resolver over any kind/count that returns absence as a normal
   result; enforce `(session, placement)` uniqueness at surface creation and as a persistence-row
   constraint; on startup reconnect every non-archived surface and expose its placement
   (surface-runtime + session-container specs).
-- [ ] 2.2 Persist N placement-keyed surface rows per session; lazy-migrate the null row to a minted
+  [done: `find_session_surface_by_placement` (trait + sqlite + memory + SurfaceApi); schema v4
+  partial unique index `surface_session_placement`; create_surface maps the constraint to
+  `SurfaceConflict`; `surface_create` IPC resolves by placement.]
+- [x] 2.2 Persist N placement-keyed surface rows per session; lazy-migrate the null row to a minted
   placement (workspace-persistence spec). Test-first: two-placement session persists two rows and
   resumes both by placement; duplicate-placement write is rejected.
-- [ ] 2.3 Spawn/close diverge the launch spec: add-surface appends a launch item, mints a
+  [done: unique partial index allows N rows/session keyed by placement; lazy-migration in
+  `list_resumable_surfaces`; dup-rejection + resolver tests in sqlite + api.]
+- [x] 2.3 Spawn/close diverge the launch spec: add-surface appends a launch item, mints a
   placement, creates the surface, and returns the placement; remove-surface is a hard remove --
   drop the item, delete the row, terminate the PTY -- so a closed surface is not resumed
   (session-container spec, ADR-0030). Test-first: add returns a fresh placement; remove drops item
   + kills PTY; restart does not resurrect it.
+  [done: `SurfaceApi::spawn_surface`/`remove_surface` + `Store::set_session_spec`; `surface_spawn`
+  + `surface_close` IPC commands registered + contract-tested. spawn returns placement (no PTY);
+  the pane then calls surface_create to launch. close = drop item + soft-delete row + `runtime.remove`
+  (PTY terminate). resume skips soft-deleted rows.]
 
 ## 3. Renderer
 

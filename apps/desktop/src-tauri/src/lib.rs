@@ -60,6 +60,8 @@ pub fn run() {
             supervisor::daemon_ensure,
             orchestrator_host::orchestrator_status,
             surface_host::surface_create,
+            surface_host::surface_spawn,
+            surface_host::surface_close,
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,

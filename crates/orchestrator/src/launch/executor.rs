@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn null_placement_falls_back_to_default() {
+    async fn null_placement_is_lazy_migrated_on_resume() {
         let store = make_store();
         let session_id = make_session(&store);
         let launcher = RecordingLauncher::default();
@@ -413,7 +413,9 @@ mod tests {
 
         run(&spec, &session_id, &store, &launcher).await;
 
+        // The executor stores the item's absent placement; list_resumable lazy-mints one.
         let surfaces = store.list_resumable_surfaces().unwrap();
-        assert!(surfaces.iter().any(|s| s.placement.is_none()));
+        assert_eq!(surfaces.len(), 1);
+        assert!(surfaces.iter().all(|s| s.placement.is_some()));
     }
 }

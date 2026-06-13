@@ -329,6 +329,17 @@ impl Store for InMemoryStore {
     // ── surface ───────────────────────────────────────────────────────────
 
     fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(placement) = &draft.placement {
+            let clash = inner.surfaces.values().any(|r| {
+                !r.deleted
+                    && r.surface.session_id == draft.session_id
+                    && r.surface.placement.as_deref() == Some(placement.as_str())
+            });
+            if clash {
+                return Err(OrchestratorError::SurfaceConflict(placement.clone()));
+            }
+        }
         let surface = Surface {
             id: draft.id.unwrap_or_else(SurfaceId::mint),
             session_id: draft.session_id,
@@ -338,7 +349,7 @@ impl Store for InMemoryStore {
             placement: draft.placement,
             worktree_id: draft.worktree_id,
         };
-        self.inner.lock().unwrap().surfaces.insert(
+        inner.surfaces.insert(
             surface.id.as_str().to_string(),
             SurfaceRecord {
                 surface: surface.clone(),
@@ -357,7 +368,11 @@ impl Store for InMemoryStore {
             .map(|r| r.surface.clone()))
     }
 
-    fn find_session_terminal_surface(&self, session_id: &SessionId) -> Result<Option<Surface>> {
+    fn find_session_surface_by_placement(
+        &self,
+        session_id: &SessionId,
+        placement: &str,
+    ) -> Result<Option<Surface>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .surfaces
@@ -365,15 +380,15 @@ impl Store for InMemoryStore {
             .filter(|r| {
                 !r.deleted
                     && r.surface.session_id.as_str() == session_id.as_str()
-                    && r.surface.kind == SurfaceKind::Terminal
+                    && r.surface.placement.as_deref() == Some(placement)
             })
             .map(|r| r.surface.clone())
             .next())
     }
 
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
-        let inner = self.inner.lock().unwrap();
-        Ok(inner
+        let mut inner = self.inner.lock().unwrap();
+        let ids: Vec<String> = inner
             .surfaces
             .values()
             .filter(|r| {
@@ -384,8 +399,19 @@ impl Store for InMemoryStore {
                         .map(|s| !s.deleted)
                         .unwrap_or(false)
             })
-            .map(|r| r.surface.clone())
-            .collect())
+            .map(|r| r.surface.id.as_str().to_string())
+            .collect();
+        // Lazy-migrate pre-placement rows so resume binds each surface by placement (ADR-0030).
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(r) = inner.surfaces.get_mut(&id) {
+                if r.surface.placement.is_none() {
+                    r.surface.placement = Some(uuid::Uuid::new_v4().to_string());
+                }
+                out.push(r.surface.clone());
+            }
+        }
+        Ok(out)
     }
 
     fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()> {
@@ -426,6 +452,18 @@ impl Store for InMemoryStore {
         surface_id: &SurfaceId,
     ) -> Result<()> {
         self.soft_delete_surface(surface_id)
+    }
+
+    fn set_session_spec(&self, id: &SessionId, spec_version: u32, spec_json: &str) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        match inner.sessions.get_mut(id.as_str()) {
+            Some(r) if !r.deleted => {
+                r.session.spec_version = Some(spec_version);
+                r.session.spec_json = Some(spec_json.to_string());
+                Ok(())
+            }
+            _ => Err(OrchestratorError::SessionNotFound(id.as_str().to_string())),
+        }
     }
 
     // ── layout ────────────────────────────────────────────────────────────
