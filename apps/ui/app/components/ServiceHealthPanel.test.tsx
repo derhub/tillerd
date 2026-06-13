@@ -9,7 +9,11 @@ import type { OrchestratorPhase } from "~/lib/health/aggregate";
 afterEach(cleanup);
 
 // <Link> needs a router context.
-function renderPanel(services: ServiceHealth[], phase: OrchestratorPhase = "ready", reason?: string) {
+function renderPanel(
+  services: ServiceHealth[],
+  phase: OrchestratorPhase = "ready",
+  reason?: string,
+) {
   return render(
     <MemoryRouter>
       <ServiceHealthPanel phase={phase} reason={reason} services={services} />

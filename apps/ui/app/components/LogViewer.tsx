@@ -261,7 +261,10 @@ const LogRow = memo(function LogRow({ record }: { record: LogRecord }) {
   const service = strAttr(record.resource, "service.name");
   const session = strAttr(record.attributes, "session.id");
   return (
-    <div data-service={service} className="flex gap-2 px-3 py-0.5 border-b border-border/10 whitespace-pre-wrap break-all">
+    <div
+      data-service={service}
+      className="flex gap-2 px-3 py-0.5 border-b border-border/10 whitespace-pre-wrap break-all"
+    >
       <span className="text-muted-foreground shrink-0">{record.timestamp}</span>
       <span className={cn("shrink-0 w-12", LEVEL_COLOR[record.level.toUpperCase()] ?? "")}>
         {record.level}
