@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Main window. The app's own #[tauri::command]s (daemon_connect/send/disconnect, file_size/file_read, log_forward, pref_*, registry_*) are allowed by default and need no permission string; the daemon-stream Channel rides core IPC covered by core:default.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
 }

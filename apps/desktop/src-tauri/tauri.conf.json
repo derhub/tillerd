@@ -11,9 +11,12 @@
     "windows": [
       {
         "title": "tillerd",
+        "decorations": false,
+        "hiddenTitle": true,
+        "titleBarStyle": "Transparent",
         "width": 800,
         "height": 800,
-        "maximized": true
+        "maximized": false
       }
     ],
     "security": {
