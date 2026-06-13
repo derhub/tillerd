@@ -11,13 +11,14 @@
 
 ## 2. Service contract and upgrade
 
-- [~] 2.1 `service-host` lifecycle: ready handle on `ServeContext`, SIGUSR2 drain phase,
+- [x] 2.1 `service-host` lifecycle: ready handle on `ServeContext`, SIGUSR2 drain phase,
   manifest `status` + `socket_path` discovery; gate + daemon conform; E2E/orchestrator
   read readiness from the manifest (service-contract spec, ADR-0028).
-  [done: contract (ready/drain/manifest fields) + daemon/gate conform, tested. deferred:
-  orchestrator consuming manifest `status` for readiness — entangled with deduping the
-  3+ ManifestData/adopt-or-spawn impls; do with that refactor.]
-- [~] 2.2 Drain-and-restart: daemon drain state machine (refuse-new, wait-for-idle,
+  [done: contract (ready/drain/manifest fields) + daemon/gate conform. Orchestrator now reads
+  readiness from the manifest `status` (canonical `service_host::ManifestData`) in
+  `ensure_service` for both adopt and post-spawn -- no socket inference; supervision tests
+  (8) + e2e boot green.]
+- [x] 2.2 Drain-and-restart: daemon drain state machine (refuse-new, wait-for-idle,
   explicit upgrade-now), orchestrator supervision drains/swaps/restarts on version
   mismatch, resume-after-restart via workspace persistence (daemon-upgrade +
   orchestrator-supervision specs, ADR-0029).
@@ -37,14 +38,14 @@
 
 ## 4. Design tokens
 
-- [~] 4.1 Close DESIGN.md token gaps (motion/transition scale, icon sizing token,
+- [x] 4.1 Close DESIGN.md token gaps (motion/transition scale, icon sizing token,
   light-mode counterparts), then apply tokens across the shell with no ad-hoc values
   outside the terminal palette exemption (ui-shell spec, design D8).
   [done: frozen motion (`--motion-*`, `--ease-standard`) + icon (`--icon-*`) tokens in
-  app.css; DESIGN.md gains Motion/Icon Sizing/Light Mode sections; color light-mode
-  counterparts already existed. deferred: comprehensive token application across every
-  shell component (incl. vendored shadcn ui/ primitives) — mechanical but needs visual
-  verification; one exact-value tokenization landed as the pattern.]
+  app.css; DESIGN.md gains Motion/Icon Sizing/Light Mode sections. Shell motion now resolves
+  from `--motion-fast`/`ease-standard` across PanelGroup/SessionSidebar/EmptyPanel/DiffPanel/
+  Panel; gate + e2e green. Remaining ad-hoc values are exempt: the terminal palette, content
+  `ch`-units, and vendored shadcn `ui/` primitive internals (focus rings, arrow geometry).]
 
 ## 5. Sweep and gate
 

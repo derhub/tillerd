@@ -14,7 +14,7 @@ export function EmptyPanel({ onSpawn, disabled }: { onSpawn: () => void; disable
           onClick={onSpawn}
           className={cn(
             "flex items-center gap-2 px-2 h-7 rounded-sm text-[0.917rem] text-left",
-            "text-muted-foreground hover:text-foreground hover:bg-muted transition-colors",
+            "text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
             "disabled:opacity-40 disabled:pointer-events-none",
           )}
         >
