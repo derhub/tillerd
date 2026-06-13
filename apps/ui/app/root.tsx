@@ -9,14 +9,17 @@ import {
 
 import type { Route } from "./+types/root";
 import { TooltipProvider } from "~/components/ui/tooltip";
+import { THEME_PAINT_SCRIPT } from "~/lib/settings/theme";
 import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Apply the cached theme before first paint (no flash); the durable value reconciles on mount. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_PAINT_SCRIPT }} />
         <Meta />
         <Links />
       </head>

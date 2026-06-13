@@ -32,6 +32,10 @@ uuid.workspace = true
 # Enabled by the `webdriver` feature for the desktop e2e harness; off in normal/release builds.
 tauri-plugin-webdriver = { version = "0.2", optional = true }
 
+# Persists/restores window size, position, and maximized state across relaunch (desktop only).
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-window-state = "2"
+
 [features]
 # Embeds a W3C WebDriver server so the e2e harness can drive the app.
 webdriver = ["dep:tauri-plugin-webdriver"]

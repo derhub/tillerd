@@ -6,9 +6,31 @@ and APIs may break between minor versions.
 
 ## [Unreleased]
 
-Next: 0.0.9 — settings and secrets. The architecture froze at 0.0.6; every later 0.x
-version is additive on those seams. The working app ships at the end of the 0.0.x line
-(0.0.14); 0.1.x extends it; 1.0.0 ships distribution.
+Next: 0.0.9 — settings. The architecture froze at 0.0.6; every later 0.x version is
+additive on those seams. The working app ships at the end of the 0.0.x line (0.0.14);
+0.1.x extends it; 1.0.0 ships distribution.
+
+### Added
+
+- **Settings store** — a host-agnostic, scoped (global / project) key→value store over the
+  existing `setting` table (additive; no migration), reached through an orchestrator API,
+  a web-safe SDK client, and a desktop bridge. Project scope resolves over global; includes
+  generic "don't ask again" keyed-boolean storage for 0.0.10.
+- **Settings panel** — a gear in the bottom-right chrome cluster opens a non-modal panel
+  with theme (light / dark) and terminal color-scheme controls; renders instantly.
+- **Theme** — appearance is dynamic and applied from first paint (no flash) via a paint-time
+  cache, with the durable choice in the settings store.
+- **Terminal color scheme** — user-selectable; applied live to terminal surfaces without
+  restarting them.
+- **Window state** — window size / position / maximized persisted and restored on relaunch
+  via `tauri-plugin-window-state`.
+
+### Deferred
+
+- OS-keychain env-secrets, default command / template selection, per-project overrides, and
+  sidebar expand-state restore — each needs plumbing beyond this slice (keychain dependency,
+  template-list API, project-scoped UI / launch-path injection, or the 0.0.14 sidebar tree);
+  all build on the settings store shipped here.
 
 ## [0.0.8] — 2026-06-14
 

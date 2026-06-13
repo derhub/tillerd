@@ -68,25 +68,25 @@ export function ServiceHealthIndicator({
   const reason = host.status === "error" ? host.error.message : undefined;
   const aggregate = aggregateHealthState(phase, services);
 
+  // Positioning is owned by the shell's bottom-right cluster (see AppShell), so this
+  // renders the pill + popover only.
   return (
-    <div className="fixed bottom-2 right-2 z-50">
-      <Popover>
-        <PopoverTrigger
-          aria-label={`Service health: ${aggregate}`}
-          className="flex items-center gap-1.5 rounded-sm bg-black/60 px-2 h-6 font-mono text-[0.75rem] select-none"
-        >
-          <span className={cn("w-1.5 h-1.5 rounded-full", DOT[aggregate])} />
-          <span className={TEXT[aggregate]}>services: {aggregate}</span>
-        </PopoverTrigger>
-        <PopoverContent>
-          <ServiceHealthPanel
-            phase={phase}
-            reason={reason}
-            services={services}
-            onOpenLogs={(service) => void navigate(`/logs?service=${encodeURIComponent(service)}`)}
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
+    <Popover>
+      <PopoverTrigger
+        aria-label={`Service health: ${aggregate}`}
+        className="flex items-center gap-1.5 rounded-sm bg-black/60 px-2 h-6 font-mono text-[0.75rem] select-none"
+      >
+        <span className={cn("w-1.5 h-1.5 rounded-full", DOT[aggregate])} />
+        <span className={TEXT[aggregate]}>services: {aggregate}</span>
+      </PopoverTrigger>
+      <PopoverContent>
+        <ServiceHealthPanel
+          phase={phase}
+          reason={reason}
+          services={services}
+          onOpenLogs={(service) => void navigate(`/logs?service=${encodeURIComponent(service)}`)}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
