@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { Plus, FolderPlus, Archive, ScrollText } from "lucide-react";
+import { Plus, FolderPlus, Archive } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 import { useDesktopHost } from "~/lib/useDesktopHost";
@@ -154,21 +154,6 @@ export function SessionSidebar() {
           </div>
         )}
       </ScrollArea>
-
-      <NavLink
-        to="/logs"
-        className={({ isActive }) =>
-          cn(
-            "flex items-center gap-1.5 px-3 h-7 text-[0.917rem] border-t border-border/40 transition-colors duration-[var(--motion-fast)] ease-standard",
-            isActive
-              ? "text-foreground bg-muted"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted",
-          )
-        }
-      >
-        <ScrollText size={11} strokeWidth={2} />
-        <span>Logs</span>
-      </NavLink>
     </div>
   );
 }
