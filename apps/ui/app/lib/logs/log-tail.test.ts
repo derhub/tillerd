@@ -114,3 +114,22 @@ test("loadOlderAll loads earlier records across every tracked file", async () =>
   const all = await tail.loadOlderAll();
   expect(all.filter((r) => r.body === "aaa").length).toBe(2);
 });
+
+test("never holds more than maxRecords, even after repeated loadOlder", async () => {
+  const one = `${rec("t0", "m0")}\n`;
+  const src = new FakeSource();
+  src.put(
+    "/logs/x.log",
+    Array.from({ length: 6 }, (_, i) => `${rec(`t${i}`, `m${i}`)}\n`).join(""),
+  );
+  const tail = new LogTail(src, {
+    backfillBytes: enc(one),
+    olderChunkBytes: enc(one),
+    maxRecords: 3,
+  });
+
+  await tail.refresh();
+  for (let i = 0; i < 10; i++) await tail.loadOlderAll();
+
+  expect(tail.current().length).toBeLessThanOrEqual(3);
+});

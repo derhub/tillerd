@@ -2,15 +2,22 @@ import type { LogSource } from "../transport/log-source";
 import { type LogRecord, parseRecord } from "./log-record";
 
 export interface LogTailOptions {
-  /** Max records kept in the live window before the oldest are trimmed. */
+  /** Records kept in the live tail before the oldest are trimmed (while pinned to bottom). */
   windowSize?: number;
+  /** Absolute cap on records held in memory, enforced even after load-older. */
+  maxRecords?: number;
   /** Bytes read from the tail of each file when first seen. */
   backfillBytes?: number;
   /** Bytes read per {@link LogTail.loadOlder} step. */
   olderChunkBytes?: number;
 }
 
-const DEFAULTS = { windowSize: 2000, backfillBytes: 256 * 1024, olderChunkBytes: 64 * 1024 };
+const DEFAULTS = {
+  windowSize: 2000,
+  maxRecords: 10_000,
+  backfillBytes: 256 * 1024,
+  olderChunkBytes: 64 * 1024,
+};
 
 interface Cursor {
   /** Confirmed line boundary: lowest byte of the complete lines parsed so far. */
@@ -36,6 +43,7 @@ export class LogTail {
   private records: LogRecord[] = [];
   private trimEnabled = true;
   private readonly windowSize: number;
+  private readonly maxRecords: number;
   private readonly backfillBytes: number;
   private readonly olderChunkBytes: number;
 
@@ -44,6 +52,7 @@ export class LogTail {
     opts: LogTailOptions = {},
   ) {
     this.windowSize = opts.windowSize ?? DEFAULTS.windowSize;
+    this.maxRecords = opts.maxRecords ?? DEFAULTS.maxRecords;
     this.backfillBytes = opts.backfillBytes ?? DEFAULTS.backfillBytes;
     this.olderChunkBytes = opts.olderChunkBytes ?? DEFAULTS.olderChunkBytes;
   }
@@ -90,7 +99,13 @@ export class LogTail {
     }
 
     const older = this.parseComplete(trimTrailingEmpty(text.split("\n")));
-    if (older.length) this.records = sortByTime(this.records.concat(older));
+    if (older.length) {
+      this.records = sortByTime(this.records.concat(older));
+      // Hard cap, even while browsing history: memory can't run away on repeated load-older.
+      if (this.records.length > this.maxRecords) {
+        this.records = this.records.slice(this.records.length - this.maxRecords);
+      }
+    }
     return this.records;
   }
 
@@ -154,8 +169,11 @@ export class LogTail {
 
   private commit(): void {
     this.records = sortByTime(this.records);
-    if (this.trimEnabled && this.records.length > this.windowSize) {
-      this.records = this.records.slice(this.records.length - this.windowSize);
+    // Pinned to the bottom: trim to the live window. Browsing history: keep more, but never
+    // exceed the absolute cap so memory stays bounded.
+    const cap = this.trimEnabled ? this.windowSize : this.maxRecords;
+    if (this.records.length > cap) {
+      this.records = this.records.slice(this.records.length - cap);
     }
   }
 }
