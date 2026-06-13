@@ -135,11 +135,17 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 ### 0.0.8 — Health and first-run UX
 
-- [ ] Per-service health indicators (gate / daemon) with failure surfacing.
-- [ ] First-run / onboarding: services down, version out of range, fresh-machine setup.
-  Each typed error (`BinaryNotFound`, `NotAuthenticated`, `VersionUnsupported`, etc.)
-  gets a distinct recovery prompt — not just a truncated message in the host-status
-  badge. 0.0.10 inherits whatever ships here.
+- [x] Per-service health indicators (gate / daemon) with failure surfacing — an
+  aggregate read-only indicator in the bottom-right cluster (worst-across-services
+  state); click opens a non-modal panel listing orchestrator / gate / daemon with
+  version, liveness, failure reason, and a logs link; version-mismatch and draining
+  shown inline. Manifest-derived, no health socket.
+- [x] First-run / onboarding — progressive, invisible boot: the shell renders
+  immediately, service-dependent content lazy-loads behind a delayed skeleton, and a
+  failure (services down, version out of range) degrades to the subtle health
+  indicator rather than a blocking modal or setup wizard. Recovery stays read-only
+  (failure reason + logs link, no retry/restart — supervision seam frozen);
+  interactive per-error recovery prompts deferred. 0.0.10 inherits this surfacing.
 
 ### 0.0.9 — Settings and secrets
 

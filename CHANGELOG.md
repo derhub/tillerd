@@ -6,11 +6,62 @@ and APIs may break between minor versions.
 
 ## [Unreleased]
 
-0.0.6 in progress: finalize the architecture — desktop end-to-end test, service
-contract on `service-host` (lifecycle / discovery / health / identity), daemon
-drain-and-restart upgrade, `correlation_id` threading, and design tokens. After 0.0.6
-the architecture is frozen for 0.x; later versions are additive. The working app ships
-at the end of the 0.0.x line (0.0.10); 0.1.x extends it; 1.0.0 ships distribution.
+Next: 0.0.9 — settings and secrets. The architecture froze at 0.0.6; every later 0.x
+version is additive on those seams. The working app ships at the end of the 0.0.x line
+(0.0.14); 0.1.x extends it; 1.0.0 ships distribution.
+
+## [0.0.8] — 2026-06-14
+
+Health and first-run UX.
+
+### Added
+
+- **Per-service health** — the orchestrator derives rich per-service state (version,
+  liveness, version-match) from the manifest and exposes it through an additive host
+  command, event, and SDK type. Read-only, manifest-derived, no health socket.
+- **Health indicator** — an aggregate read-only status indicator (worst-across-services
+  state) in the bottom-right cluster; click opens a non-modal panel listing orchestrator
+  / gate / daemon with version, liveness, failure reason, and a logs link.
+  Version-mismatch and draining shown inline.
+- **Progressive boot** — the shell renders immediately; service-dependent content
+  lazy-loads behind a delayed skeleton; a service failure degrades to the health
+  indicator rather than a blocking screen or setup wizard.
+
+## [0.0.7] — 2026-06-14
+
+Observability.
+
+### Added
+
+- **Log viewer** — a desktop log-viewer surface over the per-service structured logs,
+  correlation-id aware, with per-service facet filtering.
+
+## [0.0.6] — 2026-06-13
+
+Finalize the architecture — the last architecture-changing version of 0.x. The service
+contract, wire protocol, data model, extension seams, and design tokens freeze here;
+every later version is additive on these seams.
+
+### Added
+
+- **Desktop E2E suite** — WebdriverIO over `tauri-webdriver`; boot / project / session /
+  terminal-stream specs in dev and bundled modes, running in CI.
+- **Service contract** — first-class ready / drain lifecycle phases and the socket /
+  manifest discovery convention on the `Service` trait; gate and daemon conform.
+- **Drain-and-restart upgrade** — replaces fd-handoff (ADR-0011): on a version mismatch
+  the daemon drains, swaps the binary, and starts fresh.
+- **Placement and multi-surface** — placement becomes a unique slot id so a session holds
+  N surfaces; panels bind surfaces by placement; revisit resumes each by
+  `(session, placement)` (ADR-0030).
+- **Correlation IDs** — `correlation_id` threaded across hops in structured logs.
+- **Design tokens** — `DESIGN.md` tokens applied across the shell; motion / icon-size /
+  light-mode gaps closed.
+- **Dynamic-ACL contract test.**
+
+### Removed
+
+- **Retired TS packages** — dead-code sweep deletes the Rust-inversion leftovers
+  (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`).
 
 ## [0.0.5] — 2026-06-13
 
