@@ -34,7 +34,7 @@ paths.
   surface's subscription to the gate is removed. 0.x surfaces are terminal (with a `diff` viewer
   stub); runnable surfaces are terminals.
 - The executor wires the remaining item fields: dispatch on `target` to the correct surface
-  kind, and run the `worktree` step (create → returns the cwd) when present, recording
+  kind, and run the `worktree` step (create -> returns the cwd) when present, recording
   `worktree_id`. Auxiliary runners (e.g. a dev server) are ordinary launch items with
   `target = terminal` and a placement — their output streams to the placed pane and closing the
   pane leaves the process running (soft-delete keeps the PTY). Commands run under local trust —
@@ -44,7 +44,7 @@ paths.
   session, and get/delete for command-library entries (store methods exist; only the host
   handlers are missing).
 - Correctness fixes: idempotent `seed_commands` via a single insert-or-ignore statement; the
-  template→session spec copy runs in one transaction; the worktree step runs against an explicit
+  template->session spec copy runs in one transaction; the worktree step runs against an explicit
   repository root, not the process working directory; `set_launch_template_spec` returns
   not-found for an absent template.
 

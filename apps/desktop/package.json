@@ -14,6 +14,10 @@
     "check-deps": "cd ./src-tauri && cargo outdated"
   },
   "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/orchestrator": "workspace:*",
+    "@tillerd/paths": "workspace:*",
+    "@tillerd/process-launch": "workspace:*",
     "@tillerd/ui": "workspace:*"
   },
   "devDependencies": {

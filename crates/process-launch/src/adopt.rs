@@ -97,6 +97,7 @@ mod tests {
         fn is_reachable(&self, _path: &Path) -> bool {
             self.reachable
         }
+        fn drain(&self, _pid: u32) {}
         fn remove_socket(&self, _path: &Path) {}
         fn spawn(&self) -> Result<u32, LaunchError> {
             self.spawned.set(true);

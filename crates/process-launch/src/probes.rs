@@ -13,6 +13,11 @@ pub trait Probes {
     /// Whether the control socket at `path` accepts a connection right now.
     fn is_reachable(&self, path: &Path) -> bool;
 
+    /// Signal the process with `pid` to drain (SIGUSR2): refuse new work, finish active work, then
+    /// exit. Used to retire a version-mismatched instance before starting the expected one
+    /// (ADR-0029). A no-op if the process is already gone.
+    fn drain(&self, pid: u32);
+
     /// Remove the socket file at `path`, ignoring a missing file.
     fn remove_socket(&self, path: &Path);
 
@@ -56,6 +61,12 @@ where
 
     fn is_reachable(&self, path: &Path) -> bool {
         std::os::unix::net::UnixStream::connect(path).is_ok()
+    }
+
+    fn drain(&self, pid: u32) {
+        use nix::sys::signal::{kill, Signal};
+        use nix::unistd::Pid;
+        let _ = kill(Pid::from_raw(pid as i32), Signal::SIGUSR2);
     }
 
     fn remove_socket(&self, path: &Path) {

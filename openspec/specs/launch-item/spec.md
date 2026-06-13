@@ -76,18 +76,26 @@ surface creation itself failed) and SHALL proceed to the next item in the list.
 
 ### Requirement: Placement hint on surface creation
 
-Each launch item MAY carry a placement string. When present, the placement string SHALL be
-stored on the surface row at creation time. The UI uses this stored value to route the surface
-to the named region of the panel tree. When absent, the surface row's placement field SHALL
-be null and the UI falls back to the default content region.
+A launch item in a session spec SHALL carry a placement slot id, minted by the orchestrator
+and unique within the session, stored on the surface row at creation time. The placement is
+the durable key the UI uses to bind the surface to a panel in the panel tree. A launch
+template carries no placement; the orchestrator mints one when the item enters a session spec
+(instantiation or spawn). Placements are never reused: a fresh placement is minted per spawn,
+and a closed placement is retired. Two launch items in a session spec SHALL NOT share a
+placement.
 
-#### Scenario: Placement stored when present
+#### Scenario: Placement stored on the surface row
 
-- **WHEN** a launch item carries a non-empty placement string
-- **THEN** the surface row records that placement value
+- **WHEN** a launch item produces a surface
+- **THEN** the surface row records the item's minted placement slot id
 
-#### Scenario: Null placement falls back to default
+#### Scenario: Placement minted at spawn
 
-- **WHEN** a launch item has no placement
-- **THEN** the surface row's placement field is null and the UI places the surface in the default content region
+- **WHEN** a surface is spawned into a session
+- **THEN** the orchestrator mints a placement unique within that session for the new item
+
+#### Scenario: Duplicate placement is rejected
+
+- **WHEN** a spec would create two surfaces at the same placement
+- **THEN** creation returns a typed error and the second surface is not created
 

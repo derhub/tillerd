@@ -1,11 +1,15 @@
-//! Host entry point: resource setup, serve, shutdown.
+//! Host entry point: resource setup, serve, ready/drain lifecycle, shutdown.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
-use crate::manifest::Manifest;
+use tokio::sync::Notify;
+
+use crate::manifest::{Manifest, ManifestData, ServiceStatus};
 use crate::paths::Paths;
 use crate::shutdown::{ChildRegistry, DEFAULT_GRACE_PERIOD};
-use crate::signals::wait_for_stop_signal;
+use crate::signals::{wait_for_drain_signal, wait_for_stop_signal};
 
 /// A tool's identity and lifecycle configuration. The tool supplies this; the
 /// host derives every path and lifecycle behavior from it.
@@ -40,13 +44,83 @@ impl ServiceConfig {
     }
 }
 
-/// What the host hands a tool's serve behavior: the resolved paths and the
-/// shared child registry.
+/// Readiness handle (design D2). The service calls [`Ready::signal`] from its serve behavior once
+/// it is listening; the host then flips the manifest `starting -> ready` and logs the transition.
+/// Signalling before the host observes it is fine — the notification is not lost.
+#[derive(Clone)]
+pub struct Ready {
+    notify: Arc<Notify>,
+}
+
+impl Ready {
+    fn new() -> Self {
+        Self {
+            notify: Arc::new(Notify::new()),
+        }
+    }
+
+    /// Announce that serve behavior is accepting work. Idempotent; extra calls are no-ops.
+    pub fn signal(&self) {
+        self.notify.notify_one();
+    }
+
+    async fn wait(&self) {
+        self.notify.notified().await;
+    }
+}
+
+/// Drain handle (design D1). The host fires it on the drain signal (SIGUSR2); the service observes
+/// it inside serve — [`Drain::is_draining`] for a fast check, [`Drain::draining`] to await the
+/// transition — then refuses new work, lets active work finish, and returns from serve when idle.
+#[derive(Clone, Default)]
+pub struct Drain {
+    inner: Arc<DrainInner>,
+}
+
+#[derive(Default)]
+struct DrainInner {
+    flag: AtomicBool,
+    notify: Notify,
+}
+
+impl Drain {
+    /// Whether the host has signalled drain.
+    pub fn is_draining(&self) -> bool {
+        self.inner.flag.load(Ordering::Acquire)
+    }
+
+    /// Resolve once drain is signalled (immediately if it already was). Safe to race in a `select!`
+    /// alongside the service's accept loop.
+    pub async fn draining(&self) {
+        if self.is_draining() {
+            return;
+        }
+        // Register for the wakeup before re-checking, so a fire between the check and the await is
+        // not lost.
+        let notified = self.inner.notify.notified();
+        if self.is_draining() {
+            return;
+        }
+        notified.await;
+    }
+
+    fn fire(&self) {
+        self.inner.flag.store(true, Ordering::Release);
+        self.inner.notify.notify_waiters();
+    }
+}
+
+/// What the host hands a tool's serve behavior: the resolved paths, the shared child registry, and
+/// the readiness/drain lifecycle handles.
 pub struct ServeContext {
     /// The resolved resource paths for this tool.
     pub paths: Paths,
     /// The registry shutdown sweeps; the tool tracks its children here.
     pub children: ChildRegistry,
+    /// Readiness handle: the service calls `ready.signal()` once it is listening.
+    pub ready: Ready,
+    /// Drain handle: the service observes it to refuse new work and finish active work.
+    pub drain: Drain,
 }
 
 /// Liveness status from a service's in-process health check.
@@ -117,15 +191,27 @@ pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    // 2. Write the manifest atomically (carries pid + version).
+    // 2. Write the manifest atomically at `starting`, carrying the socket clients will reach this
+    //    service on once it is ready (discovery is manifest-only — design D3).
     let manifest = Manifest::new(paths.manifest_path());
-    manifest.write(&config.version)?;
+    let socket_path = paths.socket_path().to_string_lossy().into_owned();
+    let mut manifest_data = ManifestData {
+        pid: std::process::id(),
+        version: config.version.clone(),
+        status: ServiceStatus::Starting,
+        socket_path: Some(socket_path),
+    };
+    manifest.write_data(&manifest_data)?;
 
-    // 3. Run the tool's serve behavior, racing it against the stop signal.
+    // 3. Run the tool's serve behavior, racing it against ready/drain/stop.
     let children = ChildRegistry::new();
+    let ready = Ready::new();
+    let drain = Drain::default();
     let ctx = ServeContext {
         paths: paths.clone(),
         children: children.clone(),
+        ready: ready.clone(),
+        drain: drain.clone(),
     };
 
     let health = service.health();
@@ -136,23 +222,59 @@ pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
         "service started"
     );
 
-    let result = tokio::select! {
-        served = service.serve(ctx) => served,
-        signal = wait_for_stop_signal() => {
-            signal.map(|name| {
-                tracing::info!(signal = name, tool = %config.name, "stop signal received");
-            })
+    // ready/drain fire during serve and update lifecycle state without ending it; only a stop
+    // signal cancels serve, and only serve returning (idle, including after drain) ends it cleanly.
+    // serve is boxed so it can be dropped right after the loop, releasing its `&mut service` borrow
+    // before the stopping health-check and teardown re-borrow the service.
+    let mut serve = Box::pin(service.serve(ctx));
+    let ready_wait = ready.wait();
+    let stop = wait_for_stop_signal();
+    let drain_wait = wait_for_drain_signal();
+    tokio::pin!(ready_wait, stop, drain_wait);
+
+    let mut ready_seen = false;
+    let mut drain_seen = false;
+    let result = loop {
+        tokio::select! {
+            // Serve returned on its own (natural exit, or idle after drain): a clean stop.
+            served = &mut serve => break served,
+
+            // Readiness: flip starting -> ready and record it.
+            _ = &mut ready_wait, if !ready_seen => {
+                ready_seen = true;
+                manifest_data.status = ServiceStatus::Ready;
+                let _ = manifest.write_data(&manifest_data);
+                tracing::info!(service = %config.name, status = ?ServiceStatus::Ready, "service ready");
+            }
+
+            // Drain (SIGUSR2): refuse new work via the handle, record draining, keep awaiting serve.
+            _ = &mut drain_wait, if !drain_seen => {
+                drain_seen = true;
+                drain.fire();
+                manifest_data.status = ServiceStatus::Draining;
+                let _ = manifest.write_data(&manifest_data);
+                tracing::info!(service = %config.name, status = ?ServiceStatus::Draining, "service draining");
+            }
+
+            // Stop (SIGTERM/SIGINT): cancel serve now and tear down.
+            signal = &mut stop => break signal.map(|name| {
+                tracing::info!(signal = name, service = %config.name, "stop signal received");
+            }),
         }
     };
 
-    // 4. Tool-specific teardown, then escalating graceful-then-forced child
-    //    shutdown: no orphans.
+    // Drop the serve future (completed, or cancelled by a stop signal) to release its `&mut service`
+    // borrow before the teardown re-borrows the service.
+    drop(serve);
+
+    // 4. Tool-specific teardown, then escalating graceful-then-forced child shutdown: no orphans.
+    //    serve has returned (or been cancelled), so `&mut service` is free to health-check again.
     let health = service.health();
     tracing::info!(
         service = %config.name,
         version = %health.version,
         status = ?health.status,
-        "service draining"
+        "service stopping"
     );
     service.shutdown().await;
     children.shutdown_all(config.grace_period).await;
@@ -338,7 +460,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn host_calls_health_at_startup_and_drain() {
+    async fn host_calls_health_at_startup_and_stop() {
         let base = temp_base("health-calls");
         let health_calls = Arc::new(Mutex::new(Vec::new()));
         let service = HealthTrackingService {
@@ -351,8 +473,69 @@ mod tests {
         assert_eq!(
             health_calls.lock().unwrap().len(),
             2,
-            "host calls health() at startup and again at drain"
+            "host calls health() at startup and again when serve returns (stopping)"
         );
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn manifest_starts_at_starting_then_flips_to_ready_on_signal() {
+        let base = temp_base("ready-flip");
+        let manifest_path = Paths::resolve("toolr", Some(&base)).manifest_path();
+
+        // A service that signals ready, observes the manifest flipped to `ready`, then returns.
+        struct ReadySignalService {
+            config: ServiceConfig,
+            observed: Arc<Mutex<Option<ServiceStatus>>>,
+        }
+        impl Service for ReadySignalService {
+            fn config(&self) -> ServiceConfig {
+                self.config.clone()
+            }
+            async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
+                ctx.ready.signal();
+                // Give the host a moment to process the ready signal and rewrite the manifest.
+                for _ in 0..50 {
+                    if Manifest::read(&ctx.paths.manifest_path()).map(|m| m.status)
+                        == Some(ServiceStatus::Ready)
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+                *self.observed.lock().unwrap() =
+                    Manifest::read(&ctx.paths.manifest_path()).map(|m| m.status);
+                Ok(())
+            }
+        }
+
+        let observed = Arc::new(Mutex::new(None));
+        run(ReadySignalService {
+            config: ServiceConfig::new("toolr", "1.0.0").with_base_override(Some(base.clone())),
+            observed: observed.clone(),
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(
+            *observed.lock().unwrap(),
+            Some(ServiceStatus::Ready),
+            "host flips the manifest to ready once the service signals"
+        );
+        // The manifest carries the socket path while live; on clean stop it is removed.
+        assert!(Manifest::read(&manifest_path).is_none());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn drain_signal_flips_handle_and_lets_serve_finish() {
+        // Drain fires via the handle (not a real SIGUSR2): the service's serve loop observes it and
+        // returns, which the host treats as a clean idle exit.
+        let drain = Drain::default();
+        assert!(!drain.is_draining());
+        drain.fire();
+        assert!(drain.is_draining());
+        // `draining()` resolves immediately once fired.
+        drain.draining().await;
     }
 }

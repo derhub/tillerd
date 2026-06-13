@@ -563,16 +563,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "command-fds"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b60b5124979fccd9addd89d8b97a1d6eebb4950694520c75ddd722535ea443f"
-dependencies = [
- "nix 0.31.3",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "compact_str"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4691,7 +4681,6 @@ name = "tillerd"
 version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
- "command-fds",
  "nix 0.31.3",
  "portable-pty",
  "serde",
@@ -4712,6 +4701,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4781,6 +4772,15 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tillerd-contracts",
+ "tillerd-paths",
+]
+
+[[package]]
+name = "tillerd-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "serial_test",
+ "tempfile",
  "tillerd-paths",
 ]
 

@@ -9,15 +9,15 @@ markdown file
      ▼
  PASS 1 — section split (chunk_markdown)
    walk lines, track fenced-code state (``` / ~~~)
-     heading (^#{1,6} ) AND not in fence  → start a new section
-     else                                 → append to current section
+     heading (^#{1,6} ) AND not in fence  -> start a new section
+     else                                 -> append to current section
    keep a section only if body_chars ≥ MIN_BODY_CHARS
-     (chars in non-heading, non-blank lines → drops bare headings / empty sections)
+     (chars in non-heading, non-blank lines -> drops bare headings / empty sections)
      │  Vec<Section{ title: heading?, content }>
      ▼
  PASS 2 — size bound
-   content.chars() ≤ MAX_CHUNK_CHARS  → keep as one chunk
-   content.chars() >  MAX_CHUNK_CHARS  → split_large(…)
+   content.chars() ≤ MAX_CHUNK_CHARS  -> keep as one chunk
+   content.chars() >  MAX_CHUNK_CHARS  -> split_large(...)
      │
      ▼
  split_large — paragraph split, fence-safe
@@ -28,7 +28,7 @@ markdown file
      │  Vec<DocChunk{ title, content }>
      ▼
    title = heading  (fallback: file name)
-   stored as kind='doc' chunk → FTS5 + embedding (async)
+   stored as kind='doc' chunk -> FTS5 + embedding (async)
 ````
 
 ## Parameters

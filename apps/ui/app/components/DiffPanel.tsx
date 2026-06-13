@@ -43,7 +43,8 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
   }, [sessionId, status]);
 
   if (!sessionId) return <DiffPlaceholder message="No active session" />;
-  if (diff.phase === "idle") return <DiffPlaceholder message="Waiting for session to complete…" />;
+  if (diff.phase === "idle")
+    return <DiffPlaceholder message="Waiting for session to complete..." />;
   if (diff.phase === "error") return <DiffPlaceholder message={diff.message} error />;
 
   if (diff.phase === "loading") {
@@ -72,7 +73,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
           onClick={() => setViewMode(viewMode === "stacked" ? "split" : "stacked")}
           title={viewMode === "stacked" ? "Switch to split view" : "Switch to stacked view"}
           className={cn(
-            "flex items-center justify-center w-5 h-5 rounded-sm transition-colors",
+            "flex items-center justify-center w-5 h-5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
             "text-muted-foreground hover:text-foreground hover:bg-muted",
           )}
         >

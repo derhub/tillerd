@@ -34,6 +34,7 @@ impl Probes for FakeProbes {
         // After a spawn the socket is reachable; before a spawn it follows the flag.
         self.reachable || self.spawned.get()
     }
+    fn drain(&self, _pid: u32) {}
     fn remove_socket(&self, _path: &Path) {}
     fn spawn(&self) -> Result<u32, LaunchError> {
         self.spawned.set(true);

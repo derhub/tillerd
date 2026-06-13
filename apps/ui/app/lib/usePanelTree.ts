@@ -2,14 +2,12 @@ import { useState, useCallback, useEffect } from "react";
 import {
   type PanelNode,
   type PanelContent,
-  type DisplayMode,
   DEFAULT_LAYOUT,
   serializeLayout,
   deserializeLayout,
   splitNode,
   closeNode,
   setContentNode,
-  setDisplayModeNode,
   setActiveTabNode,
   countLeaves,
 } from "./panelTree";
@@ -40,15 +38,18 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
       try {
         const blob = await client.getSessionLayout({ id: sessionId });
         if (cancelled) return;
-        if (blob) {
-          try {
-            setTree(deserializeLayout(blob));
-          } catch {
-            setTree(DEFAULT_LAYOUT);
-          }
+        // Reset on a null layout -- never inherit the previous session's tree.
+        if (!blob) {
+          setTree(DEFAULT_LAYOUT);
+          return;
+        }
+        try {
+          setTree(deserializeLayout(blob));
+        } catch {
+          setTree(DEFAULT_LAYOUT);
         }
       } catch {
-        // session not found or transport error — fall back to default
+        setTree(DEFAULT_LAYOUT);
       }
     })();
     return () => {
@@ -103,13 +104,6 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
     [update],
   );
 
-  const setDisplayMode = useCallback(
-    (groupId: string, displayMode: DisplayMode) => {
-      update((t) => setDisplayModeNode(t, groupId, displayMode));
-    },
-    [update],
-  );
-
   const setActiveTab = useCallback(
     (groupId: string, tabId: string) => {
       update((t) => setActiveTabNode(t, groupId, tabId));
@@ -117,5 +111,5 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
     [update],
   );
 
-  return { tree, split, close, setContent, setDisplayMode, setActiveTab };
+  return { tree, split, close, setContent, setActiveTab };
 }

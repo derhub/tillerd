@@ -8,34 +8,34 @@ search, reranked by recency. No model call beyond embedding the query. Source:
 
 ```
 Layer 1 — SessionStart (~200-400 tokens)
-  → MEMORY.md (when present)
-  → recent digests, staleness check: only if ts_digest ≥ ts_last_chunk
-  → project list from sessions
+  -> MEMORY.md (when present)
+  -> recent digests, staleness check: only if ts_digest ≥ ts_last_chunk
+  -> project list from sessions
 
 Layer 2 — on-demand recall
-  recall(query) → Found({id, title, snippet}) | Uncertain { offer_archive }
-  search(query) → one-shot: ranked results with full content inline
+  recall(query) -> Found({id, title, snippet}) | Uncertain { offer_archive }
+  search(query) -> one-shot: ranked results with full content inline
 
 Layer 3 — expand / archive
-  expand(id)            → full chunk content
-  archive_recall(query) → opted-in, newest shard first, progressive deepening
+  expand(id)            -> full chunk content
+  archive_recall(query) -> opted-in, newest shard first, progressive deepening
 ```
 
 ## recall() internals
 
 ```
 recall(query, now)
-  → embed query                         (model2vec, μs)
-  → vector_search: brute-force cosine over non-archived chunk vectors of the active model
-  → lexical_search: FTS5 BM25 (porter unicode61), terms OR-joined and quoted
-  → adaptive weighting:
-       symbol-like query → lexical weighted higher (0.7 / 1.5)
-       prose query       → balanced (1.0 / 1.0)
-  → RRF fuse (k=60)
-  → recency rerank: score *= 1 + 1/(1 + days_since_ts)
-  → confidence gate: empty, or best cosine < 0.30 with no lexical hit → Uncertain
-  → touch hits (last_accessed, access_count++)
-  → return {id, title, snippet}
+  -> embed query                         (model2vec, μs)
+  -> vector_search: brute-force cosine over non-archived chunk vectors of the active model
+  -> lexical_search: FTS5 BM25 (porter unicode61), terms OR-joined and quoted
+  -> adaptive weighting:
+       symbol-like query -> lexical weighted higher (0.7 / 1.5)
+       prose query       -> balanced (1.0 / 1.0)
+  -> RRF fuse (k=60)
+  -> recency rerank: score *= 1 + 1/(1 + days_since_ts)
+  -> confidence gate: empty, or best cosine < 0.30 with no lexical hit -> Uncertain
+  -> touch hits (last_accessed, access_count++)
+  -> return {id, title, snippet}
 ```
 
 `rank(query, k)` returns the ranked ids without the confidence gate — used by the

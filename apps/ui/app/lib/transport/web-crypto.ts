@@ -2,7 +2,7 @@
  * Stable id source for the renderer-hosted engine. The engine mints session ids/tokens via
  * `crypto.randomUUID()` / `getRandomValues()`, which require a secure context. The Tauri v2
  * custom-protocol web view qualifies, but we feature-detect and fall back so a non-secure host
- * never leaves the engine without an id source (§8.4).
+ * never leaves the engine without an id source (.4).
  */
 
 export function hasSecureCrypto(): boolean {

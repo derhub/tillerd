@@ -15,6 +15,7 @@ members = [
   "apps/gate-notify",
   "apps/mcp-gateway",
   "apps/desktop/src-tauri",
+  "tests/integration",
 ]
 
 [workspace.package]

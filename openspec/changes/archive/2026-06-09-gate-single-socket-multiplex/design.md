@@ -5,9 +5,9 @@ The gate is the single trust boundary for agent-facing traffic (ADR-0016). It re
 ```
   ~/.athing/gate-hook.sock        Hook       fire-and-forget   session token (envelope)
   ~/.athing/gate-tool.sock        Tool       req/resp          session token (envelope)
-  ~/.athing/gate-subscribe.sock   Subscribe  ready → stream    none
-  ~/.athing/gate-admin.sock       Admin      req/resp          admin token (≠ session)
-  ~/.athing/gate-mcp.{sock,url}   Mcp        upgrade → MCP      session token
+  ~/.athing/gate-subscribe.sock   Subscribe  ready -> stream    none
+  ~/.athing/gate-admin.sock       Admin      req/resp          admin token (!= session)
+  ~/.athing/gate-mcp.{sock,url}   Mcp        upgrade -> MCP      session token
 ```
 
 Four of the five already speak the same length-prefix codec. The MCP **socket** path already opens with a one-frame admission handshake (`{session, token}`) and then upgrades the stream to the MCP protocol — so a route selector is a small generalization of something the gate already does. The MCP **HTTP** transport, documented "primary, client-facing," has no consumer anywhere in the repository: nothing reads `gate-mcp.url`/`.sock`, no MCP server is registered for the agent, and the adapter wires no MCP. The per-face split is now incidental cost: many well-known filenames, one lone TCP port that forces a non-derivable address and a stale-prone `.url` sidecar.
@@ -54,9 +54,9 @@ Remove the MCP HTTP transport entirely (the transport selector, the loopback HTT
 
 ### Admin: credential-in-demux, not a physical wall
 
-`Admin` becomes a route on the shared socket but is governed by a centralized **route → credential** policy: `Hook`/`Tool`/`Mcp` require a valid session token; `Admin` requires the admin token (distinct from any session token); `Subscribe` requires none. A connection holding only a session token is refused on the `Admin` route. The privileged registry-mutate path is thus separated by credential, not by socket file.
+`Admin` becomes a route on the shared socket but is governed by a centralized **route -> credential** policy: `Hook`/`Tool`/`Mcp` require a valid session token; `Admin` requires the admin token (distinct from any session token); `Subscribe` requires none. A connection holding only a session token is refused on the `Admin` route. The privileged registry-mutate path is thus separated by credential, not by socket file.
 
-- _Alternative — keep `gate-admin.sock` physically separate:_ a defensible conservative option; it preserves defense-in-depth as a second wall. Rejected in favor of the single-socket goal, on the condition that the route→credential policy is centralized in one place and guarded by a negative test (a session token must not satisfy `Admin`). This trade-off is recorded in the ADR.
+- _Alternative — keep `gate-admin.sock` physically separate:_ a defensible conservative option; it preserves defense-in-depth as a second wall. Rejected in favor of the single-socket goal, on the condition that the route->credential policy is centralized in one place and guarded by a negative test (a session token must not satisfy `Admin`). This trade-off is recorded in the ADR.
 
 ### Adapter family: shared library, separate processes
 
@@ -72,18 +72,18 @@ The agent forces these shapes (a hook is one process exec per event; an MCP serv
 
 ## Risks / Trade-offs
 
-- **Route/credential confusion in the demux could span trust tiers** (e.g. a session token reaching `Admin`). → Centralize the route→credential mapping in one function; cover it with negative tests asserting each route refuses every credential except its own, especially `Admin`.
-- **MCP framing→upgrade handoff on a shared socket** — the demux must consume exactly one preamble frame and hand the *same* stream (no buffered residue) to the MCP library. → The codec already decodes incrementally across partial reads; read one frame, then pass the live stream object onward, as the current MCP socket handler already does.
-- **`Subscribe` carries no token on a socket now shared with token routes.** → The route→credential policy makes "no token" an explicit, audited decision for `Subscribe` only; binding `Subscribe` to a session token is a possible hardening follow-up (Open Questions).
-- **Breaking, pre-v1, lockstep rewire** — producer, consumers, and gate must move together. → Land atomically in one change; no compatibility shim, consistent with prior pre-v1 gate migrations.
-- **Dropping `axum`/TCP from the gate crate may be incomplete** if another path uses it. → Confirm during tasks that the MCP HTTP face is the last `axum`/TCP consumer before removing the dependency.
+- **Route/credential confusion in the demux could span trust tiers** (e.g. a session token reaching `Admin`). -> Centralize the route->credential mapping in one function; cover it with negative tests asserting each route refuses every credential except its own, especially `Admin`.
+- **MCP framing->upgrade handoff on a shared socket** — the demux must consume exactly one preamble frame and hand the *same* stream (no buffered residue) to the MCP library. -> The codec already decodes incrementally across partial reads; read one frame, then pass the live stream object onward, as the current MCP socket handler already does.
+- **`Subscribe` carries no token on a socket now shared with token routes.** -> The route->credential policy makes "no token" an explicit, audited decision for `Subscribe` only; binding `Subscribe` to a session token is a possible hardening follow-up (Open Questions).
+- **Breaking, pre-v1, lockstep rewire** — producer, consumers, and gate must move together. -> Land atomically in one change; no compatibility shim, consistent with prior pre-v1 gate migrations.
+- **Dropping `axum`/TCP from the gate crate may be incomplete** if another path uses it. -> Confirm during tasks that the MCP HTTP face is the last `axum`/TCP consumer before removing the dependency.
 
 ## Migration Plan
 
 Pre-v1: no backward compatibility is kept. Land as one change:
 
 1. Add the route-preamble envelope + `Route` enum to `contracts-rs`.
-2. Replace the five per-face binds with one `gate.sock` listener + preamble demux; route each existing handler from the demux; implement the route→credential policy; upgrade the `Mcp` route after preamble.
+2. Replace the five per-face binds with one `gate.sock` listener + preamble demux; route each existing handler from the demux; implement the route->credential policy; upgrade the `Mcp` route after preamble.
 3. Remove the MCP HTTP transport, its config selectors, and `gate-mcp.url`.
 4. Re-wire each client peer to open with its route preamble (hook producer, subscribe consumers, tool client, admin client) and update their tests.
 5. Rewrite `docs/services.md` to the single-socket-by-route model; record the ADR.

@@ -18,6 +18,14 @@ use orchestrator_host::OrchestratorState;
 use store::StoreState;
 use supervisor::SupervisorState;
 
+/// The app's real `Context` (config, embedded frontend, resolved ACL). `generate_context!` may
+/// expand only once per binary, so this single call is shared by `run()` and the command-contract
+/// test — the test needs the real ACL (the bundled `default.json`) to drive commands through the
+/// live IPC path, which a `mock_context` (empty ACL) cannot do.
+fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
@@ -52,6 +60,8 @@ pub fn run() {
             supervisor::daemon_ensure,
             orchestrator_host::orchestrator_status,
             surface_host::surface_create,
+            surface_host::surface_spawn,
+            surface_host::surface_close,
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
@@ -70,7 +80,7 @@ pub fn run() {
             workspace_host::command_get,
             workspace_host::command_delete,
         ])
-        .build(tauri::generate_context!())
+        .build(app_context())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { .. } = event {

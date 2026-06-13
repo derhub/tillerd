@@ -40,7 +40,7 @@ One Rust **orchestrator** library crate owns the backend.
 - **Surface runtime** — the per-PTY proxy, hook drain, status mapping, and send queue,
   composing `daemon-pty-client` + `gate-client` + `process-launch`. Migrated from the
   TypeScript engine.
-- **Agent adapter** — the `AgentDefinition` data plus the hook → status / content parse
+- **Agent adapter** — the `AgentDefinition` data plus the hook -> status / content parse
   functions (migrated from the TS adapter and `hookEventToContent`).
 - **A transport-agnostic API** — request/response methods plus outbound streams emitted
   over an `EventSink` trait the host implements.
@@ -85,7 +85,7 @@ RUST
     composes: daemon-pty-client · gate-client · process-launch · contracts-rs
         ↓ embedded by
   host: desktop (Tauri)  — API over commands/events
-  host: server (future)  — API over HTTP/WS  → remote control
+  host: server (future)  — API over HTTP/WS  -> remote control
         ▲ client of
   shared singletons: daemon, gate   (separate processes, unchanged)
 

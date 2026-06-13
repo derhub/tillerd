@@ -1,6 +1,6 @@
 ## Why
 
-The workspace has a fully-defined schema (ADR-0023) and a two-level id model (ADR-0020/ADR-0023), but the orchestrator exposes only 8 store operations (all surface-oriented) and no project or session management. The `SurfaceApi` creates an unnamed, unowned session for every surface call — there is no way to name, group, list, or resume sessions from the UI. Version 0.0.4 closes that gap: complete CRUD for the project → session → surface hierarchy, layout persistence per session, and an archive lifecycle, so the UI has a real workspace to drive.
+The workspace has a fully-defined schema (ADR-0023) and a two-level id model (ADR-0020/ADR-0023), but the orchestrator exposes only 8 store operations (all surface-oriented) and no project or session management. The `SurfaceApi` creates an unnamed, unowned session for every surface call — there is no way to name, group, list, or resume sessions from the UI. Version 0.0.4 closes that gap: complete CRUD for the project -> session -> surface hierarchy, layout persistence per session, and an archive lifecycle, so the UI has a real workspace to drive.
 
 ## What Changes
 

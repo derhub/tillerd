@@ -18,7 +18,10 @@ pub const HOOK_SUBSCRIPTION_WIRE_VERSION: u32 = 1;
 #[serde(transparent)]
 pub struct SessionId(pub String);
 
-/// Opaque id threaded through every message so records join across processes.
+/// Opaque id threaded through every message so records join across processes. Assigned at the
+/// operation ingress and carried on existing request envelopes across every hop. The standardized
+/// log attribute key is exactly `correlation_id` in every runtime (design D5): bind it into the
+/// span/logger context so all structured records for one operation join on that key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CorrelationId(pub String);

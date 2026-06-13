@@ -49,7 +49,7 @@ endpoint. Tool implementations are a later change that attaches handlers to this
 
 ## Decisions
 
-### 1. Build the face on `rmcp`, own only the request→`Inbound` bridge
+### 1. Build the face on `rmcp`, own only the request->`Inbound` bridge
 
 Gate implements an `rmcp` `ServerHandler`; `rmcp` owns transport, JSON-RPC 2.0 framing,
 the `initialize`/capability handshake, and version negotiation. The handler's tool-call
@@ -71,8 +71,8 @@ body; routing is by face, and method-level dispatch belongs to the `rmcp` handle
 the route, not to the router.
 
 - *Why:* mirrors how the hook face carries the hook event in the body and lets the
-  `Normalize` layer interpret it. The router stays a thin kind→chain dispatcher.
-- *Alternative — `McpCall` / `McpList` / … variants:* rejected; it pushes protocol
+  `Normalize` layer interpret it. The router stays a thin kind->chain dispatcher.
+- *Alternative — `McpCall` / `McpList` / ... variants:* rejected; it pushes protocol
   knowledge into the router and multiplies routes for no routing benefit. Contrast with
   `ToolCall`/`ToolResult`, which are split because they are genuinely different inbound
   directions, not different methods.
@@ -149,21 +149,21 @@ down with the rest.
 
 ## Risks / Trade-offs
 
-- **`rmcp` API drift** → pin the minor version per the repo's dependency-pinning posture;
+- **`rmcp` API drift** -> pin the minor version per the repo's dependency-pinning posture;
   confine all `rmcp` types to `endpoint/mcp.rs` so an upgrade touches one module. The
   router, `Kind`, and middleware never name an `rmcp` type.
-- **`rmcp` owns its own transport/runtime; gate owns the other faces' I/O** → keep the
+- **`rmcp` owns its own transport/runtime; gate owns the other faces' I/O** -> keep the
   boundary at "`rmcp` serves the protocol, gate's handler builds the `Inbound`." Do not
   thread the gate frame codec into MCP, and do not let `rmcp` reach the registry except
   through the `Token` on the `Inbound`.
-- **Empty tool set in v1 is a near-no-op surface** → acceptable and intended; cover it
+- **Empty tool set in v1 is a near-no-op surface** -> acceptable and intended; cover it
   with tests that prove a `tools/call` is authenticated, routed as `Kind::Mcp`, observed
   once, and forwarded, plus an unauthenticated call rejected before routing. The contract
   is exercised even with zero tools.
-- **Binary size / cold start** → `rmcp` pulls a transport stack into the gate binary;
+- **Binary size / cold start** -> `rmcp` pulls a transport stack into the gate binary;
   gate the HTTP-server feature behind the features actually used (`server`,
   streamable-HTTP, and IO for the socket) and avoid unused transports.
-- **Loopback-only is the security boundary** → all binds are `127.0.0.1` / Unix socket
+- **Loopback-only is the security boundary** -> all binds are `127.0.0.1` / Unix socket
   with filesystem permissions; no remote listener exists to misconfigure in v1.
 
 ## Migration Plan

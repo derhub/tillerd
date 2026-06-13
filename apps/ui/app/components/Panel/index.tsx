@@ -85,7 +85,7 @@ function PanelToolbar({ children, className }: { children: ReactNode; className?
     <div
       className={cn(
         "flex items-center gap-0.5 ml-auto shrink-0",
-        "opacity-0 group-hover/panel:opacity-100 transition-opacity duration-100",
+        "opacity-0 group-hover/panel:opacity-100 transition-opacity duration-[var(--motion-fast)] ease-standard",
         className,
       )}
     >
@@ -112,7 +112,7 @@ function PanelToolbarButton({
         aria-label={label}
         className={cn(
           "flex items-center justify-center w-5 h-5 rounded-sm text-muted-foreground",
-          "hover:text-foreground hover:bg-muted transition-colors",
+          "hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           className,
         )}

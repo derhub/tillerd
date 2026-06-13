@@ -8,10 +8,10 @@
 
 ## 2. Renderer transport abstraction + native port clients (desktop-engine-runtime, desktop-native-ports)
 
-- [x] 2.1 Add a `Transport` abstraction in `apps/ui` selecting native vs network carrier; keep the WebSocket transport as the network implementation > `apps/ui/app/lib/transport/`: `FramedDaemonTransport` base (sdk codec + handshake + > dispatch), `WebSocketDaemonTransport` (network impl), `TauriDaemonTransport` (native impl). > Unit-tested. The host selection is the SessionPage web/desktop component branch (§8.5): > web -> `TerminalPane`/WS, desktop -> `bootDesktopHost` -> native engine.
+- [x] 2.1 Add a `Transport` abstraction in `apps/ui` selecting native vs network carrier; keep the WebSocket transport as the network implementation > `apps/ui/app/lib/transport/`: `FramedDaemonTransport` base (sdk codec + handshake + > dispatch), `WebSocketDaemonTransport` (network impl), `TauriDaemonTransport` (native impl). > Unit-tested. The host selection is the SessionPage web/desktop component branch (.5): > web -> `TerminalPane`/WS, desktop -> `bootDesktopHost` -> native engine.
 - [x] 2.2 Detect host (desktop vs web) at startup and select the transport accordingly, with identical user-facing behavior > `isDesktopHost()` (probes `window.__TAURI_INTERNALS__`); the SessionPage + SessionSidebar > branch on it (desktop -> native engine path, web -> existing WS path).
 - [x] 2.3 Implement the web-view `DaemonTransport` (sdk port): reuse the sdk wire codec; carry inbound daemon bytes over a Tauri Channel and outbound writes over `invoke`, raw bytes only > `TauriDaemonTransport` (`tauri.ts`): inbound over `Channel<Vec<u8>>`, outbound over > `daemon_send`; Rust side in `src-tauri/src/bridge.rs`. Unit-tested with an injected core.
-- [x] 2.4 Preserve the daemon flow-control credit/ack loop in the web-view transport: return consumption credit as the renderer drains, no drops/reorders (ADR-0007 backpressure) > Structural: frames cross verbatim, the ordered Channel preserves sequence, and renderer- > emitted ack frames ride `daemon_send` back. Sustained-load proof DESCOPED with packaging (§10).
+- [x] 2.4 Preserve the daemon flow-control credit/ack loop in the web-view transport: return consumption credit as the renderer drains, no drops/reorders (ADR-0007 backpressure) > Structural: frames cross verbatim, the ordered Channel preserves sequence, and renderer- > emitted ack frames ride `daemon_send` back. Sustained-load proof DESCOPED with packaging ().
 - [x] 2.5 Implement the web-view `FileSource` (sdk port) over Rust `size`/`read(path, offset, length)` commands; surface absent file distinctly > `TauriFileSource` (`file-source.ts`) + Rust `file_size` (null when absent) / `file_read`.
 - [x] 2.6 Implement the web-view `Logger` (sdk port): console plus optional forward to the native core > `TauriLogger` (`logger.ts`) + Rust `log_forward`. > DESCOPED 2.7 (`@xterm/addon-webgl`): no GPU backend — terminal renders via xterm's default > canvas. No stable webgl addon exists for xterm 6.0.0; GPU rendering requirement dropped.
 
@@ -25,8 +25,8 @@
 
 ## 4. Native core: platform-tauri ports (desktop-native-ports)
 
-- [x] 4.1 Implement the Rust byte bridge to the daemon's local socket: forward renderer outbound bytes verbatim, deliver daemon output bytes back over a Channel; never parse a frame > `src-tauri/src/bridge.rs` (`daemon_connect`/`daemon_send`/`daemon_disconnect`): tokio > `UnixStream` to `$ATHING_DIR/daemon.sock`, read task streams bytes over the Channel, never > parses a frame. `cargo check` clean. Socket path resolves via env today; §5 spawns/adopts.
-- [x] 4.2 Wire the bridge to preserve the daemon's flow-control loop end-to-end (daemon -> Rust -> Channel -> renderer), no drops/reorders under sustained output > Bytes forwarded verbatim, ordered Channel, no buffering drops. Sustained-load proof DESCOPED with packaging (§10).
+- [x] 4.1 Implement the Rust byte bridge to the daemon's local socket: forward renderer outbound bytes verbatim, deliver daemon output bytes back over a Channel; never parse a frame > `src-tauri/src/bridge.rs` (`daemon_connect`/`daemon_send`/`daemon_disconnect`): tokio > `UnixStream` to `$ATHING_DIR/daemon.sock`, read task streams bytes over the Channel, never > parses a frame. `cargo check` clean. Socket path resolves via env today;  spawns/adopts.
+- [x] 4.2 Wire the bridge to preserve the daemon's flow-control loop end-to-end (daemon -> Rust -> Channel -> renderer), no drops/reorders under sustained output > Bytes forwarded verbatim, ordered Channel, no buffering drops. Sustained-load proof DESCOPED with packaging ().
 - [x] 4.3 Implement Rust file-read commands (`size`, `read(path, offset, length)`) returning bytes and reporting an absent file distinctly > `src-tauri/src/files.rs`: `file_size` -> `Option<u64>` (null absent), `file_read` -> raw `Response`.
 - [x] 4.4 Implement the native diagnostic channel backing the renderer `Logger` forward > `src-tauri/src/diag.rs` (`log_forward`).
 - [x] 4.5 Declare Tauri capabilities/permissions for the Channel, file-read, and app-data `invoke` commands in `src-tauri/capabilities/` > App `#[tauri::command]`s are allowed by default in v2; the Channel rides core IPC under > `core:default`. Documented in `capabilities/default.json` — no per-command permission needed.
@@ -45,14 +45,14 @@
 ## 6. Native core: app-data store (desktop-app-data)
 
 - [x] 6.1 Implement a native local store for user preferences (read/write over `invoke`), persisting across restarts > `src-tauri/src/store.rs` (`pref_get`/`pref_set`) persists JSON to `$ATHING_DIR/desktop-store.json`; > TS accessor `TauriAppData` (`app-data.ts`).
-- [x] 6.2 Implement the session registry (sessionId -> cwd) over `invoke`, supplying cwd on reconnect > Rust `registry_get`/`registry_set`/`registry_remove`/`registry_list` + `TauriAppData.getCwd`. > The reconnect call-site that supplies the cwd is §8 (renderer bootstrap).
+- [x] 6.2 Implement the session registry (sessionId -> cwd) over `invoke`, supplying cwd on reconnect > Rust `registry_get`/`registry_set`/`registry_remove`/`registry_list` + `TauriAppData.getCwd`. > The reconnect call-site that supplies the cwd is  (renderer bootstrap).
 - [x] 6.3 Reconcile the registry against the daemon's live sessions on startup, removing stale entries > `TauriAppData.reconcile(liveIds)` drops entries whose session is no longer live; called in > `bootDesktopHost` with `engine.listSessions()` at startup. Unit-tested.
 
 ## 7. Sidecar packaging — DESCOPED (with the release pipeline)
 
 > DESCOPED: bundling the daemon as a Tauri `externalBin` sidecar (ship `bun` per triple + the
 > daemon entry script) only matters when producing a distributable bundle, which is out of scope
-> here (§9 skipped). Dev resolves the daemon via `cwd/bin/athing-daemon` (`supervisor.rs`). Defer
+> here ( skipped). Dev resolves the daemon via `cwd/bin/athing-daemon` (`supervisor.rs`). Defer
 > to a packaging change when a release is actually cut.
 
 ## 8. Renderer bootstrap: run the engine in the web view (desktop-engine-runtime)
@@ -61,14 +61,14 @@
 > import-safe; hook install runs through an injected `SetupFs`; the engine takes injected
 > `agentHome` + `resolvedCommand`, so transcript-path/command no longer touch `os.homedir`). The
 > desktop deps now supply `agentHome` (`~/.claude`) and `resolvedCommand` from the native bootstrap.
-> All §8 mechanisms are built and unit-tested: `desktop-host.ts` `bootDesktopHost()` runs
+> All  mechanisms are built and unit-tested: `desktop-host.ts` `bootDesktopHost()` runs
 > resolve+version-gate -> `ensureDaemon` -> `createDesktopEngine`; `terminal-bind.ts`
 > `bindSessionToTerminal()` wires an `AgentSession` to an xterm (output -> `write`, keystrokes ->
 > `input`, resize). `@athing/adapter-claude-code` added to `apps/ui` (import-safe).
 >
 > Hook installation is OUT OF SCOPE for the desktop app — the CLI client owns it (`add-cli-controller`).
 > The desktop app only consumes already-installed hooks; `agent_bootstrap` still resolves/exposes
-> the hook command per §5.4 but never writes agent settings.
+> the hook command per .4 but never writes agent settings.
 >
 > The remaining live step is the React render swap (8.5): call `bootDesktopHost` at app boot and
 > render a desktop terminal bound via `bindSessionToTerminal` when `isDesktopHost()` (instead of
@@ -76,7 +76,7 @@
 
 - [x] 8.1 On desktop startup, `invoke` to fetch the native-resolved values (transport handle, file-read, logger, hook command) > `host-bootstrap.ts` `bootstrapAgent()` + `ensureDaemon()`; `agent_bootstrap` now also returns > `hooksSocketPath`. Unit-tested. The call at app-boot is the integration step above.
 - [x] 8.2 Construct the ports and call `createEngine(deps)` in the renderer before starting any session > `desktop-engine.ts` `buildDesktopEngineDeps()` / `createDesktopEngine()` construct the three > native ports + `createEngine`. `@athing/engine` added to `apps/ui`. Unit-tested.
-- [x] 8.3 Supply `cwd` on every session start/reconnect; a missing `cwd` surfaces a typed error rather than starting > Enforced in the engine proxy (`AtError("SpawnFailed","SessionOptions.cwd is required")`); the > desktop session registry (§6.2) supplies the cwd on reconnect.
+- [x] 8.3 Supply `cwd` on every session start/reconnect; a missing `cwd` surfaces a typed error rather than starting > Enforced in the engine proxy (`AtError("SpawnFailed","SessionOptions.cwd is required")`); the > desktop session registry (.2) supplies the cwd on reconnect.
 - [x] 8.4 Confirm Web Crypto (`crypto.randomUUID`/`getRandomValues`) works in the Tauri web view secure context; provide a fallback id source if not > `web-crypto.ts` `randomId()`/`hasSecureCrypto()`: randomUUID -> getRandomValues -> weak v4 > fallback. Unit-tested.
 - [x] 8.5 Render swap: on `isDesktopHost()`, boot via `bootDesktopHost` and drive the terminal from an engine `AgentSession` (`bindSessionToTerminal`) instead of the web JSON-WS path; verified on `bun run tauri dev` > `useDesktopHost.tsx` (`DesktopHostProvider` boots once, wraps the shell in `_shell.tsx`), > `DesktopTerminalPane.tsx` (engine session -> xterm via `bindSessionToTerminal`), session > route branches web/desktop, SessionSidebar "New session" -> `/session/new` on desktop. > `home_dir` added to `agent_bootstrap` as the default cwd; registry supplies cwd on reconnect. > Web path is byte-identical (status "web" -> original `TerminalPane`). App code typechecks > clean; runtime behavior verified by the user via `bun run tauri dev`.
 

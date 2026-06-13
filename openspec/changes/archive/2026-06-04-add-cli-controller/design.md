@@ -70,12 +70,12 @@ Both procedures are async, so handlers `await` them.
 
 ## Risks / Trade-offs
 
-- [Importing the `setup` definition from the adapter couples the CLI to a specific adapter] →
+- [Importing the `setup` definition from the adapter couples the CLI to a specific adapter] ->
   Acceptable for v1 (single adapter). The setup contract lives in `@athing/sdk`, so adding
   adapter selection later means choosing which adapter's `setup` to drive — no CLI rework.
-- [`parseArgs` gives no auto-generated help] → Hand-write a short usage string; the surface is
+- [`parseArgs` gives no auto-generated help] -> Hand-write a short usage string; the surface is
   small enough that this is cheaper than a framework dependency.
-- [Liveness via `process.kill(pid, 0)` cannot detect a hung-but-alive daemon] → Out of scope;
+- [Liveness via `process.kill(pid, 0)` cannot detect a hung-but-alive daemon] -> Out of scope;
   `status` reports process existence, not socket health, in v1. Socket reachability can be added
   later behind the same command.
 

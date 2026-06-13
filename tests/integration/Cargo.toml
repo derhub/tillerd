@@ -1,0 +1,10 @@
+[package]
+name = "tillerd-integration-tests"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tillerd-paths = { path = "../../crates/paths" }
+serial_test = "3"
+tempfile = "3"

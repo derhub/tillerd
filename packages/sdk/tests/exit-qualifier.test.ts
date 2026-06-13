@@ -45,15 +45,15 @@ describe("isRecoverable", () => {
 });
 
 describe("qualifierToCoarse", () => {
-  test("stopped-by-request → user", () => {
+  test("stopped-by-request -> user", () => {
     expect(qualifierToCoarse("stopped-by-request")).toBe("user");
   });
 
-  test("ok → clean", () => {
+  test("ok -> clean", () => {
     expect(qualifierToCoarse("ok")).toBe("clean");
   });
 
-  test("crash-class → unexpected", () => {
+  test("crash-class -> unexpected", () => {
     expect(qualifierToCoarse("error")).toBe("unexpected");
     expect(qualifierToCoarse("faulted")).toBe("unexpected");
     expect(qualifierToCoarse("killed")).toBe("unexpected");
@@ -113,19 +113,19 @@ describe("resolveSignal — numeric platform numbers", () => {
 });
 
 describe("signalCategoryToQualifier", () => {
-  test("fault → faulted", () => {
+  test("fault -> faulted", () => {
     expect(signalCategoryToQualifier("fault", false)).toBe("faulted");
   });
 
-  test("forced-termination → killed", () => {
+  test("forced-termination -> killed", () => {
     expect(signalCategoryToQualifier("forced-termination", false)).toBe("killed");
   });
 
-  test("graceful-termination → interrupted", () => {
+  test("graceful-termination -> interrupted", () => {
     expect(signalCategoryToQualifier("graceful-termination", false)).toBe("interrupted");
   });
 
-  test("resource → resource-exceeded", () => {
+  test("resource -> resource-exceeded", () => {
     expect(signalCategoryToQualifier("resource", false)).toBe("resource-exceeded");
   });
 
@@ -134,7 +134,7 @@ describe("signalCategoryToQualifier", () => {
     expect(signalCategoryToQualifier("forced-termination", true)).toBe("stopped-by-request");
   });
 
-  test("other categories → unknown", () => {
+  test("other categories -> unknown", () => {
     expect(signalCategoryToQualifier("timer", false)).toBe("unknown");
     expect(signalCategoryToQualifier("job-control", false)).toBe("unknown");
   });

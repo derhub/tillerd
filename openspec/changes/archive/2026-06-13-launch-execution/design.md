@@ -39,7 +39,7 @@ ADR-0024's invariants, which it keeps.
 
 ## Decisions
 
-### 1. The launch executor is a thin parse→handoff router
+### 1. The launch executor is a thin parse->handoff router
 Per item it owns only the kind-agnostic orchestration: validate, resolve the command, run the
 `worktree` step, persist the surface row, call the adapter, and record a best-effort outcome (a
 failed item is recorded; the rest continue, roadmap decision #13). It contains no `match` on kind
@@ -48,20 +48,20 @@ beyond selecting the adapter.
 this change exists to remove, and every new kind would edit the executor.
 
 ### 2. `launch_surface` dispatches by `SurfaceKind`; terminal-only in 0.x
-`launch_surface(surface, kind, command, …)` matches on `SurfaceKind`: `Terminal` calls the generic
+`launch_surface(surface, kind, command, ...)` matches on `SurfaceKind`: `Terminal` calls the generic
 spawn via `launch_terminal`; `Diff` is a typed unsupported-launch error (no adapter yet). With the
 agent removed (decision #4), terminal is the only runnable kind, so a plain `match` is right — no
 trait-object registry, no `async-trait` dep. *Alternative:* a `Box<dyn SurfaceAdapter>` registry —
 deferred: it earns its keep only with a second runnable kind, which 0.x does not have.
 
 ### 3. One generic spawn service
-`spawn(surface_id, command: Option<ResolvedCommand>, cwd, …) -> (DaemonConnection, rx)` hands the
+`spawn(surface_id, command: Option<ResolvedCommand>, cwd, ...) -> (DaemonConnection, rx)` hands the
 command to the pseudo-terminal daemon (ADR-0016/0024). `None` ⇒ login shell (preserves 0.0.2
 terminal behavior). Spawning lives in one place. *Alternative:* per-kind spawn paths — rejected
 (duplication; the daemon is already kind-agnostic).
 
 ### 4. Remove the agent surface — terminal-only 0.x (ADR-0027)
-The agent surface (gate subscribe-before-spawn, hook install, drain→status/content, interrupt,
+The agent surface (gate subscribe-before-spawn, hook install, drain->status/content, interrupt,
 teardown, `AgentProxy`, `AGENT_DEF`) is deleted from the orchestrator, the desktop host
 (`surface_create_agent`/`agent_bootstrap`), and the TS layer (the agent-adapter package plus the
 retired `engine`/`platform-bun`). The **gate**, hook ingress, mcp-gateway, and memorya stay — they
@@ -77,15 +77,15 @@ collapse, the remaining IPC, and the correctness fixes on top.
 
 ## Risks / Trade-offs
 
-- [Removing the agent surface reverses 0.0.3] → accepted product decision (ADR-0027): 0.x ships
+- [Removing the agent surface reverses 0.0.3] -> accepted product decision (ADR-0027): 0.x ships
   terminal-first. The deletion is broad (orchestrator agent module, `SurfaceKind::Agent`, desktop
   IPC + bootstrap, the TS agent-adapter package + retired `engine`/`platform-bun`) but the gate / hook
   ingress / mcp-gateway / memorya — the shared infra — are untouched; only the agent surface's gate
   subscription is removed. Pre-v1, no migration. The agent returns in 1.x.
 - [Removing `open_*` changes the host-facing surface API (`create_terminal_surface` /
-  `create_agent_surface` from 0.0.4)] → `create_agent_surface` is deleted; callers updated in this
+  `create_agent_surface` from 0.0.4)] -> `create_agent_surface` is deleted; callers updated in this
   one branch; pre-v1, internal API.
-- [Launched commands run under local trust] → accepted (decision #7); a hostile launch template is
+- [Launched commands run under local trust] -> accepted (decision #7); a hostile launch template is
   out of the threat model for a local single-user tool.
 
 ## Migration Plan

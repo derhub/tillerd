@@ -9,7 +9,7 @@ product store, and reaches a `ready` state the SDK observes — but nothing rend
 still depends on the retiring in-renderer TypeScript engine path. This change builds the first
 vertical slice that renders: a single terminal surface created, streamed, persisted, and resumed
 end-to-end through the Rust stack, retiring the engine for the terminal path. It proves the
-orchestrator → daemon seam the rest of 0.0.x stands on, and is the substrate 0.0.3's agent surface
+orchestrator -> daemon seam the rest of 0.0.x stands on, and is the substrate 0.0.3's agent surface
 reuses.
 
 ## What Changes

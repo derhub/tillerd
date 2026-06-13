@@ -132,19 +132,19 @@ frame; raw replay is the raw-bytes-end-to-end fit for 0.0.2).
 
 ## Risks / Trade-offs
 
-- **Per-surface daemon connection** → one `UnixStream` per surface is simpler but does not share the
+- **Per-surface daemon connection** -> one `UnixStream` per surface is simpler but does not share the
   socket. Fine at 0.0.2's single-terminal scale; multiplex by `sessionId` over one connection later if
   surface counts grow.
-- **Async↔sync bridge at the `EventSink`** → the surface-runtime is async (tokio) while `EventSink` is
+- **Async↔sync bridge at the `EventSink`** -> the surface-runtime is async (tokio) while `EventSink` is
   sync; care is needed not to block the runtime in `emit`. Mitigation: `emit` only hands bytes to the
   host channel (non-blocking); no heavy work on the sink thread.
-- **Reattach race: the pseudo-terminal exits between restart and reattach** → the surface cannot
+- **Reattach race: the pseudo-terminal exits between restart and reattach** -> the surface cannot
   resume. Mitigation: the typed-error path reports the surface as not resumable rather than silently
   attaching elsewhere; re-spawn arrives with the launch system (0.0.5).
-- **`surface_id` overloaded as the daemon session key** → couples the product id to the daemon's
+- **`surface_id` overloaded as the daemon session key** -> couples the product id to the daemon's
   registry semantics. Mitigation: this is exactly ADR-0020's shared-kernel intent; the daemon treats
   it as an opaque session id.
-- **Legacy requirement name retained** → `ui-terminal-pane`'s "Session-scoped terminal connection"
+- **Legacy requirement name retained** -> `ui-terminal-pane`'s "Session-scoped terminal connection"
   now attaches by `surface_id`. Kept to avoid a rename mid-flight; revisit when a session holds
   multiple surfaces (0.0.4). Flagged in Open Questions.
 

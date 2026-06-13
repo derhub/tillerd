@@ -29,8 +29,8 @@ One of the three identical copies (the consumer client) omits the maximum-frame-
 
 The contracts crate is intentionally dependency-light (serialization plus a compile-time error derive, no async runtime). The shared codec splits cleanly into a pure core and runtime-bound adapters:
 
-- **Pure core → contracts crate:** `encode_frame(bytes) -> bytes`, the `MAX_FRAME_SIZE` constant, and an incremental push-based decoder that takes byte chunks and returns complete frames or a typed oversize error. These need only the standard library and a compile-time error derive.
-- **Async adapters → stay at the producing face:** the `read_frame`/`write_frame` helpers that drive an async stream are thin wrappers over the pure `encode_frame` and the size bound. They keep their runtime dependency local to the face that already has it.
+- **Pure core -> contracts crate:** `encode_frame(bytes) -> bytes`, the `MAX_FRAME_SIZE` constant, and an incremental push-based decoder that takes byte chunks and returns complete frames or a typed oversize error. These need only the standard library and a compile-time error derive.
+- **Async adapters -> stay at the producing face:** the `read_frame`/`write_frame` helpers that drive an async stream are thin wrappers over the pure `encode_frame` and the size bound. They keep their runtime dependency local to the face that already has it.
 
 Alternative considered — move the async helpers into the contracts crate too: rejected because it would add an async-runtime dependency to a crate every component links, including ones that have no async I/O. The pure/adapter split keeps the contracts crate runtime-free, which is also the guardrail that preserves a future transport swap (the framing stays both transport-agnostic and payload-agnostic).
 
@@ -54,9 +54,9 @@ The contracts crate is a Rust crate; the TypeScript runtime cannot import it. Th
 
 ## Risks / Trade-offs
 
-- **A consumer relied on accepting oversize frames** → No known consumer sends frames above the existing cap; the producing faces already enforce it, so an oversize frame could not be produced on these paths today. The change only makes the consumer reject what no producer emits.
-- **Behavioral drift between the moved code and the originals** → Move the existing tests (round-trip, oversize rejection, clean end-of-stream) into the contracts crate alongside the codec, and keep a face↔consumer round-trip assertion, so the shared implementation is pinned by the same cases that pinned the copies.
-- **A future caller assumes the codec understands its payload** → The codec is specified as payload-agnostic (opaque bytes in, opaque bytes out). Payload validation stays with the caller, where the trust-boundary checks already live.
+- **A consumer relied on accepting oversize frames** -> No known consumer sends frames above the existing cap; the producing faces already enforce it, so an oversize frame could not be produced on these paths today. The change only makes the consumer reject what no producer emits.
+- **Behavioral drift between the moved code and the originals** -> Move the existing tests (round-trip, oversize rejection, clean end-of-stream) into the contracts crate alongside the codec, and keep a face↔consumer round-trip assertion, so the shared implementation is pinned by the same cases that pinned the copies.
+- **A future caller assumes the codec understands its payload** -> The codec is specified as payload-agnostic (opaque bytes in, opaque bytes out). Payload validation stays with the caller, where the trust-boundary checks already live.
 
 ## Migration Plan
 

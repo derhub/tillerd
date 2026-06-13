@@ -361,6 +361,13 @@ pub trait Store: Send + Sync {
 
     fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>>;
 
+    /// The session's live surface at `placement`, if any (the one to re-attach to on revisit).
+    fn find_session_surface_by_placement(
+        &self,
+        session_id: &SessionId,
+        placement: &str,
+    ) -> Result<Option<Surface>>;
+
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>>;
 
     fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()>;
@@ -379,6 +386,10 @@ pub trait Store: Send + Sync {
     ) -> Result<()>;
 
     // ── layout ────────────────────────────────────────────────────────────
+
+    /// Replace a session's launch spec blob and version (used when spawn/close diverge the spec).
+    /// Returns `SessionNotFound` if the session does not exist.
+    fn set_session_spec(&self, id: &SessionId, spec_version: u32, spec_json: &str) -> Result<()>;
 
     /// Persist the layout JSON blob for a session.
     /// Returns `SessionNotFound` if the session does not exist.

@@ -182,10 +182,13 @@ function PanelGroupSidebarItem({
       }}
       className={cn("flex flex-col", className)}
     >
-      <CollapsibleTrigger className="flex items-center gap-1 px-2 h-7 w-full text-left text-[0.917rem] uppercase tracking-wide text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
+      <CollapsibleTrigger className="flex items-center gap-1 px-2 h-7 w-full text-left text-[0.917rem] uppercase tracking-wide text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard shrink-0">
         <ChevronRight
           size={12}
-          className={cn("transition-transform shrink-0", isOpen && "rotate-90")}
+          className={cn(
+            "transition-transform duration-[var(--motion-fast)] ease-standard shrink-0",
+            isOpen && "rotate-90",
+          )}
         />
         {title}
       </CollapsibleTrigger>

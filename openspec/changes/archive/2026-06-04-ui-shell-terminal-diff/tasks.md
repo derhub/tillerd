@@ -18,7 +18,7 @@
 ## 3. Router Restructure
 
 - [x] 3.1 Create `apps/ui/app/routes/_shell.tsx` as pathless layout route
-- [x] 3.2 Add `clientLoader` to `_shell.tsx`: `fetch('/api/sessions')` → `loaderData.sessions`
+- [x] 3.2 Add `clientLoader` to `_shell.tsx`: `fetch('/api/sessions')` -> `loaderData.sessions`
 - [x] 3.3 Create `apps/ui/app/routes/_shell._index.tsx` — spawning page: mounts bare `TerminalPane` (no sessionId), receives `session_start`, calls `useNavigate("/session/" + id)`
 - [x] 3.4 Create `apps/ui/app/routes/_shell.session.$id.tsx` — provides sessionId to panel context
 - [x] 3.5 Update `apps/ui/app/routes.ts` using `layout()` + `route()` helpers from `@react-router/dev/routes`
@@ -64,7 +64,7 @@
 - [x] 7.1 Create `apps/ui/app/components/AppShell.tsx` — reads `tree` from `usePanelTree`, renders recursively via `renderNode(node)`
 - [x] 7.2 `renderNode(PanelGroupNode)`: selects composition based on `displayMode` (Split, TabBar, Sidebar) — no boolean conditionals
 - [x] 7.3 `renderNode(PanelLeaf)`: wraps in `Panel.Provider`, renders `Panel.Frame` + `Panel.Header` + content component
-- [x] 7.4 Content component dispatch: `{ sidebar → SessionSidebar, terminal → TerminalPane, diff → DiffPanel, empty → EmptyPanel }`
+- [x] 7.4 Content component dispatch: `{ sidebar -> SessionSidebar, terminal -> TerminalPane, diff -> DiffPanel, empty -> EmptyPanel }`
 - [x] 7.5 Read `sessionId` from React Router `useParams` in `AppShell`; pass into `terminal`/`diff` leaf panels via `SessionContext`
 
 ## 8. Session Sidebar Panel Content
@@ -82,7 +82,7 @@
 - [x] 9.2 Dynamically import `@xterm/xterm` and `@xterm/addon-fit` (`bundle-dynamic-imports` rule — xterm is heavy)
 - [x] 9.3 Extract xterm init from old `_index.tsx`; connect to `/ws/session?id=<id>` or bare `/ws/session`
 - [x] 9.4 Handle WS messages: `session_start`, `session_resume`, `data`, `status`, `exit`
-- [x] 9.5 `ResizeObserver` → `fitAddon.fit()` → send resize message
+- [x] 9.5 `ResizeObserver` -> `fitAddon.fit()` -> send resize message
 - [x] 9.6 Tear down on `sessionId` change or unmount
 - [x] 9.7 Add `onSessionStart: (id: string) => void` prop — called when WS `session_start` fires; used by `_index.tsx` to navigate to `/session/:id`
 - [x] 9.8 Call `useRevalidator().revalidate()` on `session_start` and `exit` WS events to refresh sidebar `clientLoader` data
@@ -113,11 +113,11 @@
 ## 13. E2E Tests (Playwright — `tests/e2e/tests/`)
 
 - [x] 13.1 Create `shell.spec.ts` — default layout: three columns visible, resize handle draggable, width persists after reload
-- [x] 13.2 `shell.spec.ts` — panel split: click split-H button on terminal panel → two panels appear side by side
-- [x] 13.3 `shell.spec.ts` — panel close: click × on a panel → panel removed; single remaining panel fills space
-- [x] 13.4 Create `session.spec.ts` — golden path: load app → "New session" → terminal connects → session row appears in sidebar → sidebar row is active
-- [x] 13.5 `session.spec.ts` — navigate between two sessions → terminal content switches → active sidebar row updates
-- [x] 13.6 `session.spec.ts` — diff panel: mock `GET /api/sessions/:id/diff` with fixture patch → trigger IDLE status → diff panel renders file entries
+- [x] 13.2 `shell.spec.ts` — panel split: click split-H button on terminal panel -> two panels appear side by side
+- [x] 13.3 `shell.spec.ts` — panel close: click × on a panel -> panel removed; single remaining panel fills space
+- [x] 13.4 Create `session.spec.ts` — golden path: load app -> "New session" -> terminal connects -> session row appears in sidebar -> sidebar row is active
+- [x] 13.5 `session.spec.ts` — navigate between two sessions -> terminal content switches -> active sidebar row updates
+- [x] 13.6 `session.spec.ts` — diff panel: mock `GET /api/sessions/:id/diff` with fixture patch -> trigger IDLE status -> diff panel renders file entries
 - [x] 13.7 Audit and update stale specs: `dashboard.spec.ts`, `navigation.spec.ts`, `smoke.spec.ts`, `integration.spec.ts` — remove or rewrite tests for routes removed when `root.tsx` nav was stripped
 - [x] 13.8 Verify `tests/e2e/playwright.config.ts` `baseURL` matches dev server port (`5173` — confirm against `bun run dev` output)
 

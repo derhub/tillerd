@@ -48,7 +48,7 @@ The SDK ships one table mapping each standard POSIX signal to `{ name, meaning, 
 | `window`               | SIGWINCH                                                  | Terminal size changed                     |
 | `info`                 | SIGURG, SIGINFO, SIGPWR, SIGSTKFLT                        | Platform-specific informational           |
 
-**Platform trap:** signal _numbers_ differ across platforms (SIGCHLD is 17 on Linux, 20 on macOS; SIGUSR1/2, SIGBUS also diverge). The pseudo-terminal binding reports a name on some platforms, a number on others. The table is keyed by **name**; a reported number is resolved through a platform-specific number→name map before lookup. Logic and display never branch on a raw number.
+**Platform trap:** signal _numbers_ differ across platforms (SIGCHLD is 17 on Linux, 20 on macOS; SIGUSR1/2, SIGBUS also diverge). The pseudo-terminal binding reports a name on some platforms, a number on others. The table is keyed by **name**; a reported number is resolved through a platform-specific number->name map before lookup. Logic and display never branch on a raw number.
 
 ### Decision 3: A closed `ExitQualifier` is the only exit contract downstream
 
@@ -66,13 +66,13 @@ The daemon translates `(code, signal)` — via the signal table and the `killedB
 | `resource-exceeded`  | SIGPIPE/SIGXCPU/SIGXFSZ                                      | unexpected   | yes      |
 | `unknown`            | anything unmapped                                            | unexpected   | yes      |
 
-Translation precedence: `killedByUser` → `stopped-by-request`; else no-signal → `ok`/`error` by code; else the signal category selects the qualifier; else `unknown`.
+Translation precedence: `killedByUser` -> `stopped-by-request`; else no-signal -> `ok`/`error` by code; else the signal category selects the qualifier; else `unknown`.
 
-The SDK exposes pure functions so no consumer re-derives the mapping: `exitToStatus(q): SessionStatus` (→ `DONE` | `crashed`) and `isRecoverable(q): boolean`. The coarse `user`/`clean`/`unexpected` triple is a derived view of the qualifier, not an independently computed field.
+The SDK exposes pure functions so no consumer re-derives the mapping: `exitToStatus(q): SessionStatus` (-> `DONE` | `crashed`) and `isRecoverable(q): boolean`. The coarse `user`/`clean`/`unexpected` triple is a derived view of the qualifier, not an independently computed field.
 
 **Why closed enum over passing signals through:** consumers stay platform-agnostic and stable across OS differences; crash detection lives in one tested mapping. **Alternative considered:** carry `(code, signal)` to each consumer — rejected; it leaks platform semantics into every layer and breaks on signal renumbering.
 
 ## Risks / Trade-offs
 
-- **Misclassification is silent** → A wrong qualifier produces a wrong status. Mitigation: log the deciding inputs (killedByUser, code, signal name/category) alongside the resulting qualifier so any misclassification is diagnosable from logs alone.
-- **Known limitation** → Ctrl+C pressed _inside_ the agent terminal delivers SIGINT via forwarded input bytes, not an engine frame; if it exits the agent it classifies `unexpected` for v1.
+- **Misclassification is silent** -> A wrong qualifier produces a wrong status. Mitigation: log the deciding inputs (killedByUser, code, signal name/category) alongside the resulting qualifier so any misclassification is diagnosable from logs alone.
+- **Known limitation** -> Ctrl+C pressed _inside_ the agent terminal delivers SIGINT via forwarded input bytes, not an engine frame; if it exits the agent it classifies `unexpected` for v1.

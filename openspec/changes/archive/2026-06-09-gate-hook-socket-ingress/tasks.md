@@ -40,6 +40,6 @@
 ## 7. Verify
 
 - [x] 7.1 `cargo test --workspace` and the TS test suites pass.
-- [x] 7.2 End-to-end hook round-trip: `gate-notify` (stdin) → `gate-hook.sock` → gate auth/normalize → fanout to a subscriber.
+- [x] 7.2 End-to-end hook round-trip: `gate-notify` (stdin) -> `gate-hook.sock` -> gate auth/normalize -> fanout to a subscriber.
 - [x] 7.3 Confirm the gate hook face binds no TCP port and writes no `gate.url`.
 - [x] 7.4 Confirm the MCP face and the admin/subscribe/tool faces are unchanged, and `daemon-pty` is untouched.

@@ -34,7 +34,7 @@ change; this change centralizes their shared assumption about the runtime layout
 
 **Separate "resolve the dir" from "build paths under a dir".** The builders are pure functions of a
 directory (`daemon_socket_in(dir)`, `manifest_in(dir)`, `gate_socket_in(dir)`, `store_in(dir)`), and
-the env-reading entry points (`runtime_dir()`, `daemon_socket()`, …) compose them with the resolved
+the env-reading entry points (`runtime_dir()`, `daemon_socket()`, ...) compose them with the resolved
 dir. _Why:_ `service-host` resolves its dir from a CLI override (`resolve_base_dir(Option<&str>)`),
 while most callers read the env — pure builders serve both without forcing an env read. Provide
 `runtime_dir()` (env) and `runtime_dir_or(override: Option<&str>)` (override-then-env-then-default).
@@ -46,8 +46,8 @@ host can all depend on it without cycles. _Alternative:_ put it in `service-host
 desktop binary resolver would still be separate.
 
 **One binary resolver with the discovery fallback.** The resolver precedence is `$<override>` (if it
-names an existing file) → `bin/<name>` or `target/{release,debug}/<name>` under cwd/ancestors →
-`~/.local/bin/<name>` → none. This is the desktop host's resolver, generalized and shared. _Why:_ the
+names an existing file) -> `bin/<name>` or `target/{release,debug}/<name>` under cwd/ancestors ->
+`~/.local/bin/<name>` -> none. This is the desktop host's resolver, generalized and shared. _Why:_ the
 missing-fallback drift was the concrete failure; one resolver removes the class of bug.
 
 **Env-var names are constants in this crate.** `ENV_TILLERD_DIR`, `ENV_DAEMON_BIN`, `ENV_GATE_BIN`,
@@ -60,12 +60,12 @@ behind.
 
 ## Risks / Trade-offs
 
-- **A new workspace crate** → more members, longer graph. Mitigation: it is tiny, leaf-level, and
+- **A new workspace crate** -> more members, longer graph. Mitigation: it is tiny, leaf-level, and
   collapses four resolvers into one; the net is less code.
-- **Behavior shift for non-desktop consumers** → they gain the `target/{release,debug}` binary
+- **Behavior shift for non-desktop consumers** -> they gain the `target/{release,debug}` binary
   fallback they did not have. Intended, but it changes what a bare `cargo run` of a service resolves.
   Mitigation: the override env still wins first; tests assert precedence.
-- **Wide blast radius** (7 crates touched) → a migration bug could break boot. Mitigation: per-crate
+- **Wide blast radius** (7 crates touched) -> a migration bug could break boot. Mitigation: per-crate
   steps, workspace `cargo test` + `clippy -D warnings` gate after each, and the existing
   service/boot integration tests.
 
@@ -73,8 +73,8 @@ behind.
 
 1. Add the `tillerd-paths` crate with the resolvers, builders, binary resolution, and env-name
    constants, fully unit-tested for precedence.
-2. Migrate consumers one at a time, deleting each local impl in the same step: `service-host` →
-   `process-launch` → `daemon-pty` → `gate` → `mcp-gateway` → `orchestrator` → `desktop`.
+2. Migrate consumers one at a time, deleting each local impl in the same step: `service-host` ->
+   `process-launch` -> `daemon-pty` -> `gate` -> `mcp-gateway` -> `orchestrator` -> `desktop`.
 3. After each step, run workspace `cargo test` + `cargo clippy --all-targets -- -D warnings`.
 4. Rollback is per-step (revert the one consumer); the crate itself is additive until the first
    migration.

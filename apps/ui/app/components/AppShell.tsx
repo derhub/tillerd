@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import { useParams } from "react-router";
-import { Outlet } from "react-router";
 import { Columns2, Rows2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
 import { SessionSidebar } from "~/components/SessionSidebar";
-import { DiffPanel } from "~/components/DiffPanel";
 import { EmptyPanel } from "~/components/EmptyPanel";
+import { TerminalPane } from "~/components/TerminalPane";
+import { DesktopTerminalPane } from "~/components/DesktopTerminalPane";
+import type { TerminalSurfaceClient } from "@tillerd/sdk/orchestrator";
 import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
@@ -14,13 +15,17 @@ import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/p
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { cn } from "~/lib/utils";
 
-type Session = { id: string; cwd?: string };
+// Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
+let terminalClient: Promise<TerminalSurfaceClient> | null = null;
+function getTerminalClient(): Promise<TerminalSurfaceClient> {
+  return (terminalClient ??= (async () => {
+    const { loadTerminalSurfaceTransport } = await import("~/lib/transport/terminal-surface");
+    const { createTerminalSurfaceClient } = await import("@tillerd/sdk/orchestrator");
+    return createTerminalSurfaceClient(await loadTerminalSurfaceTransport());
+  })());
+}
 
-type AppShellProps = {
-  sessions: Session[];
-};
-
-export function AppShell({ sessions }: AppShellProps) {
+export function AppShell() {
   const params = useParams();
   const sessionId = params["id"] ?? null;
   const [status, setStatus] = useState("");
@@ -32,6 +37,29 @@ export function AppShell({ sessions }: AppShellProps) {
   );
   const totalPanels = countLeaves(tree);
 
+  const handleSpawn = useCallback(
+    async (leafId: string) => {
+      if (!sessionId) return;
+      const client = await getTerminalClient();
+      const placement = await client.spawn(sessionId);
+      setContent(leafId, { type: "terminal", placement });
+    },
+    [sessionId, setContent],
+  );
+
+  const handleClose = useCallback(
+    (leaf: PanelLeaf) => {
+      if (leaf.content.type === "terminal" && sessionId) {
+        const placement = leaf.content.placement;
+        void getTerminalClient()
+          .then((c) => c.close(sessionId, placement))
+          .catch(() => {});
+      }
+      close(leaf.id);
+    },
+    [sessionId, close],
+  );
+
   const renderNode = useCallback(
     (node: PanelNode, path: string): React.ReactNode => {
       if (node.kind === "group") {
@@ -40,7 +68,7 @@ export function AppShell({ sessions }: AppShellProps) {
       return renderLeaf(node, path);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [split, close, setContent, setActiveTab, sessions, totalPanels],
+    [split, handleClose, handleSpawn, setActiveTab, totalPanels, sessionId, orchestratorClient],
   );
 
   function renderGroup(group: PanelGroupNode, path: string): React.ReactNode {
@@ -72,56 +100,6 @@ export function AppShell({ sessions }: AppShellProps) {
       );
     }
 
-    if (displayMode === "tabbar-top" || displayMode === "tabbar-bottom") {
-      return (
-        <PanelGroup.Provider
-          key={group.id}
-          id={group.id}
-          displayMode={displayMode}
-          direction={group.direction}
-          activeTabId={activeId}
-          onSetActiveTab={(tabId) => setActiveTab(group.id, tabId)}
-        >
-          <PanelGroupTabsRoot
-            value={activeId}
-            onValueChange={(tabId) => setActiveTab(group.id, tabId)}
-            className="flex flex-col h-full"
-          >
-            {displayMode === "tabbar-top" && (
-              <PanelGroup.TabBar>
-                {group.children.map((child) => (
-                  <PanelGroup.TabBar.Tab
-                    key={child.id}
-                    panelId={child.id}
-                    title={child.kind === "panel" ? child.title : "Group"}
-                  />
-                ))}
-              </PanelGroup.TabBar>
-            )}
-            <PanelGroup.TabPanels>
-              {group.children.map((child) => (
-                <PanelGroup.TabContent key={child.id} panelId={child.id}>
-                  {renderNode(child, `${path}-${child.id}`)}
-                </PanelGroup.TabContent>
-              ))}
-            </PanelGroup.TabPanels>
-            {displayMode === "tabbar-bottom" && (
-              <PanelGroup.TabBar>
-                {group.children.map((child) => (
-                  <PanelGroup.TabBar.Tab
-                    key={child.id}
-                    panelId={child.id}
-                    title={child.kind === "panel" ? child.title : "Group"}
-                  />
-                ))}
-              </PanelGroup.TabBar>
-            )}
-          </PanelGroupTabsRoot>
-        </PanelGroup.Provider>
-      );
-    }
-
-    // sidebar mode
     return (
       <PanelGroup.Provider
         key={group.id}
@@ -131,79 +109,112 @@ export function AppShell({ sessions }: AppShellProps) {
         activeTabId={activeId}
         onSetActiveTab={(tabId) => setActiveTab(group.id, tabId)}
       >
-        <PanelGroup.Sidebar className="h-full">
-          {group.children.map((child) => (
-            <PanelGroup.Sidebar.Item
-              key={child.id}
-              panelId={child.id}
-              title={child.kind === "panel" ? child.title : "Group"}
-            >
-              {renderNode(child, `${path}-${child.id}`)}
-            </PanelGroup.Sidebar.Item>
-          ))}
-        </PanelGroup.Sidebar>
+        <PanelGroupTabsRoot
+          value={activeId}
+          onValueChange={(tabId) => setActiveTab(group.id, tabId)}
+          className="flex flex-col h-full"
+        >
+          {displayMode === "tabbar-top" && (
+            <PanelGroup.TabBar>
+              {group.children.map((child) => (
+                <PanelGroup.TabBar.Tab
+                  key={child.id}
+                  panelId={child.id}
+                  title={child.kind === "panel" ? child.title : "Group"}
+                />
+              ))}
+            </PanelGroup.TabBar>
+          )}
+          <PanelGroup.TabPanels>
+            {group.children.map((child) => (
+              <PanelGroup.TabContent key={child.id} panelId={child.id}>
+                {renderNode(child, `${path}-${child.id}`)}
+              </PanelGroup.TabContent>
+            ))}
+          </PanelGroup.TabPanels>
+          {displayMode === "tabbar-bottom" && (
+            <PanelGroup.TabBar>
+              {group.children.map((child) => (
+                <PanelGroup.TabBar.Tab
+                  key={child.id}
+                  panelId={child.id}
+                  title={child.kind === "panel" ? child.title : "Group"}
+                />
+              ))}
+            </PanelGroup.TabBar>
+          )}
+        </PanelGroupTabsRoot>
       </PanelGroup.Provider>
     );
   }
 
   function renderLeaf(leaf: PanelLeaf, _path: string): React.ReactNode {
+    const title = leaf.content.type === "terminal" ? "Terminal" : "Empty";
     const actions = {
       split: (direction: "horizontal" | "vertical") => split(leaf.id, direction),
-      close: () => close(leaf.id),
+      close: () => handleClose(leaf),
     };
-    const isEmpty = leaf.content.type === "empty";
-    const isTerminal = leaf.content.type === "terminal";
-    const hasHeader = !isTerminal && !isEmpty;
 
     return (
-      <Panel.Provider key={leaf.id} id={leaf.id} title={leaf.title} actions={actions}>
+      <Panel.Provider key={leaf.id} id={leaf.id} title={title} actions={actions}>
         <Panel.Frame>
-          {hasHeader && (
-            <Panel.Header>
-              <Panel.Title />
-              <Panel.Toolbar>
-                {!isEmpty && (
-                  <>
-                    <Panel.Toolbar.Button
-                      icon={<Columns2 size={12} />}
-                      label="Split right"
-                      onClick={() => split(leaf.id, "horizontal")}
-                    />
-                    <Panel.Toolbar.Button
-                      icon={<Rows2 size={12} />}
-                      label="Split down"
-                      onClick={() => split(leaf.id, "vertical")}
-                    />
-                  </>
-                )}
-                <Panel.CloseButton totalPanels={totalPanels} />
-              </Panel.Toolbar>
-            </Panel.Header>
-          )}
+          <Panel.Header>
+            <Panel.Title />
+            <Panel.Toolbar>
+              <Panel.Toolbar.Button
+                icon={<Columns2 size={12} />}
+                label="Split right"
+                onClick={() => split(leaf.id, "horizontal")}
+              />
+              <Panel.Toolbar.Button
+                icon={<Rows2 size={12} />}
+                label="Split down"
+                onClick={() => split(leaf.id, "vertical")}
+              />
+              <Panel.CloseButton totalPanels={totalPanels} />
+            </Panel.Toolbar>
+          </Panel.Header>
           <Panel.Content>{renderContent(leaf.content, leaf.id)}</Panel.Content>
         </Panel.Frame>
       </Panel.Provider>
     );
   }
 
-  function renderContent(content: PanelContent, panelId: string): React.ReactNode {
+  function renderContent(content: PanelContent, leafId: string): React.ReactNode {
     switch (content.type) {
-      case "sidebar":
-        return <SessionSidebar />;
-      case "terminal":
-        return <Outlet />;
-      case "diff":
-        return <DiffPanel sessionId={sessionId} />;
       case "empty":
-        return <EmptyPanel onSelect={(c) => setContent(panelId, c)} />;
+        return (
+          <EmptyPanel
+            onSpawn={() => void handleSpawn(leafId)}
+            disabled={!sessionId || !orchestratorClient}
+          />
+        );
+      case "terminal":
+        return (
+          <DesktopTerminalPane
+            key={`${sessionId ?? "none"}:${content.placement}`}
+            sessionId={sessionId}
+            placement={content.placement}
+            cwd=""
+          />
+        );
     }
   }
 
   return (
     <SessionContext value={{ sessionId, status, setStatus }}>
-      <div className="h-dvh w-full overflow-hidden pt-px">
-        {renderNode(tree, "root")}
-        <HostStatusBadge />
+      <div className="h-dvh w-full flex overflow-hidden">
+        <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
+          <SessionSidebar />
+        </aside>
+        <div className="flex-1 min-w-0 pt-px relative">
+          {host.status === "web" ? (
+            <TerminalPane sessionId={sessionId} />
+          ) : (
+            renderNode(tree, "root")
+          )}
+          <HostStatusBadge />
+        </div>
       </div>
     </SessionContext>
   );

@@ -42,8 +42,8 @@ shared, long-lived services (one instance each, serve every session):
       │
 desktop session (a workspace; a client)
   └─ surfaces
-       surface{kind: terminal} → one PTY record in the daemon
-       surface{kind: agent}    → one record in each of daemon + gate + memorya,
+       surface{kind: terminal} -> one PTY record in the daemon
+       surface{kind: agent}    -> one record in each of daemon + gate + memorya,
                                   all sharing one correlation_id
 ```
 

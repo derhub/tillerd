@@ -45,7 +45,7 @@ Replace the imperative `installHooks`/`uninstallHooks` adapter methods with pure
 `planHookInstall(currentSettings, notifyCommand)` and `planHookUninstall(currentSettings)` that
 return `{ settings, changed, events }`. The host (platform host package) reads the settings file,
 calls the planning function, and — only when `changed` — backs up and atomically writes the
-result. The "already installed / already absent → no change" idempotency moves into the pure
+result. The "already installed / already absent -> no change" idempotency moves into the pure
 plan, where it is trivially testable without a filesystem.
 
 - **Why over injecting a settings-store port into the adapter:** a port would keep an I/O
@@ -100,13 +100,13 @@ in the engine tests are updated in the same change.
 
 ## Risks / Trade-offs
 
-- **Settings-file write correctness moves to the host** → the host-side install path keeps the
+- **Settings-file write correctness moves to the host** -> the host-side install path keeps the
   existing atomic write (temp file + rename) and timestamped backup; golden tests on the pure plan
   cover the JSON mutation, and a host-side test covers read/backup/write ordering.
-- **Agent-home threading touches the engine content path** → covered by the behavior-preservation
+- **Agent-home threading touches the engine content path** -> covered by the behavior-preservation
   requirement: engine content tests assert identical transcript-path resolution given the
   resolved agent-home, using a substitute value.
-- **Breaking contract change ripples to all `AgentDefinition` constructions** → the call sites are
+- **Breaking contract change ripples to all `AgentDefinition` constructions** -> the call sites are
   few (composition root plus a handful of test doubles); each is updated in this change.
 
 ## Migration Plan

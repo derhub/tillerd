@@ -6,13 +6,13 @@ A modern, production-ready template for building full-stack React applications u
 
 ## Features
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+- Server-side rendering
+- Hot Module Replacement (HMR)
+- Asset bundling and optimization
+- Data loading and mutations
+- TypeScript by default
+- TailwindCSS for styling
+- [React Router docs](https://reactrouter.com/)
 
 ## Getting Started
 
@@ -84,4 +84,4 @@ This template comes with [Tailwind CSS](https://tailwindcss.com/) already config
 
 ---
 
-Built with ❤️ using React Router.
+Built with React Router.

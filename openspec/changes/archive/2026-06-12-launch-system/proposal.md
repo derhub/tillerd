@@ -14,8 +14,8 @@ composable without touching surface code.
   (login shell, agent CLI preset) seeded at first run; user-added entries created via API.
 - **New**: launch items — each item carries: `target` (surface kind), `placement` (named
   region), `command` (library ref or inline `cli`/`args`/`env`), `pre`/`post` scripts,
-  `autoSpawn` scripts, and an optional `worktree` step (create → cd → run).
-- **New**: template → instance flow — instantiating a project template writes a
+  `autoSpawn` scripts, and an optional `worktree` step (create -> cd -> run).
+- **New**: template -> instance flow — instantiating a project template writes a
   `spec_json` snapshot onto the session row; the session may diverge from the template
   thereafter.
 - **New**: worktree ownership — a `worktree` table row is created by the worktree launch
@@ -121,7 +121,7 @@ No launch-item execution exists anywhere.
 - Best-effort failure model: a failed item writes an error status to its surface row;
   remaining items proceed.
 
-### 5. Worktree step — create → cd → run
+### 5. Worktree step — create -> cd -> run
 
 The `worktree` table exists; no code creates worktree rows or runs `git worktree add`.
 
@@ -145,7 +145,7 @@ named regions.
 - The `placement` field on `LaunchItem` is `Option<String>`; unknown values fall back to
   the default content panel.
 
-### 7. Template → instance flow
+### 7. Template -> instance flow
 
 No code snapshots a `launch_template` spec onto a session at creation time.
 
@@ -164,8 +164,8 @@ No code snapshots a `launch_template` spec onto a session at creation time.
 - `command-library`: CRUD for global named commands; prebuilt seed entries; library-ref
   resolution at launch time.
 - `launch-item`: per-item execution contract — target/placement/command resolution,
-  pre/post script execution, autoSpawn lifecycle, worktree step (create → cd → run);
-  best-effort failure model (failed item → error-state surface, others proceed).
+  pre/post script execution, autoSpawn lifecycle, worktree step (create -> cd -> run);
+  best-effort failure model (failed item -> error-state surface, others proceed).
 - `template-instance`: template snapshot written to session on instantiation; session
   divergence after creation; project owns template, session owns its copy.
 - `project-worktree`: worktree row lifecycle — created by the worktree step, owned by

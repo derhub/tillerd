@@ -1,4 +1,4 @@
-//! Message frames: client→daemon parsing, daemon→client ad hoc construction.
+//! Message frames: client->daemon parsing, daemon->client ad hoc construction.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -11,8 +11,6 @@ pub const SUPPORTED_VERSIONS: &[u32] = &[contracts::SESSION_EVENT_WIRE_VERSION];
 pub enum ClientFrame {
     Hello {
         versions: Vec<u32>,
-        #[serde(default)]
-        capabilities: Option<Vec<String>>,
     },
     Spawn(SpawnFrame),
     Kill {
@@ -47,7 +45,6 @@ pub enum ClientFrame {
         session_id: String,
         bytes: i64,
     },
-    Upgrade,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,7 +59,6 @@ pub struct SpawnFrame {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: Option<BTreeMap<String, String>>,
-    pub token: String,
     pub cols: u16,
     pub rows: u16,
     pub cwd: String,
@@ -77,18 +73,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_hello_with_capabilities() {
+    fn parses_hello_ignoring_legacy_capabilities() {
+        // A client may still send `capabilities`; the daemon negotiates none, so the field is
+        // ignored and only the version list is read.
         let f =
             parse_client_frame(br#"{"type":"hello","versions":[1],"capabilities":["snapshot"]}"#)
                 .unwrap();
         match f {
-            ClientFrame::Hello {
-                versions,
-                capabilities,
-            } => {
-                assert_eq!(versions, vec![1]);
-                assert_eq!(capabilities, Some(vec!["snapshot".to_string()]));
-            }
+            ClientFrame::Hello { versions } => assert_eq!(versions, vec![1]),
             _ => panic!("wrong variant"),
         }
     }

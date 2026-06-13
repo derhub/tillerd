@@ -107,16 +107,16 @@ the engine, not the daemon, owns version awareness.
 
 ## Risks / Trade-offs
 
-- **Breaking the launch path mid-stack** → the engine/adapter must now resolve and pass a
+- **Breaking the launch path mid-stack** -> the engine/adapter must now resolve and pass a
   launchable command and the hook env. _Mitigation_: land adapter resolution + engine wiring in
   the same change; cover with the existing `pty-transport` and `claude-code-agent` scenarios.
-- **Losing the "no shell noise" guarantee** → if a command is somehow launched via a shell, a
+- **Losing the "no shell noise" guarantee** -> if a command is somehow launched via a shell, a
   prompt could leak. _Mitigation_: direct spawn (no shell) makes this structurally impossible;
   assert "first bytes are the command's output" in tests.
-- **Env parity regressions** → children must still see the full login environment.
+- **Env parity regressions** -> children must still see the full login environment.
   _Mitigation_: `installLoginShellEnv()` already runs at startup and is inherited; verify PATH
   and friends on spawned children.
-- **Interrupt timing** → writing ESC as raw input must reach the agent as before.
+- **Interrupt timing** -> writing ESC as raw input must reach the agent as before.
   _Mitigation_: route through the same raw-input channel the daemon already exposes; behavior
   is unchanged from the agent's perspective.
 

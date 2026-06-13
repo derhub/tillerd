@@ -56,7 +56,7 @@ A terminal session streams through the new Rust stack; the TS engine is retired 
 Built and merged (#8), then **removed** in the launch-execution cut: 0.x is terminal-only
 and the agent surface is deferred to **1.0.0** (ADR-0027). The gate hook fan-out stays as
 shared infrastructure (mcp-gateway, memory capture). The agent surface — Rust adapter,
-hook → status/content routing, status-badge UI, idempotent hook setup — returns in 1.0.0,
+hook -> status/content routing, status-badge UI, idempotent hook setup — returns in 1.0.0,
 with its launch command sourced from the command library.
 
 ### 0.0.4 — Projects and sessions (the container)
@@ -80,10 +80,10 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 - [x] Command library — prebuilt (login shell) + user-added. (The agent-CLI seed is dropped
   with the agent surface; it returns in 1.0.0.)
 - [x] Launch items — target (terminal), placement (named regions), command / args / env,
-  worktree step (create → returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
+  worktree step (create -> returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
   an auxiliary runner (e.g. a dev server) is an ordinary terminal item with a placement;
   closing the pane leaves the process running (soft-delete keeps the PTY).
-- [x] Templates → instances — a project template instantiates a session's surfaces; the
+- [x] Templates -> instances — a project template instantiates a session's surfaces; the
   session may diverge. (Spec-copy on session create, executor wiring, workspace IPC
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
@@ -92,8 +92,8 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 
 The last architecture-changing version of 0.x. Everything frozen here — service
 contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
-(ADR-0025), design tokens — holds for the rest of 0.x; every later version is
-additive on these seams, never a change to them.
+(ADR-0025), the panel-surface binding (ADR-0030), design tokens — holds for the rest
+of 0.x; every later version is additive on these seams, never a change to them.
 
 - [ ] Desktop E2E suite — first, so every later milestone verifies against it instead
   of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
@@ -111,6 +111,12 @@ additive on these seams, never a change to them.
   daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
   starts fresh. Builds on the contract's drain primitive — re-check the
   `daemon-upgrade-drain-restart` proposal against it before implementing.
+- [ ] Placement and multi-surface: placement becomes a unique slot id (not named
+  regions) so a session holds N surfaces; panels bind surfaces by placement; revisit
+  resumes each by `(session, placement)`; spawning a surface diverges the session's
+  launch spec ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). The
+  panel-surface seam freezes here; the terminal revisit already shipped is the first
+  slice. Sizes / nested splits stay 0.1.x (additive geometry).
 - [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
   (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
 - [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
@@ -119,7 +125,7 @@ additive on these seams, never a change to them.
   settings) is built on final tokens.
 - [ ] Dead-code sweep: delete the retired TS packages left from the Rust inversion
   (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`,
-  …) where nothing live references them; dormant `apps/server` keeps only what it
+  ...) where nothing live references them; dormant `apps/server` keeps only what it
   needs until its 0.1.4 rewrite.
 
 ### 0.0.7 — Observability
@@ -142,9 +148,16 @@ additive on these seams, never a change to them.
 
 - [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
   failure states.
+- [ ] Motion: transitions for surface lifecycle (create / destroy); layout changes
+  (adding / removing surfaces).
+- [ ] Polish: icons, spacing, density, typography, popups, menus, top bar toolbox, bottom bar
+  style; panel titles (session name + surface kind + running time); status badges (starting,
+  running, failed); terminal font and color scheme; drag-and-drop rearrangement of surfaces;
+  panel resizing (drag to resize, double-click to reset); terminal copy/paste; keyboard
+  shortcuts for common actions (new project/session/surface, close surface, switch session, ...).
 - [ ] Light-mode coverage: component-level appearance verified and documented (tokens
   landed in 0.0.6).
-- [ ] Final coherence pass across all surfaces: density, spacing, motion.
+- [ ] Final coherence pass across all surfaces.
 
 ---
 
@@ -156,12 +169,12 @@ additive on the architecture frozen at 0.0.6.
 ### 0.1.0 — Diff surface
 
 - [ ] Wire the diff panel as a surface kind — the second surface-kind implementation,
-  pressure-testing the extension seam before anything else relies on it. (Agent
+  pressure-testing the extension seam on the placement model (frozen in 0.0.6). (Agent
   adapters are validated in 1.0.0, after the agent surface returns — ADR-0027.)
 
 ### 0.1.1 — Placement geometry
 
-- [ ] Sizes and nested splits beyond named regions.
+- [ ] Sizes and nested splits on top of the 0.0.6 placement model (additive geometry).
 
 ### 0.1.2 — Prebuilt workflow library
 

@@ -53,8 +53,8 @@ second process and a local relay for no benefit on a single-user desktop.
 ### D2. The Rust core is a dumb byte bridge to the daemon socket; framing stays in the web view
 
 The web view's `DaemonTransport` implementation reuses the sdk codec to encode/decode frames and
-moves _raw bytes_ across the Tauri boundary: a Tauri Channel for the daemon→renderer byte stream
-and an `invoke` command for renderer→daemon writes. The Rust core simply forwards those bytes
+moves _raw bytes_ across the Tauri boundary: a Tauri Channel for the daemon->renderer byte stream
+and an `invoke` command for renderer->daemon writes. The Rust core simply forwards those bytes
 to/from the daemon's Unix socket — it never parses a frame.
 
 _Why:_ keeps the codec single-sourced in sdk (the web-view impl differs from the Bun impl only in
@@ -110,7 +110,7 @@ launcher per triple — viable fallback.
 ### D6. User preferences and session registry move to a native app-data store
 
 The Rust core owns a native local store for user preferences and the session registry
-(sessionId → cwd, used for reconnect). The renderer reads/writes it over `invoke`. This replaces
+(sessionId -> cwd, used for reconnect). The renderer reads/writes it over `invoke`. This replaces
 `apps/server`'s `bun:sqlite` registry on the desktop path.
 
 _Why:_ desktop persistence is a native-shell concern and removes the last reason for a Bun
@@ -177,19 +177,19 @@ rewrites routes — unnecessary once the build is a client-only SPA with a singl
 ## Risks / Trade-offs
 
 - [Backpressure must survive the Channel hop: the daemon's flow-control credit/ack loop now spans
-  daemon → Rust → Channel → web-view engine] → Preserve the existing credit/ack semantics across
+  daemon -> Rust -> Channel -> web-view engine] -> Preserve the existing credit/ack semantics across
   the transport; the web-view `DaemonTransport` returns credit as the renderer drains, exactly as
   the Bun impl does. Verify no drops/reorders under load.
 - [Tauri `externalBin` expects a compiled binary per triple, but the sidecar is `bun` + script]
-  → Ship `bun` as the per-triple `externalBin` with the script as a resource; thin native
+  -> Ship `bun` as the per-triple `externalBin` with the script as a resource; thin native
   launcher as fallback (D5).
 - [Bundling the `bun` runtime inflates size and the embedded executable needs macOS
-  signing/notarization] → Accept the size cost (one runtime); add the embedded binary to signing.
-- [WKWebView/WebKitGTK WebGL quirks] → canvas fallback, feature-detect at startup (D7).
-- [Per-hook transcript reads cross web-view → Rust IPC] → acceptable; reads are delta-sized and
+  signing/notarization] -> Accept the size cost (one runtime); add the embedded binary to signing.
+- [WKWebView/WebKitGTK WebGL quirks] -> canvas fallback, feature-detect at startup (D7).
+- [Per-hook transcript reads cross web-view -> Rust IPC] -> acceptable; reads are delta-sized and
   hook-frequency, off the hot byte path (D3).
 - [The hook command assumes a runtime to run the notify script in the agent's environment]
-  → see Open Questions; the bundle must provide it.
+  -> see Open Questions; the bundle must provide it.
 
 ## Migration Plan
 

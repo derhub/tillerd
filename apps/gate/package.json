@@ -1,6 +1,7 @@
 {
   "name": "@tillerd/gate",
   "version": "0.0.0",
+  "private": true,
   "bin": {
     "tillerd-gate": "../../target/release/tillerd-gate"
   },
@@ -13,5 +14,10 @@
     "fmt:check": "cargo fmt --check",
     "test": "cargo test",
     "check-deps": "cargo outdated"
+  },
+  "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/paths": "workspace:*",
+    "@tillerd/service-host": "workspace:*"
   }
 }

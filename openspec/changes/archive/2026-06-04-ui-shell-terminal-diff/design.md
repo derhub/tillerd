@@ -185,7 +185,7 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
 
 ### D7 — `@pierre/diffs` for diff rendering
 
-`FileDiff` + `Virtualizer` from `@pierre/diffs/react`. `WorkerPoolProvider` wraps the diff panel content. The diff panel fetches `GET /api/sessions/:id/diff` once on status → IDLE/DONE.
+`FileDiff` + `Virtualizer` from `@pierre/diffs/react`. `WorkerPoolProvider` wraps the diff panel content. The diff panel fetches `GET /api/sessions/:id/diff` once on status -> IDLE/DONE.
 
 ### D8 — Compact aesthetic tokens
 
@@ -215,7 +215,7 @@ Resize handles: 1px, transparent at rest, `--color-muted` on hover.
 
 ### D9 — Session creation via spawning index route
 
-`_shell._index.tsx` is a spawning route, not an empty state. When navigated to, it mounts a bare `TerminalPane` (no `sessionId` prop). The terminal connects to `/ws/session` (no `?id=`), receives `session_start` with the new ID, then calls `onSessionStart(id)` → `useNavigate("/session/" + id)`. The URL becomes canonical only after the session is live.
+`_shell._index.tsx` is a spawning route, not an empty state. When navigated to, it mounts a bare `TerminalPane` (no `sessionId` prop). The terminal connects to `/ws/session` (no `?id=`), receives `session_start` with the new ID, then calls `onSessionStart(id)` -> `useNavigate("/session/" + id)`. The URL becomes canonical only after the session is live.
 
 Server stays stateless — no `POST /api/sessions` endpoint needed.
 

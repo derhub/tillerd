@@ -103,6 +103,7 @@ mod tests {
         fn is_reachable(&self, _path: &Path) -> bool {
             self.polls.get() >= self.reachable_after
         }
+        fn drain(&self, _pid: u32) {}
         fn remove_socket(&self, _path: &Path) {
             self.removed.set(true);
         }

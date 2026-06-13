@@ -95,13 +95,13 @@ fn get_store(state: &OrchestratorState) -> Result<Arc<dyn Store>, WorkspaceError
 
 pub fn do_project_create(
     store: &Arc<dyn Store>,
-    name: String,
+    name: Option<String>,
 ) -> Result<ProjectResponse, WorkspaceError> {
     let project = store
         .create_project(orchestrator::persistence::NewProject {
             source_kind: SourceKind::Blank,
             root_path: None,
-            name: Some(name),
+            name,
         })
         .map_err(map_store_err)?;
     Ok(project_response(project))
@@ -109,7 +109,7 @@ pub fn do_project_create(
 
 #[tauri::command]
 pub fn project_create(
-    name: String,
+    name: Option<String>,
     state: State<'_, OrchestratorState>,
 ) -> Result<ProjectResponse, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
@@ -293,23 +293,24 @@ pub fn do_session_layout_get(
         .map_err(map_store_err)
 }
 
+// `id` (not `session_id`) so the IPC arg matches the SDK and the other session commands.
 #[tauri::command]
 pub fn session_layout_set(
-    session_id: String,
+    id: String,
     layout_json: String,
     state: State<'_, OrchestratorState>,
 ) -> Result<(), String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_session_layout_set(&store, session_id, layout_json).map_err(|e| format!("{e:?}"))
+    do_session_layout_set(&store, id, layout_json).map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
 pub fn session_layout_get(
-    session_id: String,
+    id: String,
     state: State<'_, OrchestratorState>,
 ) -> Result<Option<String>, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_session_layout_get(&store, session_id).map_err(|e| format!("{e:?}"))
+    do_session_layout_get(&store, id).map_err(|e| format!("{e:?}"))
 }
 
 // ── command library ───────────────────────────────────────────────────────────
@@ -422,7 +423,7 @@ mod tests {
     #[test]
     fn project_response_matches_sdk_project_shape() {
         let store = fake_store();
-        let p = do_project_create(&store, "P".to_string()).unwrap();
+        let p = do_project_create(&store, Some("P".to_string())).unwrap();
         assert_keys(
             &serde_json::to_value(p).unwrap(),
             &["id", "name", "sourceKind", "rootPath"],
@@ -468,15 +469,23 @@ mod tests {
     #[test]
     fn project_create_delegates_to_store() {
         let store = fake_store();
-        let result = do_project_create(&store, "MyProject".to_string()).unwrap();
+        let result = do_project_create(&store, Some("MyProject".to_string())).unwrap();
         assert_eq!(result.name, "MyProject");
+        assert_eq!(result.source_kind, "blank");
+    }
+
+    #[test]
+    fn project_create_without_name_yields_a_blank_project() {
+        let store = fake_store();
+        let result = do_project_create(&store, None).unwrap();
+        assert_eq!(result.name, "");
         assert_eq!(result.source_kind, "blank");
     }
 
     #[test]
     fn project_list_includes_created_projects() {
         let store = fake_store();
-        let created = do_project_create(&store, "Listed".to_string()).unwrap();
+        let created = do_project_create(&store, Some("Listed".to_string())).unwrap();
         let projects = do_project_list(&store).unwrap();
         assert!(projects
             .iter()

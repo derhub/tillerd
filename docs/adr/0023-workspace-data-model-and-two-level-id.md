@@ -8,7 +8,7 @@
 The orchestrator (ADR-0022) needs durable product state and a clear identity scheme.
 Today both are fragmented:
 
-- State lives in four places: `desktop-store.json` (prefs + a `sessionId → cwd`
+- State lives in four places: `desktop-store.json` (prefs + a `sessionId -> cwd`
   registry), `server.db` (`sessions(id, cwd, created_at)`, web path, dormant), the
   gate's in-memory session registry, and daemon-local files (`daemon.json`,
   `stopped-sessions.txt`, snapshots).
@@ -72,7 +72,7 @@ meta(key PK, value)   -- DB schema version (distinct from launch-spec version)
 
 `launch_template.spec_json` and `session.spec_json` store the launch spec as one JSON
 document carrying its `spec_version`. It is migrated as a whole on load (lazy
-vN → vN+1, ADR-0021); launch items are not normalized into rows.
+vN -> vN+1, ADR-0021); launch items are not normalized into rows.
 
 ### Soft delete and archive
 
@@ -91,17 +91,17 @@ is kept on disk (recoverable).
 ### ID / correlation flow — create a session with an agent surface
 
 ```
-1. orchestrator mints session_id          → session row (project_id = P)
-2. read spec (template or override)        → launch items
+1. orchestrator mints session_id          -> session row (project_id = P)
+2. read spec (template or override)        -> launch items
 3. per item: mint surface_id (= correlation_id)
 4. agent surface:
      register (surface_id, token) with the gate     [before spawn]
      inject TILLERD_SESSION_ID = surface_id, token, TILLERD_DIR
      daemon spawns the PTY keyed by surface_id
-     hooks → gate (auth by surface_id + token) → fan-out → host
-              subscribes per surface_id → routes to that surface
+     hooks -> gate (auth by surface_id + token) -> fan-out -> host
+              subscribes per surface_id -> routes to that surface
    terminal surface: daemon PTY keyed by surface_id; no gate record
-5. surface row (id = surface_id, session_id, kind, cwd, …)
+5. surface row (id = surface_id, session_id, kind, cwd, ...)
 ```
 
 ## Consequences

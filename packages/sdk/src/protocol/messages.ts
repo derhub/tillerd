@@ -1,9 +1,9 @@
 import type { SessionStatus } from "../types/events";
 
-// Client → Daemon (partial — capabilities in hello)
+// Client -> Daemon (partial — capabilities in hello)
 export type ClientCapability = "snapshot";
 
-// Daemon → Client
+// Daemon -> Client
 export type HelloAckFrame = {
   type: "hello-ack";
   version: number;

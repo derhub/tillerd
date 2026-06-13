@@ -1,6 +1,7 @@
 {
   "name": "@tillerd/gate-notify",
   "version": "0.0.0",
+  "private": true,
   "bin": {
     "tillerd-notify": "../../bin/tillerd-notify"
   },
@@ -12,5 +13,9 @@
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",
     "test": "cargo test"
+  },
+  "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/paths": "workspace:*"
   }
 }

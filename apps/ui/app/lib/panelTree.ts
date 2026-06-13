@@ -1,8 +1,4 @@
-export type PanelContent =
-  | { type: "sidebar" }
-  | { type: "terminal"; sessionId: string | null }
-  | { type: "diff"; sessionId: string | null }
-  | { type: "empty" };
+export type PanelContent = { type: "terminal"; placement: string } | { type: "empty" };
 
 export type ToolbarButtonConfig = {
   id: string;
@@ -22,7 +18,7 @@ export type PanelLeaf = {
   toolbar?: ToolbarConfig;
 };
 
-export type DisplayMode = "split" | "tabbar-top" | "tabbar-bottom" | "sidebar";
+export type DisplayMode = "split" | "tabbar-top" | "tabbar-bottom";
 
 export type PanelGroupNode = {
   kind: "group";
@@ -39,27 +35,12 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export const DEFAULT_LAYOUT: PanelGroupNode = {
-  kind: "group",
+// Fresh session opens to a single empty leaf; no surface until the user spawns.
+export const DEFAULT_LAYOUT: PanelLeaf = {
+  kind: "panel",
   id: "root",
-  direction: "horizontal",
-  displayMode: "split",
-  activeTabId: undefined,
-  children: [
-    { kind: "panel", id: "sidebar-panel", title: "Sessions", content: { type: "sidebar" } },
-    {
-      kind: "panel",
-      id: "terminal-panel",
-      title: "Terminal",
-      content: { type: "terminal", sessionId: null },
-    },
-    {
-      kind: "panel",
-      id: "diff-panel",
-      title: "Changes",
-      content: { type: "diff", sessionId: null },
-    },
-  ],
+  title: "Empty",
+  content: { type: "empty" },
 };
 
 export function serializeLayout(node: PanelNode): string {

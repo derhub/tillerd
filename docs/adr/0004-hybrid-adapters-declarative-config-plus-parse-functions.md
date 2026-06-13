@@ -19,5 +19,5 @@ The engine consumes the data and calls the functions; it never hard-codes the ag
 ## Consequences
 
 - Each concern lives where it is cheapest to maintain; parse functions are unit-testable and debuggable.
-- Because `parseHook` normalizes to the fixed contract enum, the engine maps enum→status generically (no per-adapter status table).
+- Because `parseHook` normalizes to the fixed contract enum, the engine maps enum->status generically (no per-adapter status table).
 - Adapters are code (a small module + tests), not pure data; they depend only on the sdk.

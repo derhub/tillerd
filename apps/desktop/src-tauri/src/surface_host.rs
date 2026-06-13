@@ -73,10 +73,42 @@ pub async fn surface_create(
     state: State<'_, SurfaceState>,
     channel: tauri::ipc::Channel<Vec<u8>>,
     session_id: String,
+    placement: String,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
 ) -> Result<String, String> {
+    let session = SessionId::from_string(session_id);
+
+    // Revisit: re-attach to the session's existing surface at this placement (resume replays its
+    // scrollback) rather than spawn a fresh one; a stale surface (shell exited) falls through.
+    if let Some(existing) = state
+        .api
+        .find_session_surface_by_placement(&session, &placement)
+        .map_err(|e| e.to_string())?
+    {
+        // Register the channel before resume so no replayed output is lost.
+        state
+            .channels
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(existing.as_str().to_string(), channel.clone());
+        // Drop any lingering proxy first so resume does a fresh subscribe (replays scrollback)
+        // instead of its idempotent no-op.
+        let _ = state.api.detach(&existing).await;
+        match state.api.resume_surface(&existing).await {
+            Ok(()) => return Ok(existing.as_str().to_string()),
+            Err(_) => {
+                state
+                    .channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(existing.as_str());
+                let _ = state.api.remove(&existing).await;
+            }
+        }
+    }
+
     let id = uuid::Uuid::new_v4().to_string();
     // Register the channel before create so no initial output is lost.
     state
@@ -87,8 +119,9 @@ pub async fn surface_create(
     state
         .api
         .create_terminal_surface(
-            SessionId::from_string(session_id),
+            session,
             SurfaceId::from_string(id.clone()),
+            placement,
             cols,
             rows,
             cwd,
@@ -96,6 +129,44 @@ pub async fn surface_create(
         .await
         .map_err(|e| e.to_string())?;
     Ok(id)
+}
+
+#[tauri::command]
+pub async fn surface_spawn(
+    state: State<'_, SurfaceState>,
+    session_id: String,
+) -> Result<String, String> {
+    state
+        .api
+        .spawn_surface(&SessionId::from_string(session_id))
+        .map_err(|e| e.to_string())
+}
+
+// Keyed by placement, not surface id -- a panel binds a surface by placement.
+#[tauri::command]
+pub async fn surface_close(
+    state: State<'_, SurfaceState>,
+    session_id: String,
+    placement: String,
+) -> Result<(), String> {
+    let session = SessionId::from_string(session_id);
+    let Some(surface) = state
+        .api
+        .find_session_surface_by_placement(&session, &placement)
+        .map_err(|e| e.to_string())?
+    else {
+        return Ok(());
+    };
+    state
+        .channels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(surface.as_str());
+    state
+        .api
+        .remove_surface(&session, &surface)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

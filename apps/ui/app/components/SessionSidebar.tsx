@@ -108,7 +108,7 @@ export function SessionSidebar() {
             type="button"
             onClick={() => void handleNewProject()}
             className={cn(
-              "flex items-center gap-1.5 px-2 h-6 text-[0.917rem] rounded-sm transition-colors",
+              "flex items-center gap-1.5 px-2 h-6 text-[0.917rem] rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
               "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
             title="New project"
@@ -183,7 +183,7 @@ function ProjectGroup({
             type="button"
             onClick={onNewSession}
             className={cn(
-              "flex items-center p-0.5 rounded-sm transition-colors",
+              "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
               "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
             )}
             title={`New session in ${project.name}`}
@@ -225,7 +225,7 @@ function SessionRow({
         to={`/session/${session.id}`}
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-2 flex-1 h-7 text-[0.917rem] rounded-sm transition-colors min-w-0",
+            "flex items-center gap-2 flex-1 h-7 text-[0.917rem] rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard min-w-0",
             isActive
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -244,7 +244,7 @@ function SessionRow({
             onArchive();
           }}
           className={cn(
-            "opacity-0 group-hover:opacity-100 flex items-center p-0.5 rounded-sm transition-all",
+            "opacity-0 group-hover:opacity-100 flex items-center p-0.5 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
             "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
           )}
           title="Archive session"

@@ -100,6 +100,37 @@ fn apply_migration_step(blob: &str, _step_version: u32) -> Result<String> {
     Ok(blob.to_string())
 }
 
+impl LaunchSpec {
+    pub fn mint_placements(&mut self) {
+        for item in &mut self.items {
+            if item.placement.is_none() {
+                item.placement = Some(uuid::Uuid::new_v4().to_string());
+            }
+        }
+    }
+
+    pub fn ensure_unique_placements(&self) -> Result<()> {
+        let mut seen = std::collections::HashSet::new();
+        for item in &self.items {
+            if let Some(placement) = &item.placement {
+                if !seen.insert(placement.as_str()) {
+                    return Err(OrchestratorError::LaunchSpecInvalid(format!(
+                        "duplicate placement: {placement}"
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn instantiate_for_session(blob: &str) -> Result<String> {
+    let mut spec = parse_spec(blob)?;
+    spec.mint_placements();
+    spec.ensure_unique_placements()?;
+    serde_json::to_string(&spec).map_err(|e| OrchestratorError::LaunchSpecInvalid(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,5 +202,51 @@ mod tests {
         let blob = r#"{"version":1,"items":[{"target":"terminal","command":{"executable":"/bin/bash","args":[]}}]}"#;
         let spec = parse_spec(blob).unwrap();
         assert!(matches!(spec.items[0].command, CommandRef::Inline { .. }));
+    }
+
+    #[test]
+    fn mint_placements_assigns_to_items_without_one() {
+        let mut spec = parse_spec(v1_blob_with_items()).unwrap();
+        assert!(spec.items[0].placement.is_none());
+        spec.mint_placements();
+        assert!(spec.items[0].placement.is_some());
+    }
+
+    #[test]
+    fn mint_placements_preserves_an_existing_placement() {
+        let blob = r#"{"version":1,"items":[{"target":"terminal","placement":"keep","command":{"library_ref":"s"}}]}"#;
+        let mut spec = parse_spec(blob).unwrap();
+        spec.mint_placements();
+        assert_eq!(spec.items[0].placement.as_deref(), Some("keep"));
+    }
+
+    #[test]
+    fn mint_placements_assigns_distinct_placements() {
+        let blob = r#"{"version":1,"items":[{"target":"terminal","command":{"library_ref":"s"}},{"target":"terminal","command":{"library_ref":"s"}}]}"#;
+        let mut spec = parse_spec(blob).unwrap();
+        spec.mint_placements();
+        assert_ne!(spec.items[0].placement, spec.items[1].placement);
+    }
+
+    #[test]
+    fn ensure_unique_placements_rejects_duplicates() {
+        let blob = r#"{"version":1,"items":[{"target":"terminal","placement":"p","command":{"library_ref":"s"}},{"target":"terminal","placement":"p","command":{"library_ref":"s"}}]}"#;
+        let spec = parse_spec(blob).unwrap();
+        let err = spec.ensure_unique_placements().unwrap_err();
+        assert!(matches!(err, OrchestratorError::LaunchSpecInvalid(_)));
+    }
+
+    #[test]
+    fn ensure_unique_placements_accepts_distinct() {
+        let blob = r#"{"version":1,"items":[{"target":"terminal","placement":"a","command":{"library_ref":"s"}},{"target":"terminal","placement":"b","command":{"library_ref":"s"}}]}"#;
+        let spec = parse_spec(blob).unwrap();
+        assert!(spec.ensure_unique_placements().is_ok());
+    }
+
+    #[test]
+    fn instantiate_for_session_mints_a_placement_per_item() {
+        let minted = instantiate_for_session(v1_blob_with_items()).unwrap();
+        let spec = parse_spec(&minted).unwrap();
+        assert!(spec.items.iter().all(|i| i.placement.is_some()));
     }
 }

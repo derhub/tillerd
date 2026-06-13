@@ -2,29 +2,26 @@
 
 use crate::codec::{encode_frame, FrameDecoder};
 use crate::exit_qualifier::translate_exit;
-use crate::manifest::{stopped_sessions_path, Manifest};
+use crate::manifest::stopped_sessions_path;
 use crate::messages::{parse_client_frame, ClientFrame, SUPPORTED_VERSIONS};
 use crate::pty_session::{Session, SessionEvent, INITIAL_CREDIT, SHUTDOWN_KILL_GRACE_MS};
 use crate::signals::SignalPlatform;
-use crate::snapshot::{write_snapshot, SnapshotRecord};
 use crate::stopped_sessions::StoppedSessionsStore;
 
-use command_fds::{CommandFdExt, FdMapping};
 use serde_json::json;
 use std::collections::HashMap;
-use std::os::fd::BorrowedFd;
-use std::os::unix::io::RawFd;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 pub const DAEMON_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// Daemon is pty-only; advertises no hook face (ADR-0016).
-const ADVERTISED_CAPABILITIES: &[&str] = &["snapshot"];
+// Daemon is pty-only and advertises no capabilities: no hook face (ADR-0016) and no snapshot
+// (subscribe replays raw scrollback; fd-handoff is superseded by drain-and-restart, ADR-0029).
+const ADVERTISED_CAPABILITIES: &[&str] = &[];
 
 /// Terminal-status sampling cadence and output-quiescence threshold. A session is
 /// IDLE only after no output for `TERM_STATUS_QUIESCENCE`; the sampler ticks at
@@ -35,7 +32,6 @@ const TERM_STATUS_QUIESCENCE: Duration = Duration::from_millis(400);
 struct Connection {
     out_tx: UnboundedSender<Arc<[u8]>>,
     negotiated: bool,
-    snapshot_capable: bool,
 }
 
 pub struct State {
@@ -44,6 +40,9 @@ pub struct State {
     stopped: StoppedSessionsStore,
     next_conn_id: u64,
     events_tx: UnboundedSender<SessionEvent>,
+    /// Set once the host signals drain (SIGUSR2): new sessions are refused while active ones
+    /// finish. A clean exit follows when the last session ends (ADR-0029).
+    draining: bool,
 }
 
 impl State {
@@ -59,6 +58,8 @@ impl State {
 pub struct Daemon {
     state: Arc<Mutex<State>>,
     sock_path: PathBuf,
+    /// Notified whenever the last active session ends, so the drain phase can exit when idle.
+    idle: Arc<tokio::sync::Notify>,
 }
 
 impl Daemon {
@@ -71,32 +72,28 @@ impl Daemon {
             stopped,
             next_conn_id: 1,
             events_tx,
+            draining: false,
         };
         Daemon {
             state: Arc::new(Mutex::new(state)),
             sock_path: tillerd_paths::daemon_socket_in(dir),
+            idle: Arc::new(tokio::sync::Notify::new()),
         }
-    }
-
-    pub fn adopt_records(&self, records: &[SnapshotRecord]) -> usize {
-        let mut st = self.state.lock().unwrap();
-        let tx = st.events_tx.clone();
-        let mut adopted = 0;
-        for r in records {
-            let session = Session::adopt(r, r.fd_index as RawFd, tx.clone());
-            st.sessions.insert(session.session_id.clone(), session);
-            adopted += 1;
-        }
-        adopted
     }
 
     pub async fn serve(
         &self,
         mut events_rx: tokio::sync::mpsc::UnboundedReceiver<SessionEvent>,
+        ready: service_host::Ready,
+        drain: service_host::Drain,
     ) -> std::io::Result<()> {
         let _ = std::fs::remove_file(&self.sock_path);
         let listener = UnixListener::bind(&self.sock_path)?;
         tracing::info!(sock = %self.sock_path.display(), "daemon started");
+
+        // Listening: announce readiness so the host flips the manifest to `ready` and consumers
+        // (orchestrator adopt-or-spawn, the e2e rig) can discover us from the manifest.
+        ready.signal();
 
         {
             let daemon = self.clone();
@@ -118,12 +115,45 @@ impl Daemon {
             });
         }
 
+        // Phase 1 — serve normally until drained.
         loop {
-            let (stream, _) = listener.accept().await?;
-            let daemon = self.clone();
-            tokio::spawn(async move {
-                daemon.handle_connection(stream).await;
-            });
+            tokio::select! {
+                accepted = listener.accept() => {
+                    let (stream, _) = accepted?;
+                    let daemon = self.clone();
+                    tokio::spawn(async move {
+                        daemon.handle_connection(stream).await;
+                    });
+                }
+                _ = drain.draining() => {
+                    self.state.lock().unwrap().draining = true;
+                    tracing::info!("daemon draining: refusing new sessions, finishing active ones");
+                    break;
+                }
+            }
+        }
+
+        // Phase 2 — drained. Keep serving existing connections (subscribe/input/kill on active
+        // sessions) and refuse new spawns, exiting cleanly once the last session ends. No timer
+        // kills sessions: SIGTERM is the explicit upgrade-now pressure valve (ADR-0029, design D4).
+        loop {
+            // Register the idle wakeup before checking, so a session ending between the check and
+            // the await is not missed.
+            let idle = self.idle.notified();
+            if self.state.lock().unwrap().sessions.is_empty() {
+                tracing::info!("daemon drained: no active sessions, exiting");
+                return Ok(());
+            }
+            tokio::select! {
+                accepted = listener.accept() => {
+                    let (stream, _) = accepted?;
+                    let daemon = self.clone();
+                    tokio::spawn(async move {
+                        daemon.handle_connection(stream).await;
+                    });
+                }
+                _ = idle => {}
+            }
         }
     }
 
@@ -174,6 +204,10 @@ impl Daemon {
                 for id in session.subscriber_ids() {
                     st.send_to(id, Arc::clone(&frame));
                 }
+                // A draining daemon exits once the last session ends; wake the drain loop to check.
+                if st.sessions.is_empty() {
+                    self.idle.notify_waiters();
+                }
             }
         }
     }
@@ -212,7 +246,6 @@ impl Daemon {
                 Connection {
                     out_tx,
                     negotiated: false,
-                    snapshot_capable: false,
                 },
             );
             id
@@ -267,11 +300,7 @@ impl Daemon {
 
     fn handle_hello(&self, st: &mut State, conn_id: u64, meta: &[u8]) {
         let parsed = parse_client_frame(meta);
-        let Some(ClientFrame::Hello {
-            versions,
-            capabilities,
-        }) = parsed
-        else {
+        let Some(ClientFrame::Hello { versions, .. }) = parsed else {
             st.send_to(conn_id, error_frame("EPROTO", "expected hello", None));
             return;
         };
@@ -291,9 +320,7 @@ impl Daemon {
             st.send_to(conn_id, error_frame("EVERSION", &msg, None));
             return;
         };
-        let caps = capabilities.unwrap_or_default();
         if let Some(c) = st.connections.get_mut(&conn_id) {
-            c.snapshot_capable = caps.iter().any(|c| c == "snapshot");
             c.negotiated = true;
         }
         let ack = encode_frame(
@@ -319,6 +346,17 @@ impl Daemon {
             }
 
             ClientFrame::Spawn(spawn) => {
+                if st.draining {
+                    st.send_to(
+                        conn_id,
+                        error_frame(
+                            "EDRAINING",
+                            "daemon is draining; no new sessions",
+                            Some(&spawn.session_id),
+                        ),
+                    );
+                    return;
+                }
                 if st.sessions.contains_key(&spawn.session_id) {
                     st.send_to(
                         conn_id,
@@ -345,7 +383,10 @@ impl Daemon {
                         let pid = session.pid;
                         session.add_subscriber(conn_id, INITIAL_CREDIT);
                         st.sessions.insert(spawn.session_id.clone(), session);
-                        tracing::info!(session.id = %spawn.session_id, pid = pid, "session spawned");
+                        // The daemon's session id is the surface id, which is the operation's
+                        // correlation id end to end — emit it so records join the orchestrator's
+                        // on the standardized `correlation_id` key (design D5).
+                        tracing::info!(correlation_id = %spawn.session_id, pid = pid, "session spawned");
                         st.send_to(conn_id, encode_frame(&json!({ "type": "spawn-ack", "sessionId": spawn.session_id, "pid": pid }), None));
                     }
                     Err(e) => {
@@ -389,10 +430,6 @@ impl Daemon {
             }
 
             ClientFrame::Subscribe { session_id } => {
-                let snapshot_capable = st
-                    .connections
-                    .get(&conn_id)
-                    .is_some_and(|c| c.snapshot_capable);
                 let Some(s) = st.sessions.get_mut(&session_id) else {
                     st.send_to(
                         conn_id,
@@ -401,28 +438,13 @@ impl Daemon {
                     return;
                 };
                 let term_status = s.term_status();
-                if snapshot_capable {
-                    let snap = s.build_snapshot();
-                    s.add_subscriber(conn_id, INITIAL_CREDIT);
-                    let frame = encode_frame(
-                        &json!({
-                            "type": "snapshot",
-                            "sessionId": session_id,
-                            "rows": snap.rows,
-                            "cols": snap.cols,
-                            "cells": snap.cells,
-                            "cursor": snap.cursor,
-                        }),
-                        None,
-                    );
-                    st.send_to(conn_id, frame);
-                } else {
-                    let replay = s.replay_bytes();
-                    let credit = (replay.len() as i64 + INITIAL_CREDIT).max(INITIAL_CREDIT);
-                    s.add_subscriber(conn_id, credit);
-                    if !replay.is_empty() {
-                        st.send_to(conn_id, data_frame(&session_id, &replay));
-                    }
+                // Replay the session's scrollback as raw bytes so the subscriber repaints from the
+                // terminal's own output stream.
+                let replay = s.replay_bytes();
+                let credit = (replay.len() as i64 + INITIAL_CREDIT).max(INITIAL_CREDIT);
+                s.add_subscriber(conn_id, credit);
+                if !replay.is_empty() {
+                    st.send_to(conn_id, data_frame(&session_id, &replay));
                 }
                 st.send_to(
                     conn_id,
@@ -442,11 +464,6 @@ impl Daemon {
                 }
             }
 
-            ClientFrame::Upgrade => {
-                let daemon = self.clone();
-                tokio::spawn(async move { daemon.prepare_upgrade().await });
-            }
-
             ClientFrame::Hello { .. } => {}
         }
     }
@@ -464,121 +481,6 @@ impl Daemon {
         }
         st.sessions.clear();
         let _ = std::fs::remove_file(&self.sock_path);
-    }
-
-    // Sessions stay in the registry (never killed) so the master fds remain valid for dup.
-    pub async fn prepare_upgrade(&self) {
-        let (records, master_fds): (Vec<SnapshotRecord>, Vec<RawFd>) = {
-            let st = self.state.lock().unwrap();
-            let mut recs = Vec::new();
-            let mut fds = Vec::new();
-            for (i, (id, s)) in st.sessions.iter().enumerate() {
-                let Some(fd) = s.raw_master_fd() else {
-                    tracing::warn!(session.id = %id, "upgrade: no master fd; skipping");
-                    continue;
-                };
-                let (cols, rows) = s.current_size();
-                recs.push(SnapshotRecord {
-                    session_id: id.clone(),
-                    token: s.token.clone(),
-                    pid: s.pid,
-                    cols,
-                    rows,
-                    cwd: s.cwd.clone(),
-                    fd_index: 4 + i as i32,
-                    replay_buffer: SnapshotRecord::encode_replay(&s.replay_bytes()),
-                });
-                fds.push(fd);
-            }
-            (recs, fds)
-        };
-
-        if records.is_empty() {
-            tracing::info!("upgrade: no live sessions to hand off; staying up");
-            return;
-        }
-
-        let dir = self
-            .sock_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_default();
-        let snap_path = dir.join("snapshot-upgrade.ndjson");
-        if let Err(e) = write_snapshot(&snap_path, &records) {
-            tracing::error!(error = %e, "upgrade: snapshot write failed; staying up");
-            return;
-        }
-
-        let exe = match std::env::current_exe() {
-            Ok(e) => e,
-            Err(e) => {
-                tracing::error!(error = %e, "upgrade: cannot resolve own binary; staying up");
-                return;
-            }
-        };
-
-        // command-fds needs an OwnedFd per mapping; dup the session's fd so
-        // command-fds closes the dup after spawn while the session keeps the original.
-        let mut mappings: Vec<FdMapping> = Vec::with_capacity(master_fds.len());
-        for (i, &fd) in master_fds.iter().enumerate() {
-            // SAFETY: fd is the live session's PTY master, owned by a session
-            // still in the registry (never killed on this path), so it is valid
-            // for this borrow used only to immediately dup it.
-            #[allow(unsafe_code)]
-            let borrowed = unsafe { BorrowedFd::borrow_raw(fd) };
-            match borrowed.try_clone_to_owned() {
-                Ok(owned) => mappings.push(FdMapping {
-                    parent_fd: owned,
-                    child_fd: 4 + i as RawFd,
-                }),
-                Err(e) => {
-                    tracing::error!(error = %e, "upgrade: fd dup failed; staying up");
-                    return;
-                }
-            }
-        }
-
-        let old_pid = std::process::id();
-        let mut cmd = std::process::Command::new(&exe);
-        cmd.arg("--handoff")
-            .arg(format!("--snapshot={}", snap_path.display()))
-            .arg(format!("--socket={}", self.sock_path.display()));
-        if cmd.fd_mappings(mappings).is_err() {
-            tracing::error!("upgrade: fd mapping failed; staying up");
-            return;
-        }
-        let mut child = match cmd.spawn() {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::error!(error = %e, "upgrade: successor spawn failed; staying up");
-                return;
-            }
-        };
-
-        let deadline = Instant::now() + Duration::from_secs(10);
-        loop {
-            if Instant::now() >= deadline {
-                tracing::warn!(
-                    "upgrade: successor did not take over in time; aborting, staying up"
-                );
-                let _ = child.kill();
-                let _ = child.wait();
-                return;
-            }
-            if let Some(m) = Manifest::read(&dir) {
-                if m.pid != old_pid {
-                    break;
-                }
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-
-        tracing::info!(
-            sessions = records.len(),
-            "upgrade: successor live; handing off sessions"
-        );
-        let _ = std::fs::remove_file(&snap_path);
-        std::process::exit(0);
     }
 }
 
@@ -628,9 +530,51 @@ mod tests {
     }
 
     #[test]
-    fn advertised_capabilities_carry_no_hook_face() {
-        assert!(!ADVERTISED_CAPABILITIES.contains(&"hook"));
-        assert_eq!(ADVERTISED_CAPABILITIES, &["snapshot"]);
+    fn advertises_no_capabilities() {
+        // PTY-only: no hook face (ADR-0016) and no snapshot (subscribe replays raw scrollback).
+        assert!(ADVERTISED_CAPABILITIES.is_empty());
+    }
+
+    #[tokio::test]
+    async fn draining_daemon_refuses_new_session_with_typed_error() {
+        let dir = std::env::temp_dir().join(format!("tillerd-drain-test-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let (events_tx, _events_rx) = tokio::sync::mpsc::unbounded_channel();
+        let daemon = Daemon::new(&dir, events_tx);
+
+        // Register a negotiated connection whose outbound frames we can read.
+        let (out_tx, mut out_rx) = tokio::sync::mpsc::unbounded_channel::<Arc<[u8]>>();
+        let spawn = match crate::messages::parse_client_frame(
+            br#"{"type":"spawn","sessionId":"s1","args":[],"token":"t","cols":80,"rows":24,"cwd":"/tmp"}"#,
+        ) {
+            Some(ClientFrame::Spawn(s)) => s,
+            _ => panic!("expected a spawn frame"),
+        };
+
+        {
+            let mut st = daemon.state.lock().unwrap();
+            st.connections.insert(
+                1,
+                Connection {
+                    out_tx,
+                    negotiated: true,
+                },
+            );
+            st.draining = true;
+            daemon.dispatch(&mut st, 1, ClientFrame::Spawn(spawn), None);
+        }
+
+        let frame = out_rx.recv().await.expect("a frame was sent back");
+        let v: serde_json::Value = serde_json::from_slice(&frame[4..]).unwrap();
+        assert_eq!(v["type"], "error");
+        assert_eq!(
+            v["code"], "EDRAINING",
+            "a draining daemon refuses new sessions"
+        );
+        assert!(
+            daemon.state.lock().unwrap().sessions.is_empty(),
+            "no session was created while draining"
+        );
     }
 
     // ── daemon-session-subscription: consumer-oblivious scenarios ────────────

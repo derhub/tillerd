@@ -4,7 +4,7 @@
 //! Single source of truth for the tillerd runtime layout and the `TILLERD_*`
 //! environment surface.
 //!
-//! Resolves the runtime directory (`TILLERD_DIR` → `~/.tillerd`), builds the
+//! Resolves the runtime directory (`TILLERD_DIR` -> `~/.tillerd`), builds the
 //! socket/manifest/store paths under it, discovers the service binaries by a
 //! defined precedence, and is the one place the governed `TILLERD_*` variable
 //! names are defined. Every service and the host depend on it; no other crate

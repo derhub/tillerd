@@ -25,13 +25,13 @@
 - [x] 4.2 Implement the lifecycle-hook ingress (session start, prompt submit, post-tool, stop, session end) as a loopback HTTP endpoint, fire-and-forget, never blocking the agent
 - [x] 4.3 Implement the skip list for low-value tool events
 - [x] 4.4 Implement tool-event auto-titling from tool name + primary argument
-- [x] 4.5 Implement `ingest`: redact → title → commit chunk → enqueue embedding request
+- [x] 4.5 Implement `ingest`: redact -> title -> commit chunk -> enqueue embedding request
 - [x] 4.6 Implement the project document indexer: scan markdown excluding dependency/build/VCS dirs, chunk by heading, replace prior project doc chunks, enqueue embeddings, run async on session start
 
 ## 5. Recall (memorya-recall)
 
 - [x] 5.1 Implement hybrid scoring: vector + full-text BM25, fused into one ranked list (RRF)
-- [x] 5.2 Implement adaptive weighting (symbol-like → more lexical; prose → more semantic)
+- [x] 5.2 Implement adaptive weighting (symbol-like -> more lexical; prose -> more semantic)
 - [x] 5.3 Implement temporal rerank (recency boost) and access-stat updates on hit (ended-validity penalty applies to facts, surfaced once the fact graph is populated by the curation change)
 - [x] 5.4 Implement `recall(query)` returning `Found({id,title,snippet})` or `Uncertain { offer_archive }` against a confidence threshold
 - [x] 5.5 Implement `expand(id)` returning full item content

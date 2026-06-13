@@ -155,11 +155,20 @@ impl Service for Gate {
     }
 
     async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
-        let ServeContext { paths, .. } = ctx;
+        let ServeContext {
+            paths,
+            ready,
+            drain,
+            ..
+        } = ctx;
         self.bind_socket(paths.base_dir())?;
-        // The accept loop serves from its own task; hold serve open until the host's
-        // stop signal cancels it, then `shutdown` aborts the task.
-        std::future::pending::<std::io::Result<()>>().await
+        // Listening: announce readiness so the host flips the manifest to `ready` for discovery.
+        ready.signal();
+        // The accept loop serves from its own task. Hold serve open until drained (return so the
+        // host tears down) or until a stop signal cancels this future; either way `shutdown` aborts
+        // the accept task.
+        drain.draining().await;
+        Ok(())
     }
 
     async fn shutdown(&mut self) {

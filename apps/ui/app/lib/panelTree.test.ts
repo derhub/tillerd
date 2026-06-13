@@ -95,13 +95,13 @@ describe("closeNode", () => {
 describe("setContentNode", () => {
   test("updates content on matching leaf", () => {
     const tree = leaf("a");
-    const result = setContentNode(tree, "a", { type: "terminal", sessionId: null });
-    expect((result as PanelLeaf).content).toEqual({ type: "terminal", sessionId: null });
+    const result = setContentNode(tree, "a", { type: "terminal", placement: "slot-1" });
+    expect((result as PanelLeaf).content).toEqual({ type: "terminal", placement: "slot-1" });
   });
 
   test("no-op on non-matching leaf", () => {
     const tree = leaf("a");
-    expect(setContentNode(tree, "z", { type: "sidebar" })).toBe(tree);
+    expect(setContentNode(tree, "z", { type: "terminal", placement: "slot-1" })).toBe(tree);
   });
 });
 

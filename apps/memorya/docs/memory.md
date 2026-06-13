@@ -29,7 +29,7 @@ write-time interception.
 ```
 input:  current MEMORY.md + today's daily digest (all projects)
 output: updated MEMORY.md (≤ ~800 tokens)
-        + extracted facts → temporal KG (with supersede)
+        + extracted facts -> temporal KG (with supersede)
 ```
 
 Building `MEMORY.md` only in the daily job — which sees all projects' digests

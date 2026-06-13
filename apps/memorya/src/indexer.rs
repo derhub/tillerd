@@ -1,4 +1,4 @@
-//! Indexer: markdown by heading → doc chunks.
+//! Indexer: markdown by heading -> doc chunks.
 
 use crate::{ChunkKind, Engram, NewChunk};
 use ignore::WalkBuilder;

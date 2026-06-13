@@ -82,12 +82,12 @@ the prior change.
 
 ## Risks / Trade-offs
 
-- **Write correctness stays in the host capability** → the `SetupFs` impl keeps the existing atomic
+- **Write correctness stays in the host capability** -> the `SetupFs` impl keeps the existing atomic
   write (temp file + rename) and timestamped backup; adapter tests inject a fake `SetupFs` to cover
   install/uninstall/idempotency, and a host test covers the real read/backup/atomic-write ordering.
-- **The adapter still depends only on the contract type** → a test asserts both the engine-facing
+- **The adapter still depends only on the contract type** -> a test asserts both the engine-facing
   definition and the `setup` export import with no host-primitive access.
-- **Breaking removal of the plan API** → the composition root and tests are updated together so the
+- **Breaking removal of the plan API** -> the composition root and tests are updated together so the
   build stays green; no on-disk format change, so existing settings files are unaffected.
 
 ## Migration Plan

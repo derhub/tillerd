@@ -18,6 +18,8 @@ export { ORCHESTRATOR_STATUS_EVENT, ORCHESTRATOR_STATUS_METHOD, isFailed, isRead
 export type { OrchestratorStatus } from "./status";
 export {
   SURFACE_CREATE,
+  SURFACE_SPAWN,
+  SURFACE_CLOSE,
   SURFACE_INPUT,
   SURFACE_RESIZE,
   SURFACE_DETACH,

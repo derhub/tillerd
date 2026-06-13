@@ -67,20 +67,20 @@ The adapter (`adapter-claude-code/setup.ts`) owns exposure, not the wire. Its in
 
 ## Risks / Trade-offs
 
-- **Resolving the `gate-notify` binary path at install time** → The host must point the hook command at a real, executable path that survives build/distribution. Mitigation: resolve it the same way the current scripted client is resolved (a single stable location), and surface a typed error if the binary is absent — this is already a `hook-callback-client` requirement.
-- **Already-installed `curl` hooks** → Pre-v1 breaking: a session whose settings still carry the old `curl` command posts to a port that no longer exists. Mitigation: setup migration replaces old hooks; the gate no longer binds a TCP port, so a stale `curl` hook simply fails closed (fire-and-forget swallows the error).
-- **Stdin payload assumption** → The producer relies on the agent passing the hook JSON on stdin (the `curl` line already used `--data-binary @-`). If an agent delivered the payload differently, the producer would need another input path. Mitigation: this matches the existing contract; documented as the input.
+- **Resolving the `gate-notify` binary path at install time** -> The host must point the hook command at a real, executable path that survives build/distribution. Mitigation: resolve it the same way the current scripted client is resolved (a single stable location), and surface a typed error if the binary is absent — this is already a `hook-callback-client` requirement.
+- **Already-installed `curl` hooks** -> Pre-v1 breaking: a session whose settings still carry the old `curl` command posts to a port that no longer exists. Mitigation: setup migration replaces old hooks; the gate no longer binds a TCP port, so a stale `curl` hook simply fails closed (fire-and-forget swallows the error).
+- **Stdin payload assumption** -> The producer relies on the agent passing the hook JSON on stdin (the `curl` line already used `--data-binary @-`). If an agent delivered the payload differently, the producer would need another input path. Mitigation: this matches the existing contract; documented as the input.
 
 ## Migration Plan
 
 1. Add the hook-ingestion envelope type to `contracts-rs`.
-2. Add `apps/gate-notify`: stdin → envelope → one frame → `$ATHING_DIR/gate-hook.sock`, fire-and-forget. Build it to the resolver's expected path; remove the `bin/athing-notify` script.
+2. Add `apps/gate-notify`: stdin -> envelope -> one frame -> `$ATHING_DIR/gate-hook.sock`, fire-and-forget. Build it to the resolver's expected path; remove the `bin/athing-notify` script.
 3. Rewrite the gate hook face: `UnixListener` at `gate-hook.sock` + frame reader building the existing `Inbound`; move auth/normalize to read the envelope fields; delete the axum hook route and `write_gate_url`.
 4. Update the adapter install (`setup.ts`): drop the inline gate-mode curl, always use the resolved notify binary, new marker, migrate installed curl hooks. The `platform-bun` resolver is reused unchanged.
 5. Remove `gate.url` and `ATHING_GATE_URL`; update every reader (orchestrator, server, proxy, sdk session type, platform-bun process-launch/setup, memorya dual_mode) to derive the path from `$ATHING_DIR`.
 6. Remove the stale daemon-hook wiring: `HOOKS_SOCK`, `hooksSocketPath` (engine + proxy), the server spawn `hookSocketPath`, `ATHING_BRIDGE_URL`; update the integration/proxy/notify-client tests.
 7. Update `docs/services.md` (drop `gate.url`).
-8. Verify: workspace + TS tests; an end-to-end hook round-trip (producer → socket → gate → fanout); confirm the hook face opens no TCP port and writes no `gate.url`; confirm `daemon-pty` and the other faces are unchanged.
+8. Verify: workspace + TS tests; an end-to-end hook round-trip (producer -> socket -> gate -> fanout); confirm the hook face opens no TCP port and writes no `gate.url`; confirm `daemon-pty` and the other faces are unchanged.
 
 Rollback is a straight revert; pre-v1, so no compatibility window is owed. A revert restores the HTTP face, `gate.url`, and the bash client together.
 

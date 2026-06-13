@@ -1,6 +1,5 @@
 #![deny(unsafe_code)]
 
-mod cell;
 mod codec;
 mod exit_qualifier;
 mod manifest;
@@ -11,9 +10,7 @@ mod resolve;
 mod server;
 mod shell_env;
 mod signals;
-mod snapshot;
 mod stopped_sessions;
-mod vt;
 
 use server::{Daemon, DAEMON_VERSION};
 use service_host::host::{ServeContext, Service, ServiceConfig};
@@ -75,12 +72,7 @@ struct DaemonService {
 
 impl DaemonService {
     fn from_env() -> Self {
-        let args: Vec<String> = std::env::args().collect();
-        let is_handoff = args.iter().any(|a| a == "--handoff");
-
-        if !is_handoff {
-            shell_env::install_login_shell_env();
-        }
+        shell_env::install_login_shell_env();
 
         let dir = tillerd_paths::runtime_dir();
         let _ = std::fs::create_dir_all(&dir);
@@ -96,22 +88,6 @@ impl DaemonService {
         let (events_tx, events_rx) = unbounded_channel();
         let daemon = Daemon::new(&dir, events_tx);
 
-        if is_handoff {
-            let _g = root.enter();
-            match arg_value(&args, "--snapshot") {
-                Some(snap) => match snapshot::read_snapshot(std::path::Path::new(&snap)) {
-                    Ok(records) => {
-                        let n = daemon.adopt_records(&records);
-                        tracing::info!(sessions = n, "handoff adopted sessions");
-                    }
-                    Err(e) => {
-                        tracing::error!(error = %e, "handoff: snapshot read failed; starting empty")
-                    }
-                },
-                None => tracing::warn!("handoff: --snapshot missing; starting empty"),
-            }
-        }
-
         Self {
             daemon,
             events_rx: Some(events_rx),
@@ -126,10 +102,10 @@ impl Service for DaemonService {
             .with_base_override(std::env::var(tillerd_paths::ENV_TILLERD_DIR).ok())
     }
 
-    async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
+    async fn serve(&mut self, ctx: ServeContext) -> std::io::Result<()> {
         let events_rx = self.events_rx.take().expect("serve runs once");
         self.daemon
-            .serve(events_rx)
+            .serve(events_rx, ctx.ready, ctx.drain)
             .instrument(self.root.clone())
             .await
     }
@@ -141,10 +117,4 @@ impl Service for DaemonService {
 
 fn main() {
     service_host::run_blocking(DaemonService::from_env());
-}
-
-fn arg_value(args: &[String], flag: &str) -> Option<String> {
-    let prefix = format!("{flag}=");
-    args.iter()
-        .find_map(|a| a.strip_prefix(&prefix).map(|s| s.to_string()))
 }

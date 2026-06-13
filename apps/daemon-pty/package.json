@@ -1,6 +1,7 @@
 {
   "name": "@tillerd/daemon-pty",
   "version": "0.0.0",
+  "private": true,
   "bin": {
     "tillerd-daemon": "../../target/release/tillerd-daemon"
   },
@@ -13,5 +14,10 @@
     "fmt:check": "cargo fmt --check",
     "test": "cargo test",
     "check-deps": "cargo outdated"
+  },
+  "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/paths": "workspace:*",
+    "@tillerd/service-host": "workspace:*"
   }
 }

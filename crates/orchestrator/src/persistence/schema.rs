@@ -97,7 +97,7 @@ fn migration_v1() -> String {
 
 /// Widen `session.title_source` CHECK to the four-strategy enum and change the default
 /// from `'inferred'` to `'agent-title'`. SQLite does not support ALTER COLUMN, so we
-/// recreate the table, copy data (mapping 'inferred' → 'agent-title'), and drop the old one.
+/// recreate the table, copy data (mapping 'inferred' -> 'agent-title'), and drop the old one.
 fn migration_v2() -> String {
     "CREATE TABLE session_new (
          id           TEXT PRIMARY KEY,
@@ -135,8 +135,21 @@ fn migration_v3() -> String {
     "ALTER TABLE command ADD COLUMN deleted_at TEXT;".to_string()
 }
 
+// Partial index: soft-deleted and null-placement (pre-migration) rows are excluded.
+fn migration_v4() -> String {
+    "CREATE UNIQUE INDEX surface_session_placement
+         ON surface(session_id, placement)
+         WHERE deleted_at IS NULL AND placement IS NOT NULL;"
+        .to_string()
+}
+
 pub fn migrations() -> Vec<String> {
-    vec![migration_v1(), migration_v2(), migration_v3()]
+    vec![
+        migration_v1(),
+        migration_v2(),
+        migration_v3(),
+        migration_v4(),
+    ]
 }
 
 pub fn current_version() -> u32 {

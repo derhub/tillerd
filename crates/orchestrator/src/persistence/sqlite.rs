@@ -330,7 +330,7 @@ impl Store for SqliteStore {
         }
         let conn = self.lock()?;
         let tx = conn.unchecked_transaction().map_err(persist)?;
-        // cascade surfaces → sessions → project
+        // cascade surfaces -> sessions -> project
         tx.execute(
             "UPDATE surface SET deleted_at = datetime('now')
              WHERE deleted_at IS NULL
@@ -424,7 +424,10 @@ impl Store for SqliteStore {
                 .optional()
                 .map_err(persist)?;
             match row {
-                Some((v, j)) => (Some(v), Some(j)),
+                Some((v, j)) => (
+                    Some(v),
+                    Some(crate::launch::spec::instantiate_for_session(&j)?),
+                ),
                 None => {
                     return Err(OrchestratorError::LaunchTemplateNotFound(
                         tid.as_str().to_string(),
@@ -577,7 +580,14 @@ impl Store for SqliteStore {
                     worktree_id_str
                 ],
             )
-            .map_err(persist)?;
+            .map_err(|e| match e {
+                rusqlite::Error::SqliteFailure(ref f, _)
+                    if f.code == rusqlite::ErrorCode::ConstraintViolation =>
+                {
+                    OrchestratorError::SurfaceConflict(draft.placement.clone().unwrap_or_default())
+                }
+                other => persist(other),
+            })?;
         Ok(Surface {
             id,
             session_id: draft.session_id,
@@ -602,19 +612,53 @@ impl Store for SqliteStore {
             .map_err(persist)
     }
 
+    fn find_session_surface_by_placement(
+        &self,
+        session_id: &SessionId,
+        placement: &str,
+    ) -> Result<Option<Surface>> {
+        self.lock()?
+            .query_row(
+                "SELECT id, session_id, kind, cwd, last_status, placement, worktree_id
+                 FROM surface
+                 WHERE session_id = ?1 AND placement = ?2 AND deleted_at IS NULL
+                 ORDER BY rowid DESC
+                 LIMIT 1",
+                params![session_id.as_str(), placement],
+                row_to_surface,
+            )
+            .optional()
+            .map_err(persist)
+    }
+
     fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
         let conn = self.lock()?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT s.id, s.session_id, s.kind, s.cwd, s.last_status, s.placement, s.worktree_id
-                 FROM surface s
-                 JOIN session ses ON s.session_id = ses.id
-                 WHERE s.deleted_at IS NULL AND ses.deleted_at IS NULL",
-            )
-            .map_err(persist)?;
-        let rows = stmt.query_map([], row_to_surface).map_err(persist)?;
-        rows.collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(persist)
+        let mut surfaces = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT s.id, s.session_id, s.kind, s.cwd, s.last_status, s.placement, s.worktree_id
+                     FROM surface s
+                     JOIN session ses ON s.session_id = ses.id
+                     WHERE s.deleted_at IS NULL AND ses.deleted_at IS NULL",
+                )
+                .map_err(persist)?;
+            let rows = stmt.query_map([], row_to_surface).map_err(persist)?;
+            rows.collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(persist)?
+        };
+        // Lazy-migrate null-placement rows so resume can bind by placement.
+        for surface in &mut surfaces {
+            if surface.placement.is_none() {
+                let minted = uuid::Uuid::new_v4().to_string();
+                conn.execute(
+                    "UPDATE surface SET placement = ?1 WHERE id = ?2",
+                    params![minted, surface.id.as_str()],
+                )
+                .map_err(persist)?;
+                surface.placement = Some(minted);
+            }
+        }
+        Ok(surfaces)
     }
 
     fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()> {
@@ -678,6 +722,21 @@ impl Store for SqliteStore {
                 params![surface_id.as_str()],
             )
             .map_err(persist)?;
+        Ok(())
+    }
+
+    fn set_session_spec(&self, id: &SessionId, spec_version: u32, spec_json: &str) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE session SET spec_version = ?1, spec_json = ?2, updated_at = datetime('now')
+                 WHERE id = ?3 AND deleted_at IS NULL",
+                params![spec_version, spec_json, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 
@@ -1622,6 +1681,109 @@ mod tests {
         let err = store
             .add_surface_to_session(&s2.id, &surface.id)
             .unwrap_err();
+        assert!(matches!(err, OrchestratorError::SurfaceConflict(_)));
+    }
+
+    #[test]
+    fn each_session_gets_its_own_distinct_surface() {
+        let (_dir, path) = temp_db("surf-per-session");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let s1 = make_session(&store);
+        let s2 = make_session(&store);
+        let new_terminal = |session_id: SessionId| NewSurface {
+            id: None,
+            session_id,
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            placement: None,
+            worktree_id: None,
+        };
+        let surf1 = store.create_surface(new_terminal(s1.id.clone())).unwrap();
+        let surf2 = store.create_surface(new_terminal(s2.id.clone())).unwrap();
+
+        // Two sessions get two distinct surfaces, each bound to its own session (no sharing).
+        assert_ne!(surf1.id, surf2.id, "sessions must not share a surface id");
+        assert_eq!(surf1.session_id, s1.id);
+        assert_eq!(surf2.session_id, s2.id);
+        assert_eq!(
+            store.get_surface(&surf1.id).unwrap().unwrap().session_id,
+            s1.id
+        );
+        assert_eq!(
+            store.get_surface(&surf2.id).unwrap().unwrap().session_id,
+            s2.id
+        );
+
+        // Each session owns exactly its surface (no cross-contamination across the registry).
+        let resumable = store.list_resumable_surfaces().unwrap();
+        let owned_by = |sid: &SessionId| {
+            resumable
+                .iter()
+                .filter(|s| &s.session_id == sid)
+                .map(|s| s.id.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(owned_by(&s1.id), vec![surf1.id]);
+        assert_eq!(owned_by(&s2.id), vec![surf2.id]);
+    }
+
+    #[test]
+    fn find_session_surface_by_placement_resolves_to_its_own_surface() {
+        let (_dir, path) = temp_db("find-surf-placement");
+        let store = SqliteStore::open(&path).unwrap();
+        let s1 = make_session(&store);
+        let s2 = make_session(&store);
+        let placed = |session_id: SessionId, placement: &str| NewSurface {
+            id: None,
+            session_id,
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            placement: Some(placement.to_string()),
+            worktree_id: None,
+        };
+        let surf1 = store.create_surface(placed(s1.id.clone(), "p")).unwrap();
+        let surf2 = store.create_surface(placed(s2.id.clone(), "p")).unwrap();
+
+        // Each session resolves (session, placement) to its OWN surface.
+        assert_eq!(
+            store
+                .find_session_surface_by_placement(&s1.id, "p")
+                .unwrap()
+                .map(|s| s.id),
+            Some(surf1.id.clone())
+        );
+        assert_eq!(
+            store
+                .find_session_surface_by_placement(&s2.id, "p")
+                .unwrap()
+                .map(|s| s.id),
+            Some(surf2.id)
+        );
+
+        // Once the surface is gone there is nothing to re-attach to at that placement.
+        store.soft_delete_surface(&surf1.id).unwrap();
+        assert!(store
+            .find_session_surface_by_placement(&s1.id, "p")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn create_surface_rejects_duplicate_placement_in_a_session() {
+        let (_dir, path) = temp_db("surf-dup-placement");
+        let store = SqliteStore::open(&path).unwrap();
+        let s = make_session(&store);
+        let placed = || NewSurface {
+            id: None,
+            session_id: s.id.clone(),
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            placement: Some("dup".to_string()),
+            worktree_id: None,
+        };
+        store.create_surface(placed()).unwrap();
+        let err = store.create_surface(placed()).unwrap_err();
         assert!(matches!(err, OrchestratorError::SurfaceConflict(_)));
     }
 

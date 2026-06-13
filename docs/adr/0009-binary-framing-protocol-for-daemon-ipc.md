@@ -33,6 +33,6 @@ A versioned `hello`/`hello-ack` handshake (D5) gates the connection. The `hello`
 
 - PTY output (`data` frames) carries raw bytes in the binary body — no base64 overhead.
 - `FrameDecoder` is stateful and streaming: it handles arbitrary chunk boundaries without buffering an entire message into a string.
-- The codec is used on both the client→daemon wire and the IPC channel between predecessor and successor during upgrade.
+- The codec is used on both the client->daemon wire and the IPC channel between predecessor and successor during upgrade.
 - A client that fails version negotiation receives an `error { code: "EVERSION" }` frame and the connection is closed immediately.
 - The NDJSON encoder (`ndjson.ts`) and old protocol module (`protocol.ts`) are removed; all consumers migrate to the new codec.
