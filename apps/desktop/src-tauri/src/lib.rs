@@ -11,7 +11,8 @@ mod supervisor;
 mod surface_host;
 mod workspace_host;
 
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
+use tauri::{Emitter, Manager};
 
 use bridge::BridgeState;
 use orchestrator_host::OrchestratorState;
@@ -28,6 +29,14 @@ fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let dir = tillerd_paths::runtime_dir();
+    let (_guard, root) = tillerd_paths::logging::init_file_tracing(
+        "tillerd-desktop",
+        env!("CARGO_PKG_VERSION"),
+        &dir,
+    );
+    let _root = root.entered();
+
     let builder = tauri::Builder::default();
     #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
@@ -37,6 +46,32 @@ pub fn run() {
         .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
         .setup(|app| {
+            // Native menu: the platform default (app / Edit / View / Window / Help) with a
+            // Logs entry added to the existing View submenu. It routes the renderer to /logs
+            // via a "menu:navigate" event. Falls back to a new View submenu if the default
+            // has none.
+            let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(app)?;
+            let menu = Menu::default(app.handle())?;
+            let mut placed = false;
+            for item in menu.items()? {
+                if let MenuItemKind::Submenu(sub) = item {
+                    if sub.text().unwrap_or_default() == "View" {
+                        sub.append(&logs)?;
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+            if !placed {
+                menu.append(&SubmenuBuilder::new(app, "View").item(&logs).build()?)?;
+            }
+            app.set_menu(menu)?;
+            app.on_menu_event(|app_handle, event| {
+                if event.id().as_ref() == "view_logs" {
+                    let _ = app_handle.emit("menu:navigate", "/logs");
+                }
+            });
+
             // Construct and boot the single embedded orchestrator instance; it
             // streams lifecycle events to the renderer and reaches `ready`.
             let handle = app.handle().clone();
@@ -50,6 +85,7 @@ pub fn run() {
             bridge::daemon_disconnect,
             files::file_size,
             files::file_read,
+            files::list_log_files,
             diag::log_forward,
             store::pref_get,
             store::pref_set,

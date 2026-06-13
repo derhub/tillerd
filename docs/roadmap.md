@@ -130,7 +130,7 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 ### 0.0.7 — Observability
 
-- [ ] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
+- [x] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
 
 ### 0.0.8 — Health and first-run UX
 
@@ -146,17 +146,25 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 ### 0.0.10 — UX/UI (ships the working app)
 
-- [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
+- [ ] Interaction polish — projects / sessions navigation, empty states, pane error /
   failure states.
-- [ ] Motion: transitions for surface lifecycle (create / destroy); layout changes
-  (adding / removing surfaces).
-- [ ] Polish: icons, spacing, density, typography, popups, menus, top bar toolbox, bottom bar
-  style; panel titles (session name + surface kind + running time); status badges (starting,
-  running, failed); terminal font and color scheme; drag-and-drop rearrangement of surfaces;
-  panel resizing (drag to resize, double-click to reset); terminal copy/paste; keyboard
-  shortcuts for common actions (new project/session/surface, close surface, switch session, ...).
-- [ ] Light-mode coverage: component-level appearance verified and documented (tokens
+- [ ] Visual polish — icons, spacing, density, typography; popups / menus; top and bottom
+  toolbars and their buttons; panel titles (session name + surface kind + running time);
+  status badges (starting / running / failed); terminal font and color scheme.
+- [ ] Surface manipulation — drag-and-drop rearrangement; panel resizing (drag to resize,
+  double-click to reset); terminal copy / paste; keyboard shortcuts (new project / session /
+  surface, close surface, switch session, ...).
+- [ ] Motion — 60fps transitions for surface lifecycle (create / destroy) and layout changes
+  (add / remove surfaces).
+- [ ] Light-mode coverage — component-level appearance verified and documented (tokens
   landed in 0.0.6).
+- [ ] Accessibility — keyboard navigation, screen reader labels, color contrast.
+- [ ] Cross-platform polish — platform-specific UI conventions (e.g. macOS traffic lights,
+  Linux title bars) respected and tested on each OS.
+- [ ] Performance — sustained 60fps and low resource use under multiple sessions and
+  surfaces; profiling and optimization as needed.
+- [ ] E2E coverage — all flows and platforms, integrated into CI.
+- [ ] UX/UI review cycle — identify pain points, continuously refine.
 - [ ] Final coherence pass across all surfaces.
 
 ---

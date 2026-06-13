@@ -12,6 +12,8 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod logging;
+
 /// Name of the environment variable that overrides the runtime directory.
 pub const ENV_TILLERD_DIR: &str = "TILLERD_DIR";
 /// Name of the environment variable that overrides the daemon binary path.

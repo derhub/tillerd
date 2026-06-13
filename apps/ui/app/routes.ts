@@ -4,5 +4,6 @@ export default [
   layout("routes/_shell.tsx", [
     index("routes/_shell._index.tsx"),
     route("session/:id", "routes/_shell.session.$id.tsx"),
+    route("logs", "routes/_shell.logs.tsx"),
   ]),
 ] satisfies RouteConfig;

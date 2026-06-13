@@ -23,42 +23,13 @@ const SERVICE_NAME: &str = "tillerd-daemon";
 static LOG_GUARD: std::sync::OnceLock<tracing_appender::non_blocking::WorkerGuard> =
     std::sync::OnceLock::new();
 
-// Structured JSON logging to TILLERD_DIR/logs/daemon.<date>.log, separate from the
-// TypeScript runtime's log file. OTLP export can be layered in later behind this same init.
+// Structured JSON logging to TILLERD_DIR/logs/<service>.<date>.log via the shared
+// tillerd-paths initializer. The daemon keeps its own root span (below) for the
+// process resource; OTLP export can be layered in later behind this same init.
 fn init_tracing(dir: &std::path::Path) {
-    use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-    let logs_dir = dir.join("logs");
-    let _ = std::fs::create_dir_all(&logs_dir);
-
-    let appender = tracing_appender::rolling::RollingFileAppender::builder()
-        .rotation(tracing_appender::rolling::Rotation::DAILY)
-        .filename_prefix("daemon")
-        .filename_suffix("log")
-        .build(&logs_dir)
-        .expect("daemon log appender");
-    let (writer, guard) = tracing_appender::non_blocking(appender);
+    let (guard, _root) =
+        tillerd_paths::logging::init_file_tracing(SERVICE_NAME, DAEMON_VERSION, dir);
     let _ = LOG_GUARD.set(guard);
-
-    // LOG_LEVEL mirrors the TS logger; "silent" maps to no output.
-    let level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into());
-    let directive = if level.eq_ignore_ascii_case("silent") {
-        "off".to_string()
-    } else {
-        level
-    };
-    let filter = EnvFilter::try_new(&directive).unwrap_or_else(|_| EnvFilter::new("info"));
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(
-            fmt::layer()
-                .json()
-                .with_current_span(true)
-                .with_span_list(true)
-                .with_writer(writer),
-        )
-        .init();
 }
 
 // The daemon as a hosted Service: service-host owns path/manifest/signal

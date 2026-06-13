@@ -1,8 +1,23 @@
+import { readdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+
 import { remote } from "webdriverio";
 
 export type Browser = Awaited<ReturnType<typeof remote>>;
 
 const application = process.env.TILLERD_DESKTOP_BIN;
+
+// Specs share one TILLERD_DIR/logs across the run; remove other specs' seed files so they don't
+// bury this spec's seeded rows in the merged, timestamp-ordered view.
+export function clearLogSeeds(logsDir: string): void {
+  try {
+    for (const f of readdirSync(logsDir)) {
+      if (f.startsWith("zzz-e2e-") && f.endsWith(".log")) unlinkSync(join(logsDir, f));
+    }
+  } catch {
+    // logs dir may not exist yet — nothing to clear
+  }
+}
 
 // Launch the desktop app through tauri-webdriver and wait for the embedded orchestrator to reach
 // ready. Called from inside a test so each app launch is DEFERRED to when its test runs; bun runs
@@ -63,4 +78,22 @@ export async function openTerminal(browser: Browser): Promise<string> {
     timeoutMsg: "terminal did not mount a surface after spawn",
   });
   return surfaceId(browser);
+}
+
+// Navigate to the log viewer the way the app does at runtime — a client-side route change, no
+// reload. The native View > Logs menu is not WebDriver-accessible; a hard URL load is unreliable
+// (custom-scheme opaque origin + no SPA fallback); and an injected `import()` of the Tauri API
+// can't resolve a bare specifier. So push the route and fire `popstate`, which react-router's
+// browser history listens for — pure sync DOM, no Promise to serialize.
+export async function openLogViewer(browser: Browser): Promise<void> {
+  await browser.execute(() => {
+    window.history.pushState({}, "", "/logs");
+    window.dispatchEvent(new Event("popstate"));
+  });
+  await browser.waitUntil(async () => (await browser.getUrl()).includes("/logs"), {
+    timeout: 15_000,
+    timeoutMsg: "client navigation did not route to /logs",
+  });
+  const viewer = await browser.$('[data-testid="log-viewer"]');
+  await viewer.waitForExist({ timeout: 15_000 });
 }
