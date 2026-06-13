@@ -130,6 +130,62 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
     assert_eq!(result_corr, corr);
 }
 
+/// The standardized observability vocabulary (design D5): a correlated record's log
+/// attribute key is exactly `correlation_id` — snake_case, distinct from the camelCase
+/// `correlationId` used on the JSON wire. Capture a structured log line emitted in the
+/// production shape (orchestrator, gate, and daemon all log `correlation_id = …`) and
+/// assert the key, so a drift to the wire form would fail loudly.
+#[test]
+fn the_log_attribute_key_is_exactly_correlation_id() {
+    use std::io::Write;
+    use std::sync::{Arc, Mutex};
+    use tracing_subscriber::fmt::MakeWriter;
+
+    #[derive(Clone, Default)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
+    impl Write for Buffer {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    impl<'a> MakeWriter<'a> for Buffer {
+        type Writer = Buffer;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    let buffer = Buffer::default();
+    let captured = buffer.0.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .json()
+        .with_writer(buffer)
+        .finish();
+
+    let corr = CorrelationId(CORR.into());
+    tracing::subscriber::with_default(subscriber, || {
+        tracing::info!(correlation_id = %corr.0, "correlated operation");
+    });
+
+    let logged = String::from_utf8(captured.lock().unwrap().clone()).expect("utf8 log output");
+    let record: serde_json::Value =
+        serde_json::from_str(logged.lines().next().expect("one log line")).expect("json record");
+    let fields = &record["fields"];
+    assert_eq!(
+        fields["correlation_id"],
+        json!(CORR),
+        "the log attribute key is exactly `correlation_id`: {logged}"
+    );
+    assert!(
+        fields.get("correlationId").is_none(),
+        "the log key is snake_case, not the camelCase wire form: {logged}"
+    );
+}
+
 /// Live cross-hop correlation trace: one id injected at the daemon hook entry
 /// must be observable in the gate subscriber stream.
 ///

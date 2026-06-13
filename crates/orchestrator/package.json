@@ -1,18 +1,17 @@
 {
-  "name": "@tillerd/memorya",
-  "version": "0.0.0",
+  "name": "@tillerd/orchestrator",
+  "private": true,
   "scripts": {
-    "build": "cargo build --release",
     "lint": "cargo clippy --all-targets --locked -- -D warnings",
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",
-    "test": "cargo test",
-    "eval": "cargo run --bin memorya-eval"
+    "test": "cargo test"
   },
   "dependencies": {
     "@tillerd/contracts": "workspace:*",
-    "@tillerd/gate-client": "workspace:*",
+    "@tillerd/daemon-pty-client": "workspace:*",
     "@tillerd/paths": "workspace:*",
-    "@tillerd/redact": "workspace:*"
+    "@tillerd/process-launch": "workspace:*",
+    "@tillerd/service-host": "workspace:*"
   }
 }

@@ -4701,6 +4701,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4770,6 +4772,15 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tillerd-contracts",
+ "tillerd-paths",
+]
+
+[[package]]
+name = "tillerd-integration-tests"
+version = "0.0.0"
+dependencies = [
+ "serial_test",
+ "tempfile",
  "tillerd-paths",
 ]
 

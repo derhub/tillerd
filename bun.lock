@@ -30,11 +30,20 @@
       "bin": {
         "tillerd-daemon": "../../target/release/tillerd-daemon",
       },
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+        "@tillerd/service-host": "workspace:*",
+      },
     },
     "apps/desktop": {
       "name": "tillerd-desktop",
       "version": "0.0.0",
       "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/orchestrator": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+        "@tillerd/process-launch": "workspace:*",
         "@tillerd/ui": "workspace:*",
       },
       "devDependencies": {
@@ -47,6 +56,11 @@
       "bin": {
         "tillerd-gate": "../../target/release/tillerd-gate",
       },
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+        "@tillerd/service-host": "workspace:*",
+      },
     },
     "apps/gate-notify": {
       "name": "@tillerd/gate-notify",
@@ -54,10 +68,20 @@
       "bin": {
         "tillerd-notify": "../../bin/tillerd-notify",
       },
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+      },
     },
     "apps/memorya": {
       "name": "@tillerd/memorya",
       "version": "0.0.0",
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/gate-client": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+        "@tillerd/redact": "workspace:*",
+      },
     },
     "apps/ui": {
       "name": "@tillerd/ui",
@@ -92,6 +116,49 @@
         "tailwindcss": "^4.3.0",
         "typescript": "^6.0.3",
         "vite": "^8.0.16",
+      },
+    },
+    "crates/contracts": {
+      "name": "@tillerd/contracts",
+    },
+    "crates/daemon-pty-client": {
+      "name": "@tillerd/daemon-pty-client",
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+      },
+    },
+    "crates/gate-client": {
+      "name": "@tillerd/gate-client",
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+      },
+    },
+    "crates/orchestrator": {
+      "name": "@tillerd/orchestrator",
+      "dependencies": {
+        "@tillerd/contracts": "workspace:*",
+        "@tillerd/daemon-pty-client": "workspace:*",
+        "@tillerd/paths": "workspace:*",
+        "@tillerd/process-launch": "workspace:*",
+        "@tillerd/service-host": "workspace:*",
+      },
+    },
+    "crates/paths": {
+      "name": "@tillerd/paths",
+    },
+    "crates/process-launch": {
+      "name": "@tillerd/process-launch",
+      "dependencies": {
+        "@tillerd/paths": "workspace:*",
+      },
+    },
+    "crates/redact": {
+      "name": "@tillerd/redact",
+    },
+    "crates/service-host": {
+      "name": "@tillerd/service-host",
+      "dependencies": {
+        "@tillerd/paths": "workspace:*",
       },
     },
     "packages/logger": {
@@ -602,11 +669,17 @@
 
     "@tillerd/cli": ["@tillerd/cli@workspace:apps/cli"],
 
+    "@tillerd/contracts": ["@tillerd/contracts@workspace:crates/contracts"],
+
     "@tillerd/daemon-pty": ["@tillerd/daemon-pty@workspace:apps/daemon-pty"],
+
+    "@tillerd/daemon-pty-client": ["@tillerd/daemon-pty-client@workspace:crates/daemon-pty-client"],
 
     "@tillerd/desktop-e2e": ["@tillerd/desktop-e2e@workspace:tests/desktop-e2e"],
 
     "@tillerd/gate": ["@tillerd/gate@workspace:apps/gate"],
+
+    "@tillerd/gate-client": ["@tillerd/gate-client@workspace:crates/gate-client"],
 
     "@tillerd/gate-notify": ["@tillerd/gate-notify@workspace:apps/gate-notify"],
 
@@ -614,7 +687,17 @@
 
     "@tillerd/memorya": ["@tillerd/memorya@workspace:apps/memorya"],
 
+    "@tillerd/orchestrator": ["@tillerd/orchestrator@workspace:crates/orchestrator"],
+
+    "@tillerd/paths": ["@tillerd/paths@workspace:crates/paths"],
+
+    "@tillerd/process-launch": ["@tillerd/process-launch@workspace:crates/process-launch"],
+
+    "@tillerd/redact": ["@tillerd/redact@workspace:crates/redact"],
+
     "@tillerd/sdk": ["@tillerd/sdk@workspace:packages/sdk"],
+
+    "@tillerd/service-host": ["@tillerd/service-host@workspace:crates/service-host"],
 
     "@tillerd/ui": ["@tillerd/ui@workspace:apps/ui"],
 

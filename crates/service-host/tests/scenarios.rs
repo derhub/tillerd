@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use service_host::host::{run, ServeContext, Service, ServiceConfig};
-use service_host::manifest::Manifest;
+use service_host::manifest::{Manifest, ServiceStatus};
 use service_host::paths::Paths;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -264,5 +264,79 @@ async fn graceful_shutdown_on_signal() {
         Manifest::read(&paths.manifest_path()).is_none(),
         "manifest cleaned up after signal-driven shutdown"
     );
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+// ── Drain signal flips the service to draining ───────────────────────────────
+
+/// SIGUSR2 mid-serve flips the manifest status to `Draining` while serve keeps
+/// running, so active work can finish before exit. Requires a live process
+/// (self-signals), so it is skipped in headless CI unless run with `--ignored`.
+#[tokio::test]
+#[ignore = "sends SIGUSR2 to the test process; run in isolation with --ignored"]
+async fn drain_signal_flips_manifest_to_draining() {
+    let base = temp_base("drain");
+    let serve_started = Arc::new(Mutex::new(false));
+
+    struct BlockingService {
+        config: ServiceConfig,
+        serve_started: Arc<Mutex<bool>>,
+    }
+
+    impl Service for BlockingService {
+        fn config(&self) -> ServiceConfig {
+            self.config.clone()
+        }
+
+        async fn serve(&mut self, _ctx: ServeContext) -> std::io::Result<()> {
+            *self.serve_started.lock().unwrap() = true;
+            // Hang forever; drain races this and flips the manifest without ending serve.
+            std::future::pending::<()>().await;
+            Ok(())
+        }
+    }
+
+    let svc = BlockingService {
+        config: ServiceConfig::new("drain-tool", "1.0.0").with_base_override(Some(base.clone())),
+        serve_started: serve_started.clone(),
+    };
+
+    let handle = tokio::spawn(run(svc));
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !*serve_started.lock().unwrap() && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(
+        *serve_started.lock().unwrap(),
+        "serve must start before signal"
+    );
+
+    let _ = std::process::Command::new("kill")
+        .args(["-USR2", &std::process::id().to_string()])
+        .status();
+
+    // The host records `Draining` on the drain signal while serve keeps running.
+    let paths = Paths::resolve("drain-tool", Some(&base));
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let mut status = None;
+    while std::time::Instant::now() < deadline {
+        status = Manifest::read(&paths.manifest_path()).map(|m| m.status);
+        if status == Some(ServiceStatus::Draining) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        status,
+        Some(ServiceStatus::Draining),
+        "manifest status becomes draining after SIGUSR2"
+    );
+
+    // Stop the still-running host so the test process does not leak the task.
+    let _ = std::process::Command::new("kill")
+        .args(["-TERM", &std::process::id().to_string()])
+        .status();
+    let _ = tokio::time::timeout(Duration::from_secs(5), handle).await;
     let _ = std::fs::remove_dir_all(&base);
 }

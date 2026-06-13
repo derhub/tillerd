@@ -12,5 +12,9 @@
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt --check",
     "test": "cargo test"
+  },
+  "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/paths": "workspace:*"
   }
 }

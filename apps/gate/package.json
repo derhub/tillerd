@@ -13,5 +13,10 @@
     "fmt:check": "cargo fmt --check",
     "test": "cargo test",
     "check-deps": "cargo outdated"
+  },
+  "dependencies": {
+    "@tillerd/contracts": "workspace:*",
+    "@tillerd/paths": "workspace:*",
+    "@tillerd/service-host": "workspace:*"
   }
 }

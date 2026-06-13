@@ -29,7 +29,7 @@
       "persistent": true
     },
     "test": {
-      "outputs": ["test-results/**"]
+      "cache": false
     },
     "e2e": {
       "dependsOn": ["@tillerd/daemon-pty#build"],
