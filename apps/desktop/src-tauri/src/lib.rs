@@ -11,7 +11,7 @@ mod supervisor;
 mod surface_host;
 mod workspace_host;
 
-use tauri::menu::{Menu, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{Emitter, Manager};
 
 use bridge::BridgeState;
@@ -46,13 +46,25 @@ pub fn run() {
         .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
         .setup(|app| {
-            // Native menu: the platform default (keeps the macOS app / Edit / Window /
-            // Help items) plus a View > Logs entry that routes the renderer to /logs via
-            // a "menu:navigate" event.
+            // Native menu: the platform default (app / Edit / View / Window / Help) with a
+            // Logs entry added to the existing View submenu. It routes the renderer to /logs
+            // via a "menu:navigate" event. Falls back to a new View submenu if the default
+            // has none.
             let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(app)?;
-            let view = SubmenuBuilder::new(app, "View").item(&logs).build()?;
             let menu = Menu::default(app.handle())?;
-            menu.append(&view)?;
+            let mut placed = false;
+            for item in menu.items()? {
+                if let MenuItemKind::Submenu(sub) = item {
+                    if sub.text().unwrap_or_default() == "View" {
+                        sub.append(&logs)?;
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+            if !placed {
+                menu.append(&SubmenuBuilder::new(app, "View").item(&logs).build()?)?;
+            }
             app.set_menu(menu)?;
             app.on_menu_event(|app_handle, event| {
                 if event.id().as_ref() == "view_logs" {
