@@ -17,7 +17,7 @@ const BUSY_TIMEOUT: Duration = Duration::from_millis(5_000);
 fn content_hash(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 pub struct Store {
