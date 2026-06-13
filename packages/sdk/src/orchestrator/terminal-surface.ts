@@ -37,8 +37,8 @@ export interface TerminalSurfaceClient {
   create(opts: CreateTerminalOptions, onBytes: (bytes: Uint8Array) => void): Promise<string>;
   /** Spawn a surface into a session (diverges the launch spec); returns the minted placement. */
   spawn(sessionId: string): Promise<string>;
-  /** Close a surface: drop its launch item and terminate its pseudo-terminal. */
-  close(sessionId: string, surfaceId: string): Promise<void>;
+  /** Close the surface at (session, placement): drop its launch item and terminate its PTY. */
+  close(sessionId: string, placement: string): Promise<void>;
   input(surfaceId: string, bytes: Uint8Array): Promise<void>;
   resize(surfaceId: string, cols: number, rows: number): Promise<void>;
   detach(surfaceId: string): Promise<void>;
@@ -63,7 +63,7 @@ export function createTerminalSurfaceClient(
       return id;
     },
     spawn: (sessionId) => transport.invoke<string>(SURFACE_SPAWN, { sessionId }),
-    close: (sessionId, surfaceId) => transport.invoke(SURFACE_CLOSE, { sessionId, surfaceId }),
+    close: (sessionId, placement) => transport.invoke(SURFACE_CLOSE, { sessionId, placement }),
     input: (surfaceId, bytes) =>
       transport.invoke(SURFACE_INPUT, { surfaceId, bytes: Array.from(bytes) }),
     resize: (surfaceId, cols, rows) => transport.invoke(SURFACE_RESIZE, { surfaceId, cols, rows }),

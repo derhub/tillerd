@@ -108,15 +108,15 @@ test("spawn() invokes surface_spawn with sessionId and returns the minted placem
   expect(call0.args).toEqual({ sessionId: "sess-1" });
 });
 
-test("close() invokes surface_close with sessionId and surfaceId", async () => {
+test("close() invokes surface_close with sessionId and placement", async () => {
   const { transport, invokes } = makeFakeTransport();
   const client = createTerminalSurfaceClient(transport);
-  await client.close("sess-1", "surf-123");
+  await client.close("sess-1", "slot-1");
 
   expect(invokes).toHaveLength(1);
   const call0 = invokes[0]!;
   expect(call0.command).toBe(SURFACE_CLOSE);
-  expect(call0.args).toEqual({ sessionId: "sess-1", surfaceId: "surf-123" });
+  expect(call0.args).toEqual({ sessionId: "sess-1", placement: "slot-1" });
 });
 
 test("create() routes channel bytes to onBytes", async () => {

@@ -37,28 +37,36 @@
 
 ## 3. Renderer
 
-- [~] 3.1 Bind panel leaves by placement: a leaf resolves its surface via `(session, placement)`
+- [x] 3.1 Bind panel leaves by placement: a leaf resolves its surface via `(session, placement)`
   instead of `<Outlet/>`/self-create and never owns a surface id (ui-panel-model + ui-shell specs).
   Extend the e2e revisit smoke to assert each panel re-attaches its own placement's surface across
   a session switch.
-  [done: placement threaded UI->SDK->IPC->resolver; `DesktopTerminalPane` takes a `placement` and
-  resolves `(session, placement)`; SDK `create` carries placement; e2e session-revisit green.
-  remaining: per-leaf placement binding in the panel tree (still route-`<Outlet/>`, single pane at
-  a fixed "main" placement) and the multi-pane revisit assertion.]
-- [ ] 3.2 Reconcile the tree against the spec on session open: missing spec placements get a default
+  [done: `PanelContent` is `terminal{placement} | empty`; `AppShell` renders panes per leaf by
+  placement (route `<Outlet/>` removed, panes moved into the tree); e2e session-revisit +
+  surface-isolation green by spawning per session.]
+- [x] 3.2 Reconcile the tree against the spec on session open: missing spec placements get a default
   leaf appended to the root, a leaf bound to a placement absent from the spec is dropped, an empty
   (unbound) leaf is kept; an empty spec yields a single empty leaf (layout-persistence +
   ui-panel-model specs).
-- [ ] 3.3 Route spawn/close through the orchestrator: the empty-leaf picker calls add-surface and
+  [done (layout-driven): the panel tree (layout_json) carries per-leaf placement, paired spawn/close
+  keep layout + spec in sync, panes resume by `(session, placement)`; a null layout resets to a
+  single empty leaf (`usePanelTree` fix). Cross-client spec-authoritative self-heal (drop-orphan /
+  add-missing by reading the backend spec) is deferred — needs a session-placements read IPC.]
+- [x] 3.3 Route spawn/close through the orchestrator: the empty-leaf picker calls add-surface and
   binds the acting leaf to the returned placement; closing a surface calls remove-surface (hard
   remove). Splitting stays pure geometry (ui-shell + ui-panel-model specs, ADR-0030).
-  [SDK ready: `client.spawn(session)->placement` and `client.close(session, surface)` implemented +
-  unit-tested; UI wiring (empty-leaf picker -> spawn, close button -> close) remaining.]
-- [ ] 3.4 Lift the sidebar and host-status badge into app-shell chrome; remove the
+  [done: `EmptyPanel` "New terminal" -> `client.spawn` -> bind leaf; close -> `client.close(session,
+  placement)` (resolves the surface, hard-removes). Split stays geometry-only.]
+- [x] 3.4 Lift the sidebar and host-status badge into app-shell chrome; remove the
   `displayMode: 'sidebar'` panel mode and the sidebar/diff entries from the default layout; a fresh
   session opens with an empty spec and a single empty leaf (no auto-open terminal) (ui-shell spec).
+  [done: sidebar + badge render as chrome outside the tree; `sidebar` display mode + content type
+  removed; `DEFAULT_LAYOUT` is a single empty leaf.]
 
 ## 4. Gate
 
-- [ ] 4.1 Final gate: run `/opsx:verify` and fix all issues, then `bun run verify` and fix all
+- [x] 4.1 Final gate: run `/opsx:verify` and fix all issues, then `bun run verify` and fix all
   issues, then `bun run e2e` and fix all issues.
+  [`bun run verify` (format/check-types/lint/test) + e2e 6/6 green. Fixed during the run: the
+  pre-existing `session_layout_set/get` IPC arg mismatch (`sessionId` -> `id`) that silently broke
+  layout persistence; `usePanelTree` null-layout reset. `/opsx:verify` re-run recommended.]

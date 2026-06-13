@@ -144,14 +144,22 @@ pub async fn surface_spawn(
         .map_err(|e| e.to_string())
 }
 
-/// Close a surface: drop its launch item from the session spec and hard-remove it (terminate PTY).
+/// Close the surface at `(session, placement)`: drop its launch item from the session spec and
+/// hard-remove it (terminate PTY). A panel binds a surface by placement, not by surface id.
 #[tauri::command]
 pub async fn surface_close(
     state: State<'_, SurfaceState>,
     session_id: String,
-    surface_id: String,
+    placement: String,
 ) -> Result<(), String> {
-    let surface = SurfaceId::from_string(surface_id);
+    let session = SessionId::from_string(session_id);
+    let Some(surface) = state
+        .api
+        .find_session_surface_by_placement(&session, &placement)
+        .map_err(|e| e.to_string())?
+    else {
+        return Ok(());
+    };
     state
         .channels
         .lock()
@@ -159,7 +167,7 @@ pub async fn surface_close(
         .remove(surface.as_str());
     state
         .api
-        .remove_surface(&SessionId::from_string(session_id), &surface)
+        .remove_surface(&session, &surface)
         .await
         .map_err(|e| e.to_string())
 }

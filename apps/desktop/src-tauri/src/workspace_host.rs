@@ -293,23 +293,24 @@ pub fn do_session_layout_get(
         .map_err(map_store_err)
 }
 
+// `id` (not `session_id`) so the IPC arg matches the SDK and the other session commands.
 #[tauri::command]
 pub fn session_layout_set(
-    session_id: String,
+    id: String,
     layout_json: String,
     state: State<'_, OrchestratorState>,
 ) -> Result<(), String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_session_layout_set(&store, session_id, layout_json).map_err(|e| format!("{e:?}"))
+    do_session_layout_set(&store, id, layout_json).map_err(|e| format!("{e:?}"))
 }
 
 #[tauri::command]
 pub fn session_layout_get(
-    session_id: String,
+    id: String,
     state: State<'_, OrchestratorState>,
 ) -> Result<Option<String>, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_session_layout_get(&store, session_id).map_err(|e| format!("{e:?}"))
+    do_session_layout_get(&store, id).map_err(|e| format!("{e:?}"))
 }
 
 // ── command library ───────────────────────────────────────────────────────────

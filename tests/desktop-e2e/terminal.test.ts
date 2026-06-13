@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp } from "./helpers";
+import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
 
-// A session pane creates a terminal surface; the daemon's shell streams through the orchestrator and
-// paints xterm. Non-empty rendered text proves the end-to-end PTY path. Self-contained: creates its
-// own project (whose default session opens a terminal) rather than relying on prior tests' state.
+// A spawned terminal surface streams the daemon's shell through the orchestrator and paints xterm.
+// Non-empty rendered text proves the end-to-end PTY path. Self-contained: creates its own project,
+// then spawns a terminal into the default (empty) session.
 
 let browser: Browser | undefined;
 afterEach(async () => {
@@ -14,8 +14,9 @@ afterEach(async () => {
 test("a session terminal renders streamed output", async () => {
   const b = (browser = await launchReadyApp());
   await createProject(b, `Terminal ${Date.now()}`);
+  await openTerminal(b);
 
-  // The session route mounts the terminal; the daemon's shell streams through and paints xterm.
+  // The spawned pane mounts the terminal; the daemon's shell streams through and paints xterm.
   const term = await b.$(".xterm");
   await term.waitForExist({ timeout: 20_000 });
   await b.waitUntil(async () => (await term.getText()).trim().length > 0, {
