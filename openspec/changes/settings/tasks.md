@@ -16,7 +16,7 @@
 
 - [x] 4.1 Add a host-agnostic settings port adapter in `apps/ui/app/lib/transport` (desktop adapter over the new bridge), mirroring the `LogSource` shape; unit-test the adapter contract with an injected fake.
 - [x] 4.2 Build the settings panel component + chrome affordance (gear in the bottom-right cluster, non-modal popover, renders instantly). Panel open/close interaction is portal/layout-dependent → e2e (per testing memory); control state covered by the hook tests.
-- [x] 4.3 Make theme dynamic: drive `root.tsx` appearance class from the persisted theme setting applied before first paint (paint script + localStorage cache, durable value in the `setting` table); wire the panel's light/dark control. Apply + persist + cache covered by theme/hook unit tests; visual relaunch-restore → e2e.
+- [x] 4.3 Make theme dynamic: drive `root.tsx` appearance class from the persisted theme setting applied before first paint (paint script + localStorage cache, durable value in the `setting` table); wire the panel's light/dark control. Apply + persist + cache covered by theme/hook unit tests; the gear→light/dark live toggle is covered in desktop e2e (`settings-theme.test`, real WKWebView).
 - [x] 4.4 Add terminal color-scheme selection: apply the persisted scheme to terminal surfaces (`DesktopTerminalPane`, initial + live update via ref) and persist the choice; scheme resolution covered by unit tests; visual apply → e2e.
 - [ ] 4.5 Sidebar expand state — DEFERRED: `SessionSidebar` has no expand/collapse UI in 0.0.x (the project tree expand/collapse is a 0.0.14 item, "persisted via 0.0.9"). The persistence mechanism (settings store + `SIDEBAR_EXPANDED_KEY`) is in place; the tree UI that consumes it lands with 0.0.14. Flagged for user.
 
@@ -28,4 +28,4 @@
 ## 6. Docs and verify gate
 
 - [x] 6.1 Mark the ROADMAP.md 0.0.9 "Env secrets via the OS keychain" bullet deferred (plus the defaults/per-project/sidebar deferrals); CHANGELOG updated.
-- [x] 6.2 Final fix-all gate: format + check-types + lint + full test suite (18/18) + desktop e2e (10/10) all green; shipped spec scenarios map to tests (settings-store, theme/scheme) or documented e2e/manual coverage (panel open/close, window geometry).
+- [x] 6.2 Final fix-all gate: format + check-types + lint + full test suite (18/18) + desktop e2e (11/11, incl. `settings-theme`) all green; shipped spec scenarios map to tests (settings-store, theme/scheme; theme toggle now e2e-covered) or documented coverage (window geometry = plugin + manual).
