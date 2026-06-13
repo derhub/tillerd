@@ -2,18 +2,23 @@
 
 ## Purpose
 
-Defines the recursive panel-tree shell: split, tabbar, and sidebar display modes, the split action, the default three-column layout, and the compact visual style.
+Defines the recursive panel-tree shell: split and tabbar display modes, the split action, panes bound to surfaces by placement with the sidebar and status badge as chrome, the empty-leaf default layout, and the compact visual style.
 
 ## Requirements
 
 ### Requirement: Recursive panel tree rendering
 
-The shell SHALL render a layout described by a recursive tree. A panel group node SHALL contain two or more children (each a leaf or group) and a `direction` (horizontal/vertical) and `displayMode`. A panel leaf SHALL render one content component.
+The shell SHALL render a layout described by a recursive tree. A panel group node SHALL contain two or more children (each a leaf or group) and a `direction` (horizontal/vertical) and `displayMode`. A panel leaf bound to a `placement` SHALL render the surface at that placement; an empty leaf SHALL render a picker. A leaf SHALL NOT own a surface id. The panel tree SHALL hold only session surfaces and empty geometry.
 
 #### Scenario: Nested groups compose
 
 - **WHEN** a panel leaf is replaced by a panel group node
 - **THEN** that group's children render within the space previously occupied by the leaf, without affecting any other panel
+
+#### Scenario: Leaf renders its placement's surface
+
+- **WHEN** a panel leaf bound to a placement is rendered
+- **THEN** it renders the session surface at that placement, and switching sessions renders the new session's surface at the same placement
 
 ### Requirement: Split display mode
 
@@ -52,20 +57,6 @@ When a panel group has `displayMode: 'tabbar-bottom'`, the tab bar SHALL appear 
 - **WHEN** a group has displayMode tabbar-bottom
 - **THEN** the tab strip renders beneath the panel content area
 
-### Requirement: Sidebar display mode
-
-When a panel group has `displayMode: 'sidebar'`, the group SHALL render a vertical list of panel titles on the left side. Only the active panel's content SHALL be expanded. Clicking a title item SHALL expand that panel's content and collapse the previously active one.
-
-#### Scenario: Sidebar lists panel titles
-
-- **WHEN** a group is in sidebar mode with four panels
-- **THEN** four title items appear in a vertical list
-
-#### Scenario: Click expands panel
-
-- **WHEN** the user clicks a sidebar item
-- **THEN** that panel's content expands; the previously active panel collapses
-
 ### Requirement: Panel split action
 
 Each panel SHALL provide split-horizontal and split-vertical actions in its toolbar. Activating either SHALL replace the panel leaf with a group node (direction: horizontal or vertical, mode: split) containing the original panel and a new empty panel.
@@ -82,12 +73,17 @@ Each panel SHALL provide split-horizontal and split-vertical actions in its tool
 
 ### Requirement: Default layout
 
-On first load with no stored layout, the shell SHALL initialize with a horizontal split group containing a sidebar panel (title: "Sessions"), a terminal panel (title: "Terminal"), and a diff panel (title: "Changes"), in that order.
+On first load with no stored geometry, the shell SHALL render the sidebar and host-status badge as chrome outside the panel tree, and a panel tree of one panel per placement in the session's launch spec. A fresh session has an empty launch spec, so the default panel tree SHALL be a single empty leaf; the user spawns the first surface from it. The sidebar and status badge SHALL NOT appear as panels.
 
-#### Scenario: Fresh load
+#### Scenario: Fresh session renders an empty leaf with chrome
 
-- **WHEN** no stored layout exists
-- **THEN** the three-column default renders
+- **WHEN** a fresh session with an empty launch spec is opened and no stored geometry exists
+- **THEN** the panel tree is a single empty leaf, with the sidebar and status badge rendered as chrome outside the tree
+
+#### Scenario: Session with surfaces renders one panel per placement
+
+- **WHEN** a session whose spec has placements is opened with no stored geometry
+- **THEN** the panel tree renders one panel per placement, in spec order, with the sidebar and status badge as chrome
 
 ### Requirement: Compact visual style
 
