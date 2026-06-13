@@ -3,20 +3,21 @@
 ### Requirement: Add surface to session
 
 Adding a surface to a session SHALL be a divergence of the session's launch spec. The orchestrator
-SHALL append a launch item, mint a placement unique within the session, create the surface bound to
-that placement, and record the `session_id` on the surface. The caller supplies a `session_id` and
-the new item's target. The orchestrator SHALL reject the request if the `session_id` does not exist.
-The minted placement SHALL be returned to the caller so the UI can bind the acting panel to it.
+SHALL append a launch item, mint a placement unique within the session, record it on the session
+spec, and return the placement to the caller. The caller supplies a `session_id` and the new item's
+target. The orchestrator SHALL reject the request if the `session_id` does not exist. The renderer
+then creates the surface at the returned placement -- it owns the surface byte channel -- and binds
+the acting panel to it; surface creation resolves or creates by `(session, placement)`.
 
-#### Scenario: Spawn appends a launch item, mints a placement, and creates the surface
+#### Scenario: Spawn appends a launch item and returns the minted placement
 
 - **WHEN** an add-surface request supplies a valid `session_id` and a target
-- **THEN** the orchestrator appends a launch item, mints a placement, creates the surface, records the `session_id`, and returns the placement
+- **THEN** the orchestrator appends a launch item, mints a placement unique within the session, and returns it; the renderer then creates the surface at that placement
 
 #### Scenario: Unknown session is rejected
 
 - **WHEN** an add-surface request supplies a `session_id` that does not exist
-- **THEN** the orchestrator returns a typed error and no item or surface is added
+- **THEN** the orchestrator returns a typed error and no item is added
 
 ### Requirement: Remove surface from session
 

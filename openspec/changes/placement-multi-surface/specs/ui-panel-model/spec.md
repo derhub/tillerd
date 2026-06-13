@@ -4,14 +4,14 @@
 
 A panel leaf SHALL bind to at most one surface, identified by `placement`, and SHALL NOT own a
 surface id. An empty leaf (no bound placement) SHALL present a picker; choosing a surface kind
-SHALL spawn a surface -- the orchestrator appends a launch item to the session spec, mints the
-placement, and creates the surface -- and the acting leaf SHALL bind to the returned placement.
+SHALL spawn a surface -- the orchestrator appends a launch item to the session spec and mints the
+placement -- and the acting leaf SHALL bind to the returned placement and create the surface at it.
 Binding by placement supersedes assigning a content type to a leaf.
 
 #### Scenario: Empty leaf picker spawns a surface
 
 - **WHEN** the user picks a surface kind in an empty leaf
-- **THEN** the orchestrator appends a launch item, mints a placement, and creates the surface, and the leaf binds to that placement
+- **THEN** the orchestrator appends a launch item and mints a placement, and the leaf binds to that placement and creates the surface at it
 
 #### Scenario: Binding persists
 
@@ -21,24 +21,26 @@ Binding by placement supersedes assigning a content type to a leaf.
 ### Requirement: Panel tree state model
 
 The application SHALL maintain a panel tree that carries geometry (splits, sizes, tabs) and a
-`placement` binding per leaf; a leaf SHALL NOT carry a surface id. The tree SHALL be initialized
-by reconciling stored geometry against the session's launch-spec placements: every spec
-placement gets a leaf (its stored geometry, or a default), a leaf bound to a placement absent
-from the spec is dropped, and an empty (unbound) leaf is kept as durable geometry. Stored
-geometry is a best-effort hint; the launch spec is authoritative for which surfaces exist. Every
-structural change (split, close, placement binding) SHALL persist the updated geometry.
+`placement` binding per leaf; a leaf SHALL NOT carry a surface id. On load the tree SHALL be
+restored from the stored geometry: a leaf bound to a placement renders the surface resolved by
+`(session, placement)`, and an empty (unbound) leaf is kept as durable geometry. A session with no
+stored layout SHALL initialize to a single empty leaf and SHALL NOT inherit the previously-open
+session's tree. Every structural change (split, close, placement binding) SHALL persist the updated
+geometry; spawn and close write both the geometry and the launch spec so they stay in agreement. A
+spec-authoritative reconcile against the launch spec (add a leaf for a spec placement with no leaf,
+drop a leaf whose placement is absent from the spec) is a deferred follow-up.
 
-#### Scenario: Tree reconciles against the spec on load
+#### Scenario: Bound leaf resolves its surface on load
 
-- **WHEN** the panel tree is initialized for a session whose spec has a placement with no stored leaf
-- **THEN** a default leaf is created for that placement and the surface binds to it
+- **WHEN** the panel tree is restored for a session and a leaf is bound to a placement
+- **THEN** that leaf renders the surface resolved by `(session, placement)`
 
-#### Scenario: Bound orphan leaf is dropped
+#### Scenario: Fresh session initializes to an empty leaf
 
-- **WHEN** stored geometry carries a leaf bound to a placement absent from the session spec
-- **THEN** that leaf is dropped on load and is not rendered
+- **WHEN** the panel tree is initialized for a session with no stored layout
+- **THEN** it is a single empty leaf and does not inherit the previous session's tree
 
-#### Scenario: Empty leaf survives reconciliation
+#### Scenario: Empty leaf survives a reload
 
 - **WHEN** stored geometry carries an empty leaf with no bound placement
 - **THEN** that leaf is kept as geometry and is not dropped
