@@ -646,7 +646,7 @@ impl Store for SqliteStore {
             rows.collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(persist)?
         };
-        // Lazy-migrate pre-placement rows so resume binds each surface by placement (ADR-0030).
+        // Lazy-migrate null-placement rows so resume can bind by placement.
         for surface in &mut surfaces {
             if surface.placement.is_none() {
                 let minted = uuid::Uuid::new_v4().to_string();

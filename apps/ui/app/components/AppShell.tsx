@@ -14,7 +14,6 @@ import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/p
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { cn } from "~/lib/utils";
 
-// Built on demand for user-initiated spawn/close (the surface transport loads the tauri channel).
 async function makeTerminalClient() {
   const { loadTerminalSurfaceTransport } = await import("~/lib/transport/terminal-surface");
   const { createTerminalSurfaceClient } = await import("@tillerd/sdk/orchestrator");
@@ -33,7 +32,6 @@ export function AppShell() {
   );
   const totalPanels = countLeaves(tree);
 
-  // Spawn diverges the session spec (ADR-0030); the acting leaf binds to the minted placement.
   const handleSpawn = useCallback(
     async (leafId: string) => {
       if (!sessionId) return;
@@ -44,7 +42,6 @@ export function AppShell() {
     [sessionId, setContent],
   );
 
-  // Closing a terminal is a hard remove: drop the spec item + terminate the PTY, then the geometry.
   const handleClose = useCallback(
     (leaf: PanelLeaf) => {
       if (leaf.content.type === "terminal" && sessionId) {
@@ -98,7 +95,6 @@ export function AppShell() {
       );
     }
 
-    // tabbar-top / tabbar-bottom
     return (
       <PanelGroup.Provider
         key={group.id}

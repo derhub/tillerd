@@ -1,8 +1,6 @@
 import { TerminalIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 
-// Spawning a surface diverges the session launch spec (ADR-0030); the picker triggers a spawn and
-// the acting leaf binds to the returned placement. 0.x is terminal-only.
 export function EmptyPanel({ onSpawn, disabled }: { onSpawn: () => void; disabled?: boolean }) {
   return (
     <div className="flex flex-col h-full pt-[20%] px-4">

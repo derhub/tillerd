@@ -101,8 +101,6 @@ fn apply_migration_step(blob: &str, _step_version: u32) -> Result<String> {
 }
 
 impl LaunchSpec {
-    /// Mint a placement for every item that lacks one, leaving existing placements intact.
-    /// Placement is a per-session-unique slot id, minted when an item enters a session spec.
     pub fn mint_placements(&mut self) {
         for item in &mut self.items {
             if item.placement.is_none() {
@@ -111,7 +109,6 @@ impl LaunchSpec {
         }
     }
 
-    /// Reject a session spec whose items share a placement.
     pub fn ensure_unique_placements(&self) -> Result<()> {
         let mut seen = std::collections::HashSet::new();
         for item in &self.items {
@@ -127,9 +124,6 @@ impl LaunchSpec {
     }
 }
 
-/// Prepare a template's spec blob for a session: mint a placement for every item (placement is
-/// minted when an item enters a session spec; a template carries none) and reject duplicates.
-/// Returns the re-serialized session spec blob.
 pub fn instantiate_for_session(blob: &str) -> Result<String> {
     let mut spec = parse_spec(blob)?;
     spec.mint_placements();

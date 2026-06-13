@@ -135,8 +135,7 @@ fn migration_v3() -> String {
     "ALTER TABLE command ADD COLUMN deleted_at TEXT;".to_string()
 }
 
-/// Enforce one live surface per `(session_id, placement)`. Partial index so soft-deleted rows and
-/// pre-migration null-placement rows are excluded (they are lazy-migrated to a minted placement).
+// Partial index: soft-deleted and null-placement (pre-migration) rows are excluded.
 fn migration_v4() -> String {
     "CREATE UNIQUE INDEX surface_session_placement
          ON surface(session_id, placement)

@@ -400,7 +400,7 @@ impl Store for InMemoryStore {
             })
             .map(|r| r.surface.id.as_str().to_string())
             .collect();
-        // Lazy-migrate pre-placement rows so resume binds each surface by placement (ADR-0030).
+        // Lazy-migrate null-placement rows so resume can bind by placement.
         let mut out = Vec::with_capacity(ids.len());
         for id in ids {
             if let Some(r) = inner.surfaces.get_mut(&id) {

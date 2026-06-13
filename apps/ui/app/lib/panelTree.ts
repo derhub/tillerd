@@ -1,6 +1,4 @@
-export type PanelContent =
-  // A terminal leaf binds a surface by placement (ADR-0030); it never owns a surface id.
-  { type: "terminal"; placement: string } | { type: "empty" };
+export type PanelContent = { type: "terminal"; placement: string } | { type: "empty" };
 
 export type ToolbarButtonConfig = {
   id: string;
@@ -37,8 +35,7 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// A fresh session opens with no surface (empty launch spec, ADR-0030): a single empty leaf the
-// user spawns into. The sidebar and status badge render as chrome outside the tree.
+// Fresh session opens to a single empty leaf; no surface until the user spawns.
 export const DEFAULT_LAYOUT: PanelLeaf = {
   kind: "panel",
   id: "root",

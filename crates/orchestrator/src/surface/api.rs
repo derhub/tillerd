@@ -153,9 +153,7 @@ impl SurfaceApi {
         self.runtime.remove(surface).await
     }
 
-    /// Spawn a surface into a session: mint a placement, append a launch item to the session spec
-    /// (the spec is the authority for which surfaces exist, ADR-0030), and return the placement.
-    /// The renderer then creates the surface at this placement.
+    // Returns a placement only; the renderer creates the surface at it (it owns the byte channel).
     pub fn spawn_surface(&self, session_id: &SessionId) -> Result<String> {
         let placement = uuid::Uuid::new_v4().to_string();
         let mut spec = self.session_spec(session_id)?;
@@ -173,8 +171,6 @@ impl SurfaceApi {
         Ok(placement)
     }
 
-    /// Close a surface: drop its launch item from the session spec (spec divergence) and hard-remove
-    /// it (soft-delete the row and terminate its pseudo-terminal). A closed surface is not resumed.
     pub async fn remove_surface(&self, session_id: &SessionId, surface: &SurfaceId) -> Result<()> {
         if let Some(placement) = self.store.get_surface(surface)?.and_then(|s| s.placement) {
             let mut spec = self.session_spec(session_id)?;
@@ -185,7 +181,6 @@ impl SurfaceApi {
         self.remove(surface).await
     }
 
-    /// The session's current launch spec, or an empty current-version spec when none is stored.
     fn session_spec(&self, session_id: &SessionId) -> Result<LaunchSpec> {
         let session = self
             .store

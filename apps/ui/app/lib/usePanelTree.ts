@@ -40,8 +40,7 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
       try {
         const blob = await client.getSessionLayout({ id: sessionId });
         if (cancelled) return;
-        // A session with no stored layout resets to the empty default — never inherits the
-        // previous session's tree (ADR-0030: a fresh session opens with a single empty leaf).
+        // Reset on a null layout -- never inherit the previous session's tree.
         if (!blob) {
           setTree(DEFAULT_LAYOUT);
           return;

@@ -25,7 +25,6 @@ const TERM_THEME = {
 
 export function DesktopTerminalPane(_props: {
   sessionId: string | null;
-  /** The slot this pane binds to; the surface is resolved or created at (session, placement). */
   placement: string;
   cwd: string;
   onSessionStart?: (id: string) => void;

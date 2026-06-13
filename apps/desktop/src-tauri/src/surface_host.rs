@@ -131,8 +131,6 @@ pub async fn surface_create(
     Ok(id)
 }
 
-/// Spawn a surface into a session: diverge the session's launch spec and return the minted
-/// placement. The renderer then mounts a pane at that placement, which calls `surface_create`.
 #[tauri::command]
 pub async fn surface_spawn(
     state: State<'_, SurfaceState>,
@@ -144,8 +142,7 @@ pub async fn surface_spawn(
         .map_err(|e| e.to_string())
 }
 
-/// Close the surface at `(session, placement)`: drop its launch item from the session spec and
-/// hard-remove it (terminate PTY). A panel binds a surface by placement, not by surface id.
+// Keyed by placement, not surface id -- a panel binds a surface by placement.
 #[tauri::command]
 pub async fn surface_close(
     state: State<'_, SurfaceState>,

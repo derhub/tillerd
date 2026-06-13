@@ -53,8 +53,7 @@ export async function surfaceId(browser: Browser): Promise<string> {
   return (await el.getAttribute("data-surface-id")) ?? "";
 }
 
-// A fresh session opens with an empty leaf (ADR-0030: no auto-spawn). Click the empty leaf's
-// "New terminal" picker to spawn a surface, then wait for its pane to mount. Returns the surface id.
+// Fresh session has an empty leaf (no auto-spawn); click "New terminal" to spawn, return its id.
 export async function openTerminal(browser: Browser): Promise<string> {
   const spawn = await browser.$("button*=New terminal");
   await spawn.waitForExist({ timeout: 15_000 });
