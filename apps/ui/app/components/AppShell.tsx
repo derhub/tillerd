@@ -7,6 +7,7 @@ import { SessionSidebar } from "~/components/SessionSidebar";
 import { EmptyPanel } from "~/components/EmptyPanel";
 import { TerminalPane } from "~/components/TerminalPane";
 import { DesktopTerminalPane } from "~/components/DesktopTerminalPane";
+import type { TerminalSurfaceClient } from "@tillerd/sdk/orchestrator";
 import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
@@ -14,10 +15,14 @@ import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/p
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { cn } from "~/lib/utils";
 
-async function makeTerminalClient() {
-  const { loadTerminalSurfaceTransport } = await import("~/lib/transport/terminal-surface");
-  const { createTerminalSurfaceClient } = await import("@tillerd/sdk/orchestrator");
-  return createTerminalSurfaceClient(await loadTerminalSurfaceTransport());
+// Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
+let terminalClient: Promise<TerminalSurfaceClient> | null = null;
+function getTerminalClient(): Promise<TerminalSurfaceClient> {
+  return (terminalClient ??= (async () => {
+    const { loadTerminalSurfaceTransport } = await import("~/lib/transport/terminal-surface");
+    const { createTerminalSurfaceClient } = await import("@tillerd/sdk/orchestrator");
+    return createTerminalSurfaceClient(await loadTerminalSurfaceTransport());
+  })());
 }
 
 export function AppShell() {
@@ -35,7 +40,7 @@ export function AppShell() {
   const handleSpawn = useCallback(
     async (leafId: string) => {
       if (!sessionId) return;
-      const client = await makeTerminalClient();
+      const client = await getTerminalClient();
       const placement = await client.spawn(sessionId);
       setContent(leafId, { type: "terminal", placement });
     },
@@ -46,7 +51,7 @@ export function AppShell() {
     (leaf: PanelLeaf) => {
       if (leaf.content.type === "terminal" && sessionId) {
         const placement = leaf.content.placement;
-        void makeTerminalClient()
+        void getTerminalClient()
           .then((c) => c.close(sessionId, placement))
           .catch(() => {});
       }
@@ -176,22 +181,24 @@ export function AppShell() {
   }
 
   function renderContent(content: PanelContent, leafId: string): React.ReactNode {
-    if (content.type === "empty") {
-      return (
-        <EmptyPanel
-          onSpawn={() => void handleSpawn(leafId)}
-          disabled={!sessionId || !orchestratorClient}
-        />
-      );
+    switch (content.type) {
+      case "empty":
+        return (
+          <EmptyPanel
+            onSpawn={() => void handleSpawn(leafId)}
+            disabled={!sessionId || !orchestratorClient}
+          />
+        );
+      case "terminal":
+        return (
+          <DesktopTerminalPane
+            key={`${sessionId ?? "none"}:${content.placement}`}
+            sessionId={sessionId}
+            placement={content.placement}
+            cwd=""
+          />
+        );
     }
-    return (
-      <DesktopTerminalPane
-        key={`${sessionId ?? "none"}:${content.placement}`}
-        sessionId={sessionId}
-        placement={content.placement}
-        cwd=""
-      />
-    );
   }
 
   return (
