@@ -12,5 +12,5 @@ afterEach(async () => {
 
 test("boots to a ready shell", async () => {
   browser = await launchReadyApp();
-  expect(await browser.$("body").getText()).toContain("orchestrator: ready");
+  expect(await browser.$("body").getText()).toContain("services: ready");
 }, 120_000);

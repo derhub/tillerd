@@ -1,7 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import { LEVELS, type LogFilter, distinctAttribute, filterRecords } from "~/lib/logs/log-filter";
+import {
+  LEVELS,
+  type LogFilter,
+  distinctAttribute,
+  distinctService,
+  filterRecords,
+} from "~/lib/logs/log-filter";
 import type { LogRecord } from "~/lib/logs/log-record";
 import { LogTail } from "~/lib/logs/log-tail";
 import { type LogSource, loadLogSource } from "~/lib/transport/log-source";
@@ -13,6 +19,8 @@ export interface LogViewerProps {
   /** Override the source resolver; tests inject a fake. Defaults to the host adapter. */
   resolveSource?: () => Promise<LogSource | null>;
   pollMs?: number;
+  /** Seed the service facet so a health row can open the viewer filtered to one service. */
+  initialService?: string;
 }
 
 /**
@@ -21,10 +29,16 @@ export interface LogViewerProps {
  * filtering. App-shell chrome, not a session surface. Off the desktop host the
  * source is `null` (the server adapter is deferred) and a notice is shown.
  */
-export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: LogViewerProps) {
+export function LogViewer({
+  resolveSource = loadLogSource,
+  pollMs = POLL_MS,
+  initialService,
+}: LogViewerProps) {
   const [records, setRecords] = useState<LogRecord[]>([]);
   const [unsupported, setUnsupported] = useState(false);
-  const [filter, setFilter] = useState<LogFilter>({});
+  const [filter, setFilter] = useState<LogFilter>(() =>
+    initialService ? { service: initialService } : {},
+  );
   const tailRef = useRef<LogTail | null>(null);
   // Serializes refresh ticks and load-older against each other so they never
   // mutate the shared LogTail concurrently.
@@ -86,6 +100,7 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
 
   const components = useMemo(() => distinctAttribute(records, "component"), [records]);
   const sessions = useMemo(() => distinctAttribute(records, "session.id"), [records]);
+  const serviceNames = useMemo(() => distinctService(records), [records]);
   const shown = useMemo(() => filterRecords(records, filter), [records, filter]);
 
   // Virtualize: render only the visible rows (+ overscan) so the list scales to very large
@@ -146,6 +161,12 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
           placeholder="search"
           value={filter.query ?? ""}
           onChange={(e) => setFilter((f) => ({ ...f, query: e.target.value || undefined }))}
+        />
+        <Facet
+          label="service"
+          values={serviceNames}
+          value={filter.service}
+          onChange={(v) => setFilter((f) => ({ ...f, service: v }))}
         />
         <Facet
           label="component"

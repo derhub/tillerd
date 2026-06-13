@@ -17,7 +17,7 @@ pub use backoff::BackoffPolicy;
 pub use diffing::{spawn_fields_differ, SpawnSpec};
 pub use error::LaunchError;
 pub use manifest::ManifestData;
-pub use probes::{OsProbes, Probes};
+pub use probes::{pid_is_alive, OsProbes, Probes};
 pub use spawn::{spawn_and_wait, SpawnTiming};
 
 use std::path::Path;

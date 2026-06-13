@@ -5,7 +5,10 @@ use std::time::Duration;
 
 use orchestrator::persistence::{SqliteStore, Store};
 use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
-use orchestrator::{boot, EventSink, Orchestrator, Status};
+use orchestrator::{
+    boot, read_service_health, EventSink, HealthSpec, Orchestrator, ServiceHealth, ServiceState,
+    Status,
+};
 use process_launch::LaunchError;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -36,6 +39,49 @@ impl From<&Status> for StatusWire {
             Status::Failed { reason } => StatusWire::Failed {
                 reason: reason.clone(),
             },
+        }
+    }
+}
+
+/// A service's state on the wire. Additive read-only health surface; mirrors
+/// `orchestrator::ServiceState`.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ServiceStateWire {
+    Starting,
+    Ready,
+    Draining,
+    VersionMismatch,
+    Unavailable,
+}
+
+impl From<ServiceState> for ServiceStateWire {
+    fn from(state: ServiceState) -> Self {
+        match state {
+            ServiceState::Starting => ServiceStateWire::Starting,
+            ServiceState::Ready => ServiceStateWire::Ready,
+            ServiceState::Draining => ServiceStateWire::Draining,
+            ServiceState::VersionMismatch => ServiceStateWire::VersionMismatch,
+            ServiceState::Unavailable => ServiceStateWire::Unavailable,
+        }
+    }
+}
+
+/// One service's health on the wire.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceHealthWire {
+    pub name: String,
+    pub version: Option<String>,
+    pub state: ServiceStateWire,
+}
+
+impl From<ServiceHealth> for ServiceHealthWire {
+    fn from(health: ServiceHealth) -> Self {
+        Self {
+            name: health.name,
+            version: health.version,
+            state: health.state.into(),
         }
     }
 }
@@ -81,6 +127,40 @@ impl EventSink for TauriEventSink {
 #[tauri::command]
 pub fn orchestrator_status(state: State<'_, OrchestratorState>) -> StatusWire {
     state.status.lock().unwrap().clone()
+}
+
+/// The manifest path each supervised service writes, kept here so the health read
+/// and `build_supervisor` resolve the same locations. Read-only health derives
+/// from these manifests (ADR-0028 discovery source); no socket or route is opened.
+fn service_health_specs() -> Vec<HealthSpec> {
+    let dir = runtime_dir();
+    let version = env!("CARGO_PKG_VERSION").to_string();
+    // Names match each service's `service.name` in the structured logs
+    // (`tillerd-gate` / `tillerd-daemon`) so a row's logs link filters correctly.
+    vec![
+        HealthSpec {
+            name: "tillerd-gate".to_string(),
+            manifest_path: dir.join("gate.json"),
+            expected_version: version.clone(),
+        },
+        HealthSpec {
+            name: "tillerd-daemon".to_string(),
+            manifest_path: manifest_in(&dir),
+            expected_version: version,
+        },
+    ]
+}
+
+/// Read-only per-service health (gate, daemon), read live from each manifest so a
+/// service that is down, mismatched, or draining is observable even when the
+/// orchestrator never reached `ready`. The renderer re-queries this on each
+/// `orchestrator://status` event; there is no separate health event.
+#[tauri::command]
+pub fn service_health() -> Vec<ServiceHealthWire> {
+    read_service_health(&service_health_specs(), process_launch::pid_is_alive)
+        .into_iter()
+        .map(ServiceHealthWire::from)
+        .collect()
 }
 
 fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) -> SpawnFn {
