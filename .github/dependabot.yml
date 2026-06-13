@@ -96,8 +96,6 @@ updates:
     schedule:
       interval: "weekly"
       day: "wednesday"
-      time: "01:20"
-      timezone: "UTC"
     open-pull-requests-limit: 1
     commit-message:
       prefix: "ci(actions)"
