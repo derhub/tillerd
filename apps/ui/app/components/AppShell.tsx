@@ -18,6 +18,8 @@ import { isDesktopHost } from "~/lib/transport";
 import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { bootContent } from "~/lib/health/boot-content";
 import { ServiceHealthIndicator } from "~/components/ServiceHealthIndicator";
+import { SettingsPanel } from "~/components/SettingsPanel";
+import { SettingsProvider } from "~/lib/settings/context";
 import { Skeleton } from "~/components/ui/skeleton";
 
 // Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
@@ -227,25 +229,30 @@ export function AppShell() {
   }
 
   return (
-    <SessionContext value={{ sessionId, status, setStatus }}>
-      <div className="h-dvh w-full flex overflow-hidden">
-        <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-          <SessionSidebar />
-        </aside>
-        <div className="flex-1 min-w-0 pt-px relative">
-          {onLogs ? (
-            <LogViewer initialService={logsService} />
-          ) : host.status === "web" ? (
-            <TerminalPane sessionId={sessionId} />
-          ) : bootRegion === "content" ? (
-            renderNode(tree, "root")
-          ) : bootRegion === "skeleton" ? (
-            <ContentSkeleton />
-          ) : null}
-          <ServiceHealthIndicator />
+    <SettingsProvider>
+      <SessionContext value={{ sessionId, status, setStatus }}>
+        <div className="h-dvh w-full flex overflow-hidden">
+          <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
+            <SessionSidebar />
+          </aside>
+          <div className="flex-1 min-w-0 pt-px relative">
+            {onLogs ? (
+              <LogViewer initialService={logsService} />
+            ) : host.status === "web" ? (
+              <TerminalPane sessionId={sessionId} />
+            ) : bootRegion === "content" ? (
+              renderNode(tree, "root")
+            ) : bootRegion === "skeleton" ? (
+              <ContentSkeleton />
+            ) : null}
+            <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
+              <SettingsPanel />
+              <ServiceHealthIndicator />
+            </div>
+          </div>
         </div>
-      </div>
-    </SessionContext>
+      </SessionContext>
+    </SettingsProvider>
   );
 }
 

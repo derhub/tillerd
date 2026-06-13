@@ -6,7 +6,8 @@ use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
     NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SourceKind, Store, Surface, SurfaceId, TitleSource, Worktree, WorktreeId,
+    Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface, SurfaceId,
+    TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -22,6 +23,8 @@ struct Inner {
     commands: HashMap<String, CommandRecord>,
     worktrees: HashMap<String, Worktree>,
     launch_templates: HashMap<String, LaunchTemplate>,
+    /// Keyed by (scope, project_id, key) -> value_json, mirroring the sqlite primary key.
+    settings: HashMap<(String, String, String), String>,
 }
 
 #[derive(Clone)]
@@ -75,6 +78,7 @@ impl InMemoryStore {
                 commands: HashMap::new(),
                 worktrees: HashMap::new(),
                 launch_templates: HashMap::new(),
+                settings: HashMap::new(),
             }),
         };
         // Seed prebuilt commands on creation (idempotent).
@@ -628,6 +632,52 @@ impl Store for InMemoryStore {
             )),
         }
     }
+
+    // ── settings ──────────────────────────────────────────────────────────
+
+    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
+        let (scope_col, project_col) = scope.columns();
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .settings
+            .get(&(
+                scope_col.to_string(),
+                project_col.to_string(),
+                key.to_string(),
+            ))
+            .cloned())
+    }
+
+    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()> {
+        let (scope_col, project_col) = scope.columns();
+        self.inner.lock().unwrap().settings.insert(
+            (
+                scope_col.to_string(),
+                project_col.to_string(),
+                key.to_string(),
+            ),
+            value_json.to_string(),
+        );
+        Ok(())
+    }
+
+    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
+        let (scope_col, project_col) = scope.columns();
+        let inner = self.inner.lock().unwrap();
+        let mut entries: Vec<SettingEntry> = inner
+            .settings
+            .iter()
+            .filter(|((s, p, _), _)| s == scope_col && p == project_col)
+            .map(|((_, _, key), value_json)| SettingEntry {
+                key: key.clone(),
+                value_json: value_json.clone(),
+            })
+            .collect();
+        entries.sort_by(|a, b| a.key.cmp(&b.key));
+        Ok(entries)
+    }
 }
 
 fn prebuilt_commands_mem() -> Vec<Command> {
@@ -754,5 +804,130 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, OrchestratorError::LaunchTemplateNotFound(_)));
+    }
+
+    // ── settings ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn global_setting_round_trips() {
+        let store = InMemoryStore::new();
+        store
+            .set_setting(&SettingScope::Global, "theme", r#""dark""#)
+            .unwrap();
+        let got = store.get_setting(&SettingScope::Global, "theme").unwrap();
+        assert_eq!(got.as_deref(), Some(r#""dark""#));
+    }
+
+    #[test]
+    fn project_scoped_setting_round_trips() {
+        let store = InMemoryStore::new();
+        let scope = SettingScope::Project(ProjectId::unfiled());
+        store
+            .set_setting(&scope, "env", r#"{"FOO":"bar"}"#)
+            .unwrap();
+        let got = store.get_setting(&scope, "env").unwrap();
+        assert_eq!(got.as_deref(), Some(r#"{"FOO":"bar"}"#));
+        // The same key under global is independent.
+        assert!(store
+            .get_setting(&SettingScope::Global, "env")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn overwriting_a_setting_replaces_the_value() {
+        let store = InMemoryStore::new();
+        store
+            .set_setting(&SettingScope::Global, "k", r#"1"#)
+            .unwrap();
+        store
+            .set_setting(&SettingScope::Global, "k", r#"2"#)
+            .unwrap();
+        assert_eq!(
+            store
+                .get_setting(&SettingScope::Global, "k")
+                .unwrap()
+                .as_deref(),
+            Some("2")
+        );
+        // No duplicate rows: exactly one entry for the key.
+        let listed = store.list_settings(&SettingScope::Global).unwrap();
+        assert_eq!(listed.iter().filter(|e| e.key == "k").count(), 1);
+    }
+
+    #[test]
+    fn project_value_takes_precedence_over_global() {
+        let store = InMemoryStore::new();
+        let pid = ProjectId::unfiled();
+        store
+            .set_setting(&SettingScope::Global, "template", r#""g""#)
+            .unwrap();
+        store
+            .set_setting(&SettingScope::Project(pid.clone()), "template", r#""p""#)
+            .unwrap();
+        let resolved = store.resolve_setting(&pid, "template").unwrap();
+        assert_eq!(resolved.as_deref(), Some(r#""p""#));
+    }
+
+    #[test]
+    fn resolve_falls_back_to_global_on_project_miss() {
+        let store = InMemoryStore::new();
+        let pid = ProjectId::unfiled();
+        store
+            .set_setting(&SettingScope::Global, "template", r#""g""#)
+            .unwrap();
+        let resolved = store.resolve_setting(&pid, "template").unwrap();
+        assert_eq!(resolved.as_deref(), Some(r#""g""#));
+    }
+
+    #[test]
+    fn unknown_key_resolves_to_absent() {
+        let store = InMemoryStore::new();
+        let resolved = store
+            .resolve_setting(&ProjectId::unfiled(), "never-set")
+            .unwrap();
+        assert!(resolved.is_none());
+    }
+
+    #[test]
+    fn list_returns_written_entries() {
+        let store = InMemoryStore::new();
+        store.set_setting(&SettingScope::Global, "a", "1").unwrap();
+        store.set_setting(&SettingScope::Global, "b", "2").unwrap();
+        let listed = store.list_settings(&SettingScope::Global).unwrap();
+        assert_eq!(
+            listed,
+            vec![
+                SettingEntry {
+                    key: "a".to_string(),
+                    value_json: "1".to_string()
+                },
+                SettingEntry {
+                    key: "b".to_string(),
+                    value_json: "2".to_string()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn suppression_choice_is_recorded_and_read() {
+        let store = InMemoryStore::new();
+        store
+            .set_setting(&SettingScope::Global, "confirm.close-surface", "true")
+            .unwrap();
+        let got = store
+            .get_setting(&SettingScope::Global, "confirm.close-surface")
+            .unwrap();
+        assert_eq!(got.as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn unset_confirmation_reads_as_absent() {
+        let store = InMemoryStore::new();
+        let got = store
+            .get_setting(&SettingScope::Global, "confirm.never-shown")
+            .unwrap();
+        assert!(got.is_none(), "absent confirmation is not suppressed");
     }
 }

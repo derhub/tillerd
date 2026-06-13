@@ -1,27 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
-const TERM_THEME = {
-  background: "#0d1117",
-  foreground: "#e6edf3",
-  cursor: "#e6edf3",
-  black: "#0d1117",
-  red: "#ff7b72",
-  green: "#3fb950",
-  yellow: "#d29922",
-  blue: "#58a6ff",
-  magenta: "#bc8cff",
-  cyan: "#39c5cf",
-  white: "#b1bac4",
-  brightBlack: "#6e7681",
-  brightRed: "#ffa198",
-  brightGreen: "#56d364",
-  brightYellow: "#e3b341",
-  brightBlue: "#79c0ff",
-  brightMagenta: "#d2a8ff",
-  brightCyan: "#56d4dd",
-  brightWhite: "#f0f6fc",
-};
+import { useGlobalSetting } from "~/lib/settings/context";
+import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
+import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
 
 export function DesktopTerminalPane(_props: {
   sessionId: string | null;
@@ -34,6 +17,18 @@ export function DesktopTerminalPane(_props: {
   // Exposed as `data-surface-id` so a session's surface is observable (e.g. the desktop e2e asserts
   // two sessions get two distinct surfaces).
   const [surfaceId, setSurfaceId] = useState<string | null>(null);
+
+  // Terminal color scheme: applied at creation and updated live without recreating the PTY.
+  // Read from the shared reactive settings state so a change in the panel reaches this terminal.
+  // `getTerminalTheme` returns a stable per-scheme object, so the effect fires only on change.
+  const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
+  const terminalTheme = getTerminalTheme(scheme);
+  const termRef = useRef<Terminal | null>(null);
+
+  useEffect(() => {
+    const term = termRef.current;
+    if (term) term.options.theme = terminalTheme;
+  }, [terminalTheme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,8 +47,9 @@ export function DesktopTerminalPane(_props: {
         cursorBlink: true,
         fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
         fontSize: 13,
-        theme: TERM_THEME,
+        theme: terminalTheme,
       });
+      termRef.current = term;
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
 
@@ -117,6 +113,7 @@ export function DesktopTerminalPane(_props: {
         unsubExit();
         void client.detach(surfaceId);
         term.dispose();
+        termRef.current = null;
       };
     })();
 
@@ -131,7 +128,7 @@ export function DesktopTerminalPane(_props: {
   return (
     <div
       className="h-full w-full relative"
-      style={{ background: "#0d1117" }}
+      style={{ background: terminalTheme.background }}
       data-surface-id={surfaceId ?? undefined}
     >
       <div

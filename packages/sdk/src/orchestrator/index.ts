@@ -50,3 +50,13 @@ export {
   createWorkspaceClient,
 } from "./workspace";
 export type { SourceKind, TitleSource, WorkspaceClient, WorkspaceTransport } from "./workspace";
+export { SETTING_GET, SETTING_SET, SETTING_LIST, createSettingsClient } from "./settings";
+export type {
+  SettingScope,
+  SettingEntry,
+  SettingsClient,
+  SettingsTransport,
+  GetSettingArgs,
+  SetSettingArgs,
+  ListSettingsArgs,
+} from "./settings";

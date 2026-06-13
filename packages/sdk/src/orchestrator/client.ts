@@ -17,13 +17,22 @@ import {
   type SetSessionLayoutArgs,
   type GetSessionLayoutArgs,
 } from "./workspace";
+import {
+  createSettingsClient,
+  type SettingsClient,
+  type SettingScope,
+  type SettingEntry,
+  type GetSettingArgs,
+  type SetSettingArgs,
+  type ListSettingsArgs,
+} from "./settings";
 
 export interface OrchestratorHostTransport {
   invoke<T>(method: string, args?: Record<string, unknown>): Promise<T>;
   listen(event: string, handler: (payload: OrchestratorStatus) => void): Promise<() => void>;
 }
 
-export interface OrchestratorClient extends WorkspaceClient {
+export interface OrchestratorClient extends WorkspaceClient, SettingsClient {
   status(): Promise<OrchestratorStatus>;
   subscribe(handler: (status: OrchestratorStatus) => void): Promise<() => void>;
   /** Read-only per-service health snapshot (gate, daemon). Re-query on a status event. */
@@ -32,11 +41,13 @@ export interface OrchestratorClient extends WorkspaceClient {
 
 export function createOrchestratorClient(transport: OrchestratorHostTransport): OrchestratorClient {
   const workspace = createWorkspaceClient(transport);
+  const settings = createSettingsClient(transport);
   return {
     status: () => transport.invoke<OrchestratorStatus>(ORCHESTRATOR_STATUS_METHOD),
     subscribe: (handler) => transport.listen(ORCHESTRATOR_STATUS_EVENT, handler),
     serviceHealth: () => transport.invoke<ServiceHealth[]>(SERVICE_HEALTH_METHOD),
     ...workspace,
+    ...settings,
   };
 }
 
@@ -52,4 +63,9 @@ export type {
   ArchiveSessionArgs,
   SetSessionLayoutArgs,
   GetSessionLayoutArgs,
+  SettingScope,
+  SettingEntry,
+  GetSettingArgs,
+  SetSettingArgs,
+  ListSettingsArgs,
 };

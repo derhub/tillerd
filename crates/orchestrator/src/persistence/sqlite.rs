@@ -7,8 +7,8 @@ use super::schema;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
     NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SourceKind, Store, Surface, SurfaceId, SurfaceKind, TitleSource, Worktree,
-    WorktreeId,
+    Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface, SurfaceId,
+    SurfaceKind, TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -972,6 +972,57 @@ impl Store for SqliteStore {
             ));
         }
         Ok(())
+    }
+
+    // ── settings ──────────────────────────────────────────────────────────
+
+    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
+        let (scope_col, project_col) = scope.columns();
+        self.lock()?
+            .query_row(
+                "SELECT value_json FROM setting
+                 WHERE scope = ?1 AND project_id = ?2 AND key = ?3",
+                params![scope_col, project_col, key],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(persist)
+    }
+
+    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()> {
+        let (scope_col, project_col) = scope.columns();
+        self.lock()?
+            .execute(
+                "INSERT INTO setting (scope, project_id, key, value_json)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(scope, project_id, key)
+                 DO UPDATE SET value_json = excluded.value_json",
+                params![scope_col, project_col, key, value_json],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
+
+    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
+        let (scope_col, project_col) = scope.columns();
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT key, value_json FROM setting
+                 WHERE scope = ?1 AND project_id = ?2
+                 ORDER BY key",
+            )
+            .map_err(persist)?;
+        let rows = stmt
+            .query_map(params![scope_col, project_col], |row| {
+                Ok(SettingEntry {
+                    key: row.get(0)?,
+                    value_json: row.get(1)?,
+                })
+            })
+            .map_err(persist)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(persist)
     }
 }
 
@@ -2221,6 +2272,79 @@ mod tests {
         assert_eq!(
             reloaded.spec_json.as_deref(),
             Some(r#"{"version":1,"items":[]}"#)
+        );
+    }
+
+    // ── settings ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn settings_survive_a_restart() {
+        let (_dir, path) = temp_db("settings-persist");
+        {
+            let store = SqliteStore::open(&path).unwrap();
+            store
+                .set_setting(&SettingScope::Global, "theme", r#""light""#)
+                .unwrap();
+        }
+        // Reopen against the same file — the value persists.
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(
+            store
+                .get_setting(&SettingScope::Global, "theme")
+                .unwrap()
+                .as_deref(),
+            Some(r#""light""#)
+        );
+    }
+
+    #[test]
+    fn overwriting_a_setting_upserts_without_duplicate_rows() {
+        let (_dir, path) = temp_db("settings-upsert");
+        let store = SqliteStore::open(&path).unwrap();
+        store.set_setting(&SettingScope::Global, "k", "1").unwrap();
+        store.set_setting(&SettingScope::Global, "k", "2").unwrap();
+
+        assert_eq!(
+            store
+                .get_setting(&SettingScope::Global, "k")
+                .unwrap()
+                .as_deref(),
+            Some("2")
+        );
+        let count: i64 = store
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT count(*) FROM setting WHERE scope='global' AND project_id='' AND key='k'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "upsert must not create a duplicate row");
+    }
+
+    #[test]
+    fn project_and_global_settings_are_independent() {
+        let (_dir, path) = temp_db("settings-scope");
+        let store = SqliteStore::open(&path).unwrap();
+        let pid = ProjectId::unfiled();
+        store
+            .set_setting(&SettingScope::Global, "env", r#""g""#)
+            .unwrap();
+        store
+            .set_setting(&SettingScope::Project(pid.clone()), "env", r#""p""#)
+            .unwrap();
+
+        assert_eq!(
+            store.resolve_setting(&pid, "env").unwrap().as_deref(),
+            Some(r#""p""#)
+        );
+        assert_eq!(
+            store
+                .get_setting(&SettingScope::Global, "env")
+                .unwrap()
+                .as_deref(),
+            Some(r#""g""#)
         );
     }
 }

@@ -13,7 +13,7 @@
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::surface_host::SurfaceState;
-use crate::{bridge, diag, files, store, supervisor, surface_host, workspace_host};
+use crate::{bridge, diag, files, settings_host, store, supervisor, surface_host, workspace_host};
 use orchestrator::persistence::memory::InMemoryStore;
 use orchestrator::persistence::{Store, SurfaceId};
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
@@ -88,6 +88,9 @@ fn contract_app() -> tauri::App<MockRuntime> {
             workspace_host::command_create,
             workspace_host::command_get,
             workspace_host::command_delete,
+            settings_host::setting_get,
+            settings_host::setting_set,
+            settings_host::setting_list,
         ])
         .build(crate::app_context())
         .expect("app builds with the full command set + managed state")
@@ -237,6 +240,18 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         ("command_get", serde_json::json!({ "id": "contract" })),
         ("command_delete", serde_json::json!({ "id": "contract" })),
+        (
+            "setting_get",
+            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract" }),
+        ),
+        (
+            "setting_set",
+            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract", "value": 1 }),
+        ),
+        (
+            "setting_list",
+            serde_json::json!({ "scope": "global", "projectId": null }),
+        ),
     ];
 
     for (cmd, body) in cases {

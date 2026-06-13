@@ -6,6 +6,7 @@ mod diag;
 mod files;
 mod gate_admin;
 mod orchestrator_host;
+mod settings_host;
 mod store;
 mod supervisor;
 mod surface_host;
@@ -40,6 +41,10 @@ pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
+    // Save/restore window size, position, and maximized state across relaunch. The default
+    // builder auto-saves on exit and restores on launch; no manual save/restore calls needed.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
     builder
         .manage(BridgeState::default())
         .manage(StoreState::load())
@@ -116,6 +121,9 @@ pub fn run() {
             workspace_host::command_create,
             workspace_host::command_get,
             workspace_host::command_delete,
+            settings_host::setting_get,
+            settings_host::setting_set,
+            settings_host::setting_list,
         ])
         .build(app_context())
         .expect("error while building tauri application")

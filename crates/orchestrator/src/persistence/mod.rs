@@ -310,6 +310,35 @@ pub struct NewLaunchTemplate {
     pub spec_json: String,
 }
 
+// ── settings ──────────────────────────────────────────────────────────────────
+
+/// Scope a setting is stored under: app-global, or bound to a specific project.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingScope {
+    Global,
+    Project(ProjectId),
+}
+
+impl SettingScope {
+    /// The `(scope, project_id)` column pair for the `setting` table. Global uses an
+    /// empty `project_id` sentinel — never NULL — so the composite primary key
+    /// `(scope, project_id, key)` stays unique and upsert works (SQLite treats NULLs
+    /// as distinct, which would defeat both).
+    pub fn columns(&self) -> (&'static str, &str) {
+        match self {
+            SettingScope::Global => ("global", ""),
+            SettingScope::Project(id) => ("project", id.as_str()),
+        }
+    }
+}
+
+/// A stored setting: its key and JSON-encoded value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingEntry {
+    pub key: String,
+    pub value_json: String,
+}
+
 pub trait Store: Send + Sync {
     fn schema_version(&self) -> Result<u32>;
 
@@ -441,4 +470,24 @@ pub trait Store: Send + Sync {
         spec_version: u32,
         spec_json: &str,
     ) -> Result<()>;
+
+    // ── settings ──────────────────────────────────────────────────────────
+
+    /// Read a setting's JSON value for an exact scope, or `None` if unset.
+    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>>;
+
+    /// Insert or replace a setting's JSON value for a scope.
+    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()>;
+
+    /// All settings stored under a scope.
+    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>>;
+
+    /// Resolve a key for a project: the project-scoped value if present, else the
+    /// global value, else `None`.
+    fn resolve_setting(&self, project_id: &ProjectId, key: &str) -> Result<Option<String>> {
+        if let Some(v) = self.get_setting(&SettingScope::Project(project_id.clone()), key)? {
+            return Ok(Some(v));
+        }
+        self.get_setting(&SettingScope::Global, key)
+    }
 }

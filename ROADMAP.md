@@ -147,14 +147,32 @@ of 0.x; every later version is additive on these seams, never a change to them.
   (failure reason + logs link, no retry/restart — supervision seam frozen);
   interactive per-error recovery prompts deferred. 0.0.10 inherits this surfacing.
 
-### 0.0.9 — Settings and secrets
+### 0.0.9 — Settings
 
-- [ ] Global settings panel: theme (light / dark), terminal color scheme, default
-  command library / default template; sidebar expand state and window size / position
-  persisted and restored on relaunch.
-- [ ] Per-project overrides: launch template, project env.
-- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
-- [ ] "Don't ask again" preference storage (used by 0.0.10 close-surface confirm).
+The settings foundation: a host-agnostic, scoped settings store (orchestrator `setting`
+table) reached through a port + SDK client + desktop bridge, with the settings panel,
+theme, terminal color scheme, and window state. Secrets and the heavier consumers are
+deferred (each needs plumbing this slice does not budget); they build on the store shipped
+here.
+
+- [x] Settings store — scoped (global / project) key→value over the `setting` table, host
+  agnostic (orchestrator API → SDK client → desktop bridge), incl. "don't ask again"
+  keyed-boolean storage (used by 0.0.10).
+- [x] Global settings panel: theme (light / dark, applied from first paint), terminal color
+  scheme; opened from the bottom-right chrome cluster.
+- [x] Window size / position / maximized persisted and restored on relaunch
+  (`tauri-plugin-window-state`).
+
+Deferred to follow-up changes (each builds on the store shipped here):
+
+- Default command library / default template selection — needs a template-list API + an SDK
+  command-list method.
+- Per-project overrides (launch template, project env) — needs a project-scoped settings UI +
+  launch-executor env injection.
+- Sidebar expand state — lands with the 0.0.14 project-tree expand/collapse UI; persists via
+  this store.
+- Env secrets via the OS keychain (`secret_ref` stores handles only) — no keychain dependency
+  in 0.0.x.
 
 ### 0.0.10 — Notification center
 

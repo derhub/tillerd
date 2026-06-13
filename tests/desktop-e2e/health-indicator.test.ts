@@ -36,7 +36,11 @@ test("the health indicator lists each service and its logs link opens the filter
     timeout: 10_000,
     timeoutMsg: "logs link did not navigate to the filtered viewer",
   });
-  expect(await (await b.$('[data-testid="log-viewer"]')).isExisting()).toBe(true);
+  // Wait for the viewer to mount: the route changes before React renders it, and on a slow
+  // (xvfb) runner an immediate `isExisting` races the render.
+  const viewer = await b.$('[data-testid="log-viewer"]');
+  await viewer.waitForExist({ timeout: 10_000 });
+  expect(await viewer.isExisting()).toBe(true);
   const facet = await b.$('select[aria-label="service"]');
   await facet.waitForExist({ timeout: 5_000 });
   expect(await facet.getValue()).toBe("tillerd-gate");
