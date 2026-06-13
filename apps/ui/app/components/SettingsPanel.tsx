@@ -1,25 +1,18 @@
 import { Settings } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
-import { useSettingsContext } from "~/lib/settings/context";
-import { TERMINAL_SCHEME_KEY, THEMES, type Theme } from "~/lib/settings/keys";
+import { useGlobalSetting, useTheme } from "~/lib/settings/context";
+import { THEMES, TERMINAL_SCHEME_KEY, type Theme } from "~/lib/settings/keys";
 import { DEFAULT_TERMINAL_SCHEME, TERMINAL_SCHEME_NAMES } from "~/lib/settings/terminal-schemes";
-import { useStringSetting } from "~/lib/settings/use-settings";
-
-export interface SettingsPanelProps {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-}
 
 /**
  * Settings affordance for the shell's bottom-right cluster: a gear button opening a
- * non-modal popover with theme and terminal-scheme controls. Renders instantly; reads
- * the host settings source from context (no blocking on services).
+ * non-modal popover with theme and terminal-scheme controls. Reads the reactive settings
+ * state from context, so changes apply live across the app (incl. mounted terminals).
  */
-export function SettingsPanel({ theme, setTheme }: SettingsPanelProps) {
-  const source = useSettingsContext();
-  const { value: scheme, setValue: setScheme } = useStringSetting(
-    source,
+export function SettingsPanel() {
+  const { theme, setTheme } = useTheme();
+  const { value: scheme, setValue: setScheme } = useGlobalSetting(
     TERMINAL_SCHEME_KEY,
     DEFAULT_TERMINAL_SCHEME,
   );

@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
-import { useSettingsContext } from "~/lib/settings/context";
+import { useGlobalSetting } from "~/lib/settings/context";
 import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
 import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
-import { useStringSetting } from "~/lib/settings/use-settings";
 
 export function DesktopTerminalPane(_props: {
   sessionId: string | null;
@@ -20,8 +19,8 @@ export function DesktopTerminalPane(_props: {
   const [surfaceId, setSurfaceId] = useState<string | null>(null);
 
   // Terminal color scheme: applied at creation and updated live without recreating the PTY.
-  const source = useSettingsContext();
-  const { value: scheme } = useStringSetting(source, TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
+  // Read from the shared reactive settings state so a change in the panel reaches this terminal.
+  const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
   const termRef = useRef<Terminal | null>(null);
   const schemeRef = useRef(scheme);
   schemeRef.current = scheme;

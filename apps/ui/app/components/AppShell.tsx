@@ -19,8 +19,7 @@ import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { bootContent } from "~/lib/health/boot-content";
 import { ServiceHealthIndicator } from "~/components/ServiceHealthIndicator";
 import { SettingsPanel } from "~/components/SettingsPanel";
-import { SettingsContext } from "~/lib/settings/context";
-import { useSettingsSource, useTheme } from "~/lib/settings/use-settings";
+import { SettingsProvider } from "~/lib/settings/context";
 import { Skeleton } from "~/components/ui/skeleton";
 
 // Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
@@ -53,10 +52,6 @@ export function AppShell() {
     return () => unlisten?.();
   }, [navigate]);
   const host = useDesktopHost();
-  // Host settings source (durable theme/scheme/etc); `null` off the desktop host. Hydrating
-  // the theme here reconciles the durable value with the paint-time localStorage cache.
-  const settingsSource = useSettingsSource();
-  const { theme, setTheme } = useTheme(settingsSource);
   const orchestratorClient = host.status === "ready" ? host.orchestratorClient : null;
   // Daemon-dependent content (the panels) waits on boot; a skeleton shows only past
   // a short grace so a fast boot never flashes one. The sidebar reads the store and
@@ -234,7 +229,7 @@ export function AppShell() {
   }
 
   return (
-    <SettingsContext value={settingsSource}>
+    <SettingsProvider>
       <SessionContext value={{ sessionId, status, setStatus }}>
         <div className="h-dvh w-full flex overflow-hidden">
           <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
@@ -251,13 +246,13 @@ export function AppShell() {
               <ContentSkeleton />
             ) : null}
             <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
-              <SettingsPanel theme={theme} setTheme={setTheme} />
+              <SettingsPanel />
               <ServiceHealthIndicator />
             </div>
           </div>
         </div>
       </SessionContext>
-    </SettingsContext>
+    </SettingsProvider>
   );
 }
 

@@ -1,11 +1,107 @@
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
-import type { SettingsSource } from "~/lib/transport/settings-source";
+import { loadSettingsSource, type SettingsSource } from "~/lib/transport/settings-source";
+import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
+import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
 
-/** Holds the resolved host settings source; `null` until resolved / off the desktop host. */
-export const SettingsContext = createContext<SettingsSource | null>(null);
+interface SettingsState {
+  /** Current global settings values, keyed by setting key. */
+  values: Record<string, unknown>;
+  /** Update one global setting: shared state + durable persistence. */
+  setValue: (key: string, value: unknown) => void;
+}
 
-/** The host settings source, or `null` until resolved / off the desktop host. */
-export function useSettingsContext(): SettingsSource | null {
-  return useContext(SettingsContext);
+const SettingsStateContext = createContext<SettingsState | null>(null);
+
+/**
+ * Single reactive source of truth for global settings. Hydrates every global value once (one
+ * `listSettings` call), so all consumers — the panel and every terminal — read the same state
+ * and re-render together when a value changes. `null` source (off the desktop host) degrades to
+ * defaults. Inject `resolve` in tests.
+ */
+export function SettingsProvider({
+  children,
+  resolve = loadSettingsSource,
+}: {
+  children: ReactNode;
+  resolve?: () => Promise<SettingsSource | null>;
+}) {
+  const [source, setSource] = useState<SettingsSource | null>(null);
+  const [values, setValues] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const s = await resolve();
+      if (cancelled) return;
+      setSource(s);
+      if (!s) return;
+      const entries = await s.listSettings({ scope: "global" });
+      if (cancelled) return;
+      const map: Record<string, unknown> = {};
+      for (const e of entries) map[e.key] = e.value;
+      setValues(map);
+      // Reconcile the durable theme with the paint-time cache.
+      if (isTheme(map[THEME_KEY])) {
+        applyTheme(document.documentElement, map[THEME_KEY]);
+        writeCachedTheme(localStorage, map[THEME_KEY]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolve]);
+
+  const setValue = useCallback(
+    (key: string, value: unknown) => {
+      setValues((prev) => ({ ...prev, [key]: value }));
+      void source?.setSetting({ scope: "global", key, value });
+    },
+    [source],
+  );
+
+  const state = useMemo<SettingsState>(() => ({ values, setValue }), [values, setValue]);
+  return <SettingsStateContext value={state}>{children}</SettingsStateContext>;
+}
+
+function useSettingsState(): SettingsState | null {
+  return useContext(SettingsStateContext);
+}
+
+/**
+ * A single global setting as reactive shared state: every consumer of the same key re-renders
+ * when it changes. Falls back to `fallback` until hydrated / off the desktop host.
+ */
+export function useGlobalSetting(
+  key: string,
+  fallback: string,
+): { value: string; setValue: (value: string) => void } {
+  const state = useSettingsState();
+  const raw = state?.values[key];
+  const value = typeof raw === "string" ? raw : fallback;
+  const setValue = useCallback((next: string) => state?.setValue(key, next), [state, key]);
+  return { value, setValue };
+}
+
+/** Theme as reactive shared state, applied to the document root and the paint-time cache on change. */
+export function useTheme(): { theme: Theme; setTheme: (theme: Theme) => void } {
+  const state = useSettingsState();
+  const raw = state?.values[THEME_KEY];
+  const theme: Theme = isTheme(raw)
+    ? raw
+    : typeof localStorage === "undefined"
+      ? DEFAULT_THEME
+      : readCachedTheme(localStorage);
+
+  const setTheme = useCallback(
+    (next: Theme) => {
+      applyTheme(document.documentElement, next);
+      writeCachedTheme(localStorage, next);
+      state?.setValue(THEME_KEY, next);
+    },
+    [state],
+  );
+
+  return { theme, setTheme };
 }
