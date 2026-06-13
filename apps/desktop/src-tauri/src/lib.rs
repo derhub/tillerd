@@ -45,20 +45,21 @@ pub fn run() {
         .manage(StoreState::load())
         .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
-        .setup(|app| {
-            // Native menu: extend the default menu with View > Logs, which routes the
-            // renderer to the log viewer via a "menu:navigate" event.
-            let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(app)?;
-            let view = SubmenuBuilder::new(app, "View").item(&logs).build()?;
-            let menu = Menu::default(app.handle())?;
+        .menu(|handle| {
+            // Extend the default menu (keeps the macOS app / Edit / Window items) with
+            // View > Logs, routed to the log viewer via a "menu:navigate" event.
+            let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(handle)?;
+            let view = SubmenuBuilder::new(handle, "View").item(&logs).build()?;
+            let menu = Menu::default(handle)?;
             menu.append(&view)?;
-            app.set_menu(menu)?;
-            app.on_menu_event(|app_handle, event| {
-                if event.id().as_ref() == "view_logs" {
-                    let _ = app_handle.emit("menu:navigate", "/logs");
-                }
-            });
-
+            Ok(menu)
+        })
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == "view_logs" {
+                let _ = app.emit("menu:navigate", "/logs");
+            }
+        })
+        .setup(|app| {
             // Construct and boot the single embedded orchestrator instance; it
             // streams lifecycle events to the renderer and reaches `ready`.
             let handle = app.handle().clone();
