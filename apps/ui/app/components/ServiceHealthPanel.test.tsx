@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import type { ServiceHealth } from "@tillerd/sdk/orchestrator";
 
 import { ServiceHealthPanel } from "./ServiceHealthPanel";
@@ -7,19 +8,12 @@ import type { OrchestratorPhase } from "~/lib/health/aggregate";
 
 afterEach(cleanup);
 
-function renderPanel(
-  services: ServiceHealth[],
-  phase: OrchestratorPhase = "ready",
-  reason?: string,
-  onOpenLogs: (service: string) => void = () => {},
-) {
+// <Link> needs a router context.
+function renderPanel(services: ServiceHealth[], phase: OrchestratorPhase = "ready", reason?: string) {
   return render(
-    <ServiceHealthPanel
-      phase={phase}
-      reason={reason}
-      services={services}
-      onOpenLogs={onOpenLogs}
-    />,
+    <MemoryRouter>
+      <ServiceHealthPanel phase={phase} reason={reason} services={services} />
+    </MemoryRouter>,
   );
 }
 
@@ -41,33 +35,12 @@ test("a service row shows its version and state", () => {
   expect(screen.getAllByText("ready").length).toBeGreaterThanOrEqual(1);
 });
 
-// Scenario: Row links to that service's logs (href is correct)
+// Scenario: Each row deep-links to that service's logs
 test("a service row links to the logs viewer filtered to that service", () => {
   renderPanel([{ name: "tillerd-gate", version: "1.0.0", state: "ready" }]);
   const hrefs = screen.getAllByRole("link", { name: /logs/i }).map((l) => l.getAttribute("href"));
   expect(hrefs).toContain("/logs?service=tillerd-gate");
   expect(hrefs).toContain("/logs?service=tillerd-desktop");
-});
-
-// Scenario: Row links to that service's logs (click opens that service, client-side)
-test("clicking a row's logs link opens that service's logs without a hard navigation", () => {
-  const opened: string[] = [];
-  let defaultPrevented = false;
-  renderPanel(
-    [{ name: "tillerd-gate", version: "1.0.0", state: "ready" }],
-    "ready",
-    undefined,
-    (s) => opened.push(s),
-  );
-  const gateLink = screen
-    .getAllByRole("link", { name: /logs/i })
-    .find((l) => l.getAttribute("href") === "/logs?service=tillerd-gate");
-  expect(gateLink).toBeTruthy();
-  const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-  gateLink!.dispatchEvent(event);
-  defaultPrevented = event.defaultPrevented;
-  expect(opened).toEqual(["tillerd-gate"]);
-  expect(defaultPrevented).toBe(true);
 });
 
 // Scenario: Version mismatch shown inline
