@@ -362,7 +362,14 @@ mod tests {
 
         let id = SurfaceId::from_string("surf-api-1");
         let returned = api
-            .create_terminal_surface(session.id, id.clone(), "p".into(), 80, 24, Some("/tmp".into()))
+            .create_terminal_surface(
+                session.id,
+                id.clone(),
+                "p".into(),
+                80,
+                24,
+                Some("/tmp".into()),
+            )
             .await
             .expect("create");
 

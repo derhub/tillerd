@@ -6,8 +6,7 @@ use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
     NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SourceKind, Store, Surface, SurfaceId, SurfaceKind, TitleSource, Worktree,
-    WorktreeId,
+    Session, SessionId, SourceKind, Store, Surface, SurfaceId, TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 

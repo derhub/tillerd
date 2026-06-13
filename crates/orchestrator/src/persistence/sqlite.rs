@@ -424,7 +424,10 @@ impl Store for SqliteStore {
                 .optional()
                 .map_err(persist)?;
             match row {
-                Some((v, j)) => (Some(v), Some(crate::launch::spec::instantiate_for_session(&j)?)),
+                Some((v, j)) => (
+                    Some(v),
+                    Some(crate::launch::spec::instantiate_for_session(&j)?),
+                ),
                 None => {
                     return Err(OrchestratorError::LaunchTemplateNotFound(
                         tid.as_str().to_string(),
