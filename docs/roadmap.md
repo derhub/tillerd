@@ -130,7 +130,7 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 ### 0.0.7 — Observability
 
-- [ ] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
+- [x] Log-viewer surface in the desktop, over the 0.0.6 structured logs.
 
 ### 0.0.8 — Health and first-run UX
 
@@ -148,7 +148,8 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 - [ ] Interaction polish: projects / sessions navigation, empty states, pane error /
   failure states.
-- [ ] Motion: transitions for surface lifecycle (create / destroy); layout changes
+- [ ] better bottom and top toolbar buttons
+- [ ] Motion: 60fps transitions for surface lifecycle (create / destroy); layout changes
   (adding / removing surfaces).
 - [ ] Polish: icons, spacing, density, typography, popups, menus, top bar toolbox, bottom bar
   style; panel titles (session name + surface kind + running time); status badges (starting,
@@ -157,6 +158,14 @@ of 0.x; every later version is additive on these seams, never a change to them.
   shortcuts for common actions (new project/session/surface, close surface, switch session, ...).
 - [ ] Light-mode coverage: component-level appearance verified and documented (tokens
   landed in 0.0.6).
+- [ ] Accessibility: keyboard navigation, screen reader labels, color contrast.
+- [ ] Cross-platform polish: platform-specific UI conventions and behaviors (e.g. macOS
+  traffic lights, Linux title bars) respected and tested on each OS.
+- [ ] Performance: 60fps - smooth interactions and low resource usage, even with multiple
+  sessions and surfaces; profiling and optimization as needed.
+- [ ] E2E test coverage for all flows and platforms, integrated into CI.
+- [ ] UX/UI review and iteration cycle: identify pain points, and continuously
+  refine the UX.
 - [ ] Final coherence pass across all surfaces.
 
 ---
