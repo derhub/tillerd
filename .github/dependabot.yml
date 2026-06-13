@@ -10,16 +10,13 @@ updates:
       security:
         patterns:
           - "*"
-        dependency-types:
-          - "direct"
-          - "indirect"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
     ignore:
       - dependency-name: "*"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-major"
+          - "minor"
+          - "major"
     open-pull-requests-limit: 1
     commit-message:
       prefix: "chore(deps-bun)"
@@ -35,21 +32,18 @@ updates:
       minor-major:
         patterns:
           - "*"
-        dependency-types:
-          - "direct"
-          - "indirect"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-major"
+          - "minor"
+          - "major"
     ignore:
       - dependency-name: "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
     open-pull-requests-limit: 1
     commit-message:
       prefix: "chore(deps-bun)"
 
-  # Cargo.lock security — daily
+  # Cargo security — daily
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
@@ -60,17 +54,17 @@ updates:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
     ignore:
       - dependency-name: "*"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-major"
+          - "minor"
+          - "major"
     open-pull-requests-limit: 1
     commit-message:
       prefix: "chore(deps-cargo)"
 
-  # Cargo.lock version — weekly
+  # Cargo version — weekly
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
@@ -82,12 +76,12 @@ updates:
         patterns:
           - "*"
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-major"
+          - "minor"
+          - "major"
     ignore:
       - dependency-name: "*"
         update-types:
-          - "version-update:semver-patch"
+          - "patch"
     open-pull-requests-limit: 1
     commit-message:
       prefix: "chore(deps-cargo)"
