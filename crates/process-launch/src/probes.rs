@@ -5,6 +5,17 @@ use std::time::Duration;
 
 use crate::error::LaunchError;
 
+/// Whether the process with `pid` is currently alive, via a signal-0 existence
+/// check. Read-only: it delivers no signal. Shared by [`OsProbes`] and read-only
+/// callers (e.g. health reads) that need liveness without the full probe set.
+pub fn pid_is_alive(pid: u32) -> bool {
+    use nix::sys::signal::kill;
+    use nix::unistd::Pid;
+    // Signal 0 performs error checking without delivering a signal: Ok means
+    // the process exists and we may signal it.
+    kill(Pid::from_raw(pid as i32), None).is_ok()
+}
+
 /// The boundary operations adopt-or-spawn performs against the OS.
 pub trait Probes {
     /// Whether the process with `pid` is currently alive.
@@ -52,11 +63,7 @@ where
     F: Fn() -> Result<u32, LaunchError>,
 {
     fn is_alive(&self, pid: u32) -> bool {
-        use nix::sys::signal::kill;
-        use nix::unistd::Pid;
-        // Signal 0 performs error checking without delivering a signal: Ok means
-        // the process exists and we may signal it.
-        kill(Pid::from_raw(pid as i32), None).is_ok()
+        pid_is_alive(pid)
     }
 
     fn is_reachable(&self, path: &Path) -> bool {

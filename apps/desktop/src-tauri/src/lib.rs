@@ -95,6 +95,7 @@ pub fn run() {
             store::registry_list,
             supervisor::daemon_ensure,
             orchestrator_host::orchestrator_status,
+            orchestrator_host::service_health,
             surface_host::surface_create,
             surface_host::surface_spawn,
             surface_host::surface_close,

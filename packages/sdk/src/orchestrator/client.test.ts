@@ -5,6 +5,7 @@ import {
   ORCHESTRATOR_STATUS_METHOD,
   type OrchestratorStatus,
 } from "./status";
+import { SERVICE_HEALTH_METHOD, type ServiceHealth } from "./service-health";
 
 function fakeTransport(overrides: Partial<OrchestratorHostTransport> = {}) {
   const calls: { method: string; args?: Record<string, unknown> }[] = [];
@@ -44,6 +45,27 @@ test("subscribe() delivers status events emitted over the host transport", async
   listeners.get(ORCHESTRATOR_STATUS_EVENT)?.({ state: "ready" });
 
   expect(received).toEqual([{ state: "supervising" }, { state: "ready" }]);
+});
+
+test("serviceHealth() routes to the service-health method and returns the typed list", async () => {
+  const health: ServiceHealth[] = [
+    { name: "gate", version: "1.0.0", state: "ready" },
+    { name: "daemon", version: null, state: "unavailable" },
+  ];
+  let calledMethod: string | undefined;
+  const transport: OrchestratorHostTransport = {
+    invoke: async <T>(method: string) => {
+      calledMethod = method;
+      return health as T;
+    },
+    listen: async () => () => {},
+  };
+  const client = createOrchestratorClient(transport);
+
+  const result = await client.serviceHealth();
+
+  expect(calledMethod).toBe(SERVICE_HEALTH_METHOD);
+  expect(result).toEqual(health);
 });
 
 test("subscribe() returns the transport's unsubscribe handle", async () => {
