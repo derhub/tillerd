@@ -6,9 +6,13 @@ and APIs may break between minor versions.
 
 ## [Unreleased]
 
-Next: 0.0.9 — settings. The architecture froze at 0.0.6; every later 0.x version is
-additive on those seams. The working app ships at the end of the 0.0.x line (0.0.14);
+Next: 0.0.10 — notification center. The architecture froze at 0.0.6; every later 0.x version
+is additive on those seams. The working app ships at the end of the 0.0.x line (0.0.14);
 0.1.x extends it; 1.0.0 ships distribution.
+
+## [0.0.9] — 2026-06-14
+
+Settings foundation.
 
 ### Added
 

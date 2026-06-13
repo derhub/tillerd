@@ -162,14 +162,17 @@ here.
   scheme; opened from the bottom-right chrome cluster.
 - [x] Window size / position / maximized persisted and restored on relaunch
   (`tauri-plugin-window-state`).
-- [ ] Default command library / default template selection — deferred (needs a template-list
-  API + SDK command-list).
-- [ ] Per-project overrides: launch template, project env — deferred (needs a project-scoped
-  settings UI + launch-executor env injection).
-- [ ] Sidebar expand state — deferred to 0.0.14 (the project tree expand/collapse UI lives
-  there; persists via this store).
-- [ ] Env secrets via the OS keychain; `secret_ref` stores handles only — deferred (no
-  keychain dependency added in 0.0.9).
+
+Deferred to follow-up changes (each builds on the store shipped here):
+
+- Default command library / default template selection — needs a template-list API + an SDK
+  command-list method.
+- Per-project overrides (launch template, project env) — needs a project-scoped settings UI +
+  launch-executor env injection.
+- Sidebar expand state — lands with the 0.0.14 project-tree expand/collapse UI; persists via
+  this store.
+- Env secrets via the OS keychain (`secret_ref` stores handles only) — no keychain dependency
+  in 0.0.x.
 
 ### 0.0.10 — Notification center
 
