@@ -11,21 +11,22 @@ nothing is shortcut to a `.0` bucket.
 > 0.0.1–0.0.5). **0.0.6 finalizes the architecture** — service contract, daemon
 > upgrade path, correlation, design tokens, E2E test; after it, every 0.x version is
 > additive on frozen seams, never a change to them. Then observability, health /
-> first-run UX, settings + secrets, and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
+> first-run UX, settings + secrets, notifications, panel detach, workspace management,
+> and a UX/UI pass complete the working app. **0.x is terminal-only**: the agent surface
 > (built in 0.0.3) was removed in the launch-execution cut and is deferred to **1.0.0**
-> ([ADR-0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
+> ([ADR-0027](./docs/adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)).
 > After the working app, **0.1.x extends** — diff surface, placement geometry, workflow
 > library, container backend, web remote — ordered cheapest-first on the frozen seams;
 > **1.0.0** is the stable horizon and ships distribution. See ADRs
-> [0020](./adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
-> for the workspace model and the 0.0.x build. See [CHANGELOG](../CHANGELOG.md).
+> [0020](./docs/adr/0020-session-is-a-per-context-term-and-desktop-groups-surfaces.md)–[0027](./docs/adr/0027-zero-x-is-terminal-only-agent-surface-deferred.md)
+> for the workspace model and the 0.0.x build. See [CHANGELOG](./CHANGELOG.md).
 
 ---
 
 ## 0.0.x — Working app
 
 The Rust inversion, then everything a daily-usable app needs. The line ends with the
-working app shipping at **0.0.10**.
+working app shipping at **0.0.14**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -114,12 +115,12 @@ of 0.x; every later version is additive on these seams, never a change to them.
 - [x] Placement and multi-surface: placement becomes a unique slot id (not named
   regions) so a session holds N surfaces; panels bind surfaces by placement; revisit
   resumes each by `(session, placement)`; spawning a surface diverges the session's
-  launch spec ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). The
+  launch spec ([ADR-0030](./docs/adr/0030-panels-bind-surfaces-by-placement.md)). The
   panel-surface seam freezes here; the terminal revisit already shipped is the first
   slice. Sizes / nested splits stay 0.1.x (additive geometry).
 - [x] `correlation_id` threaded across hops in structured logs — the log-viewer
   (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
-- [x] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
+- [x] Design tokens: apply [`DESIGN.md`](./apps/ui/DESIGN.md) across the existing
   shell and close its token-level gaps (motion / transition scale, icon sizing
   token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
   settings) is built on final tokens.
@@ -136,36 +137,180 @@ of 0.x; every later version is additive on these seams, never a change to them.
 
 - [ ] Per-service health indicators (gate / daemon) with failure surfacing.
 - [ ] First-run / onboarding: services down, version out of range, fresh-machine setup.
+  Each typed error (`BinaryNotFound`, `NotAuthenticated`, `VersionUnsupported`, etc.)
+  gets a distinct recovery prompt — not just a truncated message in the host-status
+  badge. 0.0.10 inherits whatever ships here.
 
 ### 0.0.9 — Settings and secrets
 
-- [ ] Global settings: theme, default command library / default template.
+- [ ] Global settings panel: theme (light / dark), terminal color scheme, default
+  command library / default template; sidebar expand state and window size / position
+  persisted and restored on relaunch.
 - [ ] Per-project overrides: launch template, project env.
 - [ ] Env secrets via the OS keychain; `secret_ref` stores handles only (no plaintext).
-- [ ] Window state restore: size / position persisted, restored on relaunch.
+- [ ] "Don't ask again" preference storage (used by 0.0.10 close-surface confirm).
 
-### 0.0.10 — UX/UI (ships the working app)
+### 0.0.10 — Notification center
 
-- [ ] Interaction polish — projects / sessions navigation, empty states, pane error /
-  failure states.
-- [ ] Visual polish — icons, spacing, density, typography; popups / menus; top and bottom
-  toolbars and their buttons; panel titles (session name + surface kind + running time);
-  status badges (starting / running / failed); terminal font and color scheme.
-- [ ] Surface manipulation — drag-and-drop rearrangement; panel resizing (drag to resize,
-  double-click to reset); terminal copy / paste; keyboard shortcuts (new project / session /
-  surface, close surface, switch session, ...).
-- [ ] Motion — 60fps transitions for surface lifecycle (create / destroy) and layout changes
-  (add / remove surfaces).
-- [ ] Light-mode coverage — component-level appearance verified and documented (tokens
-  landed in 0.0.6).
-- [ ] Accessibility — keyboard navigation, screen reader labels, color contrast.
-- [ ] Cross-platform polish — platform-specific UI conventions (e.g. macOS traffic lights,
-  Linux title bars) respected and tested on each OS.
-- [ ] Performance — sustained 60fps and low resource use under multiple sessions and
-  surfaces; profiling and optimization as needed.
-- [ ] E2E coverage — all flows and platforms, integrated into CI.
-- [ ] UX/UI review cycle — identify pain points, continuously refine.
-- [ ] Final coherence pass across all surfaces.
+User-facing event notifications: in-app persistent history and native OS banners.
+Distinct from the dev log viewer (raw structured logs); this is user-facing signal.
+
+- [ ] In-app notification center — bell icon in the app chrome (toolbar); click opens
+  a popover / drawer listing recent events with timestamp and session context.
+- [ ] Event types surfaced: surface started / stopped, session error, service health
+  change (gate / daemon up / down), and any other user-relevant orchestrator event.
+- [ ] Native OS notifications (Tauri notification plugin) — send a system banner
+  (macOS / Linux) for background events when the app is not in focus. User can
+  dismiss or click through to the relevant session.
+- [ ] Notification history stored per app launch (in-memory or SQLite); cleared on
+  quit (no cross-session persistence required in 0.0.x).
+- [ ] Unread badge on the bell icon; clears on open.
+- [ ] Notification center is the sole user-facing feedback channel — no Sonner toasts.
+
+---
+
+### 0.0.11 — Panel detach / multi-window
+
+Tear-off panels and project windows (picture-in-picture model). Orchestrator event
+sink already supports multiple concurrent subscribers (one per window); no backend
+connectivity changes needed.
+
+- [ ] Panel detach — panel header "detach" button tears the panel into a new child
+  window. Parent shows a greyed-out placeholder with a "Focus →" button to bring the
+  child window to front.
+- [ ] Project in new window — right-click a project in the sidebar → "Open in new
+  window"; parent sidebar entry shows a pending-detach indicator; clicking it focuses
+  the child window.
+- [ ] Re-attach — child window has a "Re-attach" action that returns the panel /
+  project to its parent window and auto-focuses the parent.
+- [ ] Closing the parent window does not affect detached child windows.
+- [ ] Only panels with a live surface support detach; empty panels do not.
+- [ ] E2E: panel detach → "Focus →" → re-attach on macOS and Linux CI.
+
+---
+
+### 0.0.12 — Workspace management
+
+Project and session CRUD UX, plus session ordering. Backend (rename / delete) landed
+in 0.0.4; this milestone ships the interaction design for those operations and adds
+sort order.
+
+- [ ] Inline rename — double-click a project or session row in the sidebar to rename
+  in place; Enter confirms, Escape cancels.
+- [ ] Delete — right-click context menu (or hover button) → "Delete"; shadcn
+  AlertDialog confirmation; hard-delete cascades to surfaces (PTYs terminated).
+  Distinct from archive (soft-delete, PTY preserved).
+- [ ] Session reorder — drag sessions within a project to reorder; `sort_order` column
+  added to `sessions` table (migration + orchestrator API); order persists across
+  restarts.
+- [ ] Project reorder — drag projects in the sidebar; `sort_order` on `projects` table
+  (same migration pass).
+- [ ] Context menus — right-click on project and session rows surfaces the full action
+  list (rename, archive, delete, open in new window).
+- [ ] E2E: rename, delete, and reorder flows on macOS and Linux CI.
+
+---
+
+### 0.0.14 — UX/UI (ships the working app)
+
+Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
+0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (workspace management),
+0.0.13 (command center).
+Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
+
+**Interaction polish**
+- [ ] Sidebar project tree — projects expand / collapse (state persisted via 0.0.9
+  window state); sessions nested under each project; hover-reveal icon buttons land in
+  0.0.12; this milestone verifies cohesion and fixes any remaining interaction gaps.
+- [ ] Zero state — when no projects exist, sidebar is empty and the center pane shows a
+  "Create project" call-to-action.
+- [ ] Empty panel picker — `EmptyPanel` lists available surface kinds; terminal is the
+  only kind in 0.x.
+- [ ] Pane error / failure states — surface-level error overlay distinct from the
+  host-status badge (owned by 0.0.8).
+
+**Visual polish**
+- [ ] Icons, spacing, density, typography — final pass across all chrome elements.
+- [ ] Panel header toolbar — split-horizontal and split-vertical icon buttons; close
+  button; shadcn Tooltip on every icon-only button.
+- [ ] Panel title — session name + surface kind + elapsed time since PTY spawn
+  (`spawned_at` exposed by orchestrator surface state).
+- [ ] Status badges — starting / running / failed on session rows.
+- [ ] Terminal font and color scheme — ship a good default monospace font; color scheme
+  is user-selectable (lives in 0.0.9 global settings; `DESIGN.md` terminal-* tokens
+  updated from hardcoded GitHub-dark to the active scheme's mapping).
+- [ ] Popups / menus — all dropdowns and dialogs use shadcn primitives and follow
+  design tokens.
+
+**Surface manipulation**
+- [ ] Panel split initiation — split-H / split-V toolbar buttons create an empty leaf;
+  the `EmptyPanel` picker in that leaf spawns the surface (ADR-0030 geometry model).
+- [ ] Panel drag-and-drop — drag a panel leaf to swap placements with another leaf
+  (new orchestrator `swap_placement` API).
+- [ ] Panel resizing — drag divider to resize; double-click divider to reset to equal
+  split.
+- [ ] Terminal copy / paste — verified on all platforms (xterm.js default behavior;
+  confirm no Tauri webview conflicts).
+- [ ] Close surface — shadcn confirmation popup with "Don't ask again" checkbox;
+  preference stored via 0.0.9 settings. Hard remove: drops spec item + terminates PTY
+  (ADR-0030).
+- [ ] Keyboard shortcuts (minimal) — native Tauri menu accelerators for: new project,
+  new session, new terminal surface, close surface, switch session. Accelerators fire
+  even when the terminal has keyboard focus. Full configurable shortcuts (command center landed in 0.0.13).
+
+**Motion**
+- [ ] Surface lifecycle animations — fade only: opacity 0→1 on create, 1→0 on destroy,
+  using the existing `--motion-fast` / `ease-standard` tokens. No layout shift.
+- [ ] Layout change animations — add / remove panels fades at the same token cadence.
+
+**Light-mode coverage**
+- [ ] Component-level appearance verified in light mode (tokens landed in 0.0.6;
+  terminal canvas stays dark in both themes by design).
+
+**Accessibility**
+- [ ] ARIA labels and roles on all interactive chrome elements (sidebar, panel headers,
+  dialogs, buttons, tooltips).
+- [ ] Keyboard navigation in chrome — Tab / Enter / Escape through sidebar, panel
+  actions, and dialogs. Terminal canvas is explicitly exempt from screen-reader support.
+- [ ] Color contrast — all token pairs pass WCAG AA.
+
+**Cross-platform polish**
+- [ ] macOS — native Tauri window decorations (traffic lights); sidebar top area is a
+  `data-tauri-drag-region`.
+- [ ] Linux — system title bar respected; no custom decorations override.
+- [ ] Platform-specific keyboard accelerator labels in menus (⌘ vs Ctrl).
+
+**Performance**
+- [ ] Sustained 60fps under multiple sessions and surfaces; profiling and optimization
+  as needed.
+- [ ] Low memory footprint — no unbounded growth across session switches.
+
+**E2E coverage**
+- [ ] Panel split + spawn terminal in the new leaf.
+- [ ] Close surface — confirmation dialog + "Don't ask again" preference persists.
+- [ ] Panel leaf drag-and-drop rearrangement.
+- [ ] All flows green on macOS and Linux CI.
+
+**Final coherence pass**
+- [ ] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for
+  0.1.x. Any blocker found becomes a bullet here before shipping.
+
+---
+
+### 0.0.13 — Command center
+
+Configurable keyboard shortcuts with a leader-key–activated command palette.
+
+- [ ] Leader key — a configurable key sequence (e.g. Shift+Shift or Cmd+Shift)
+  registered at the Tauri native-menu level so it fires even when the terminal has
+  focus. Activating it opens the command center overlay.
+- [ ] Command center overlay — fuzzy-searchable palette of all available actions
+  (create project / session / surface, close, switch session, split panel, detach,
+  …). Actions invoke the same handlers as toolbar buttons and menu accelerators.
+- [ ] Configurable bindings — every action has a rebindable key; bindings stored in
+  global settings (0.0.9).
+- [ ] Preset profiles — ship built-in keybinding presets: `default`, `vim`, `vscode`,
+  `tmux`. User selects a preset as a baseline and can override individual bindings.
 
 ---
 
