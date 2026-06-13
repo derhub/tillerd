@@ -20,7 +20,7 @@ mkdir -p .tillerd bin
 
 # Install dependencies
 echo "Installing dependencies..."
-bun install
+bun install --frozen-lockfile
 
 echo "✓ Development environment ready"
 echo ""
