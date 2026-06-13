@@ -1,0 +1,104 @@
+version: 2
+updates:
+  # bun.lock security — daily
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "03:00"
+    groups:
+      security:
+        patterns:
+          - "*"
+        dependency-types:
+          - "direct"
+          - "indirect"
+        update-types:
+          - "version-update:semver-patch"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "chore(deps-bun)"
+
+  # bun.lock version — weekly
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    groups:
+      minor-major:
+        patterns:
+          - "*"
+        dependency-types:
+          - "direct"
+          - "indirect"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "chore(deps-bun)"
+
+  # Cargo.lock security — daily
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "03:30"
+    groups:
+      security:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-patch"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "chore(deps-cargo)"
+
+  # Cargo.lock version — weekly
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "04:00"
+    groups:
+      minor-major:
+        patterns:
+          - "*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "chore(deps-cargo)"
+
+  # GitHub Actions — weekly
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "04:30"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "ci(actions)"
