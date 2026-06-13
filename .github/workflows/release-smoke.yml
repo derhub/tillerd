@@ -9,15 +9,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  crates-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
-      - run: cargo build --release --workspace
-
+  # The release workspace already compiles in CI: the e2e job builds the desktop release binary on
+  # both Linux and macOS (E2E_BUNDLED), and the test job compiles every crate. A standalone
+  # `cargo build --release --workspace` here only duplicated that, so it was dropped.
   package-smoke:
     runs-on: ubuntu-latest
     steps:

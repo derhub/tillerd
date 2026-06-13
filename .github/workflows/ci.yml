@@ -9,21 +9,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # crates.io fetches intermittently die with "[16] Error in the HTTP2 framing layer"; disabling
+  # HTTP/2 multiplexing and retrying hard keeps a transient registry hiccup from redding the run.
+  CARGO_NET_RETRY: "10"
+  CARGO_HTTP_MULTIPLEXING: "false"
+
 jobs:
   lint:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 2
       # The desktop crate (clippy) links GTK/webkit on Linux.
-      - if: runner.os == 'Linux'
-        run: |
+      - run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: oven-sh/setup-bun@v2
@@ -36,34 +37,24 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ matrix.os }}-${{ hashFiles('bun.lock') }}
-      - uses: actions/cache@v5
-        with:
-          path: .turbo
-          key: turbo-${{ matrix.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ matrix.os }}-
+          key: bun-ubuntu-latest-${{ hashFiles('bun.lock') }}
       - run: bun install --frozen-lockfile
-      # Builds the UI dist the desktop crate's clippy build.rs expects.
-      - run: bun run build:ci
+      # clippy compiles the crates itself; only the UI dist (the desktop crate's build.rs input) is
+      # prebuilt — building the release service binaries here would be thrown away.
+      - run: bunx turbo run build --filter=@tillerd/ui
       - run: bun run format:check
       - run: bun run check-types
       - run: bun run lint
 
   test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 2
       # The desktop crate (test) links GTK/webkit on Linux.
-      - if: runner.os == 'Linux'
-        run: |
+      - run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: oven-sh/setup-bun@v2
@@ -74,26 +65,27 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ matrix.os }}-${{ hashFiles('bun.lock') }}
-      - uses: actions/cache@v5
-        with:
-          path: .turbo
-          key: turbo-${{ matrix.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ matrix.os }}-
+          key: bun-ubuntu-latest-${{ hashFiles('bun.lock') }}
       - run: bun install --frozen-lockfile
-      # Builds the UI dist the desktop crate's test build.rs expects.
-      - run: bun run build:ci
+      # cargo test builds its own debug binaries; only the UI dist (desktop build.rs input) is prebuilt.
+      - run: bunx turbo run build --filter=@tillerd/ui
       - run: bun run test
 
   e2e:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 2
-      - run: |
+      # Linux drives WKWebView through webkit2gtk-driver under a virtual display; macOS drives its
+      # native WKWebView in-process (tauri-plugin-webdriver), so it needs neither apt deps nor xvfb.
+      - if: runner.os == 'Linux'
+        run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev webkit2gtk-driver xvfb
       - uses: oven-sh/setup-bun@v2
@@ -105,6 +97,11 @@ jobs:
       - run: cargo install tauri-webdriver --locked
         # E2E_BUNDLED also boot-checks the release binary, so the suite runs against both a dev and
         # a bundled build (dev-verification spec).
-      - run: xvfb-run -a bun --filter @tillerd/desktop-e2e e2e
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a bun --filter @tillerd/desktop-e2e e2e
+        env:
+          E2E_BUNDLED: "1"
+      - if: runner.os == 'macOS'
+        run: bun --filter @tillerd/desktop-e2e e2e
         env:
           E2E_BUNDLED: "1"
