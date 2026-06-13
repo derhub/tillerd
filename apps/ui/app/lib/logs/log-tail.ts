@@ -81,10 +81,10 @@ export class LogTail {
     let text = new TextDecoder().decode(await this.source.read(path, readFrom, top - readFrom));
 
     if (readFrom > 0) {
-      const nl = text.indexOf("\n");
-      if (nl === -1) return this.records; // chunk holds no boundary; skip this step
-      cursor.start = readFrom + encoder.encode(text.slice(0, nl + 1)).length;
-      text = text.slice(nl + 1);
+      const advanced = afterFirstLine(text, readFrom);
+      if (!advanced) return this.records; // chunk holds no boundary; skip this step
+      cursor.start = advanced.boundary;
+      text = advanced.rest;
     } else {
       cursor.start = 0;
     }
@@ -116,14 +116,14 @@ export class LogTail {
     });
     let boundary = readFrom;
     if (readFrom > 0) {
-      const nl = text.indexOf("\n");
-      if (nl === -1) {
+      const advanced = afterFirstLine(text, readFrom);
+      if (!advanced) {
         // backfill window holds no line boundary; hold it as a partial tail
         this.cursors.set(path, { start: size, end: size, buf: text, decoder });
         return false;
       }
-      boundary = readFrom + encoder.encode(text.slice(0, nl + 1)).length;
-      text = text.slice(nl + 1);
+      boundary = advanced.boundary;
+      text = advanced.rest;
     }
 
     const lines = text.split("\n");
@@ -143,12 +143,7 @@ export class LogTail {
   }
 
   private parseComplete(lines: string[]): LogRecord[] {
-    const out: LogRecord[] = [];
-    for (const line of lines) {
-      const record = parseRecord(line);
-      if (record) out.push(record);
-    }
-    return out;
+    return lines.map((line) => parseRecord(line)).filter((r): r is LogRecord => r !== null);
   }
 
   private push(records: LogRecord[]): boolean {
@@ -163,6 +158,18 @@ export class LogTail {
       this.records = this.records.slice(this.records.length - this.windowSize);
     }
   }
+}
+
+// Drop the first (partial or boundary) line of a chunk that began at byte `readFrom`,
+// returning the remaining complete-line text and the absolute byte offset where it starts.
+// Null when the chunk holds no newline (no boundary to anchor on).
+function afterFirstLine(text: string, readFrom: number): { rest: string; boundary: number } | null {
+  const nl = text.indexOf("\n");
+  if (nl === -1) return null;
+  return {
+    rest: text.slice(nl + 1),
+    boundary: readFrom + encoder.encode(text.slice(0, nl + 1)).length,
+  };
 }
 
 function sortByTime(records: LogRecord[]): LogRecord[] {

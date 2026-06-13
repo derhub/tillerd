@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { type LogFilter, distinctAttribute, filterRecords } from "~/lib/logs/log-filter";
+import { LEVELS, type LogFilter, distinctAttribute, filterRecords } from "~/lib/logs/log-filter";
 import type { LogRecord } from "~/lib/logs/log-record";
 import { LogTail } from "~/lib/logs/log-tail";
 import { type LogSource, loadLogSource } from "~/lib/transport/log-source";
 import { cn } from "~/lib/utils";
 
-const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
 const POLL_MS = 1000;
 
 export interface LogViewerProps {
@@ -29,6 +28,9 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
   // Serializes refresh ticks and load-older against each other so they never
   // mutate the shared LogTail concurrently.
   const busyRef = useRef(false);
+  // LogTail returns the same array reference when a refresh adds nothing; skip the
+  // state update (and the row re-render) in that case.
+  const lastRef = useRef<LogRecord[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +49,10 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
         busyRef.current = true;
         try {
           const next = await tail.refresh();
-          if (!cancelled) setRecords([...next]);
+          if (!cancelled && next !== lastRef.current) {
+            lastRef.current = next;
+            setRecords([...next]);
+          }
         } finally {
           busyRef.current = false;
         }
@@ -66,7 +71,9 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
     if (!tail || busyRef.current) return;
     busyRef.current = true;
     try {
-      setRecords([...(await tail.loadOlderAll())]);
+      const next = await tail.loadOlderAll();
+      lastRef.current = next;
+      setRecords([...next]);
     } finally {
       busyRef.current = false;
     }
@@ -172,15 +179,13 @@ const LEVEL_COLOR: Record<string, string> = {
   TRACE: "text-muted-foreground",
 };
 
-function LogRow({ record }: { record: LogRecord }) {
-  const service =
-    typeof record.resource["service.name"] === "string"
-      ? (record.resource["service.name"] as string)
-      : "";
-  const session =
-    typeof record.attributes["session.id"] === "string"
-      ? (record.attributes["session.id"] as string)
-      : "";
+function strAttr(obj: Record<string, unknown>, key: string): string {
+  return typeof obj[key] === "string" ? (obj[key] as string) : "";
+}
+
+const LogRow = memo(function LogRow({ record }: { record: LogRecord }) {
+  const service = strAttr(record.resource, "service.name");
+  const session = strAttr(record.attributes, "session.id");
   return (
     <div className="flex gap-2 px-3 py-0.5 border-b border-border/10 whitespace-pre-wrap break-all">
       <span className="text-muted-foreground shrink-0">{record.timestamp}</span>
@@ -192,4 +197,4 @@ function LogRow({ record }: { record: LogRecord }) {
       <span className="flex-1 min-w-0">{record.body}</span>
     </div>
   );
-}
+});

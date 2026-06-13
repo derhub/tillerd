@@ -11,11 +11,13 @@ export interface LogFilter {
   sessionId?: string;
 }
 
-const LEVEL_ORDER = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"];
+/** Severity levels, low to high. Single source of truth for level ordering. */
+export const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;
+
+const LEVEL_RANK: Record<string, number> = Object.fromEntries(LEVELS.map((l, i) => [l, i]));
 
 function rank(level: string): number {
-  const i = LEVEL_ORDER.indexOf(level.toUpperCase());
-  return i === -1 ? 0 : i;
+  return LEVEL_RANK[level.toUpperCase()] ?? 0;
 }
 
 /** Apply a {@link LogFilter} to records. An empty filter returns them unchanged. */
