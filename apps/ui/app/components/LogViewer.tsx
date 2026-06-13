@@ -92,7 +92,7 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
   }
 
   return (
-    <div className="h-full flex flex-col text-xs font-mono">
+    <div data-testid="log-viewer" className="h-full flex flex-col text-xs font-mono">
       <div className="flex items-center gap-2 px-3 h-9 border-b border-border/40 shrink-0">
         <button
           type="button"

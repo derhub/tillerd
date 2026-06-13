@@ -11,7 +11,8 @@ mod supervisor;
 mod surface_host;
 mod workspace_host;
 
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItemBuilder, SubmenuBuilder};
+use tauri::{Emitter, Manager};
 
 use bridge::BridgeState;
 use orchestrator_host::OrchestratorState;
@@ -45,6 +46,19 @@ pub fn run() {
         .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
         .setup(|app| {
+            // Native menu: extend the default menu with View > Logs, which routes the
+            // renderer to the log viewer via a "menu:navigate" event.
+            let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(app)?;
+            let view = SubmenuBuilder::new(app, "View").item(&logs).build()?;
+            let menu = Menu::default(app.handle())?;
+            menu.append(&view)?;
+            app.set_menu(menu)?;
+            app.on_menu_event(|app_handle, event| {
+                if event.id().as_ref() == "view_logs" {
+                    let _ = app_handle.emit("menu:navigate", "/logs");
+                }
+            });
+
             // Construct and boot the single embedded orchestrator instance; it
             // streams lifecycle events to the renderer and reaches `ready`.
             let handle = app.handle().clone();

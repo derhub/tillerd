@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useLocation, useParams } from "react-router";
+import { useState, useCallback, useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { Columns2, Rows2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
@@ -14,6 +14,7 @@ import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
 import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/panelTree";
 import { useDesktopHost } from "~/lib/useDesktopHost";
+import { isDesktopHost } from "~/lib/transport";
 import { cn } from "~/lib/utils";
 
 // Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
@@ -30,7 +31,19 @@ export function AppShell() {
   const params = useParams();
   const sessionId = params["id"] ?? null;
   const onLogs = useLocation().pathname === "/logs";
+  const navigate = useNavigate();
   const [status, setStatus] = useState("");
+
+  // Native menu (View > Logs) routes here by emitting "menu:navigate".
+  useEffect(() => {
+    if (!isDesktopHost()) return;
+    let unlisten: (() => void) | undefined;
+    void (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen<string>("menu:navigate", (e) => void navigate(e.payload));
+    })();
+    return () => unlisten?.();
+  }, [navigate]);
   const host = useDesktopHost();
   const orchestratorClient = host.status === "ready" ? host.orchestratorClient : null;
   const { tree, split, close, setContent, setActiveTab } = usePanelTree(
