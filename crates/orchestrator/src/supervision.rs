@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use process_launch::Probes;
 pub use process_launch::{LaunchError, SpawnTiming};
-use process_launch::{ManifestData, Probes};
+use service_host::{ManifestData, ServiceStatus as Lifecycle};
 
 use crate::error::{OrchestratorError, Result};
 
@@ -47,7 +48,8 @@ pub fn ensure_service(
 ) -> Result<ServiceStatus> {
     if let Some(manifest) = read_manifest(&spec.manifest_path) {
         if probes.is_alive(manifest.pid) {
-            if manifest.version == spec.version && probes.is_reachable(&spec.socket_path) {
+            // Readiness comes from the manifest status (ADR-0028), not a socket probe.
+            if manifest.version == spec.version && manifest.status == Lifecycle::Ready {
                 return Ok(ServiceStatus {
                     name: spec.name.clone(),
                     version: Some(manifest.version),
@@ -79,7 +81,7 @@ pub fn ensure_service(
 
     let deadline = Instant::now() + timing.startup_timeout;
     loop {
-        if probes.is_reachable(&spec.socket_path) {
+        if read_manifest(&spec.manifest_path).is_some_and(|m| m.status == Lifecycle::Ready) {
             return Ok(ServiceStatus {
                 name: spec.name.clone(),
                 version: Some(spec.version.clone()),
@@ -99,7 +101,7 @@ pub fn ensure_service(
             return Err(OrchestratorError::ServiceUnavailable {
                 service: spec.name.clone(),
                 reason: format!(
-                    "did not become reachable within {} ms",
+                    "did not report ready within {} ms",
                     timing.startup_timeout.as_millis()
                 ),
             });
@@ -182,58 +184,59 @@ mod tests {
 
     struct FakeProbes {
         alive: bool,
-        reachable: bool,
         spawn_result: std::result::Result<u32, LaunchError>,
         spawned: Cell<bool>,
         drained: Cell<bool>,
+        // When set, spawn() writes a manifest with this status, simulating the started service.
+        on_spawn: Option<(PathBuf, &'static str)>,
     }
 
     impl FakeProbes {
         fn adoptable() -> Self {
             Self {
                 alive: true,
-                reachable: true,
                 spawn_result: Ok(999),
                 spawned: Cell::new(false),
                 drained: Cell::new(false),
+                on_spawn: None,
             }
         }
-        fn spawnable() -> Self {
+        fn spawnable(manifest_path: PathBuf) -> Self {
             Self {
                 alive: false,
-                reachable: true,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
                 drained: Cell::new(false),
+                on_spawn: Some((manifest_path, "ready")),
             }
         }
-        fn never_reachable() -> Self {
+        fn never_ready() -> Self {
             Self {
                 alive: true,
-                reachable: false,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
                 drained: Cell::new(false),
+                on_spawn: None,
             }
         }
         fn dies_after_spawn() -> Self {
             Self {
                 alive: false,
-                reachable: false,
                 spawn_result: Ok(4242),
                 spawned: Cell::new(false),
                 drained: Cell::new(false),
+                on_spawn: None,
             }
         }
         /// A live instance serving the wrong version: adoption is refused and it must be drained
         /// before a fresh spawn.
-        fn live_mismatch() -> Self {
+        fn live_mismatch(manifest_path: PathBuf) -> Self {
             Self {
                 alive: true,
-                reachable: true,
                 spawn_result: Ok(7777),
                 spawned: Cell::new(false),
                 drained: Cell::new(false),
+                on_spawn: Some((manifest_path, "ready")),
             }
         }
     }
@@ -243,7 +246,7 @@ mod tests {
             self.alive
         }
         fn is_reachable(&self, _path: &Path) -> bool {
-            self.reachable
+            false
         }
         fn drain(&self, _pid: u32) {
             self.drained.set(true);
@@ -251,10 +254,19 @@ mod tests {
         fn remove_socket(&self, _path: &Path) {}
         fn spawn(&self) -> std::result::Result<u32, LaunchError> {
             self.spawned.set(true);
-            self.spawn_result
+            let pid = self
+                .spawn_result
                 .as_ref()
                 .map(|p| *p)
-                .map_err(|e| LaunchError::SpawnFailed(e.to_string()))
+                .map_err(|e| LaunchError::SpawnFailed(e.to_string()))?;
+            if let Some((path, status)) = &self.on_spawn {
+                std::fs::write(
+                    path,
+                    format!(r#"{{"pid":{pid},"version":"x","status":"{status}"}}"#),
+                )
+                .unwrap();
+            }
+            Ok(pid)
         }
         fn sleep(&self, _dur: Duration) {}
     }
@@ -270,8 +282,12 @@ mod tests {
         (dir, spec)
     }
 
-    fn write_manifest(path: &PathBuf, pid: u32, version: &str) {
-        std::fs::write(path, format!(r#"{{"pid":{pid},"version":"{version}"}}"#)).unwrap();
+    fn write_manifest(path: &PathBuf, pid: u32, version: &str, status: &str) {
+        std::fs::write(
+            path,
+            format!(r#"{{"pid":{pid},"version":"{version}","status":"{status}"}}"#),
+        )
+        .unwrap();
     }
 
     fn fast_timing() -> SpawnTiming {
@@ -284,7 +300,7 @@ mod tests {
     #[test]
     fn adopts_live_compatible_service_without_spawning() {
         let (_dir, spec) = temp_spec("adopt", "1.2.3");
-        write_manifest(&spec.manifest_path, 4321, "1.2.3");
+        write_manifest(&spec.manifest_path, 4321, "1.2.3", "ready");
         let probes = FakeProbes::adoptable();
 
         let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();
@@ -298,7 +314,7 @@ mod tests {
     #[test]
     fn spawns_absent_service() {
         let (_dir, spec) = temp_spec("spawn", "1.0.0");
-        let probes = FakeProbes::spawnable();
+        let probes = FakeProbes::spawnable(spec.manifest_path.clone());
 
         let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();
 
@@ -310,8 +326,8 @@ mod tests {
     #[test]
     fn version_mismatch_falls_through_to_spawn() {
         let (_dir, spec) = temp_spec("mismatch", "2.0.0");
-        write_manifest(&spec.manifest_path, 4321, "1.0.0");
-        let probes = FakeProbes::spawnable();
+        write_manifest(&spec.manifest_path, 4321, "1.0.0", "ready");
+        let probes = FakeProbes::spawnable(spec.manifest_path.clone());
 
         let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();
 
@@ -323,8 +339,8 @@ mod tests {
     fn live_version_mismatch_drains_old_then_spawns_fresh() {
         let (_dir, spec) = temp_spec("drain-restart", "2.0.0");
         // A live instance serving the old version is recorded in the manifest.
-        write_manifest(&spec.manifest_path, 7777, "1.0.0");
-        let probes = FakeProbes::live_mismatch();
+        write_manifest(&spec.manifest_path, 7777, "1.0.0", "ready");
+        let probes = FakeProbes::live_mismatch(spec.manifest_path.clone());
 
         let status = ensure_service(&spec, &fast_timing(), &probes).unwrap();
 
@@ -342,13 +358,13 @@ mod tests {
     #[test]
     fn service_that_never_binds_times_out() {
         let (_dir, spec) = temp_spec("hung", "1.0.0");
-        let probes = FakeProbes::never_reachable();
+        let probes = FakeProbes::never_ready();
 
         let result = ensure_service(&spec, &fast_timing(), &probes);
 
         assert!(matches!(
             result,
-            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("did not become reachable")
+            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("did not report ready")
         ));
     }
 
