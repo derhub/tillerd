@@ -31,6 +31,10 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
   // LogTail returns the same array reference when a refresh adds nothing; skip the
   // state update (and the row re-render) in that case.
   const lastRef = useRef<LogRecord[] | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Sticky-bottom auto-scroll: follow new logs while pinned to the bottom; pause when the
+  // user scrolls up; resume when they scroll back to the bottom.
+  const stickRef = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +87,17 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
   const sessions = useMemo(() => distinctAttribute(records, "session.id"), [records]);
   const shown = useMemo(() => filterRecords(records, filter), [records, filter]);
 
+  // After a render that changed the rows, stick to the bottom if the user hasn't scrolled up.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+  }, [shown]);
+
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 16;
+  }, []);
+
   if (unsupported) {
     return (
       <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
@@ -134,7 +149,7 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
           onChange={(v) => setFilter((f) => ({ ...f, sessionId: v }))}
         />
       </div>
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto">
         {shown.map((r, i) => (
           <LogRow key={`${r.timestamp}-${i}`} record={r} />
         ))}
