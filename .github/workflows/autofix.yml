@@ -1,0 +1,32 @@
+name: autofix.ci # must keep this name
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      # cargo fmt (run via `turbo run fmt`) needs the rustfmt component; no build, so no GTK/cache.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: bun install --frozen-lockfile
+      # `format` writes both oxfmt (JS/TS) and cargo fmt (Rust); autofix.ci commits any diff.
+      - run: bun run format
+      # Pinned to the v1.3.2 commit (autofix.ci recommends a SHA over a tag).
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27
