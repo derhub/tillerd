@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import type { ServiceHealth } from "@tillerd/sdk/orchestrator";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
@@ -40,6 +41,7 @@ export function ServiceHealthIndicator({
   resolveSource = loadServiceHealthSource,
 }: ServiceHealthIndicatorProps = {}) {
   const host = useDesktopHost();
+  const navigate = useNavigate();
   const phase = host.status;
   const [services, setServices] = useState<ServiceHealth[]>([]);
 
@@ -77,7 +79,12 @@ export function ServiceHealthIndicator({
           <span className={TEXT[aggregate]}>services: {aggregate}</span>
         </PopoverTrigger>
         <PopoverContent>
-          <ServiceHealthPanel phase={phase} reason={reason} services={services} />
+          <ServiceHealthPanel
+            phase={phase}
+            reason={reason}
+            services={services}
+            onOpenLogs={(service) => void navigate(`/logs?service=${encodeURIComponent(service)}`)}
+          />
         </PopoverContent>
       </Popover>
     </div>

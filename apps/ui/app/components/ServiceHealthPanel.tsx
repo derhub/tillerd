@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import type { ServiceHealth, ServiceState } from "@tillerd/sdk/orchestrator";
 
 import type { OrchestratorPhase } from "~/lib/health/aggregate";
@@ -42,12 +41,14 @@ function HealthRow({
   version,
   reason,
   logsService,
+  onOpenLogs,
 }: {
   name: string;
   state: RowState;
   version: string | null;
   reason?: string;
   logsService: string;
+  onOpenLogs: (service: string) => void;
 }) {
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 text-xs">
@@ -60,12 +61,19 @@ function HealthRow({
           {reason}
         </span>
       ) : null}
-      <Link
-        to={`/logs?service=${encodeURIComponent(logsService)}`}
+      {/* An anchor for semantics/accessibility, but navigation is client-side: the default
+          hard load to `tauri://localhost/logs?...` has no server and fails, so preventDefault
+          and route through the app's navigator (the proven path the menu/sidebar use). */}
+      <a
+        href={`/logs?service=${encodeURIComponent(logsService)}`}
+        onClick={(e) => {
+          e.preventDefault();
+          onOpenLogs(logsService);
+        }}
         className="ml-auto text-muted-foreground underline hover:text-foreground"
       >
         logs
-      </Link>
+      </a>
     </div>
   );
 }
@@ -74,6 +82,8 @@ export interface ServiceHealthPanelProps {
   phase: OrchestratorPhase;
   reason?: string;
   services: ServiceHealth[];
+  /** Open the logs viewer filtered to `service`. Provided by the indicator, which holds router context. */
+  onOpenLogs: (service: string) => void;
 }
 
 /**
@@ -81,7 +91,12 @@ export interface ServiceHealthPanelProps {
  * version, state, an optional failure reason, and a logs link filtered to that
  * service. No control changes a service's lifecycle.
  */
-export function ServiceHealthPanel({ phase, reason, services }: ServiceHealthPanelProps) {
+export function ServiceHealthPanel({
+  phase,
+  reason,
+  services,
+  onOpenLogs,
+}: ServiceHealthPanelProps) {
   return (
     <div className="flex flex-col font-mono">
       <HealthRow
@@ -90,6 +105,7 @@ export function ServiceHealthPanel({ phase, reason, services }: ServiceHealthPan
         version={null}
         reason={reason}
         logsService="tillerd-desktop"
+        onOpenLogs={onOpenLogs}
       />
       {services.map((s) => (
         <HealthRow
@@ -98,6 +114,7 @@ export function ServiceHealthPanel({ phase, reason, services }: ServiceHealthPan
           state={s.state}
           version={s.version}
           logsService={s.name}
+          onOpenLogs={onOpenLogs}
         />
       ))}
     </div>

@@ -2,9 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { type Browser, launchReadyApp } from "./helpers";
 
 // The aggregate health indicator sits in the shell's bottom-right cluster. Clicking it opens a
-// non-modal popover listing the orchestrator and each service, with a logs link filtered to that
-// service. Popover open + panel layout are real-webview concerns (happy-dom has no layout), so they
-// live here; the row content and the aggregate state are unit-tested.
+// non-modal popover listing the orchestrator and each service, each with a logs link that performs
+// a client-side navigation to the viewer filtered to that service. Popover open + the in-portal
+// link navigation are real-webview concerns (happy-dom has no layout and no router), so they live
+// here; row content and aggregate state are unit-tested.
 
 let browser: Browser | undefined;
 afterEach(async () => {
@@ -12,14 +13,11 @@ afterEach(async () => {
   browser = undefined;
 });
 
-test("the health indicator opens a panel listing each service with a filtered logs link", async () => {
+test("the health indicator lists each service and its logs link opens the filtered viewer", async () => {
   const b = await launchReadyApp();
   browser = b;
 
-  const trigger = await b.$('[aria-label^="Service health"]');
-  await trigger.waitForExist({ timeout: 15_000 });
-  await trigger.click();
-
+  await (await b.$('[aria-label^="Service health"]')).click();
   const panel = await b.$('[data-slot="popover-content"]');
   await panel.waitForExist({ timeout: 10_000 });
 
@@ -28,7 +26,18 @@ test("the health indicator opens a panel listing each service with a filtered lo
   expect(text).toContain("gate");
   expect(text).toContain("daemon");
 
-  // A row links to that service's logs, pre-filtered.
+  // Click the gate row's logs link: it must client-side navigate (no hard `tauri://` load) to the
+  // viewer pre-filtered to that service.
   const gateLogs = await b.$('a[href="/logs?service=tillerd-gate"]');
-  expect(await gateLogs.isExisting()).toBe(true);
+  await gateLogs.waitForExist({ timeout: 10_000 });
+  await gateLogs.click();
+
+  await b.waitUntil(async () => (await b.getUrl()).includes("service=tillerd-gate"), {
+    timeout: 10_000,
+    timeoutMsg: "logs link did not navigate to the filtered viewer",
+  });
+  expect(await (await b.$('[data-testid="log-viewer"]')).isExisting()).toBe(true);
+  const facet = await b.$('select[aria-label="service"]');
+  await facet.waitForExist({ timeout: 5_000 });
+  expect(await facet.getValue()).toBe("tillerd-gate");
 }, 120_000);
