@@ -16,6 +16,8 @@ export type {
 } from "./client";
 export { ORCHESTRATOR_STATUS_EVENT, ORCHESTRATOR_STATUS_METHOD, isFailed, isReady } from "./status";
 export type { OrchestratorStatus } from "./status";
+export { SERVICE_HEALTH_METHOD, isServiceHealthy } from "./service-health";
+export type { ServiceHealth, ServiceState } from "./service-health";
 export {
   SURFACE_CREATE,
   SURFACE_SPAWN,

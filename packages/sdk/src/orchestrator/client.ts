@@ -1,5 +1,7 @@
 import type { OrchestratorStatus } from "./status";
 import { ORCHESTRATOR_STATUS_EVENT, ORCHESTRATOR_STATUS_METHOD } from "./status";
+import type { ServiceHealth } from "./service-health";
+import { SERVICE_HEALTH_METHOD } from "./service-health";
 import {
   createWorkspaceClient,
   type WorkspaceClient,
@@ -24,6 +26,8 @@ export interface OrchestratorHostTransport {
 export interface OrchestratorClient extends WorkspaceClient {
   status(): Promise<OrchestratorStatus>;
   subscribe(handler: (status: OrchestratorStatus) => void): Promise<() => void>;
+  /** Read-only per-service health snapshot (gate, daemon). Re-query on a status event. */
+  serviceHealth(): Promise<ServiceHealth[]>;
 }
 
 export function createOrchestratorClient(transport: OrchestratorHostTransport): OrchestratorClient {
@@ -31,6 +35,7 @@ export function createOrchestratorClient(transport: OrchestratorHostTransport): 
   return {
     status: () => transport.invoke<OrchestratorStatus>(ORCHESTRATOR_STATUS_METHOD),
     subscribe: (handler) => transport.listen(ORCHESTRATOR_STATUS_EVENT, handler),
+    serviceHealth: () => transport.invoke<ServiceHealth[]>(SERVICE_HEALTH_METHOD),
     ...workspace,
   };
 }

@@ -92,7 +92,9 @@ records on demand by reading earlier byte ranges.
 ### Requirement: Filter and search records
 
 The viewer SHALL filter the shown records by exact severity level, by free-text query over
-the body and attributes, and by `component` and `session.id` facets.
+the body and attributes, and by `service.name`, `component`, and `session.id` facets. The
+`service.name` facet MAY be seeded from the route so another surface can deep-link to one
+service's logs.
 
 #### Scenario: Filter by level
 
@@ -108,6 +110,11 @@ the body and attributes, and by `component` and `session.id` facets.
 
 - **WHEN** the user selects a `component` or `session.id` value
 - **THEN** only records carrying that value are shown
+
+#### Scenario: Facet by service, optionally seeded from the route
+
+- **WHEN** the viewer is opened with a `service.name` selected (via the route or the facet)
+- **THEN** only records whose `service.name` matches are shown
 
 ### Requirement: Records render their OpenTelemetry fields
 

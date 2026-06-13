@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { Columns2, Rows2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
@@ -15,7 +15,10 @@ import { countLeaves } from "~/lib/panelTree";
 import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/panelTree";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { isDesktopHost } from "~/lib/transport";
-import { cn } from "~/lib/utils";
+import { useDelayedTrue } from "~/lib/useDelayedTrue";
+import { bootContent } from "~/lib/health/boot-content";
+import { ServiceHealthIndicator } from "~/components/ServiceHealthIndicator";
+import { Skeleton } from "~/components/ui/skeleton";
 
 // Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
 let terminalClient: Promise<TerminalSurfaceClient> | null = null;
@@ -32,6 +35,8 @@ export function AppShell() {
   const sessionId = params["id"] ?? null;
   const onLogs = useLocation().pathname === "/logs";
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const logsService = searchParams.get("service") ?? undefined;
   const [status, setStatus] = useState("");
 
   // Native menu (View > Logs) routes here by emitting "menu:navigate".
@@ -46,6 +51,11 @@ export function AppShell() {
   }, [navigate]);
   const host = useDesktopHost();
   const orchestratorClient = host.status === "ready" ? host.orchestratorClient : null;
+  // Daemon-dependent content (the panels) waits on boot; a skeleton shows only past
+  // a short grace so a fast boot never flashes one. The sidebar reads the store and
+  // renders immediately regardless.
+  const graceElapsed = useDelayedTrue(host.status === "booting", 200);
+  const bootRegion = bootContent(host.status, graceElapsed);
   const { tree, split, close, setContent, setActiveTab } = usePanelTree(
     sessionId,
     orchestratorClient,
@@ -224,34 +234,26 @@ export function AppShell() {
         </aside>
         <div className="flex-1 min-w-0 pt-px relative">
           {onLogs ? (
-            <LogViewer />
+            <LogViewer initialService={logsService} />
           ) : host.status === "web" ? (
             <TerminalPane sessionId={sessionId} />
-          ) : (
+          ) : bootRegion === "content" ? (
             renderNode(tree, "root")
-          )}
-          <HostStatusBadge />
+          ) : bootRegion === "skeleton" ? (
+            <ContentSkeleton />
+          ) : null}
+          <ServiceHealthIndicator />
         </div>
       </div>
     </SessionContext>
   );
 }
 
-function HostStatusBadge() {
-  const host = useDesktopHost();
-  if (host.status === "web") return null;
-  const style = {
-    booting: { dot: "bg-amber-500", text: "text-amber-300", label: "booting" },
-    ready: { dot: "bg-emerald-500", text: "text-emerald-300", label: "ready" },
-    error: { dot: "bg-red-500", text: "text-red-300", label: "failed" },
-  }[host.status];
+/** Delayed skeleton for the daemon-dependent content region during a slow boot. */
+function ContentSkeleton() {
   return (
-    <div className="fixed bottom-2 right-2 z-50 flex items-center gap-1.5 rounded-sm bg-black/60 px-2 h-6 font-mono text-[0.75rem] pointer-events-none select-none">
-      <span className={cn("w-1.5 h-1.5 rounded-full", style.dot)} />
-      <span className={style.text}>orchestrator: {style.label}</span>
-      {host.status === "error" && (
-        <span className="text-red-300/70 max-w-[40ch] truncate">— {host.error.message}</span>
-      )}
+    <div className="h-full w-full p-3" data-testid="content-skeleton">
+      <Skeleton className="h-full w-full" />
     </div>
   );
 }

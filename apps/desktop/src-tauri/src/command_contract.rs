@@ -67,6 +67,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
             store::registry_list,
             supervisor::daemon_ensure,
             crate::orchestrator_host::orchestrator_status,
+            crate::orchestrator_host::service_health,
             surface_host::surface_create,
             surface_host::surface_spawn,
             surface_host::surface_close,
@@ -179,6 +180,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ("registry_list", serde_json::json!({})),
         ("daemon_ensure", serde_json::json!({})),
         ("orchestrator_status", serde_json::json!({})),
+        ("service_health", serde_json::json!({})),
         (
             "surface_create",
             serde_json::json!({ "channel": channel, "sessionId": "contract", "placement": "p", "cols": 80, "rows": 24, "cwd": null }),
