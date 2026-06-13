@@ -1,7 +1,7 @@
 import { afterEach, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Browser, launchReadyApp } from "./helpers";
+import { type Browser, launchReadyApp, openLogViewer } from "./helpers";
 
 // The level filter is exact-match: choosing a level shows only records of that level. Seeds a log
 // file with distinct ERROR/INFO messages (far-future timestamps so they sort to the bottom) and
@@ -36,8 +36,7 @@ test("the level filter shows only the chosen level", async () => {
 
   const b = await launchReadyApp();
   browser = b;
-  const origin = new URL(await b.getUrl()).origin;
-  await b.url(`${origin}/logs`);
+  await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
 
   const text = async (): Promise<string> => (await b.$(SCROLL)).getText();
@@ -49,7 +48,18 @@ test("the level filter shows only the chosen level", async () => {
   });
 
   // Choose ERROR → only ERROR rows remain (INFO leaves the data, so it never renders).
-  await (await b.$(LEVEL_SELECT)).selectByAttribute("value", "ERROR");
+  // Set the value + fire a bubbling change so React's controlled <select> onChange runs
+  // (selectByAttribute does not reliably trigger it).
+  await b.execute((sel: string) => {
+    const doc = globalThis as unknown as {
+      document: { querySelector(s: string): { value: string; dispatchEvent(e: Event): boolean } | null };
+    };
+    const el = doc.document.querySelector(sel);
+    if (el) {
+      el.value = "ERROR";
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }, LEVEL_SELECT);
   await b.waitUntil(
     async () => {
       const t = await text();

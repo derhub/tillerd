@@ -64,3 +64,21 @@ export async function openTerminal(browser: Browser): Promise<string> {
   });
   return surfaceId(browser);
 }
+
+// Navigate to the log viewer the way the app does at runtime — a client-side route change, no
+// reload. The native View > Logs menu is not WebDriver-accessible; a hard URL load is unreliable
+// (custom-scheme opaque origin + no SPA fallback); and an injected `import()` of the Tauri API
+// can't resolve a bare specifier. So push the route and fire `popstate`, which react-router's
+// browser history listens for — pure sync DOM, no Promise to serialize.
+export async function openLogViewer(browser: Browser): Promise<void> {
+  await browser.execute(() => {
+    window.history.pushState({}, "", "/logs");
+    window.dispatchEvent(new Event("popstate"));
+  });
+  await browser.waitUntil(async () => (await browser.getUrl()).includes("/logs"), {
+    timeout: 15_000,
+    timeoutMsg: "client navigation did not route to /logs",
+  });
+  const viewer = await browser.$('[data-testid="log-viewer"]');
+  await viewer.waitForExist({ timeout: 15_000 });
+}

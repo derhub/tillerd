@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Browser, launchReadyApp } from "./helpers";
+import { type Browser, launchReadyApp, openLogViewer } from "./helpers";
 
 // Auto-scroll needs real layout (scrollHeight/clientHeight), which happy-dom lacks — so it is
 // covered here, in a real webview. The test seeds a log file the viewer tails (far-future
@@ -76,8 +76,7 @@ test("auto-scroll follows new logs, pauses on scroll-up, resumes at bottom", asy
 
   const b = await launchReadyApp();
   browser = b;
-  const origin = new URL(await b.getUrl()).origin;
-  await b.url(`${origin}/logs`);
+  await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
 
   // Overflowing content + initial stick → pinned to the bottom.
