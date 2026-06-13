@@ -52,7 +52,9 @@ test("the level filter shows only the chosen level", async () => {
   // (selectByAttribute does not reliably trigger it).
   await b.execute((sel: string) => {
     const doc = globalThis as unknown as {
-      document: { querySelector(s: string): { value: string; dispatchEvent(e: Event): boolean } | null };
+      document: {
+        querySelector(s: string): { value: string; dispatchEvent(e: Event): boolean } | null;
+      };
     };
     const el = doc.document.querySelector(sel);
     if (el) {
