@@ -1,9 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 use process_launch::Probes;
 pub use process_launch::{LaunchError, SpawnTiming};
-use service_host::{ManifestData, ServiceStatus as Lifecycle};
+use service_host::{Manifest, ServiceStatus as Lifecycle};
 
 use crate::error::{OrchestratorError, Result};
 
@@ -36,17 +36,12 @@ impl ServiceStatus {
     }
 }
 
-fn read_manifest(path: &Path) -> Option<ManifestData> {
-    let raw = std::fs::read(path).ok()?;
-    serde_json::from_slice(&raw).ok()
-}
-
 pub fn ensure_service(
     spec: &ServiceSpec,
     timing: &SpawnTiming,
     probes: &impl Probes,
 ) -> Result<ServiceStatus> {
-    if let Some(manifest) = read_manifest(&spec.manifest_path) {
+    if let Some(manifest) = Manifest::read(&spec.manifest_path) {
         if probes.is_alive(manifest.pid) {
             // Readiness comes from the manifest status (ADR-0028), not a socket probe.
             if manifest.version == spec.version && manifest.status == Lifecycle::Ready {
@@ -81,7 +76,7 @@ pub fn ensure_service(
 
     let deadline = Instant::now() + timing.startup_timeout;
     loop {
-        if read_manifest(&spec.manifest_path).is_some_and(|m| m.status == Lifecycle::Ready) {
+        if Manifest::read(&spec.manifest_path).is_some_and(|m| m.status == Lifecycle::Ready) {
             return Ok(ServiceStatus {
                 name: spec.name.clone(),
                 version: Some(spec.version.clone()),
@@ -179,7 +174,7 @@ impl Supervise for ProcessSupervisor {
 mod tests {
     use super::*;
     use std::cell::Cell;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::Duration;
 
     struct FakeProbes {
@@ -260,11 +255,7 @@ mod tests {
                 .map(|p| *p)
                 .map_err(|e| LaunchError::SpawnFailed(e.to_string()))?;
             if let Some((path, status)) = &self.on_spawn {
-                std::fs::write(
-                    path,
-                    format!(r#"{{"pid":{pid},"version":"x","status":"{status}"}}"#),
-                )
-                .unwrap();
+                write_manifest(path, pid, "x", status);
             }
             Ok(pid)
         }

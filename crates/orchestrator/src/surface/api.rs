@@ -94,15 +94,7 @@ impl SurfaceApi {
     /// best-effort (a failed item is recorded; the rest still run). A session without a stored spec
     /// launches nothing.
     pub async fn launch_session(&self, session_id: &SessionId) -> Result<Vec<LaunchItemResult>> {
-        let session = self
-            .store
-            .get_session(session_id)?
-            .ok_or_else(|| OrchestratorError::SessionNotFound(session_id.as_str().to_string()))?;
-        let (version, blob) = match (session.spec_version, session.spec_json) {
-            (Some(v), Some(b)) => (v, b),
-            _ => return Ok(Vec::new()),
-        };
-        let (spec, _) = migrate(&blob, version)?;
+        let spec = self.session_spec(session_id)?;
         let launcher = RuntimeLauncher {
             runtime: self.runtime.clone(),
         };
@@ -156,29 +148,40 @@ impl SurfaceApi {
     // Returns a placement only; the renderer creates the surface at it (it owns the byte channel).
     pub fn spawn_surface(&self, session_id: &SessionId) -> Result<String> {
         let placement = uuid::Uuid::new_v4().to_string();
-        let mut spec = self.session_spec(session_id)?;
-        spec.items.push(LaunchItem {
-            target: SurfaceKind::Terminal.as_str().to_string(),
-            placement: Some(placement.clone()),
-            command: CommandRef::Inline {
-                executable: default_shell(),
-                args: Vec::new(),
-            },
-            worktree: None,
-        });
-        spec.ensure_unique_placements()?;
-        self.store_spec(session_id, &spec)?;
+        self.update_spec(session_id, |spec| {
+            spec.items.push(LaunchItem {
+                target: SurfaceKind::Terminal.as_str().to_string(),
+                placement: Some(placement.clone()),
+                command: CommandRef::Inline {
+                    executable: default_shell(),
+                    args: Vec::new(),
+                },
+                worktree: None,
+            });
+            spec.ensure_unique_placements()
+        })?;
         Ok(placement)
     }
 
     pub async fn remove_surface(&self, session_id: &SessionId, surface: &SurfaceId) -> Result<()> {
         if let Some(placement) = self.store.get_surface(surface)?.and_then(|s| s.placement) {
-            let mut spec = self.session_spec(session_id)?;
-            spec.items
-                .retain(|item| item.placement.as_deref() != Some(placement.as_str()));
-            self.store_spec(session_id, &spec)?;
+            self.update_spec(session_id, |spec| {
+                spec.items
+                    .retain(|item| item.placement.as_deref() != Some(placement.as_str()));
+                Ok(())
+            })?;
         }
         self.remove(surface).await
+    }
+
+    fn update_spec(
+        &self,
+        session_id: &SessionId,
+        f: impl FnOnce(&mut LaunchSpec) -> Result<()>,
+    ) -> Result<()> {
+        let mut spec = self.session_spec(session_id)?;
+        f(&mut spec)?;
+        self.store_spec(session_id, &spec)
     }
 
     fn session_spec(&self, session_id: &SessionId) -> Result<LaunchSpec> {
