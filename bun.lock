@@ -120,21 +120,25 @@
     },
     "crates/contracts": {
       "name": "@tillerd/contracts",
+      "version": "0.0.0",
     },
     "crates/daemon-pty-client": {
       "name": "@tillerd/daemon-pty-client",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/contracts": "workspace:*",
       },
     },
     "crates/gate-client": {
       "name": "@tillerd/gate-client",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/contracts": "workspace:*",
       },
     },
     "crates/orchestrator": {
       "name": "@tillerd/orchestrator",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/contracts": "workspace:*",
         "@tillerd/daemon-pty-client": "workspace:*",
@@ -145,18 +149,22 @@
     },
     "crates/paths": {
       "name": "@tillerd/paths",
+      "version": "0.0.0",
     },
     "crates/process-launch": {
       "name": "@tillerd/process-launch",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/paths": "workspace:*",
       },
     },
     "crates/redact": {
       "name": "@tillerd/redact",
+      "version": "0.0.0",
     },
     "crates/service-host": {
       "name": "@tillerd/service-host",
+      "version": "0.0.0",
       "dependencies": {
         "@tillerd/paths": "workspace:*",
       },
@@ -180,20 +188,15 @@
         "typescript": "^5.9.2",
       },
     },
-    "tests/benchmark": {
-      "name": "@tillerd/benchmark",
-      "dependencies": {
-        "@tillerd/sdk": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.14",
-      },
-    },
     "tests/desktop-e2e": {
       "name": "@tillerd/desktop-e2e",
       "devDependencies": {
         "webdriverio": "^9.0.0",
       },
+    },
+    "tests/integration": {
+      "name": "@tillerd/integration-tests",
+      "version": "0.0.0",
     },
   },
   "packages": {
@@ -665,8 +668,6 @@
 
     "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.11.2", "", { "os": "win32", "cpu": "x64" }, "sha512-d2JchlFIpZevZVReyqhQOekJmb1UH3rhZ5VX6sH3ty9ETE0TKQavpihvoScUXfKKpW6HZC0MrFGRU0ZtD+w3gA=="],
 
-    "@tillerd/benchmark": ["@tillerd/benchmark@workspace:tests/benchmark"],
-
     "@tillerd/cli": ["@tillerd/cli@workspace:apps/cli"],
 
     "@tillerd/contracts": ["@tillerd/contracts@workspace:crates/contracts"],
@@ -682,6 +683,8 @@
     "@tillerd/gate-client": ["@tillerd/gate-client@workspace:crates/gate-client"],
 
     "@tillerd/gate-notify": ["@tillerd/gate-notify@workspace:apps/gate-notify"],
+
+    "@tillerd/integration-tests": ["@tillerd/integration-tests@workspace:tests/integration"],
 
     "@tillerd/logger": ["@tillerd/logger@workspace:packages/logger"],
 
