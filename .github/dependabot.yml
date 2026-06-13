@@ -1,28 +1,46 @@
 version: 2
 updates:
-  # bun.lock — daily
+  # bun.lock
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
       time: "01:00"
       timezone: "UTC"
+    groups:
+      security:
+        patterns:
+          - "*"
+        applies-to: "security-updates"
+      version-updates:
+        patterns:
+          - "*"
+        applies-to: "version-updates"
     open-pull-requests-limit: 2
     commit-message:
       prefix: "chore(deps-bun)"
 
-  # Cargo.lock — daily
+  # Cargo.lock
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "daily"
       time: "01:10"
       timezone: "UTC"
+    groups:
+      security:
+        patterns:
+          - "*"
+        applies-to: "security-updates"
+      version-updates:
+        patterns:
+          - "*"
+        applies-to: "version-updates"
     open-pull-requests-limit: 2
     commit-message:
       prefix: "chore(deps-cargo)"
 
-  # GitHub Actions — weekly
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
