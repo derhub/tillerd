@@ -43,7 +43,8 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
   }, [sessionId, status]);
 
   if (!sessionId) return <DiffPlaceholder message="No active session" />;
-  if (diff.phase === "idle") return <DiffPlaceholder message="Waiting for session to complete..." />;
+  if (diff.phase === "idle")
+    return <DiffPlaceholder message="Waiting for session to complete..." />;
   if (diff.phase === "error") return <DiffPlaceholder message={diff.message} error />;
 
   if (diff.phase === "loading") {
