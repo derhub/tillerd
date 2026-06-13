@@ -1,0 +1,4 @@
+[test]
+# Register happy-dom globals (window/document) before any React import so component
+# tests can render. Logic-only tests are unaffected.
+preload = ["./happydom.ts"]
