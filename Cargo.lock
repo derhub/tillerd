@@ -4829,8 +4829,12 @@ name = "tillerd-paths"
 version = "0.0.0"
 dependencies = [
  "dirs",
+ "serde_json",
  "serial_test",
  "tempfile",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]

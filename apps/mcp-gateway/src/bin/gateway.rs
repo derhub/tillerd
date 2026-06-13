@@ -3,9 +3,12 @@
 
 use tillerd_mcp_gateway::service::GatewayService;
 
+const SERVICE_NAME: &str = "tillerd-mcp-gateway";
+
 fn main() {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .init();
+    let dir = tillerd_paths::runtime_dir();
+    let (_guard, root) =
+        tillerd_paths::logging::init_file_tracing(SERVICE_NAME, env!("CARGO_PKG_VERSION"), &dir);
+    let _root = root.entered();
     service_host::run_blocking(GatewayService::from_env());
 }

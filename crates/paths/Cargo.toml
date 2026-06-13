@@ -11,10 +11,14 @@ path = "src/lib.rs"
 
 [dependencies]
 dirs = "6"
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
+tracing-appender = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true
 serial_test = "3"
+serde_json.workspace = true
 
 [lints]
 workspace = true

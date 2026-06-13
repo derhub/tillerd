@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 import { Columns2, Rows2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
 import { SessionSidebar } from "~/components/SessionSidebar";
+import { LogViewer } from "~/components/LogViewer";
 import { EmptyPanel } from "~/components/EmptyPanel";
 import { TerminalPane } from "~/components/TerminalPane";
 import { DesktopTerminalPane } from "~/components/DesktopTerminalPane";
@@ -28,6 +29,7 @@ function getTerminalClient(): Promise<TerminalSurfaceClient> {
 export function AppShell() {
   const params = useParams();
   const sessionId = params["id"] ?? null;
+  const onLogs = useLocation().pathname === "/logs";
   const [status, setStatus] = useState("");
   const host = useDesktopHost();
   const orchestratorClient = host.status === "ready" ? host.orchestratorClient : null;
@@ -208,7 +210,9 @@ export function AppShell() {
           <SessionSidebar />
         </aside>
         <div className="flex-1 min-w-0 pt-px relative">
-          {host.status === "web" ? (
+          {onLogs ? (
+            <LogViewer />
+          ) : host.status === "web" ? (
             <TerminalPane sessionId={sessionId} />
           ) : (
             renderNode(tree, "root")

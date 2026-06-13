@@ -28,6 +28,14 @@ fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let dir = tillerd_paths::runtime_dir();
+    let (_guard, root) = tillerd_paths::logging::init_file_tracing(
+        "tillerd-desktop",
+        env!("CARGO_PKG_VERSION"),
+        &dir,
+    );
+    let _root = root.entered();
+
     let builder = tauri::Builder::default();
     #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
@@ -50,6 +58,7 @@ pub fn run() {
             bridge::daemon_disconnect,
             files::file_size,
             files::file_read,
+            files::list_log_files,
             diag::log_forward,
             store::pref_get,
             store::pref_set,
