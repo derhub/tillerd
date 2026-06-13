@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { LEVELS, type LogFilter, distinctAttribute, filterRecords } from "~/lib/logs/log-filter";
 import type { LogRecord } from "~/lib/logs/log-record";
@@ -87,11 +88,21 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
   const sessions = useMemo(() => distinctAttribute(records, "session.id"), [records]);
   const shown = useMemo(() => filterRecords(records, filter), [records, filter]);
 
-  // After a render that changed the rows, stick to the bottom if the user hasn't scrolled up.
+  // Virtualize: render only the visible rows (+ overscan) so the list scales to very large
+  // logs. The spacer keeps the scroll container's scrollHeight correct for auto-scroll.
+  const virtualizer = useVirtualizer({
+    count: shown.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 22,
+    overscan: 24,
+  });
+
+  // After the rows change, stick to the bottom if the user hasn't scrolled up.
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
-  }, [shown]);
+    if (stickRef.current && shown.length > 0) {
+      virtualizer.scrollToIndex(shown.length - 1, { align: "end" });
+    }
+  }, [shown, virtualizer]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -155,9 +166,24 @@ export function LogViewer({ resolveSource = loadLogSource, pollMs = POLL_MS }: L
         data-testid="log-scroll"
         className="flex-1 overflow-auto"
       >
-        {shown.map((r, i) => (
-          <LogRow key={`${r.timestamp}-${i}`} record={r} />
-        ))}
+        <div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>
+          {virtualizer.getVirtualItems().map((vi) => (
+            <div
+              key={vi.key}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${vi.start}px)`,
+              }}
+            >
+              <LogRow record={shown[vi.index]} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

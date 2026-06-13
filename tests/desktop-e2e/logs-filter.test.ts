@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Browser, launchReadyApp } from "./helpers";
@@ -42,19 +42,18 @@ test("the level filter shows only the chosen level", async () => {
 
   const text = async (): Promise<string> => (await b.$(SCROLL)).getText();
 
-  // Unfiltered: both levels present.
-  await b.waitUntil(async () => (await text()).includes("infoline 0"), {
+  // Unfiltered, auto-scrolled to the bottom: the latest rows (INFO) are visible.
+  await b.waitUntil(async () => (await text()).includes("infoline"), {
     timeout: 15_000,
     timeoutMsg: "seeded logs did not appear",
   });
-  expect(await text()).toContain("errline 0");
 
-  // Choose ERROR → only ERROR rows remain.
+  // Choose ERROR → only ERROR rows remain (INFO leaves the data, so it never renders).
   await (await b.$(LEVEL_SELECT)).selectByAttribute("value", "ERROR");
   await b.waitUntil(
     async () => {
       const t = await text();
-      return t.includes("errline 0") && !t.includes("infoline");
+      return t.includes("errline") && !t.includes("infoline");
     },
     { timeout: 10_000, timeoutMsg: "level filter did not restrict to ERROR only" },
   );
