@@ -95,35 +95,35 @@ contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
 (ADR-0025), the panel-surface binding (ADR-0030), design tokens — holds for the rest
 of 0.x; every later version is additive on these seams, never a change to them.
 
-- [ ] Desktop E2E suite — first, so every later milestone verifies against it instead
+- [x] Desktop E2E suite — first, so every later milestone verifies against it instead
   of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
   `tauri-webdriver` over test-gated `tauri-plugin-webdriver`; macOS WKWebView works,
   unlike official `tauri-driver` — tauri#7068; smoke specs: boot, project / session,
   terminal stream). Extend to a solid suite: boot to ready in both dev and bundled
   modes, full create flows, resume after restart, runs in CI. (Agent render deferred
   to 1.0.0 with the agent surface.)
-- [ ] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
-- [ ] Solidify `service-host`: add first-class ready / drain lifecycle phases and the
+- [x] Dynamic-ACL contract test (deferred from the GUI arg-shape work).
+- [x] Solidify `service-host`: add first-class ready / drain lifecycle phases and the
   discovery convention (socket / manifest) to the `Service` trait — health (ADR-0019)
   and identity / version are already in. Gate + daemon conform; future services
   inherit the contract. (Health feeds the 0.0.8 indicators.)
-- [ ] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
+- [x] Replace fd-handoff (ADR-0011) with drain-and-restart: on a version mismatch the
   daemon drains (refuses new sessions, lets active ones finish), swaps the binary,
   starts fresh. Builds on the contract's drain primitive — re-check the
   `daemon-upgrade-drain-restart` proposal against it before implementing.
-- [ ] Placement and multi-surface: placement becomes a unique slot id (not named
+- [x] Placement and multi-surface: placement becomes a unique slot id (not named
   regions) so a session holds N surfaces; panels bind surfaces by placement; revisit
   resumes each by `(session, placement)`; spawning a surface diverges the session's
   launch spec ([ADR-0030](./adr/0030-panels-bind-surfaces-by-placement.md)). The
   panel-surface seam freezes here; the terminal revisit already shipped is the first
   slice. Sizes / nested splits stay 0.1.x (additive geometry).
-- [ ] `correlation_id` threaded across hops in structured logs — the log-viewer
+- [x] `correlation_id` threaded across hops in structured logs — the log-viewer
   (0.0.7), health surfacing (0.0.8), and every later feature join records on it.
-- [ ] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
+- [x] Design tokens: apply [`DESIGN.md`](../apps/ui/DESIGN.md) across the existing
   shell and close its token-level gaps (motion / transition scale, icon sizing
   token, light-mode tokens) — all later UI (log-viewer, health, onboarding,
   settings) is built on final tokens.
-- [ ] Dead-code sweep: delete the retired TS packages left from the Rust inversion
+- [x] Dead-code sweep: delete the retired TS packages left from the Rust inversion
   (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`,
   ...) where nothing live references them; dormant `apps/server` keeps only what it
   needs until its 0.1.4 rewrite.
