@@ -221,7 +221,10 @@ impl Store for InMemoryStore {
         let (spec_version, spec_json) = if let Some(ref tid) = draft.template_id {
             let inner = self.inner.lock().unwrap();
             match inner.launch_templates.get(tid.as_str()) {
-                Some(t) => (Some(t.spec_version), Some(t.spec_json.clone())),
+                Some(t) => (
+                    Some(t.spec_version),
+                    Some(crate::launch::spec::instantiate_for_session(&t.spec_json)?),
+                ),
                 None => {
                     return Err(OrchestratorError::LaunchTemplateNotFound(
                         tid.as_str().to_string(),
