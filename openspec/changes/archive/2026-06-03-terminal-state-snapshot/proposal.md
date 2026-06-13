@@ -25,6 +25,6 @@ Raw ring-buffer replay on reconnect is lossy: a reconnecting or late-joining cli
 
 - `@athing/sdk` — `snapshot` IPC frame schema; capability advertisement in the connect handshake
 - `packages/daemon` — VT state parser (`vt-state.ts`), parse-on-output wiring, snapshot-on-subscribe, capability negotiation, successor-handoff/adoption preservation
-- `packages/engine/src/daemon/proxy.ts` — capability advertisement; convert snapshot frame → escape-sequence bytes on the data channel
+- `packages/engine/src/daemon/proxy.ts` — capability advertisement; convert snapshot frame -> escape-sequence bytes on the data channel
 - `apps/server`, `apps/ui` — none beyond receiving snapshot bytes transparently as `data`
 - Independent of `exit-qualifier-taxonomy` and `session-crash-recovery`.

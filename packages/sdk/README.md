@@ -37,9 +37,9 @@ session.send(text); // gated on IDLE — queued until ready
 session.input(bytes); // raw bytes, no gating
 session.interrupt(); // cancel current turn, keep session alive
 session.resize(cols, rows);
-session.kill(); // → Promise<ExitEvent>
+session.kill(); // -> Promise<ExitEvent>
 
-session.onData(handler); // → unsubscribe fn
+session.onData(handler); // -> unsubscribe fn
 session.onStatus(handler);
 session.onContent(handler);
 session.onError(handler);
@@ -79,13 +79,13 @@ const myAgent: AgentDefinition = {
     commonLocations: ["/usr/local/bin/my-cli", "~/.local/bin/my-cli"],
   },
   parseHook(raw) {
-    /* raw payload → HookEvent */
+    /* raw payload -> HookEvent */
   },
   transcriptPath(sessionId, cwd, agentHome) {
-    /* → path string, assembled from agentHome with pure string ops */
+    /* -> path string, assembled from agentHome with pure string ops */
   },
   parseTranscriptEntry(line) {
-    /* → ContentEvent | null */
+    /* -> ContentEvent | null */
   },
 };
 ```

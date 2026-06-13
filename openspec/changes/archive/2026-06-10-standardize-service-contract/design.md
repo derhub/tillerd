@@ -48,8 +48,8 @@ Add `service_host::run_blocking(service)` (builds the standard multi-thread runt
 
 ## Risks / Trade-offs
 
-- **Health is no longer externally checkable beyond liveness.** A caller can confirm a service is alive (main-socket connect) and its version (manifest), but not its serving/draining status from outside the process. → Accepted per the directive; status is in-process. If external status is ever needed, it is additive (a manifest field or a route) without revisiting this decision.
-- **ADR-0007 names a `/health` probe** as part of the reliability contract. → Record a new ADR revisiting the health-probe mechanism (dedicated socket probe → in-process `Service::health()` self-check), preserving external liveness via manifest + main-socket connect; the rest of ADR-0007 stays in force.
+- **Health is no longer externally checkable beyond liveness.** A caller can confirm a service is alive (main-socket connect) and its version (manifest), but not its serving/draining status from outside the process. -> Accepted per the directive; status is in-process. If external status is ever needed, it is additive (a manifest field or a route) without revisiting this decision.
+- **ADR-0007 names a `/health` probe** as part of the reliability contract. -> Record a new ADR revisiting the health-probe mechanism (dedicated socket probe -> in-process `Service::health()` self-check), preserving external liveness via manifest + main-socket connect; the rest of ADR-0007 stays in force.
 
 ## Migration Plan
 

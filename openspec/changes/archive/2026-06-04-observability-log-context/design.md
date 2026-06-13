@@ -101,18 +101,18 @@ additive to a type they already consume by DI, so the inward-pointing dependency
 
 ## Risks / Trade-offs
 
-- [BREAKING signature change `createLogger(sessionId?)` → `createLogger(resource)` ripples to
-  every consumer] → Pre-v1, no shim allowed by project policy; change is mechanical
+- [BREAKING signature change `createLogger(sessionId?)` -> `createLogger(resource)` ripples to
+  every consumer] -> Pre-v1, no shim allowed by project policy; change is mechanical
   (server, cli, TS daemon, tests) and caught at compile time by the type system.
-- [Per-language asymmetry (TS child object vs Rust span) could confuse contributors] → Document
-  the shared concept (bind context → inherited attributes → OTel mapping) in the spec and ADR;
+- [Per-language asymmetry (TS child object vs Rust span) could confuse contributors] -> Document
+  the shared concept (bind context -> inherited attributes -> OTel mapping) in the spec and ADR;
   the asymmetry is idiomatic, not accidental.
-- [New Rust dependencies `tracing` + `tracing-subscriber` enlarge the daemon build] → Both are
+- [New Rust dependencies `tracing` + `tracing-subscriber` enlarge the daemon build] -> Both are
   the de-facto ecosystem standard, lightweight, and unlock the future OTLP bridge.
-- [Hex-dump `pty.out`/`pty.in` debug logs may contain secrets] → Out of scope here, but flag:
+- [Hex-dump `pty.out`/`pty.in` debug logs may contain secrets] -> Out of scope here, but flag:
   those remain `debug`-level and are governed by ADR-0007's redaction clause; this change must
   not promote them to a default level.
-- [Explicit child threading can still be forgotten, re-orphaning a record] → Mitigated by
+- [Explicit child threading can still be forgotten, re-orphaning a record] -> Mitigated by
   binding session context at the highest scope (per-session logger) so leaf call sites inherit
   it without action; lint/review catches new top-level `createLogger` misuse.
 

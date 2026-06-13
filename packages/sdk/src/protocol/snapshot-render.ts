@@ -14,8 +14,8 @@ export const ATTR_INVISIBLE = 0x40;
 
 // SnapshotCell color encoding:
 //   0          = default
-//   1–8        = ANSI standard (30–37 → 1–8)
-//   9–16       = ANSI bright (90–97 → 9–16)
+//   1–8        = ANSI standard (30–37 -> 1–8)
+//   9–16       = ANSI bright (90–97 -> 9–16)
 //   17–272     = 256-color (index + 17)
 //   0x1000000+ = 24-bit RGB (0x1000000 | r<<16 | g<<8 | b)
 export const COLOR_DEFAULT = 0;

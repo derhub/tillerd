@@ -43,7 +43,7 @@ fn shorten(s: &str, max: usize) -> String {
         s.to_string()
     } else {
         let head: String = s.chars().take(max).collect();
-        format!("{head}…")
+        format!("{head}...")
     }
 }
 

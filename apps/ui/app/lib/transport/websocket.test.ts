@@ -21,7 +21,7 @@ class FakeWS implements WebSocketLike {
   open(): void {
     this.onopen?.({});
   }
-  /** Deliver a daemon→client frame to the transport, as the server byte bridge would. */
+  /** Deliver a daemon->client frame to the transport, as the server byte bridge would. */
   deliver(meta: object, body?: Uint8Array): void {
     const buf = encodeFrame(meta, body);
     this.onmessage?.({ data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) });

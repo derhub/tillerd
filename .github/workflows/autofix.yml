@@ -38,8 +38,10 @@ jobs:
       - run: bun install --frozen-lockfile
       # The desktop crate's clippy build.rs embeds the UI dist, so build it before clippy.
       - run: bunx turbo run build --filter=@tillerd/ui
-      # Apply clippy's machine-applicable fixes, then format (oxfmt for JS/TS + cargo fmt for Rust).
+      # Apply machine-applicable lint fixes (clippy for Rust, oxlint for JS/TS), then format
+      # (oxfmt for JS/TS + cargo fmt for Rust).
       - run: cargo clippy --fix --workspace --all-targets --allow-dirty --allow-staged
+      - run: bunx oxlint --fix .
       - run: bun run format
       # Pinned to the commit autofix.ci/setup currently recommends (SHA over tag).
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a

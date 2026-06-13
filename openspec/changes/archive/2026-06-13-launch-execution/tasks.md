@@ -1,6 +1,6 @@
 # Tasks — Launch Execution
 
-Test-first throughout (red → green → refactor). Each task traces to a spec requirement and honors
+Test-first throughout (red -> green -> refactor). Each task traces to a spec requirement and honors
 ADR-0024 (one proxy per surface; `surface_id` is the daemon key) and ADR-0027 (0.x is terminal-only;
 the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch-system` scaffold.
 
@@ -21,7 +21,7 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 ## 3. Remove the agent surface — terminal-only 0.x (ADR-0027)
 
-- [x] 3.1 Orchestrator: delete the `agent` module (`definition`/`parse`/`setup`), `launch_agent`/`AgentProxy`/`resolve_agent_command`/`agent_def`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed; `launch_surface` is terminal-only (diff → unsupported). The gate stays (shared hook-ingress/MCP infra; only the agent's gate subscription is removed)
+- [x] 3.1 Orchestrator: delete the `agent` module (`definition`/`parse`/`setup`), `launch_agent`/`AgentProxy`/`resolve_agent_command`/`agent_def`, the `SurfaceKind::Agent` variant, `create_agent_surface`, and the `agent-cli` seed; `launch_surface` is terminal-only (diff -> unsupported). The gate stays (shared hook-ingress/MCP infra; only the agent's gate subscription is removed)
 - [x] 3.2 Desktop host: remove `surface_create_agent` + `agent_bootstrap` IPC commands and the agent bootstrap module; `SurfaceApi::new` (no gate socket)
 - [x] 3.3 TS: delete the agent-adapter package and the retired `engine` / `platform-bun` packages; remove agent types from `packages/sdk`; remove the renderer agent path (`agent_bootstrap`, agent surface UI/transport); strip the deps from every package.json. (CLI install/uninstall + `apps/server/src/index.ts` were also retired in follow-up cleanup)
 - [x] 3.4 Tests: `cargo test -p tillerd-orchestrator` green after removal; terminal streaming/status/resize/reattach unaffected
@@ -29,8 +29,8 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 
 ## 4. Launch executor (spec: launch-execution)
 
-- [x] 4.1 Resolve each item's command (library reference → stored command; inline → as given; unknown → typed not-found, no surface). The executor hands the `ResolvedCommand` to a `SurfaceLauncher` trait. Production caller wired: `RuntimeLauncher` dispatches to `launch_surface` (mints token, default 80×24, resize-on-attach); `SurfaceApi::launch_session` loads+migrates the session's spec and runs the executor; the desktop `session_create` command creates the session and best-effort launches its spec.
-- [x] 4.2 Dispatch by `surface_kind_for(target)`; unsupported target → typed `UnsupportedSurfaceKind`
+- [x] 4.1 Resolve each item's command (library reference -> stored command; inline -> as given; unknown -> typed not-found, no surface). The executor hands the `ResolvedCommand` to a `SurfaceLauncher` trait. Production caller wired: `RuntimeLauncher` dispatches to `launch_surface` (mints token, default 80×24, resize-on-attach); `SurfaceApi::launch_session` loads+migrates the session's spec and runs the executor; the desktop `session_create` command creates the session and best-effort launches its spec.
+- [x] 4.2 Dispatch by `surface_kind_for(target)`; unsupported target -> typed `UnsupportedSurfaceKind`
 - [x] 4.3 Worktree step: run against an explicit repository root (not the process cwd), set the surface working directory and `worktree_id`; a failing step fails the item, no surface
 - [x] 4.5 Record placement on the surface; run items in declared order; record best-effort per-item outcomes. Auxiliary runners (e.g. a dev server) are ordinary terminal items with a placement; closing the pane leaves the process running (soft-delete keeps the PTY) — no separate script concept
 - [x] 4.6 Tests: order + best-effort; command resolution; target dispatch; placement; worktree (2 cases)
@@ -49,7 +49,7 @@ the agent surface is deferred to 1.x). Built on the parked `feature/0-0-5-launch
 ## 7. Command library (spec: command-library)
 
 - [x] 7.1 `seed_commands` is a single `INSERT OR IGNORE` per prebuilt under one lock (no exists-check/release/re-insert window); `busy_timeout` added so concurrent opens serialize
-- [x] 7.2 Tests: repeated open and concurrent open (4 threads) each leave one copy of every prebuilt command; create → get → list → delete round-trip
+- [x] 7.2 Tests: repeated open and concurrent open (4 threads) each leave one copy of every prebuilt command; create -> get -> list -> delete round-trip
 
 ## 8. Verify + cleanup
 

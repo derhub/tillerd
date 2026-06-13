@@ -11,7 +11,7 @@ import {
 /**
  * Carrier-agnostic `DaemonTransport`. Owns the single-sourced sdk framing codec, the daemon
  * handshake, and frame dispatch; subclasses supply only the byte carrier (WebSocket, Tauri
- * Channel + `invoke`, …). Raw bytes only — no frame is ever parsed in the carrier.
+ * Channel + `invoke`, ...). Raw bytes only — no frame is ever parsed in the carrier.
  */
 export abstract class FramedDaemonTransport implements DaemonTransport {
   private readonly decoder = new FrameDecoder();

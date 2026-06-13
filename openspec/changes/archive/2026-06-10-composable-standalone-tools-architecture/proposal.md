@@ -36,18 +36,18 @@ untrusted ingress.
   `[Observe, Auth]`**; `validate`, `firewall`, `redaction` are future middleware that drop onto a
   route with no gate change. The `Middleware`/`Router`/`Ctx` contracts live in a library; the gate
   process is a thin shell holding the concrete middleware + transport. Two routes in v1: the **Hook
-  route** (the installed agent hook posts, fire-and-forget; Observe → Auth → Normalize via injected
-  adapter → FanOut by session id) and the **Tool route** (other ingestors send tool inbounds). The
+  route** (the installed agent hook posts, fire-and-forget; Observe -> Auth -> Normalize via injected
+  adapter -> FanOut by session id) and the **Tool route** (other ingestors send tool inbounds). The
   gate never speaks a tool protocol and holds no backend registry. Routes/surfaces are isolated
-  (hook ≠ tool ≠ admin).
+  (hook != tool != admin).
 - **The gate is the observability chokepoint — v1 feature.** `Observe` is a global middleware: every
   inbound emits a structured, correlation-bound record (ADR-0012: `{ sessionId, correlationId }`
   bound context + a gate Resource identity). This is the debugging substrate and the foundation for
   future features (metrics, audit, tracing).
 - **The tool gateway uses the gate in v1 — for observability.** The MCP gateway sends `ToolCall`/
-  `ToolResult` inbounds to `gate.handle()`. In v1 the Tool route is `Observe → Auth → PassThrough`
+  `ToolResult` inbounds to `gate.handle()`. In v1 the Tool route is `Observe -> Auth -> PassThrough`
   (policy middleware deferred), so its value now is a single, correlation-tagged view of all agent
-  tool traffic. It is **fail-open** in v1 (gate down → gateway logs a warning and proceeds; no policy
+  tool traffic. It is **fail-open** in v1 (gate down -> gateway logs a warning and proceeds; no policy
   to enforce yet); it flips to **fail-closed** once `validate`/`firewall` land on the route. The
   gateway is otherwise unchanged and adopts `service-host`. ADR-0014 stays intact.
 - **Drop transcript read-on-hook. BREAKING (supersedes ADR-0006).** Structured content now comes from
@@ -69,11 +69,11 @@ untrusted ingress.
   connects to the already-running instance. This removes the adopt-or-spawn logic smeared across
   crates.
 - **Three contract surfaces, pinned to one spec. BREAKING.** (1) the **PTY session subscription**
-  (daemon → consumers: bytes + lifecycle); (2) the **gate hook subscription** (gate → consumers:
+  (daemon -> consumers: bytes + lifecycle); (2) the **gate hook subscription** (gate -> consumers:
   canonical hook events by session id); (3) the gate **tool route** (tool inbound/outbound). All are mirrored in
   `contracts-rs` and `@athing/sdk` (TypeScript), pinned to one versioned spec so they cannot drift.
-  Each wire gets a thin Rust client + a TS client: the **PTY wire** → `daemon-pty-client` (Rust, used
-  by the desktop) and `proxy.ts` (TS, used by the engine); the **gate hook subscription** →
+  Each wire gets a thin Rust client + a TS client: the **PTY wire** -> `daemon-pty-client` (Rust, used
+  by the desktop) and `proxy.ts` (TS, used by the engine); the **gate hook subscription** ->
   `gate-client` (Rust, used by memory) and a TS gate client in the server (feeding the engine). Both
   Rust clients decode the versioned wire from `contracts-rs`. Memory does NOT depend on the daemon; no
   client is ever depended on by the daemon. All three wires carry a `correlation_id` alongside
@@ -145,7 +145,7 @@ across daemon, gateway, and desktop.
 
    daemon (pty-only)            GATE (router + middleware)      tool gateway (MCP)
    PTY fds, raw bytes,          globals: [Observe, Auth]        standard MCP front (0014)
-   session control,             Hook route:  Normalize→FanOut   aggregates + supervises
+   session control,             Hook route:  Normalize->FanOut   aggregates + supervises
    session-event stream         Tool route:  PassThrough        sends ToolCall/ToolResult
    NO hook ingress              hook endpoint <--post-- agent     inbounds to gate.handle()
         |                         |  bash hook                     |
@@ -189,7 +189,7 @@ full = 3 (daemon + gate + tool gateway), memory a library inside whatever consum
 ### Cons / Costs
 
 - The gate is a new agent-facing process (hook endpoint + tool route); it must be hardened and its
-  routes strictly isolated (tool route ≠ hook endpoint ≠ admin channel).
+  routes strictly isolated (tool route != hook endpoint != admin channel).
 - Every MCP tool call costs a gate round-trip (in v1 an observe pass-through). Local IPC makes this
   sub-millisecond, but it is a hop on the tool-call path to keep cheap.
 - More small crates (two lifecycle libs, the contract surface, core libs); runtime processes are
@@ -210,8 +210,8 @@ full = 3 (daemon + gate + tool gateway), memory a library inside whatever consum
   `gate-client` (Rust, gate hook-subscription wire), and `contracts-rs` mirroring `@athing/sdk` under
   one versioned spec. (No `gate-core`/`memorya-core` crates — see below.)
 - The gate: a new router over composable middleware (`seq`/`par`) — **v1 globals: `Observe` (outermost), `Auth`**;
-  validate, firewall, redaction are future middleware. The Hook route (hook endpoint → Observe → Auth
-  → Normalize via injected adapter → FanOut by session id) and the Tool route (Observe → Auth →
+  validate, firewall, redaction are future middleware. The Hook route (hook endpoint -> Observe -> Auth
+  -> Normalize via injected adapter -> FanOut by session id) and the Tool route (Observe -> Auth ->
   PassThrough). **Observability** is the `Observe` global — a correlation-bound record per inbound
   (ADR-0012). The gate speaks no tool protocol; normalization is the injected adapter's job. The
   middleware framework + concrete middleware are **modules in the gate binary**; shared wire types
@@ -254,8 +254,8 @@ full = 3 (daemon + gate + tool gateway), memory a library inside whatever consum
   its external backends — spawn, adopt-or-spawn-and-wait, restart, spawn-field diffing.
 - `gate`: the agent-facing router over composable middleware (`seq`/`par`) — **v1 globals: `Observe`
   (outermost), `Auth`**; validate, firewall, redaction are future middleware. A Hook route (hook
-  endpoint → Observe → Auth → Normalize via injected adapter → FanOut by session id), a Tool route
-  (Observe → Auth → PassThrough), a hook-event subscription for consumers, **observability** (the `Observe` global — a
+  endpoint -> Observe -> Auth -> Normalize via injected adapter -> FanOut by session id), a Tool route
+  (Observe -> Auth -> PassThrough), a hook-event subscription for consumers, **observability** (the `Observe` global — a
   correlation-bound record per inbound, ADR-0012), route isolation, and loopback+token binding. The
   gate speaks no tool protocol and holds no backend registry; normalization is the injected adapter's
   job (the gate is agnostic in code).
@@ -300,7 +300,7 @@ full = 3 (daemon + gate + tool gateway), memory a library inside whatever consum
 - **Data:** memory adds a capture-queue table; ingest must be idempotent (dedup by content hash);
   gate-side recall reads via WAL.
 - **ADRs:** new ADR for the composable-tools topology + the gate (middleware router); **amends
-  ADR-0008** (hook ingress leaves the daemon → the gate; daemon becomes pty-only); **realizes
+  ADR-0008** (hook ingress leaves the daemon -> the gate; daemon becomes pty-only); **realizes
   ADR-0005** (the generic ingress calls `parseHook` and routes by session) as the gate's hook flow;
   **supersedes ADR-0006** (transcript read-on-hook dropped; content moves to the `HookEvent`
   payload), which leaves the adapter **single-language** (Rust `parseHook` only) — ADR-0004 stays
@@ -318,8 +318,8 @@ full = 3 (daemon + gate + tool gateway), memory a library inside whatever consum
   `gate.handle()`; the gate never knows MCP and holds no backend registry.
 - The gate's routes must be isolated: a tool-route caller cannot inject hook events into the
   fan-out, and neither agent route can administer the gate.
-- Dependency arrows point only to contracts and shared libs. Never tool → tool, never
-  tool → orchestrator. `daemon-pty-client` is the only Rust code that knows the PTY daemon wire.
+- Dependency arrows point only to contracts and shared libs. Never tool -> tool, never
+  tool -> orchestrator. `daemon-pty-client` is the only Rust code that knows the PTY daemon wire.
 - `service-host` owns lifecycle and filesystem coordination only — never transport or protocol.
   The daemon keeps unix-socket binary framing; the gate and tool gateway keep loopback HTTP. The
   moment the host dictates the wire, the abstraction breaks.

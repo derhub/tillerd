@@ -42,7 +42,7 @@ Browser ── HTTP ──▶ viewer (127.0.0.1:port) ───────┘
 ```
 ~/.tillerd/
   memorya.db              active DB (always queried, stays small)
-  archive-YYYY.db        year shards (sealed → read-only)
+  archive-YYYY.db        year shards (sealed -> read-only)
   archive-index.json     shard registry
   models/<name>/         downloaded embedding model (cached)
   memories/MEMORY.md     global memory (deferred curation change)

@@ -56,7 +56,7 @@ A terminal session streams through the new Rust stack; the TS engine is retired 
 Built and merged (#8), then **removed** in the launch-execution cut: 0.x is terminal-only
 and the agent surface is deferred to **1.0.0** (ADR-0027). The gate hook fan-out stays as
 shared infrastructure (mcp-gateway, memory capture). The agent surface — Rust adapter,
-hook → status/content routing, status-badge UI, idempotent hook setup — returns in 1.0.0,
+hook -> status/content routing, status-badge UI, idempotent hook setup — returns in 1.0.0,
 with its launch command sourced from the command library.
 
 ### 0.0.4 — Projects and sessions (the container)
@@ -80,10 +80,10 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 - [x] Command library — prebuilt (login shell) + user-added. (The agent-CLI seed is dropped
   with the agent surface; it returns in 1.0.0.)
 - [x] Launch items — target (terminal), placement (named regions), command / args / env,
-  worktree step (create → returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
+  worktree step (create -> returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
   an auxiliary runner (e.g. a dev server) is an ordinary terminal item with a placement;
   closing the pane leaves the process running (soft-delete keeps the PTY).
-- [x] Templates → instances — a project template instantiates a session's surfaces; the
+- [x] Templates -> instances — a project template instantiates a session's surfaces; the
   session may diverge. (Spec-copy on session create, executor wiring, workspace IPC
   handlers, and idempotent seed all done.)
 - [x] Worktrees — owned by a project; created by the worktree step.
@@ -125,7 +125,7 @@ of 0.x; every later version is additive on these seams, never a change to them.
   settings) is built on final tokens.
 - [ ] Dead-code sweep: delete the retired TS packages left from the Rust inversion
   (`engine`, `platform-bun`, `adapter-claude-code`, TS `daemon-pty` / `gate-client`,
-  …) where nothing live references them; dormant `apps/server` keeps only what it
+  ...) where nothing live references them; dormant `apps/server` keeps only what it
   needs until its 0.1.4 rewrite.
 
 ### 0.0.7 — Observability
@@ -154,7 +154,7 @@ of 0.x; every later version is additive on these seams, never a change to them.
   style; panel titles (session name + surface kind + running time); status badges (starting,
   running, failed); terminal font and color scheme; drag-and-drop rearrangement of surfaces;
   panel resizing (drag to resize, double-click to reset); terminal copy/paste; keyboard
-  shortcuts for common actions (new project/session/surface, close surface, switch session, …).
+  shortcuts for common actions (new project/session/surface, close surface, switch session, ...).
 - [ ] Light-mode coverage: component-level appearance verified and documented (tokens
   landed in 0.0.6).
 - [ ] Final coherence pass across all surfaces.

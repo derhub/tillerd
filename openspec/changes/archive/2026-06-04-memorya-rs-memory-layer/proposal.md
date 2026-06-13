@@ -7,7 +7,7 @@ Coding-agent CLIs forget everything between sessions: conversation history is lo
 - Add a new `apps/memorya-rs` package: a local, embedded memory layer backing the agent driver.
 - Capture every session event (prompts, tool executions) via lifecycle hooks into an embedded SQLite store, out-of-band embedding so the write path never blocks.
 - Provide on-demand semantic recall (vector + lexical hybrid) over conversation history and project docs, exposed as MCP tools with progressive disclosure.
-- Consolidate raw session content up a ladder (session → daily → weekly → monthly digests) by aggregation only — no model call — and lazily evict cold content to year-sharded archive databases.
+- Consolidate raw session content up a ladder (session -> daily -> weekly -> monthly digests) by aggregation only — no model call — and lazily evict cold content to year-sharded archive databases.
 - Index project markdown so the agent can answer questions about a project regardless of what it has read this session.
 - This change has zero LLM, GPU, or network dependency on any path. The temporal fact-graph schema is created but left empty; its population, the daily global-memory curation, and bootstrap are **deferred to a follow-up change** (`memorya-rs-memory-curation`) pending the curation-model decision.
 - **BREAKING**: none — this is an additive new package with no changes to existing capabilities.

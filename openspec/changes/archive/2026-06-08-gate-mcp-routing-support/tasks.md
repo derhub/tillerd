@@ -5,8 +5,8 @@
 
 ## 2. Route wiring
 
-- [x] 2.1 Add a `Kind::Mcp` → `PassThrough` entry to the router builder in `service.rs` (D3).
-- [x] 2.2 Test: an authenticated `Mcp` inbound flows through the global onion (observe → auth) and yields a terminal outcome (req: Normalization into an MCP inbound through the shared middleware).
+- [x] 2.1 Add a `Kind::Mcp` -> `PassThrough` entry to the router builder in `service.rs` (D3).
+- [x] 2.2 Test: an authenticated `Mcp` inbound flows through the global onion (observe -> auth) and yields a terminal outcome (req: Normalization into an MCP inbound through the shared middleware).
 - [x] 2.3 Test: a routed `Mcp` inbound emits exactly one observation record carrying a correlation id (req: same; ADR-0007 session-correlated observability).
 
 ## 3. MCP face — request bridge

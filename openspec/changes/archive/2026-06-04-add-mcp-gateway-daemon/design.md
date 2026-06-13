@@ -122,19 +122,19 @@ serialized and best-effort per backend.
 
 ## Risks / Trade-offs
 
-- [Single point of failure: the daemon crashing drops all backend connections] → capped-backoff
+- [Single point of failure: the daemon crashing drops all backend connections] -> capped-backoff
   restart and active-liveness healing recover individual backends; full daemon recovery is via
   reuse-or-spawn on next launch. Same accepted posture as ADR-0008 for the PTY daemon.
-- [Aggregated tool list bloat at 20+ backends harms model tool selection] → per-backend
+- [Aggregated tool list bloat at 20+ backends harms model tool selection] -> per-backend
   `allowedTools` filtering trims the surface; documented as the first lever users reach for.
-- [Lazy serves indexed primitives for a not-running backend; dynamic-tool backends can drift] →
+- [Lazy serves indexed primitives for a not-running backend; dynamic-tool backends can drift] ->
   lazy defaults off, re-index on respawn emits list-changed, and a backend's own list-changed
   capability is treated as a "do not lazy" hint.
-- [Loopback port is reachable by any local process] → bearer token (per launch) + loopback-origin
+- [Loopback port is reachable by any local process] -> bearer token (per launch) + loopback-origin
   allowlist + loopback-only bind; token discoverable only via the local manifest.
-- [Detach done wrong leaves an orphan or a child that dies with its launcher] → reuse the PTY
+- [Detach done wrong leaves an orphan or a child that dies with its launcher] -> reuse the PTY
   daemon's detach approach; manifest reuse-or-spawn prevents duplicate instances.
-- [MCP Rust SDK API drift across minor versions] → pin the SDK minor; the pure core is insulated;
+- [MCP Rust SDK API drift across minor versions] -> pin the SDK minor; the pure core is insulated;
   signatures are settled at first compile.
 
 ## Migration Plan

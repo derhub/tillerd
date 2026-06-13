@@ -97,7 +97,7 @@ fn migration_v1() -> String {
 
 /// Widen `session.title_source` CHECK to the four-strategy enum and change the default
 /// from `'inferred'` to `'agent-title'`. SQLite does not support ALTER COLUMN, so we
-/// recreate the table, copy data (mapping 'inferred' → 'agent-title'), and drop the old one.
+/// recreate the table, copy data (mapping 'inferred' -> 'agent-title'), and drop the old one.
 fn migration_v2() -> String {
     "CREATE TABLE session_new (
          id           TEXT PRIMARY KEY,

@@ -7,8 +7,8 @@
 
 ## 2. Protocol Types and Frame Catalogue
 
-- [x] 2.1 Define TypeScript union types for all client→daemon frame types (`hello`, `spawn`, `kill`, `list`, `subscribe`, `unsubscribe`, `input`, `resize`, `interrupt`, `ack`)
-- [x] 2.2 Define TypeScript union types for all daemon→client frame types (`hello-ack`, `spawn-ack`, `list-ack`, `data`, `exit`, `hook`, `error`)
+- [x] 2.1 Define TypeScript union types for all client->daemon frame types (`hello`, `spawn`, `kill`, `list`, `subscribe`, `unsubscribe`, `input`, `resize`, `interrupt`, `ack`)
+- [x] 2.2 Define TypeScript union types for all daemon->client frame types (`hello-ack`, `spawn-ack`, `list-ack`, `data`, `exit`, `hook`, `error`)
 - [x] 2.3 Define valibot schemas for all frame types with typed parse helpers
 - [x] 2.4 Remove old `packages/daemon/src/protocol.ts` and `packages/daemon/src/ndjson.ts` once all consumers migrated
 
@@ -22,7 +22,7 @@
 
 - [x] 4.1 Replace `NdjsonDecoder` + `encode()` in `server.ts` with `FrameDecoder` + `encodeFrame()` per connection
 - [x] 4.2 Replace `ClientMessageSchema` (old op-keyed) with `ClientFrameSchema` (new type-keyed) in message dispatch
-- [x] 4.3 Replace all `ev:`-keyed daemon→client writes with `encodeFrame()` calls using new `DaemonFrame` types
+- [x] 4.3 Replace all `ev:`-keyed daemon->client writes with `encodeFrame()` calls using new `DaemonFrame` types
 - [x] 4.4 Update `subscribe` handler: send replay buffer as individual `data` frames (binary body = raw bytes) instead of JSON chunks array
 - [x] 4.5 Update `spawn` handler: send `spawn-ack` with pid instead of `spawned` event
 
@@ -41,7 +41,7 @@
 - [x] 6.1 Implement `writeSnapshot(path, sessions)` — NDJSON, one record per session: `{ sessionId, pid, cwd, cols, rows, fdIndex, replayBuffer: base64 }`, atomic write (tmp + rename)
 - [x] 6.2 Implement `readSnapshot(path)` — parses NDJSON, returns typed session record array
 - [x] 6.3 Add `getMasterFd()` to `PtySession`/`PtyTransport`: reaches into node-pty `_fd` with runtime assert `typeof fd === "number"`
-- [x] 6.4 Add snapshot round-trip tests: write → read → records match, atomic write leaves no partial file
+- [x] 6.4 Add snapshot round-trip tests: write -> read -> records match, atomic write leaves no partial file
 
 ## 7. Daemon Binary Upgrade — Predecessor
 

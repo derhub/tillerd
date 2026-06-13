@@ -11,7 +11,7 @@ Wrapping an external interactive CLI for unattended use needs more than a happy-
 
 Every engine SHALL honor a reliability contract:
 
-- Graceful shutdown: escalate stop signal → grace period → forced kill; capture exit code/signal; emit a terminal exit event; reap and clean up on normal exit and crash (no orphans).
+- Graceful shutdown: escalate stop signal -> grace period -> forced kill; capture exit code/signal; emit a terminal exit event; reap and clean up on normal exit and crash (no orphans).
 - Timeouts on every external interaction (startup, shutdown grace, idle); a timeout yields a typed error and a defined transition.
 - A closed, typed error taxonomy surfaced on the event model (`BinaryNotFound`, `NotAuthenticated`, `SpawnFailed`, `HookInstallFailed`, `TranscriptUnavailable`, `TransportClosed`, `Timeout`, `VersionUnsupported`).
 - Authenticated loopback control plane (per-session token verified on every callback).

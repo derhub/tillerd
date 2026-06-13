@@ -38,7 +38,7 @@ agent trust boundary). Everything else is a library they share or an app that dr
         UI
 ```
 
-The hot path — raw terminal bytes — goes **daemon → orchestrator surface-runtime → UI**,
+The hot path — raw terminal bytes — goes **daemon -> orchestrator surface-runtime -> UI**,
 over the orchestrator's `EventSink` ([ADR-0024](../adr/0024-surface-runtime-owns-the-pty-proxy-per-surface.md)).
 It never touches the gate. The gate only sees agent lifecycle hooks (session start, tool
 use, stop), which it normalizes and fans out to whoever subscribed — today just
@@ -61,7 +61,7 @@ files in `$TILLERD_DIR` (default `~/.tillerd/`). That directory _is_ the source 
 
 These names live in exactly one place: the **tillerd-paths** crate
 ([ADR-0025](../adr/0025-tillerd-paths-as-runtime-layout-source-of-truth.md)). Every
-service and host resolves the runtime dir (`$TILLERD_DIR` → `~/.tillerd`), the
+service and host resolves the runtime dir (`$TILLERD_DIR` -> `~/.tillerd`), the
 socket / manifest / store paths, and its service-binary locations through it — no string
 literals scattered across crates.
 
@@ -72,8 +72,8 @@ The gate exposes **one** socket. Each connection's first frame is a **route prea
 | ----------- | --------------------- | ----------------------- | ----------------------------------------------------------- |
 | `hook`      | gate-notify           | per-session token       | raw hook payload frames, fire-and-forget                    |
 | `tool`      | mcp-gateway           | per-session token       | tool-call IPC, request/response                             |
-| `subscribe` | memorya               | none                    | ready → server-push hook-event stream                       |
-| `admin`     | orchestrator _(1.x)_  | admin token (≠ session) | register / deregister a session                             |
+| `subscribe` | memorya               | none                    | ready -> server-push hook-event stream                       |
+| `admin`     | orchestrator _(1.x)_  | admin token (!= session) | register / deregister a session                             |
 | `mcp`       | a stdio↔socket bridge | per-session token       | the stream upgrades to the gate's own MCP tools             |
 
 Two routes have no live caller in 0.x and return with the agent surface: `admin` (the
@@ -86,11 +86,11 @@ service, which aggregates many MCP servers behind a standard front.
 **How "is it running?" is answered** (adopt-or-spawn, run by the orchestrator for each
 supervised singleton):
 
-1. Read the manifest file. Missing → spawn.
-2. Is the PID alive? (`signal(0)`) No → spawn.
-3. Does the version match exactly? No → spawn a replacement.
-4. Is the socket reachable? No → spawn.
-5. All yes → **adopt** the running instance.
+1. Read the manifest file. Missing -> spawn.
+2. Is the PID alive? (`signal(0)`) No -> spawn.
+3. Does the version match exactly? No -> spawn a replacement.
+4. Is the socket reachable? No -> spawn.
+5. All yes -> **adopt** the running instance.
 
 This is why a desktop restart reuses the live daemon instead of starting a second one.
 
@@ -114,26 +114,26 @@ This is why a desktop restart reuses the live daemon instead of starting a secon
 - **Why** — one place to authenticate, normalize, and fan out everything an agent emits,
   so no other service has to.
 - **Does** — accepts a connection, reads its route preamble, applies the
-  route→credential policy, then runs the route. The `hook`/`tool`/`mcp` routes feed a
+  route->credential policy, then runs the route. The `hook`/`tool`/`mcp` routes feed a
   fixed middleware pipeline; `subscribe` streams events; `admin` mutates the registry;
   `mcp` upgrades the stream to the gate's own MCP tools.
 - **Pipeline** (hook/tool/mcp routes):
 
   ```
-  route preamble → demux (route→credential) → Observe → Auth → [route-specific]
-                                                          Hook → Normalize → FanOut
-                                                          Tool/Mcp → PassThrough
+  route preamble -> demux (route->credential) -> Observe -> Auth -> [route-specific]
+                                                          Hook -> Normalize -> FanOut
+                                                          Tool/Mcp -> PassThrough
   ```
 
   - **Demux** — reads the preamble; one policy maps each route to its credential
     (session token for hook/tool/mcp, admin token for admin, none for subscribe).
   - **Observe** — times and logs the request.
   - **Auth** — constant-time token check against the session registry.
-  - **Normalize** — calls the adapter's `parse_hook()` → canonical `HookEvent`.
+  - **Normalize** — calls the adapter's `parse_hook()` -> canonical `HookEvent`.
   - **FanOut** — publishes the event to every subscriber for that session.
 
 - **Config** — environment variables only (`TILLERD_GATE_ADMIN_TOKEN`,
-  `TILLERD_GATE_QUEUE_CAP`, …). No config file, no port.
+  `TILLERD_GATE_QUEUE_CAP`, ...). No config file, no port.
 
 ### memorya (`apps/memorya`)
 
@@ -206,7 +206,7 @@ orchestrator                         daemon
      │                                 │
      │◀── 3. raw bytes ────────────────│
      │      tagged surface_id          │
-     │ 4. → EventSink → host → UI      │
+     │ 4. -> EventSink -> host -> UI      │
 ```
 
 The surface runtime owns exactly one PTY proxy per terminal surface. `surface_id` is the
@@ -248,9 +248,9 @@ the runtime surfaces a typed error
   ([ADR-0025](../adr/0025-tillerd-paths-as-runtime-layout-source-of-truth.md)).
 - **Why** — four crates used to define their own runtime-dir resolver and rebuild the
   same socket / manifest paths; the copies drifted. One owner fixes that.
-- **Gives you** — runtime-dir resolution (`$TILLERD_DIR` → `~/.tillerd`), the
+- **Gives you** — runtime-dir resolution (`$TILLERD_DIR` -> `~/.tillerd`), the
   `daemon.sock` / `gate.sock` / `daemon.json` / `tillerd.db` path builders, and
-  service-binary resolution (override env → `bin/` or `target/{release,debug}` →
+  service-binary resolution (override env -> `bin/` or `target/{release,debug}` ->
   `~/.local/bin`). Depends only on the standard library — a leaf, no cycles.
 
 ### service-host (`crates/service-host`)
@@ -259,7 +259,7 @@ the runtime surfaces a typed error
 - **Why** — gate, daemon, memorya, and mcp-gateway all need the same plumbing. Write it
   once.
 - **Gives you** — path resolution, manifest write, SIGTERM/SIGINT handling, in-process
-  health, and graceful shutdown (SIGTERM children → 5s grace → SIGKILL → remove manifest,
+  health, and graceful shutdown (SIGTERM children -> 5s grace -> SIGKILL -> remove manifest,
   no orphans). No health socket — health is an in-process self-check owned by the service.
 - **Use it** — implement the `Service` trait, call `run_blocking`:
 

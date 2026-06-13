@@ -68,15 +68,15 @@ the sink to an event channel.
   binary; the orchestrator must not encode the transport.
 - **Alternative considered:** orchestrator owns a socket/HTTP server — rejected; that re-introduces a
   process boundary ADR-0022 explicitly removed for the embedded case.
-- Scope for this slice: a `status()` query plus a streamed lifecycle event — `Booting →
-  OpeningStore → Supervising → Ready`, with a terminal `Failed { reason }` — so the host and SDK can
+- Scope for this slice: a `status()` query plus a streamed lifecycle event — `Booting ->
+  OpeningStore -> Supervising -> Ready`, with a terminal `Failed { reason }` — so the host and SDK can
   show boot progress and failure (the typed signal 0.1.3 first-run UX builds on). Richer domain
   methods arrive with the surface runtime.
 
 ### Boot lifecycle with an explicit `ready` gate
 
-Boot is a defined sequence: open + migrate the store → adopt-or-spawn and health-check the gate and
-daemon → reach `ready`. The orchestrator exposes the current lifecycle state and emits transitions
+Boot is a defined sequence: open + migrate the store -> adopt-or-spawn and health-check the gate and
+daemon -> reach `ready`. The orchestrator exposes the current lifecycle state and emits transitions
 over the event sink; it never reports `ready` until the store is open and both services are
 available, and a failed prerequisite surfaces a typed error instead of a false `ready`.
 
@@ -106,7 +106,7 @@ migration — `desktop-store.json` is throwaway and not imported. Service-local 
 (`daemon.json`, snapshots, the gate registry) stays out of the store (the persistence-model
 boundary).
 
-- **Why:** ADR-0023; lazy vN→vN+1 on open keeps migration simple and matches the launch-spec
+- **Why:** ADR-0023; lazy vN->vN+1 on open keeps migration simple and matches the launch-spec
   approach (ADR-0021).
 - **Alternative considered:** a migrations framework / external tool — rejected for a single-file,
   single-writer local store; embedded ordered migrations are enough and keep the runner in-crate.
@@ -125,7 +125,7 @@ slice.
   owns, so one crate is the decided packaging; a trait keeps the seam clean without speculative
   structure.
 - **Why a trait specifically:** it makes the store fakeable in tests (boot/readiness tested against
-  an in-memory fake, no real store), localizes the eventual rusqlite→other-backend swap, and makes
+  an in-memory fake, no real store), localizes the eventual rusqlite->other-backend swap, and makes
   promoting the module to its own crate a near-mechanical move if a trigger appears.
 - **Alternative considered — a separate `persistence` crate now:** rejected as premature. It buys
   only compile-parallelism and compiler-enforced dependency direction, neither pressing at this
@@ -149,18 +149,18 @@ slice (status/readiness only); generating them from `contracts` is 0.1.4.
 
 ## Risks / Trade-offs
 
-- **[Hand-authored wire types drift from the Rust API before 0.1.4]** → keep the API surface tiny
+- **[Hand-authored wire types drift from the Rust API before 0.1.4]** -> keep the API surface tiny
   (status + readiness), centralize the types in one SDK module, and regenerate from `contracts` at
   0.1.4; the smaller the surface now, the smaller the reconciliation.
-- **[Adopt-or-spawn race if a stale or half-up service is present]** → rely on the existing
+- **[Adopt-or-spawn race if a stale or half-up service is present]** -> rely on the existing
   control-socket connect as the liveness arbiter and manifest version for compatibility; single-user
   local scope makes concurrent hosts unlikely, and `process-launch` already owns this.
-- **[Turning the engine path off yields a non-functional UI]** → accepted for this slice; a blank UI
+- **[Turning the engine path off yields a non-functional UI]** -> accepted for this slice; a blank UI
   that reaches `ready` is the bar, and the `desktop-engine-runtime` delta removes the obsolete
   in-renderer requirements so the contradiction does not linger.
-- **[Migration runner corrupts the store on a bad migration]** → forward-only, append-only
+- **[Migration runner corrupts the store on a bad migration]** -> forward-only, append-only
   migrations, each tested fresh + upgrade; refuse a store newer than the binary rather than guess.
-- **[Readiness deadlock if a service never comes up]** → boot surfaces a typed failure rather than
+- **[Readiness deadlock if a service never comes up]** -> boot surfaces a typed failure rather than
   blocking forever; first-run failure UX is 0.1.3, but the typed signal exists now.
 
 ## Migration Plan
@@ -181,6 +181,6 @@ All planning-level questions are resolved:
 - **Crate:** `tillerd-orchestrator` (dir `crates/orchestrator`); the desktop host scaffold binds it.
 - **Persistence packaging:** a `persistence` module inside the crate behind the `Store` trait; crate
   split deferred to a trigger (rusqlite compile drag / second consumer / ~0.0.4 schema-stable).
-- **Status API:** a `status()` query plus a streamed lifecycle event (`Booting → OpeningStore →
-  Supervising → Ready`, terminal `Failed { reason }`).
+- **Status API:** a `status()` query plus a streamed lifecycle event (`Booting -> OpeningStore ->
+  Supervising -> Ready`, terminal `Failed { reason }`).
 - **Store path:** `~/.tillerd/tillerd.db`, flat at the runtime-dir root.

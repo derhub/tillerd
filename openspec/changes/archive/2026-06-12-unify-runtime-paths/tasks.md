@@ -4,7 +4,7 @@
 - [x] 1.2 Write failing tests for runtime-dir resolution: `TILLERD_DIR` override wins; default is `~/.tillerd`; an override-aware form prefers an explicit argument, then env, then default (runtime-paths: single runtime directory resolver).
 - [x] 1.3 Implement `runtime_dir()` + `runtime_dir_or(Option<&str>)` (runtime-paths: single runtime directory resolver).
 - [x] 1.4 Write failing tests then implement the pure path builders `daemon_socket_in`/`gate_socket_in`/`manifest_in`/`store_in` (file names defined only here) and their env-composed forms; assert all four share the runtime dir as parent (runtime-paths: runtime-layout path builders).
-- [x] 1.5 Write failing tests then implement service-binary resolution (daemon/gate/notify): override-if-exists → `bin/<name>` or `target/{release,debug}/<name>` under cwd/ancestors → `~/.local/bin/<name>` → none; cover override-wins, override-skipped-when-missing, cargo-output-discovered, and none-when-absent (runtime-paths: service binary resolution by precedence).
+- [x] 1.5 Write failing tests then implement service-binary resolution (daemon/gate/notify): override-if-exists -> `bin/<name>` or `target/{release,debug}/<name>` under cwd/ancestors -> `~/.local/bin/<name>` -> none; cover override-wins, override-skipped-when-missing, cargo-output-discovered, and none-when-absent (runtime-paths: service binary resolution by precedence).
 - [x] 1.6 Define the governed `TILLERD_*` env-name constants (`ENV_TILLERD_DIR`, `ENV_DAEMON_BIN`, `ENV_GATE_BIN`, `ENV_NOTIFY_BIN`) and route the resolvers through them (runtime-paths: single source for the environment-variable surface).
 
 ## 2. Migrate `service-host`

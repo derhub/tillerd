@@ -10,7 +10,7 @@
 
 - [x] 2.1 Rewrite `hook-installer.ts` as pure `planHookInstall(currentSettings, notifyCommand)` and
       `planHookUninstall(currentSettings)` — no `node:fs`/`node:os`/`node:path` imports; move the
-      idempotency ("already present / already absent → no change") into the plan
+      idempotency ("already present / already absent -> no change") into the plan
 - [x] 2.2 Extract the hook-install spec data (settings path, event list, marker, matcher rule,
       command template) as adapter config
 - [x] 2.3 Rewrite `transcript-path.ts` to take `agentHome` and build the path with pure string ops;
@@ -61,9 +61,9 @@
       data (override env var, binary name, common install locations)
 - [x] 8.2 Delete the adapter's `resolve.ts`; add pure `binary-resolution.ts` data; drop the
       `node:child_process`/`node:fs` imports and module-load `process.env` read
-- [x] 8.3 Add host `resolveAgentCommand(spec)` in `@athing/platform-bun` (override → login-shell
-      PATH → common locations, `~` expanded); replace the old `resolveBinary`
-- [x] 8.4 Thread the resolved command as an engine startup value (`EngineDeps.resolvedCommand` →
+- [x] 8.3 Add host `resolveAgentCommand(spec)` in `@athing/platform-bun` (override -> login-shell
+      PATH -> common locations, `~` expanded); replace the old `resolveBinary`
+- [x] 8.4 Thread the resolved command as an engine startup value (`EngineDeps.resolvedCommand` ->
       proxy spawn frame) instead of calling `adapter.resolveCommand()`
 - [x] 8.5 Composition root resolves the command via the host and passes it into the engine bootstrap
 - [x] 8.6 Update test doubles/fixtures and `bootstrap.test`/`index.test`; strengthen the

@@ -41,10 +41,10 @@ Recovery spawns a new process under the same sessionId the daemon just evicted. 
 
 ## Risks / Trade-offs
 
-- **Recovery hook wiring** → The cached per-adapter install must not cause the per-session token wiring to be skipped on recovery. Mitigation: explicit test that hook callbacks reach the recovered process.
-- **stoppedSessions growth** → The in-memory cache grows unbounded over a long daemon lifetime. Mitigation: bound it (LRU/TTL) over the durable record so eviction never resurrects resumability.
-- **Crash loop** → A resumed session that immediately re-crashes produces a repeated prompt. v1 relies on the user noticing (no auto-respawn); a backoff/loop-guard is deferred.
-- **Resume-after-crash edge** → The agent's session state file may be mid-write at crash, so conversation resume could be imperfect. Mitigation: surface resume failure as a typed error rather than a silent blank session.
+- **Recovery hook wiring** -> The cached per-adapter install must not cause the per-session token wiring to be skipped on recovery. Mitigation: explicit test that hook callbacks reach the recovered process.
+- **stoppedSessions growth** -> The in-memory cache grows unbounded over a long daemon lifetime. Mitigation: bound it (LRU/TTL) over the durable record so eviction never resurrects resumability.
+- **Crash loop** -> A resumed session that immediately re-crashes produces a repeated prompt. v1 relies on the user noticing (no auto-respawn); a backoff/loop-guard is deferred.
+- **Resume-after-crash edge** -> The agent's session state file may be mid-write at crash, so conversation resume could be imperfect. Mitigation: surface resume failure as a typed error rather than a silent blank session.
 
 ## Open Questions
 

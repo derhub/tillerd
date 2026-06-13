@@ -37,7 +37,7 @@ fn tool_result(corr: &str) -> ToolInbound {
 }
 
 /// The correlation id survives a JSON round-trip in the HookEvent shape
-/// (daemon → gate → gate-subscriber boundary).
+/// (daemon -> gate -> gate-subscriber boundary).
 #[test]
 fn correlation_id_survives_hook_event_json_round_trip() {
     let event = hook_event(CORR);
@@ -50,7 +50,7 @@ fn correlation_id_survives_hook_event_json_round_trip() {
 }
 
 /// The correlation id survives a JSON round-trip in the ToolCall shape
-/// (gateway → gate tool-route boundary).
+/// (gateway -> gate tool-route boundary).
 #[test]
 fn correlation_id_survives_tool_call_json_round_trip() {
     let inbound = tool_call(CORR);
@@ -68,7 +68,7 @@ fn correlation_id_survives_tool_call_json_round_trip() {
 }
 
 /// The correlation id survives a JSON round-trip in the ToolResult shape
-/// (gateway → gate observation boundary).
+/// (gateway -> gate observation boundary).
 #[test]
 fn correlation_id_survives_tool_result_json_round_trip() {
     let inbound = tool_result(CORR);
@@ -133,7 +133,7 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
 /// The standardized observability vocabulary (design D5): a correlated record's log
 /// attribute key is exactly `correlation_id` — snake_case, distinct from the camelCase
 /// `correlationId` used on the JSON wire. Capture a structured log line emitted in the
-/// production shape (orchestrator, gate, and daemon all log `correlation_id = …`) and
+/// production shape (orchestrator, gate, and daemon all log `correlation_id = ...`) and
 /// assert the key, so a drift to the wire form would fail loudly.
 #[test]
 fn the_log_attribute_key_is_exactly_correlation_id() {
@@ -190,7 +190,7 @@ fn the_log_attribute_key_is_exactly_correlation_id() {
 /// must be observable in the gate subscriber stream.
 ///
 /// Requirements: live daemon + gate + an active session generating hook events.
-///   TILLERD_DIR=… TILLERD_SESSION_ID=… \
+///   TILLERD_DIR=... TILLERD_SESSION_ID=... \
 ///   cargo test -p tillerd-contracts --test correlation_trace \
 ///     correlation_id_threads_daemon_to_gate_in_live_stack -- --ignored
 #[test]

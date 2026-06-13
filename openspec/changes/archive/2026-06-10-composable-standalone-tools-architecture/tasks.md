@@ -28,7 +28,7 @@
 
 ## 4. AgentAdapter (parse_hook) + retire TS hook/transcript parsing
 
-- [x] 4.1 Define the `AgentAdapter` trait (`parse_hook`); implement it as a v1 module in the gate binary (the v1 agent) producing the canonical `HookEvent`; unit-test one case per event type (raw → expected event). No separate adapter crate yet — promote to a per-agent adapter crate only at multi-agent (ADR-0003).
+- [x] 4.1 Define the `AgentAdapter` trait (`parse_hook`); implement it as a v1 module in the gate binary (the v1 agent) producing the canonical `HookEvent`; unit-test one case per event type (raw -> expected event). No separate adapter crate yet — promote to a per-agent adapter crate only at multi-agent (ADR-0003).
 - [x] 4.2 Retire the TS `parseHook` for hooks (engine consumes canonical events from the gate).
 - [x] 4.3 Remove `parseTranscriptEntry`/`transcriptPath` and the engine's transcript reader (ADR-0006 superseded by ADR-0017); engine content now comes from the `HookEvent` payload.
 - [x] 4.4 Update the SDK adapter contract: drop `parseHook`/`parseTranscriptEntry`/`transcriptPath` from `AgentDefinition` (`@athing/sdk`); the TS agent adapter package carries no parse functions (delete it if nothing remains, else reduce it to declarative config only). Fix all references and tests.
@@ -44,9 +44,9 @@
 - [x] 5.7 Router: dispatch by `Kind`, globals `[Observe, Auth]` (Observe outermost), Hook + Tool routes; `gate.handle(inbound) -> Flow`.
 - [x] 5.8 Hook endpoint (loopback HTTP, per-session token) reachable by a simple posted command; transport-level max-body-size cap (OOM guard).
 - [x] 5.9 Hook-event subscription wire (own `WIRE_VERSION` per R9, mirrored in contracts + sdk); bounded per-session delivery capacity 256, drop-oldest, increment `droppedN` + log once per lag, override via `ATHING_GATE_QUEUE_CAP` (R2).
-- [x] 5.10 Correlation id: accept caller-supplied, assign when absent, preserve through middleware → emitted event → logs.
+- [x] 5.10 Correlation id: accept caller-supplied, assign when absent, preserve through middleware -> emitted event -> logs.
 - [x] 5.11 Tool route entry over local IPC (length-prefixed loopback framing) for `ToolCall`/`ToolResult`.
-- [x] 5.12 Face isolation: hook endpoint ≠ tool route ≠ admin; admin on a separate authenticated surface; health endpoint unauthenticated (liveness/version).
+- [x] 5.12 Face isolation: hook endpoint != tool route != admin; admin on a separate authenticated surface; health endpoint unauthenticated (liveness/version).
 - [x] 5.13 Migrate the gate onto `service-host`.
 - [x] 5.14 Router integration tests: `handle(Hook)` fans out to N; `handle(ToolCall)` returns `Forward`; auth reject; face isolation (tool caller cannot publish a hook); subscription teardown; correlation preserved.
 
@@ -70,12 +70,12 @@
 - [x] 7.4 Orchestrator session lifecycle: mint `{session, token}`, register with the gate admin surface **before** spawn (R4), inject `{ATHING_GATE_URL, ATHING_SESSION_ID, ATHING_SESSION_TOKEN}` into the daemon spawn env (canonical names per composition-build-spec; daemon passes through, stays oblivious); composed memory reads the same `ATHING_GATE_URL` to subscribe (R5).
 - [x] 7.5 Orchestrator teardown: observe the daemon session-exit and deregister the session from the gate; late hooks then fail auth.
 - [x] 7.6 cli hook installer: target the gate (the universal ingress); memory subscribes for events.
-- [x] 7.7 Server: host the gate hook-subscription client (feeds the engine) alongside `daemon-pty-client`; engine maps `HookEvent.type → status` and `payload → content`.
+- [x] 7.7 Server: host the gate hook-subscription client (feeds the engine) alongside `daemon-pty-client`; engine maps `HookEvent.type -> status` and `payload -> content`.
 
 ## 8. Composition verification
 
 - [x] 8.1 Verify each `specs/*` scenario is covered by a test (gate, daemon-session-subscription, service-host, process-launch, tool-composition, memorya-capture, memorya-recall, rust-pty-daemon).
 - [x] 8.2 Verify the four deployment slices run: memory-only, gateway-only, PTY-only, and full (daemon + gate + tool gateway, memory as library).
-- [x] 8.3 Verify observability: every inbound emits a correlation-bound record; one `correlationId` traces an action across daemon → gate → gateway → memory.
-- [x] 8.4 Confirm dependency directions: no tool → tool, no tool → orchestrator; only `daemon-pty-client` knows the PTY wire; the daemon depends on nothing downstream.
+- [x] 8.3 Verify observability: every inbound emits a correlation-bound record; one `correlationId` traces an action across daemon -> gate -> gateway -> memory.
+- [x] 8.4 Confirm dependency directions: no tool -> tool, no tool -> orchestrator; only `daemon-pty-client` knows the PTY wire; the daemon depends on nothing downstream.
 - [x] 8.5 Coordinate ordering with the `daemon-upgrade-drain-restart` change (land this change first; the daemon spec deltas touch different requirements).

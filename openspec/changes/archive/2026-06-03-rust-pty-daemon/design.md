@@ -151,11 +151,11 @@ taught about Rust, keeping the Bun-first tooling assumptions intact.
 **Decision (revised during implementation):** the benchmark compares the Rust daemon against the
 **Node** build of the TS daemon, not the Bun build. The Bun reference is non-functional for
 benchmarking on the current runtime — node-pty's master fd is not a writable process fd under Bun,
-so it cannot accept PTY input at all (proven: `dup(fd)` → EBADF). The Node daemon runs the same TS
+so it cannot accept PTY input at all (proven: `dup(fd)` -> EBADF). The Node daemon runs the same TS
 sources and works, so it is the fair, working baseline. See **D11** (Node-daemon prerequisite).
 
 Both daemons are driven over the real socket protocol with the **login shell** as the session
-target (no command → `$SHELL`), the realistic product path: commands are typed into the shell and
+target (no command -> `$SHELL`), the realistic product path: commands are typed into the shell and
 echoed back. (An earlier explicit-command variant isolated pure byte-copy overhead; the login-shell
 variant is kept because it reflects real usage — note that the shell's own prompt/ZLE work then
 dominates the latency tail, which is identical across daemons and so does not distort the
@@ -166,15 +166,15 @@ daemon can be measured.
 
 Task 11.6 ("run against both the reference and Rust daemons") requires a _working_ reference. The
 Bun TS daemon cannot accept PTY input under the current Bun (D10). To produce a fair baseline, the
-TS daemon's runtime-specific seams (`Bun.listen` → `node:net`, `Bun.serve` → `node:http`, the
-`Bun.file` read loop → node-pty native `onData`) were ported so it runs on **Node**, where node-pty
+TS daemon's runtime-specific seams (`Bun.listen` -> `node:net`, `Bun.serve` -> `node:http`, the
+`Bun.file` read loop -> node-pty native `onData`) were ported so it runs on **Node**, where node-pty
 works natively. `bin/athing-daemon` is now a Node bundle. This is a benchmark enabler for this
 change; broadening it into the TS daemon's primary runtime is out of scope here and should land as
 its own change.
 
 ## Risks / Trade-offs
 
-- **PTY-master fd adoption across daemon upgrade** → _Resolved (post-archive)._ `portable-pty`
+- **PTY-master fd adoption across daemon upgrade** -> _Resolved (post-archive)._ `portable-pty`
   doesn't build a pty from a pre-existing master fd, so adopted sessions bypass it: the inherited
   master fd is owned directly as a raw `File` (read via a shared `Arc<File>`, write to the same fd,
   resize via `TIOCSWINSZ`, EOF = exit, kill by signalling the recorded child pid). Fds are passed by
@@ -182,16 +182,16 @@ its own change.
   and matching the reference daemon's mechanism. `portable-pty` is still used for the spawn path.
   The one `unsafe` boundary (taking ownership of the inherited fd + the resize ioctl) is localized
   behind `#[allow(unsafe_code)]` with SAFETY comments; the crate is otherwise `#![deny(unsafe_code)]`.
-- **Snapshot divergence from the contract** → a native VT model can render cells differently from
+- **Snapshot divergence from the contract** -> a native VT model can render cells differently from
   the reference `vt-state`. _Mitigation_: D4's mapping seam is covered by golden fixtures; the
   benchmark's subscribe/snapshot workload asserts frame-shape parity.
-- **`alacritty_terminal` API churn** → versioned for alacritty's own use. _Mitigation_: pin the
+- **`alacritty_terminal` API churn** -> versioned for alacritty's own use. _Mitigation_: pin the
   exact version, confine usage behind the mapping adapter.
-- **Login-environment parity** → spawned commands must see the same PATH/env a user terminal
+- **Login-environment parity** -> spawned commands must see the same PATH/env a user terminal
   gives. _Mitigation_: replicate the reference `shell-env` login-shell probe at daemon startup.
-- **Benchmark apples-to-oranges** → the reference daemon's default launch is agent-shaped.
+- **Benchmark apples-to-oranges** -> the reference daemon's default launch is agent-shaped.
   _Mitigation_: D10 — drive both with the same explicit command.
-- **Build-tooling split (cargo vs turbo)** → contributors need a Rust toolchain. _Mitigation_:
+- **Build-tooling split (cargo vs turbo)** -> contributors need a Rust toolchain. _Mitigation_:
   the crate is opt-in; default builds and the reference daemon are unaffected; document the
   toolchain in the crate README.
 
@@ -205,13 +205,13 @@ its own change.
 
 ## Open Questions (resolved)
 
-- **PTY-master fd reattachment across upgrade** → _Implemented (task 8.2, post-archive)._ Fds are
+- **PTY-master fd reattachment across upgrade** -> _Implemented (task 8.2, post-archive)._ Fds are
   passed by process inheritance (mapped to fds `4+i` via `command-fds`) and adopted as raw-`File`
   sessions, bypassing `portable-pty` for the adopt path. Degrade (8.3) is still honored on any
   failure. Verified end-to-end (`tests/benchmark/upgrade-test.ts`).
-- **Durable stopped-session store format** → _Shared._ The Rust daemon writes the same file path
+- **Durable stopped-session store format** -> _Shared._ The Rust daemon writes the same file path
   (`~/.athing/stopped-sessions.txt`) in the same newline-delimited format as the reference, so a
   session stopped under one daemon stays stopped after switching to the other. No parallel store.
-- **VT crate / scrollback** → _Moot._ D4 now ports the reference parser directly (no
+- **VT crate / scrollback** -> _Moot._ D4 now ports the reference parser directly (no
   `alacritty_terminal`); the snapshot is built on demand from the same bounded ring-buffer window as
   the reference, so reconnect fidelity matches by construction.

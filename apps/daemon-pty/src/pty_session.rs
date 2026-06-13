@@ -647,7 +647,7 @@ mod tests {
         }
         assert_eq!(session.foreground_pgrp(), want);
         // Forcing the quiet branch (zero threshold): root holds the foreground ⇒
-        // Working → Idle. Exercises the real master fd + derivation end to end.
+        // Working -> Idle. Exercises the real master fd + derivation end to end.
         assert_eq!(
             session.sample_term_status(Duration::ZERO),
             Some(TermStatus::Idle)

@@ -6,7 +6,7 @@ Synthesized from the `gate-build-spec` design workflow (6 agents, 2026-06-07), g
 
 - Dir `apps/gate`; Cargo package `athing-gate`; lib `athing_gate`; bin `athing-gate`; npm `@athing/gate`.
 - bin **+** lib crate. `#![forbid(unsafe_code)]` in lib.rs; **no** `#![deny(missing_docs)]` (internal framework, not a published API).
-- Add to root `Cargo.toml` members in the scaffold commit; add `package.json` (turbo, binary pattern: `bin` → `../../target/release/athing-gate`, `dev`), `.gitignore` (`/target`). No per-crate `Cargo.lock`, no per-crate `[profile]` (workspace owns both).
+- Add to root `Cargo.toml` members in the scaffold commit; add `package.json` (turbo, binary pattern: `bin` -> `../../target/release/athing-gate`, `dev`), `.gitignore` (`/target`). No per-crate `Cargo.lock`, no per-crate `[profile]` (workspace owns both).
 
 ## Resolved decisions (accepted from design openDecisions)
 
@@ -67,13 +67,13 @@ Key per-area types: `Auth{registry}`; `Observe{sink}` + `ObserveSink` trait + `O
 1. **Scaffold + framework core** [5.1] — workspace member, Cargo.toml, package.json, .gitignore, lib.rs (Kind/Ctx/Outbound/Reject/Flow/Token + module decls), middleware/mod.rs (Middleware/Next/noop/spy/seq/par). Tests: seq order/short-circuit-on-reject/short-circuit-on-terminal/ctx-propagation; par concurrent/join/panic-isolation; next noop/spy.
 2. **SessionRegistry + Auth** [5.2] — registry.rs, middleware/auth.rs (subtle constant-time). Tests: pass on match; reject missing/not-registered/mismatch; short-circuit without next.
 3. **Observe** [5.3] — middleware/observe.rs (ObserveSink, ObservationRecord, RecordOutcome). Tests (fake sink): emit on accept/reject; latency; bound {session,correlation,component}; records auth rejection (outermost).
-4. **AgentAdapter + v1 parse_hook** [4.1] — agent_adapter.rs (sync trait + ParseError + v1 impl → canonical HookEvent). Tests: one per HookKind variant (SessionStart/UserPromptSubmit/PostToolUse/PermissionRequest/Stop/SessionEnd) + invalid-json + missing-field.
+4. **AgentAdapter + v1 parse_hook** [4.1] — agent_adapter.rs (sync trait + ParseError + v1 impl -> canonical HookEvent). Tests: one per HookKind variant (SessionStart/UserPromptSubmit/PostToolUse/PermissionRequest/Stop/SessionEnd) + invalid-json + missing-field.
 5. **Normalize** [5.4] — middleware/normalize.rs. Tests: calls adapter; sets ctx.event; continues on success; rejects Invalid + skips next on parse error; agent-agnostic.
 6. **Subscriptions** [5.9] — subscription.rs (per-session broadcast cap 256, ATHING_GATE_QUEUE_CAP override, drop-oldest + droppedN + log-once, subscribe/publish/end; HOOK_SUBSCRIPTION_WIRE_VERSION-gated frame codec). Tests: cap 256; drop-oldest; counter increment; no-block-on-full; deliver-to-N; per-session isolation; close-on-end; env override; wire-version carried.
 7. **FanOut + PassThrough** [5.5, 5.6] — middleware/fanout.rs (publish via par, return Accepted, fire-and-forget, terminal), middleware/passthrough.rs (Forward(body) unchanged, terminal). Tests: fanout to N; returns Accepted before fanning out; non-blocking; terminal. passthrough Forward unchanged; terminal.
 8. **Router + correlation** [5.7, 5.10] — router.rs (Inbound, globals [Observe,Auth], Hook=seq([Normalize,FanOut]) / Tool=seq([PassThrough]), handle()->Flow, assign-when-absent/preserve-when-supplied single point). Tests: dispatch by Kind; globals order; auth reject stops + recorded; correlation supplied/assigned/preserved/on-event/in-record.
 9. **Hook ingress** [5.8] — endpoint/mod.rs (loopback + local length-prefix framing helpers), endpoint/hook.rs (axum 127.0.0.1, token from Authorization header, DefaultBodyLimit OOM guard, fire-and-forget 200 before fan-out, drives Router::handle(Hook); write gate.url). Tests: 200-before-fanout; header token; oversized-body rejected; loopback-only.
-10. **Tool IPC + subscribe stream** [5.11, 5.9] — endpoint/tool.rs (length-prefixed ToolInbound over Unix socket → Router::handle(ToolCall/ToolResult) → Forward/Reject; reject malformed), endpoint/subscribe.rs (decode HookSubscribeRequest, negotiate HOOK_SUBSCRIPTION_WIRE_VERSION, stream HookEvent frames from Subscriptions::subscribe). Tests: tool inbound over IPC; Forward; reject malformed; loopback Unix; subscribe wire-version negotiation + stream.
+10. **Tool IPC + subscribe stream** [5.11, 5.9] — endpoint/tool.rs (length-prefixed ToolInbound over Unix socket -> Router::handle(ToolCall/ToolResult) -> Forward/Reject; reject malformed), endpoint/subscribe.rs (decode HookSubscribeRequest, negotiate HOOK_SUBSCRIPTION_WIRE_VERSION, stream HookEvent frames from Subscriptions::subscribe). Tests: tool inbound over IPC; Forward; reject malformed; loopback Unix; subscribe wire-version negotiation + stream.
 11. **Admin + face isolation** [5.12] — endpoint/admin.rs (register/deregister on a separate authenticated loopback socket; admin token != session token; constant-time). Tests: register/deregister mutate registry; admin-token-required; constant-time; tool-route-cannot-publish-hooks; hook-cannot-register; tool-cannot-register.
 12. **service-host migration** [5.13] — service.rs (Gate implements `Service`: config name="gate"; serve binds hook+tool+subscribe+admin and tracks tasks; shutdown tears down Subscriptions + SessionRegistry; health = the Probe), bin/main.rs (build v1 adapter, wire Router globals + routes, `host::run(Gate::from_env())`). Tests: serve wiring + shutdown teardown (mostly integration).
 13. **Router integration tests** [5.14] — tests/router_integration.rs: handle(Hook) fans to N; handle(ToolCall/ToolResult) Forward; auth reject stops + recorded by Observe; face isolation (tool cannot publish a hook, hook cannot register); subscription teardown on session end; correlation preserved end-to-end.
@@ -81,7 +81,7 @@ Key per-area types: `Auth{registry}`; `Observe{sink}` + `ObserveSink` trait + `O
 ## Cross-cutting risks (must hold)
 
 - Constant-time token compare (subtle), equal-length hashes, no data-dependent branch; same primitive in Auth + admin.
-- Correlation id assigned exactly once at Router entry (uuid v4 when absent), never reassigned; threaded Ctx → HookEvent.correlation_id → ObservationRecord → logs.
+- Correlation id assigned exactly once at Router entry (uuid v4 when absent), never reassigned; threaded Ctx -> HookEvent.correlation_id -> ObservationRecord -> logs.
 - Drop-OLDEST never newest; droppedN tracked from Lagged, logged once per lag; bounded O(N_sessions × 256 × event).
 - Onion order load-bearing: globals [Observe outermost, Auth]; seq short-circuits and never calls next after; par isolates a panicking branch.
 - Fire-and-forget: hook endpoint returns 200 before fan-out; FanOut never blocks the poster; max-body cap at transport read (before middleware).

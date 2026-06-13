@@ -24,7 +24,7 @@ class FakeCore implements TauriCore {
     this.channel = { onmessage: null };
     return this.channel;
   }
-  /** Push daemon→renderer bytes through the channel, as the Rust core would. */
+  /** Push daemon->renderer bytes through the channel, as the Rust core would. */
   deliver(meta: object, body?: Uint8Array): void {
     const buf = encodeFrame(meta, body);
     this.channel?.onmessage?.(buf);

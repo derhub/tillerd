@@ -11,7 +11,7 @@ compatible with the bundled, offline build.
 
 **Goals**
 
-- A pure, deterministic redaction library reusable across sinks, plus a stdin→stdout CLI.
+- A pure, deterministic redaction library reusable across sinks, plus a stdin->stdout CLI.
 - Detect credentials + structured PII by pattern, unknown secrets by entropy; suppress
   structural false positives by allowlist.
 - Replace with a fixed `[REDACTED]` marker; value-only for labeled pairs; fail closed.
@@ -27,7 +27,7 @@ compatible with the bundled, offline build.
 ### D1: Standalone crate `packages/redact-rs`
 
 A workspace library crate (`memorya` depends on it), plus a `redact` binary (`src/main.rs`)
-that pipes stdin→stdout. Public API: `redact(input: &str) -> String`. Pure, no I/O in the lib.
+that pipes stdin->stdout. Public API: `redact(input: &str) -> String`. Pure, no I/O in the lib.
 Rationale: redaction is a cross-cutting concern; a shared crate lets the MCP gateway adopt the
 same logic later without duplication. A library (not a service) avoids IPC/latency.
 
@@ -42,8 +42,8 @@ same logic later without duplication. A library (not a service) avoids IPC/laten
 ### D3: Pattern catalog, compiled once
 
 A fixed `&[(Class, Regex)]` compiled behind `OnceLock`, vendored from a Presidio-compatible
-set. Credentials: GitHub (`(ghp|gho|ghs|ghu|github_pat)_…`), AWS (`AKIA[0-9A-Z]{16}`),
-provider (`sk-(ant|proj)?-…`), JWT (`eyJ….….…`), Slack (`xox[bpoas]-…`), GitLab (`glpat-…`),
+set. Credentials: GitHub (`(ghp|gho|ghs|ghu|github_pat)_...`), AWS (`AKIA[0-9A-Z]{16}`),
+provider (`sk-(ant|proj)?-...`), JWT (`eyJ...........`), Slack (`xox[bpoas]-...`), GitLab (`glpat-...`),
 PEM private-key blocks. Structured PII: email, IP v4/v6, MAC, US-SSN, IBAN, credit card,
 phone. Patterns anchored and bounded; `regex` guarantees linear-time matching.
 
@@ -62,7 +62,7 @@ subject to allowlist suppression (except the low-confidence numeric gate in D2.3
 ### D6: Transform — fixed `[REDACTED]`, value-only for labeled pairs
 
 Replace each span with `[REDACTED]`. Labeled key/value patterns (`KEY=value`,
-`"key": "value"`, `Authorization: …`, `?key=value`) capture the value as a submatch;
+`"key": "value"`, `Authorization: ...`, `?key=value`) capture the value as a submatch;
 replace only that submatch, leaving the key/label/separator intact. Bare matches replace the
 whole span. No class label, no hash (deferred — avoids a correlation/inference surface).
 
@@ -75,13 +75,13 @@ Digests/facts/entities derive from stored (redacted) chunks — no raw-input pat
 
 ## Risks / Trade-offs
 
-- False positives degrade recall → pattern-first; entropy gated by length+charset+threshold;
+- False positives degrade recall -> pattern-first; entropy gated by length+charset+threshold;
   allowlist; thresholds tuned on the eval corpus; fixtures cover boundaries.
-- Structured-PII FP (version string as IP, 16-digit id as card, numeric run as phone) →
+- Structured-PII FP (version string as IP, 16-digit id as card, numeric run as phone) ->
   anchor patterns, require Luhn for cards, context-gate phone, allowlist version-like runs.
-- New `regex` dependency → accepted; standard, pure-Rust, linear-time (no catastrophic
+- New `regex` dependency -> accepted; standard, pure-Rust, linear-time (no catastrophic
   backtracking).
-- Pre-existing stored chunks remain unredacted → out of scope (forward-only); pre-v1, no shim.
+- Pre-existing stored chunks remain unredacted -> out of scope (forward-only); pre-v1, no shim.
 
 ## Migration Plan
 

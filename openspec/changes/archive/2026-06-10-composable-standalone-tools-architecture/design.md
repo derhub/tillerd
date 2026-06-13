@@ -22,14 +22,14 @@ standard MCP front and merely calls the gate).
 - A gate whose middleware framework (`Middleware`/`Router`/`Ctx` + `seq`/`par`) and concrete
   middleware are **modules in the gate binary**; shared wire types live in `contracts-rs`. No
   `gate-core` crate.
-- A clear data-in/data-out contract: `inbound → router(middleware over Ctx) → outbound | rejection`.
+- A clear data-in/data-out contract: `inbound -> router(middleware over Ctx) -> outbound | rejection`.
 - **Composable middleware** with `seq`/`par`. **v1 globals = `[Observe, Auth]`**; `Validate`,
   `Firewall`, `Redaction` are future middleware that drop onto a route with no gate change.
-- v1 gate routes = **Hook** (Observe → Auth → Normalize → FanOut) **and Tool** (Observe → Auth →
+- v1 gate routes = **Hook** (Observe -> Auth -> Normalize -> FanOut) **and Tool** (Observe -> Auth ->
   PassThrough), the latter so the MCP gateway routes its tool calls through the gate.
 - **Observability is a v1 feature**: every gate operation emits a correlation-bound structured record
   (ADR-0012) — the debugging surface and the substrate for future features.
-- The gate normalizes raw → canonical `HookEvent` once via an **injected adapter** (ADR-0005), so
+- The gate normalizes raw -> canonical `HookEvent` once via an **injected adapter** (ADR-0005), so
   consumers eat the canonical event and never touch the raw agent format. The gate is agnostic in
   code (depends only on the adapter interface).
 - Each middleware unit-tested in isolation; integration-tested router + service shell.
@@ -79,7 +79,7 @@ pub struct Ctx {
 }
 
 /// Outcome of handling an inbound. (thiserror Reject — ADR-0007 typed taxonomy.)
-pub enum Outbound { Accepted, Forward(Bytes) }  // Hook → Accepted (fanned out) ; Tool → Forward(body)
+pub enum Outbound { Accepted, Forward(Bytes) }  // Hook -> Accepted (fanned out) ; Tool -> Forward(body)
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Reject {
@@ -122,7 +122,7 @@ layer.** `Observe` goes first so it wraps `Auth` and records auth _rejections_ t
 
 ```rust
 let gate = Gate::router()
-    .global(Observe)                               // OUTERMOST "around": start → next → emit record (D12)
+    .global(Observe)                               // OUTERMOST "around": start -> next -> emit record (D12)
     .global(Auth)                                  // inner; may Reject (per-session token) — Observe still records it
     .on(Kind::Hook,       seq([Normalize(adapter), FanOut]))   // FanOut publishes to N consumers via par
     .on(Kind::ToolCall,   seq([PassThrough]))      // v1 nothing; Validate/Firewall slot here later
@@ -135,7 +135,7 @@ let flow: Flow = gate.handle(inbound).await;       // Ok(Accepted) for hooks ; O
 A **max-body-size cap lives in the transport read** (always-on OOM guard), independent of middleware.
 
 `Arc<dyn Middleware>` + `Send + Sync` so the router shares middleware across async tasks. Each
-middleware is a small unit, tested in isolation with a fake `next` (Auth pure → trivial; Observe /
+middleware is a small unit, tested in isolation with a fake `next` (Auth pure -> trivial; Observe /
 FanOut with fakes). Adding policy = add a middleware to a route; the gate is untouched.
 
 _Alternative rejected:_ a hard-coded `auth(); validate(); firewall();` sequence — not extensible, and
@@ -148,7 +148,7 @@ Every middleware is one of four shapes. Pick by what it does to the flow:
 ```rust
 // 1. GATE — pass or reject (Auth, RateLimit, Firewall)
 async fn handle(&self, ctx: Ctx, next: Next<'_>) -> Flow {
-    if self.allow(&ctx) { next.run(ctx).await } else { Err(Reject::Denied("…".into())) }
+    if self.allow(&ctx) { next.run(ctx).await } else { Err(Reject::Denied("...".into())) }
 }
 
 // 2. AROUND — observe/time; capture what you need BEFORE moving ctx into next (Observe)
@@ -180,14 +180,14 @@ FanOut) take a fake sink/subscribers. Wire a new one at the composition root —
 Gotchas: `ctx` **moves** into `next.run(ctx)` — copy `session`/`correlation` first if you need them
 after; `Next` is **single-use** (one `run`); state lives in the middleware (`&self`), built at the root.
 
-### D4. The gate normalizes raw → canonical `HookEvent` once, via an injected adapter (resolves gap B + the drift risk)
+### D4. The gate normalizes raw -> canonical `HookEvent` once, via an injected adapter (resolves gap B + the drift risk)
 
-The gate normalizes **once**: raw agent hook → canonical `HookEvent` (the `contracts-rs` /
+The gate normalizes **once**: raw agent hook -> canonical `HookEvent` (the `contracts-rs` /
 `@athing/sdk` type), via an injected agent adapter — ADR-0005 (the ingress calls `parse_hook` and
 routes by session) + ADR-0003 DI. Both consumers eat the canonical event:
 
 - the engine uses `HookEvent.type` for status and the typed payload for content (no transcript);
-- memory maps the canonical event to capture chunks (`UserPromptSubmit`→prompt, `PostToolUse`→tool),
+- memory maps the canonical event to capture chunks (`UserPromptSubmit`->prompt, `PostToolUse`->tool),
   with no raw-format knowledge.
 
 On the `Hook` route this is two middleware after the globals: `Normalize` (calls the injected
@@ -211,8 +211,8 @@ async fn handle(&self, ctx: Ctx, _next: Next<'_>) -> Flow {
 
 Consequences:
 
-- **One** raw parser → zero raw-format drift. memorya's stray vocabulary becomes a trivial map from
-  the canonical event, and the previously-undefined raw→curated mapper is eliminated.
+- **One** raw parser -> zero raw-format drift. memorya's stray vocabulary becomes a trivial map from
+  the canonical event, and the previously-undefined raw->curated mapper is eliminated.
 - `parse_hook` for hooks now lives in **Rust**, behind an injected `AgentAdapter` trait — a **module
   in the gate binary** in v1 (no separate crate; promote to a per-agent adapter crate at multi-agent).
   The TS `parseHook` for hooks **retires** (the engine consumes the canonical event from the gate).
@@ -233,7 +233,7 @@ The tool gateway sends a `ToolCall`/`ToolResult` **inbound** to `gate.handle()`;
 globals (`Observe`, `Auth`) then the tool route. In v1 the tool route is `[PassThrough]` — authenticate
 
 - observe + return the body unchanged. Its v1 value is **observability**: every tool call/result flows
-  through the gate → one correlation-tagged view of all agent traffic (D12). Policy (`Validate`/`Firewall`)
+  through the gate -> one correlation-tagged view of all agent traffic (D12). Policy (`Validate`/`Firewall`)
   is added to this route later.
 
 ```rust
@@ -250,7 +250,7 @@ never speaks MCP. One router = one observability point now and one policy point 
 
 **Fail-open in v1, fail-closed later.** With observe-only and no policy, if the gate is unreachable
 the gateway SHALL log a warning and proceed (losing only the observability tap, not security). Once
-`Validate`/`Firewall` land on the tool route, this flips to **fail-closed** (gate down → reject).
+`Validate`/`Firewall` land on the tool route, this flips to **fail-closed** (gate down -> reject).
 
 **Policy source (future, with `firewall`).** Allow/deny rules and size limits will live in a config
 file owned by the orchestrator, loaded at session registration; default posture **default-allow +
@@ -297,11 +297,11 @@ deregistration fails the `Auth` stage (token gone) and is rejected — correct b
 
 ### D8. Consumer wiring (resolves gap A)
 
-- **Two wires, a Rust + a TS client each (symmetric):** the **PTY wire** → `daemon-pty-client` (Rust,
+- **Two wires, a Rust + a TS client each (symmetric):** the **PTY wire** -> `daemon-pty-client` (Rust,
   used by the desktop's Tauri/Rust side) and `proxy.ts` (TS, used by the engine); the **gate hook
-  subscription** → `gate-client` (Rust, used by memory) and a TS gate client in `apps/server` (feeding
+  subscription** -> `gate-client` (Rust, used by memory) and a TS gate client in `apps/server` (feeding
   the engine). Both Rust clients are thin libs that decode the versioned wire from `contracts-rs`; no
-  shared client crate, no tool→tool dependency (memory depends on `gate-client`, never the `gate` crate).
+  shared client crate, no tool->tool dependency (memory depends on `gate-client`, never the `gate` crate).
 - The engine's gate subscription is hosted by the **server** (the TS gate client); the engine stays
   transport-agnostic per ADR-0005 (it consumes `HookEvent`, not a transport). The engine's TS
   `parseHook` for hooks retires — the gate already normalized. Memory does **not** depend on the daemon.
@@ -314,8 +314,8 @@ deregistration fails the `Auth` stage (token gone) and is rejected — correct b
 
 `session_id` correlates by session but cannot distinguish concurrent actions within one session. A
 `correlation_id` identifies a single logical action and travels with it across process hops, so one
-hook can be followed `ingress → auth → normalize → fan out → capture`, and one tool call
-`gateway → gate.handle(ToolCall) → backend → result`.
+hook can be followed `ingress -> auth -> normalize -> fan out -> capture`, and one tool call
+`gateway -> gate.handle(ToolCall) -> backend -> result`.
 
 Rules:
 
@@ -396,7 +396,7 @@ export type HookKind =
 
 Consumer mapping (proves the shape is sufficient):
 
-| `type`            | engine → status | memory → capture                                             |
+| `type`            | engine -> status | memory -> capture                                             |
 | ----------------- | --------------- | ------------------------------------------------------------ |
 | SessionStart      | IDLE            | `ensure_session(cwd, client)`                                |
 | UserPromptSubmit  | WORKING         | `capture_prompt(content, turnIndex)`                         |
@@ -421,7 +421,7 @@ Notes:
 The gate is the single chokepoint for all agent-facing traffic (every inbound the router handles),
 which makes it the natural observability seam — the reason the gateway routes through it even before
 policy middleware exist. Observability is the **`Observe` global middleware** (an "around" unit:
-stamp start → `next` → emit the record with outcome + latency):
+stamp start -> `next` -> emit the record with outcome + latency):
 
 ```
 { ts, sessionId, correlationId, kind: Hook|ToolCall|ToolResult,
@@ -445,22 +445,22 @@ during the build-out.
 
 ## Risks / Trade-offs
 
-- [The tool route's IPC hop per tool call/result adds latency] → it is Auth + Observe + PassThrough
+- [The tool route's IPC hop per tool call/result adds latency] -> it is Auth + Observe + PassThrough
   in v1; local unix-socket IPC is sub-millisecond and tool calls are already slow; keep middleware
   O(n) over bytes.
-- [Dropping transcript content (ADR-0006) loses usage/cost and any detail the hook payload omits] →
+- [Dropping transcript content (ADR-0006) loses usage/cost and any detail the hook payload omits] ->
   accepted: content is whatever the `HookEvent` payload carries; the UI still shows live activity via
   the raw PTY stream. If richer content is wanted later, it is a new, separate source — not a revival
   of transcript coupling.
-- [The canonical `HookEvent` payload must be rich enough for both status and content/capture] → define
+- [The canonical `HookEvent` payload must be rich enough for both status and content/capture] -> define
   its typed payload (prompt content; tool name/input/response; turn index) up front; parser unit tests
   assert the gate's adapter fills it. The adapter is single-language (Rust `parseHook` only), so there
   is no cross-language parser to keep in sync.
-- [Registration race: a hook arrives before the session is registered] → the orchestrator registers
+- [Registration race: a hook arrives before the session is registered] -> the orchestrator registers
   with the gate before requesting the spawn (D7 step 2 precedes step 3).
-- [A slow subscriber could stall fan-out] → bounded channels with a logged drop policy (ADR-0007); one
+- [A slow subscriber could stall fan-out] -> bounded channels with a logged drop policy (ADR-0007); one
   slow consumer never blocks others.
-- [Constant-time token compare is easy to get wrong] → use a vetted constant-time comparison; unit-test
+- [Constant-time token compare is easy to get wrong] -> use a vetted constant-time comparison; unit-test
   it; the daemon already has a reference implementation to mirror.
 
 ## Migration Plan
@@ -474,7 +474,7 @@ during the build-out.
    endpoints; integration tests.
 4. Tool route (`PassThrough`) + `Observe` (D12); the MCP gateway sends tool inbounds to `gate.handle()`
    (fail-open) and adopts `service-host` (otherwise unchanged).
-5. Memory subscribes to the gate (capture, mapping canonical `HookEvent` → chunks); engine subscribes
+5. Memory subscribes to the gate (capture, mapping canonical `HookEvent` -> chunks); engine subscribes
    to the gate (status/content).
 6. Orchestrator: session registration + env injection (D7).
 7. Remove hook ingress from the daemon (daemon becomes pty-only).
@@ -496,18 +496,18 @@ during the build-out.
   later call); `par` runs all and joins.
 
 **Adapter (`parse_hook`, Rust) — parser unit tests:** table-driven cases mapping a synthetic raw hook
-→ expected canonical `HookEvent`, one per event type. When the agent's format changes, update the
+-> expected canonical `HookEvent`, one per event type. When the agent's format changes, update the
 expected case deliberately. (No transcript parser to test — that feature is dropped.)
 
 **Router integration (stub adapter + stub consumers + in-memory router):**
 
-- `handle(Hook)` → Observe → Auth → Normalize → FanOut to N subscribers.
-- `handle(ToolCall)` → Observe → Auth → PassThrough → `Outbound::Forward(bytes)`; and the auth-reject path.
+- `handle(Hook)` -> Observe -> Auth -> Normalize -> FanOut to N subscribers.
+- `handle(ToolCall)` -> Observe -> Auth -> PassThrough -> `Outbound::Forward(bytes)`; and the auth-reject path.
 - Auth rejection on a bad/missing token.
 - **Face isolation:** a tool-route caller cannot cause a hook event to be published (router untouched).
 - Subscription teardown on session end.
 - **Correlation id preserved:** a supplied `correlation_id` appears on the fanned-out `HookEvent`;
-  an absent one is assigned and is stable across Auth → Normalize → FanOut.
+  an absent one is assigned and is stable across Auth -> Normalize -> FanOut.
 
 **Conventions (Apollo Rust best practices):** typed `Reject` via `thiserror`; no `unwrap`/`expect`
 outside tests; borrow over clone where possible; small `Middleware` trait; `Arc<dyn Middleware>` only

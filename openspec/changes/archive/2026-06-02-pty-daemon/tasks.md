@@ -7,8 +7,8 @@
 
 ## 2. IPC protocol schema
 
-- [x] 2.1 Define valibot schemas for all client→daemon ops (`spawn`, `kill`, `send`, `input`, `interrupt`, `resize`, `subscribe`, `unsubscribe`, `list`) in a shared `packages/daemon/src/protocol.ts`
-- [x] 2.2 Define valibot schemas for all daemon→client events (`spawned`, `data`, `hook`, `exit`, `replay`, `sessions`, `error`) in `packages/daemon/src/protocol.ts`
+- [x] 2.1 Define valibot schemas for all client->daemon ops (`spawn`, `kill`, `send`, `input`, `interrupt`, `resize`, `subscribe`, `unsubscribe`, `list`) in a shared `packages/daemon/src/protocol.ts`
+- [x] 2.2 Define valibot schemas for all daemon->client events (`spawned`, `data`, `hook`, `exit`, `replay`, `sessions`, `error`) in `packages/daemon/src/protocol.ts`
 - [x] 2.3 Implement NDJSON framing helpers (encode/decode, handle partial lines across chunks)
 
 ## 3. Daemon package scaffold
@@ -61,7 +61,7 @@
 ## 10. Engine: session proxy
 
 - [x] 10.1 Implement `packages/engine/src/daemon/proxy.ts` — `AgentSessionProxy` implementing `AgentSession` over `DaemonClient`
-- [x] 10.2 Wire `hook` events from daemon through `adapter.parseHook` → `statusMapper.apply`
+- [x] 10.2 Wire `hook` events from daemon through `adapter.parseHook` -> `statusMapper.apply`
 - [x] 10.3 Wire `data` events to `dataBuf` replay and `dataHandlers`
 - [x] 10.4 Wire `exit` events to `exitHandlers`; cancel startup timer on first `hook` or `data` event
 - [x] 10.5 Implement `send`/`input`/`interrupt`/`resize`/`kill` by delegating to `DaemonClient`
@@ -99,7 +99,7 @@
 
 - [x] 15.1 Unit tests for NDJSON framing helpers (encode/decode, partial-line handling)
 - [x] 15.2 Unit tests for replay buffer (capacity eviction, replay order)
-- [x] 15.3 Unit tests for `AgentSessionProxy` — mock `DaemonClient`, verify hook→status pipeline, sendQueue gating, kill delegation
+- [x] 15.3 Unit tests for `AgentSessionProxy` — mock `DaemonClient`, verify hook->status pipeline, sendQueue gating, kill delegation
 - [x] 15.4 Unit tests for `DaemonSupervisor` — mock filesystem and process, verify adopt/spawn/stale-socket paths
 - [x] 15.5 Integration test: daemon spawns, engine connects, session starts, server restarts, engine reconnects, session still alive
 - [x] 15.6 Integration test: hook delivery continues after engine host process restart

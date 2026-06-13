@@ -15,25 +15,25 @@
 
 ## 3. Subscribe / Reconnect — Daemon
 
-- [x] 3.1 In the subscribe handler, branch on the connection's negotiated capabilities: snapshot-capable → emit a `snapshot` frame (from `vtState.snapshot()`); non-capable → emit legacy ring-buffer replay
+- [x] 3.1 In the subscribe handler, branch on the connection's negotiated capabilities: snapshot-capable -> emit a `snapshot` frame (from `vtState.snapshot()`); non-capable -> emit legacy ring-buffer replay
 - [x] 3.2 Make snapshot-generation and live-stream attachment atomic w.r.t. the session output path: the snapshot is an exact prefix, the live stream the exact suffix — no byte lost or duplicated at the seam
 - [x] 3.3 Route the snapshot write through the existing credit/backpressure path (do not bypass flow control for the ~110 KB payload)
-- [x] 3.4 Integration test: capable subscriber → first frame is `snapshot` with correct `rows`/`cols`/cursor
-- [x] 3.5 Integration test: non-capable subscriber → receives ring-buffer replay, no `snapshot` frame
+- [x] 3.4 Integration test: capable subscriber -> first frame is `snapshot` with correct `rows`/`cols`/cursor
+- [x] 3.5 Integration test: non-capable subscriber -> receives ring-buffer replay, no `snapshot` frame
 - [x] 3.6 Integration test: output arriving during subscribe appears exactly once across snapshot + live stream (no gap, no overlap)
 
 ## 4. Capability Negotiation — Engine
 
 - [x] 4.1 On daemon connect, advertise supported capabilities (including `snapshot`) in the handshake
 - [x] 4.2 Degrade gracefully when the daemon does not offer a feature: fall back to legacy replay, do NOT reject the connection. Reserve `VersionUnsupported` for genuine incompatibility (e.g. agent CLI version per ADR-0007), not missing optional features
-- [x] 4.3 Unit test: engine against a daemon lacking snapshot support → falls back to ring-buffer replay, connection succeeds
-- [x] 4.4 Integration test: older engine (no `snapshot` advertised) against new daemon → keeps working on legacy path
+- [x] 4.3 Unit test: engine against a daemon lacking snapshot support -> falls back to ring-buffer replay, connection succeeds
+- [x] 4.4 Integration test: older engine (no `snapshot` advertised) against new daemon -> keeps working on legacy path
 
 ## 5. Snapshot Rendering — Engine Proxy
 
 - [x] 5.1 On receiving a `snapshot` frame, convert the cell grid to escape sequences (ED2 clear, then per-cell: CSI H cursor position + SGR attributes + character write) and emit the result as raw bytes on the data channel
 - [x] 5.2 Ensure snapshot bytes are emitted before any subsequent live `data` bytes from the same subscribe event
-- [x] 5.3 Unit test: snapshot frame in → correct escape-sequence bytes out, terminal renders expected screen (incl. wide-char cursor columns)
+- [x] 5.3 Unit test: snapshot frame in -> correct escape-sequence bytes out, terminal renders expected screen (incl. wide-char cursor columns)
 
 ## 6. apps/server & apps/ui — Transparent Passthrough
 
@@ -43,5 +43,5 @@
 
 - [x] 7.1 Emit session-correlated logs for snapshot generation/emit
 - [x] 7.2 End-to-end test: reconnecting client (live session) receives snapshot bytes and renders correct screen without raw byte replay
-- [x] 7.3 Daemon-upgrade test: upgrade the daemon binary while sessions are live → successor adopts running PTYs, sessions stay alive, engines reconnect and renegotiate — zero session loss
+- [x] 7.3 Daemon-upgrade test: upgrade the daemon binary while sessions are live -> successor adopts running PTYs, sessions stay alive, engines reconnect and renegotiate — zero session loss
 - [x] 7.4 Mixed-version test: new daemon serves a snapshot-capable engine and a legacy engine concurrently — each gets its negotiated path, neither rejected

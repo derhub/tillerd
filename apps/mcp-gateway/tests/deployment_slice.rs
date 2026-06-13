@@ -15,7 +15,7 @@ async fn gateway_only_slice_boots_with_empty_config() {
     let tools = gw.supervisor().registry().all_tools();
     assert!(
         tools.is_empty(),
-        "empty config → zero tools; got: {tools:?}"
+        "empty config -> zero tools; got: {tools:?}"
     );
 
     gw.supervisor().shutdown().await;

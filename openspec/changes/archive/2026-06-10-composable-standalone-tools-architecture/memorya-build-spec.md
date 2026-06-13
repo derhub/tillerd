@@ -5,8 +5,8 @@ Synthesized from the `memorya-build-spec` design workflow (6 agents, 2026-06-07)
 ## Resolved decisions (accepted from design openDecisions)
 
 - **Sync, no async.** memorya stays fully synchronous: `std::thread` + blocking `std::os::unix::net::UnixStream` + a transport-free codec. Do **not** add tokio/async-trait (consistent with the existing zero-async memorya + transport-free `daemon-pty-client`).
-- **Concurrency:** `rusqlite::Connection` is `Send` but **`!Sync`** → share `Arc<Mutex<Engram>>` (one serialized connection) across capture + worker + viewer threads. Set `PRAGMA busy_timeout` in `Store::open` as belt-and-suspenders.
-- **Capture reuses existing API.** The dispatcher routes `HookKind` → the existing `ensure_session`/`capture_prompt`/`capture_tool` (which already redact via `redact::redact`, skip via `tool_use::should_skip`, and auto-title). Do **not** reimplement a pure `map_hook_event -> chunks` (would double-redact + bypass FK/dedup).
+- **Concurrency:** `rusqlite::Connection` is `Send` but **`!Sync`** -> share `Arc<Mutex<Engram>>` (one serialized connection) across capture + worker + viewer threads. Set `PRAGMA busy_timeout` in `Store::open` as belt-and-suspenders.
+- **Capture reuses existing API.** The dispatcher routes `HookKind` -> the existing `ensure_session`/`capture_prompt`/`capture_tool` (which already redact via `redact::redact`, skip via `tool_use::should_skip`, and auto-title). Do **not** reimplement a pure `map_hook_event -> chunks` (would double-redact + bypass FK/dedup).
 - **Dedicated `capture_queue` table** (literal 6.5) with `{chunk_id, status, attempts, last_error, created_at}` + reclaim-stale (6.6). Ingest commits the chunk first (`insert_chunk -> Option<id>`), then enqueues on `Some(id)` only.
 - **Content-hash dedup** (literal 6.5: "dedup by content hash") — add a `content_hash` column + partial UNIQUE index; add `sha2 = "0.10"`. Closes the real gap: `UserPromptSubmit.turn_index = None` prompts are NOT deduped by the existing structural `UNIQUE(session_id,turn_index,kind)` (SQLite treats NULL as distinct).
 - **gate-client = transport-free sync codec**, mirrors `daemon-pty-client` framing locally (HEADER_SIZE=4 BE, BODY_SEP=0x0a); `pub const WIRE_VERSION = contracts::HOOK_SUBSCRIPTION_WIRE_VERSION`; imports neither `daemon-pty-client` nor `memorya` (8.4). Transport (UnixStream) lives in memorya's `GateSubscriptionSource`, not in gate-client.
@@ -24,9 +24,9 @@ Synthesized from the `memorya-build-spec` design workflow (6 agents, 2026-06-07)
 
 NEW `packages/gate-client/{Cargo.toml, src/lib.rs, tests/wire_fixtures.rs, package.json, .gitignore}` — `RawFrame`, `FrameDecoder{new,push}`, `encode_frame`, `encode_subscribe_request(&HookSubscribeRequest)`, `enum SubscriptionFrame{HelloAck{version,capabilities}, HookEvent(HookEvent), Other{kind}}`, `decode_subscription_frame(&RawFrame)->Option<SubscriptionFrame>`, `enum DecodeError`, `WIRE_VERSION`.
 
-NEW memorya modules: `src/hook_source.rs` (`trait HookSource: Send { fn next(&mut self)->Option<HookEvent> }`; `StubSource` over `Vec<HookEvent>`; `GateSubscriptionSource` = owned `UnixStream` + `gate_client::FrameDecoder`, blocking reads, hello-ack version check, `Drop` closes socket), `src/capture.rs` (`HookCapturer::dispatch(&HookEvent)` → ensure_session/capture_prompt/capture_tool; PermissionRequest/Stop/SessionEnd skipped; wildcard arm), `src/queue.rs` (`capture_queue` ops: enqueue/drain_batch/mark_embedded/mark_failed/reclaim_stale), `src/worker.rs` (`EmbeddingWorker::spawn(Arc<Mutex<Engram>>, interval, Arc<AtomicBool>)->JoinHandle`; drain loop; `catch_unwind`; reclaim_stale on start), `src/dual_mode.rs` (`enum CaptureMode{Standalone,Composed}` from subcommand + `ATHING_GATE_URL`/`ATHING_SESSION`).
+NEW memorya modules: `src/hook_source.rs` (`trait HookSource: Send { fn next(&mut self)->Option<HookEvent> }`; `StubSource` over `Vec<HookEvent>`; `GateSubscriptionSource` = owned `UnixStream` + `gate_client::FrameDecoder`, blocking reads, hello-ack version check, `Drop` closes socket), `src/capture.rs` (`HookCapturer::dispatch(&HookEvent)` -> ensure_session/capture_prompt/capture_tool; PermissionRequest/Stop/SessionEnd skipped; wildcard arm), `src/queue.rs` (`capture_queue` ops: enqueue/drain_batch/mark_embedded/mark_failed/reclaim_stale), `src/worker.rs` (`EmbeddingWorker::spawn(Arc<Mutex<Engram>>, interval, Arc<AtomicBool>)->JoinHandle`; drain loop; `catch_unwind`; reclaim_stale on start), `src/dual_mode.rs` (`enum CaptureMode{Standalone,Composed}` from subcommand + `ATHING_GATE_URL`/`ATHING_SESSION`).
 
-MODIFY memorya: `lib.rs` (mod decls + enqueue helpers), `server.rs` (REMOVE `POST /hook` + `ingest_hook` + 4 hook tests + invalid-json test; KEEP `GET /` viewer + `GET /healthz`; doc "hook ingress"→"viewer only"), `main.rs` (`mcp` = MCP stdio + viewer thread; `serve` = viewer only; resolve CaptureMode; Composed → spawn capture thread + EmbeddingWorker, join on shutdown), `schema.sql` (`capture_queue` table + indexes; `content_hash` column; `PRAGMA busy_timeout`), `store.rs` (busy_timeout in open; content_hash on insert_chunk), `Cargo.toml` (deps). Root `Cargo.toml` (+`packages/gate-client`).
+MODIFY memorya: `lib.rs` (mod decls + enqueue helpers), `server.rs` (REMOVE `POST /hook` + `ingest_hook` + 4 hook tests + invalid-json test; KEEP `GET /` viewer + `GET /healthz`; doc "hook ingress"->"viewer only"), `main.rs` (`mcp` = MCP stdio + viewer thread; `serve` = viewer only; resolve CaptureMode; Composed -> spawn capture thread + EmbeddingWorker, join on shutdown), `schema.sql` (`capture_queue` table + indexes; `content_hash` column; `PRAGMA busy_timeout`), `store.rs` (busy_timeout in open; content_hash on insert_chunk), `Cargo.toml` (deps). Root `Cargo.toml` (+`packages/gate-client`).
 
 ## Build order (one committable unit each; cargo test + clippy --all-targets --locked -D warnings green before commit)
 
@@ -52,12 +52,12 @@ deployment (1, gated on 5.9): memory_only_slice_subscribes_to_gate_without_daemo
 
 ## Cross-cutting risks
 
-- `Connection` `!Sync` → `Arc<Mutex<Engram>>`; set `busy_timeout`.
-- FK: `chunks.session_id REFERENCES sessions(id)` (foreign_keys=ON) → `ensure_session` before any chunk insert.
+- `Connection` `!Sync` -> `Arc<Mutex<Engram>>`; set `busy_timeout`.
+- FK: `chunks.session_id REFERENCES sessions(id)` (foreign_keys=ON) -> `ensure_session` before any chunk insert.
 - Capture must route to the side-effectful `capture_prompt`/`capture_tool` (redact+skip+title), not a pure mapper.
 - Drop POST /hook removes 4 passing tests — capture behavior must be fully re-covered by step-2 capture tests (no net coverage loss).
 - gate hook-event frame envelope owned by gate 5.9 (unbuilt at design time) — gate-client fixtures provisional; reconcile when the gate lands; live memory-only integration gated until then.
-- `correlation_id` round-trips unchanged gate → HookEvent → logs; codec/capture must not mint or drop it.
+- `correlation_id` round-trips unchanged gate -> HookEvent -> logs; codec/capture must not mint or drop it.
 - `StubEmbedder` is `#[cfg(test)] pub(crate)` — keep worker/queue tests in-crate or expose a deterministic test embedder.
 - Dep direction (8.4): gate-client reimplements framing locally, imports neither daemon-pty-client nor memorya; memorya imports gate-client, never the reverse — guard with a cargo-metadata test.
 - Semantics flip: `memorya serve` becomes viewer-only; `memorya mcp` additionally starts the viewer — document + test both.

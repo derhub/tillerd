@@ -20,7 +20,7 @@ const ARROWS: Record<string, readonly [string, string]> = {
   arrowleft: ["\x1b[D", "\x1bOD"],
 };
 
-/** Named keys → the bytes a terminal sends for them. */
+/** Named keys -> the bytes a terminal sends for them. */
 const NAMED: Record<string, string> = {
   enter: "\r",
   return: "\r",
@@ -54,7 +54,7 @@ const NAMED: Record<string, string> = {
   f12: "\x1b[24~",
 };
 
-/** Non-alphabetic Ctrl combos → control byte. */
+/** Non-alphabetic Ctrl combos -> control byte. */
 const CTRL_SYMBOLS: Record<string, number> = {
   "[": 0x1b,
   "3": 0x1b,

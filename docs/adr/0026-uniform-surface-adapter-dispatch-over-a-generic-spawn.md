@@ -29,7 +29,7 @@ because it is the seam every surface kind and every future launch feature reuses
 Surface creation is a **uniform adapter dispatch over a single generic spawn**, driven by a **thin
 launch executor**.
 
-- **The launch executor is a parse→handoff router.** Per item it owns only kind-agnostic
+- **The launch executor is a parse->handoff router.** Per item it owns only kind-agnostic
   orchestration: validate, resolve the command, run `pre` scripts, run the `worktree` step, persist
   the surface row, invoke the adapter, run `post` and `auto-spawn`, and record a best-effort outcome
   (a failed item is recorded; the rest continue). It holds no per-kind logic beyond selecting the

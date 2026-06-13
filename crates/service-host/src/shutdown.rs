@@ -1,4 +1,4 @@
-//! Shutdown: escalating SIGTERM (grace period) → SIGKILL. No orphaned children.
+//! Shutdown: escalating SIGTERM (grace period) -> SIGKILL. No orphaned children.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

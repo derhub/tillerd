@@ -74,11 +74,11 @@ The three host-only bootstrap concerns relocate to `apps/server` and run before/
 construction (resolve-then-inject — they are one-time startup, not loop-time, so they need no
 port interface):
 
-- `daemon/supervisor.ts` (`adoptOrSpawn`, manifest, `HOOKS_SOCK`) → host spawns/adopts the
+- `daemon/supervisor.ts` (`adoptOrSpawn`, manifest, `HOOKS_SOCK`) -> host spawns/adopts the
   daemon and produces a connected Bun `DaemonTransport`.
-- `pty/resolve.ts` (`resolveBinary`, `checkCliVersion`) → host resolves the agent binary and
+- `pty/resolve.ts` (`resolveBinary`, `checkCliVersion`) -> host resolves the agent binary and
   verifies its version, supplying the resolved command.
-- `ingress/install.ts` (`prepareNotifyScript`, `notifyCommand`) → host prepares the notify
+- `ingress/install.ts` (`prepareNotifyScript`, `notifyCommand`) -> host prepares the notify
   script and installs hooks on the adapter, supplying the hook command.
 
 _Why:_ these do process/filesystem work that is not agent-loop logic and cannot run in a
@@ -133,15 +133,15 @@ an app's internals. _Alternative:_ keep them in `apps/server` and have the tests
 ## Risks / Trade-offs
 
 - [Making `FileSource`/`TranscriptReader` async could reorder content emission relative to
-  status/exit events] → Preserve current ordering by keeping the same call sites and awaiting
+  status/exit events] -> Preserve current ordering by keeping the same call sites and awaiting
   internally where ordering matters; cover with existing content/ordering tests before and after.
 - [Moving version-check and hook-install out of `engine.start` changes when failures surface
-  (host bootstrap vs first session)] → Host runs them at startup and surfaces the same typed
+  (host bootstrap vs first session)] -> Host runs them at startup and surfaces the same typed
   errors (`VersionUnsupported`, `HookInstallFailed`) before accepting sessions; assert via tests.
 - [Relocating `supervisor`/`resolve`/`ingress` touches `apps/server` wiring and the engine's
-  public exports] → Pre-v1 allows the break; update `apps/server` in the same change and keep
+  public exports] -> Pre-v1 allows the break; update `apps/server` in the same change and keep
   web e2e green.
-- [The injected-deps signature is a breaking API change for any engine caller] → Only
+- [The injected-deps signature is a breaking API change for any engine caller] -> Only
   `apps/server` constructs the engine today; update it in lockstep. No shims (pre-v1).
 
 ## Migration Plan
@@ -151,7 +151,7 @@ an app's internals. _Alternative:_ keep them in `apps/server` and have the tests
 3. Refactor `AgentSessionProxy` to accept the transport via the `DaemonTransport` interface, pass
    the `FileSource` to its `TranscriptReader`, generate its token via Web Crypto, and take `cwd`
    from options (no `process.cwd()` default).
-4. Change `createEngine()` → `createEngine(deps)` carrying `transport`, `fileSource`, `logger`,
+4. Change `createEngine()` -> `createEngine(deps)` carrying `transport`, `fileSource`, `logger`,
    and `hooksSocketPath`; generate session ids via Web Crypto; remove lazy `adoptOrSpawn`,
    version check, notify-script prep, and `createLogger()` from the engine (D3/D5); stop
    exporting `adoptOrSpawn`/`DaemonClient`.

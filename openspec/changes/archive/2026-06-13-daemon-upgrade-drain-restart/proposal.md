@@ -34,7 +34,7 @@ heroic. Cutting it dissolves ADR-0010's in-process-fd mandate and simplifies ADR
   terminated and resumed on the new binary. Only then does the daemon remove its manifest and
   exit; the supervisor starts the new binary fresh.
 - **Remove the handoff machinery. BREAKING.** Delete `prepareUpgrade`/snapshot-for-handoff, the
-  `--handoff` start mode, `adoptFromFd`, the predecessor→successor fd inheritance, and the
+  `--handoff` start mode, `adoptFromFd`, the predecessor->successor fd inheritance, and the
   IPC-channel ack. Remove double-replay tolerance tied to the handoff boundary.
 - **Relax ADR-0010: in-process PTY fds become an implementation choice, not a mandate.** The
   mandate existed only because fd inheritance required it. With handoff gone, the daemon may keep
@@ -164,7 +164,7 @@ removed: snapshot-for-handoff, --handoff, adoptFromFd, ipc handoff, fd inheritan
   - start.
 - **Protocol:** client wire framing and `hello` negotiation stay; the predecessor↔successor
   channel and its frames are removed.
-- **ADRs:** supersedes ADR-0011 (fd-handoff); amends ADR-0010 (in-process fds: mandate →
+- **ADRs:** supersedes ADR-0011 (fd-handoff); amends ADR-0010 (in-process fds: mandate ->
   implementation choice); simplifies ADR-0009 (codec scoped to client wire). A new ADR records
   drain-and-restart as the upgrade strategy and the supersession/amendment chain. ADR-0008's
   "crash loses sessions" posture is unchanged and now also describes planned upgrades.
@@ -189,7 +189,7 @@ removed: snapshot-for-handoff, --handoff, adoptFromFd, ipc handoff, fd inheritan
 
 ## Where to Start
 
-1. Specify the drain state machine in `rust-pty-daemon`: states (serving → draining → stopped),
+1. Specify the drain state machine in `rust-pty-daemon`: states (serving -> draining -> stopped),
    refuse-new behavior, wait-for-idle, explicit "upgrade now" terminate path, manifest removal.
 2. Re-point the supervisor: on version mismatch, signal drain + start the new binary, instead of
    sending the `upgrade` frame and orchestrating handoff.

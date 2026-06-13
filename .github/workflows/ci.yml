@@ -42,7 +42,7 @@ jobs:
       # clippy compiles the crates itself; only the UI dist (the desktop crate's build.rs input) is
       # prebuilt — building the release service binaries here would be thrown away.
       - run: bunx turbo run build --filter=@tillerd/ui
-      - run: bun run format:check
+      # Formatting is owned by autofix.ci (auto-fixes oxfmt + cargo fmt and red-gates the PR).
       - run: bun run check-types
       - run: bun run lint
 

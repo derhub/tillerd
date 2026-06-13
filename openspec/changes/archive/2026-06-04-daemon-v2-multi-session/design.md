@@ -94,15 +94,15 @@ The engine client (`packages/engine/src/daemon/`) is also coupled to the NDJSON 
 
 ## Risks / Trade-offs
 
-- **[Risk] node-pty `_fd` is a private field** → Mitigation: access is already demonstrated in production (Superset). Pin node-pty to 1.1.0 (already done). Add a runtime assert that `_fd` is a number on spawn so we fail fast if the API changes.
+- **[Risk] node-pty `_fd` is a private field** -> Mitigation: access is already demonstrated in production (Superset). Pin node-pty to 1.1.0 (already done). Add a runtime assert that `_fd` is a number on spawn so we fail fast if the API changes.
 
-- **[Risk] Snapshot write races with in-flight PTY output** → Mitigation: snapshot is written while the predecessor is still running and serving output; the replay buffer recorded in the snapshot may be slightly behind the successor's first live output, but the successor continues collecting new data immediately. The gap is covered by the replay buffer window. No data loss — some bytes may be replayed twice; the client is responsible for idempotent rendering.
+- **[Risk] Snapshot write races with in-flight PTY output** -> Mitigation: snapshot is written while the predecessor is still running and serving output; the replay buffer recorded in the snapshot may be slightly behind the successor's first live output, but the successor continues collecting new data immediately. The gap is covered by the replay buffer window. No data loss — some bytes may be replayed twice; the client is responsible for idempotent rendering.
 
-- **[Risk] Upgrade-ack timeout leaves predecessor alive** → Mitigation: predecessor continues normally; user retries or re-deploys. The supervisor logs the failure and does not retry automatically to avoid infinite churn.
+- **[Risk] Upgrade-ack timeout leaves predecessor alive** -> Mitigation: predecessor continues normally; user retries or re-deploys. The supervisor logs the failure and does not retry automatically to avoid infinite churn.
 
-- **[Risk] Subprocess crash before first byte** → Mitigation: child sends a `spawn-ack` or `error` frame immediately after PTY open; daemon propagates `error` to the subscribing client and removes the session from the registry cleanly.
+- **[Risk] Subprocess crash before first byte** -> Mitigation: child sends a `spawn-ack` or `error` frame immediately after PTY open; daemon propagates `error` to the subscribing client and removes the session from the registry cleanly.
 
-- **[Risk] Credit window too small for replay on reconnect** → Mitigation: on subscribe the daemon pre-fills the client's credit from the replay buffer size + initial window, so a full replay never stalls mid-delivery.
+- **[Risk] Credit window too small for replay on reconnect** -> Mitigation: on subscribe the daemon pre-fills the client's credit from the replay buffer size + initial window, so a full replay never stalls mid-delivery.
 
 ## Migration Plan
 

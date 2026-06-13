@@ -13,7 +13,7 @@ All messages between daemon and client SHALL use a length-prefixed binary frame 
 #### Scenario: Frame with binary payload
 
 - **WHEN** the daemon emits a data frame carrying PTY output bytes
-- **THEN** the frame SHALL consist of: 4-byte length, JSON metadata (`{"type":"data","sessionId":"…","bodyLen":<n>}`), newline, then exactly `<n>` raw bytes
+- **THEN** the frame SHALL consist of: 4-byte length, JSON metadata (`{"type":"data","sessionId":"...","bodyLen":<n>}`), newline, then exactly `<n>` raw bytes
 
 #### Scenario: Frame without binary payload
 
@@ -37,7 +37,7 @@ Upon connection the client SHALL send a `hello` frame declaring the set of proto
 #### Scenario: Incompatible versions
 
 - **WHEN** a client connects and sends `{"type":"hello","versions":[99]}`
-- **THEN** the daemon SHALL reply `{"type":"error","code":"EVERSION","message":"…"}` and close the socket
+- **THEN** the daemon SHALL reply `{"type":"error","code":"EVERSION","message":"..."}` and close the socket
 
 #### Scenario: Message before handshake rejected
 
@@ -46,26 +46,26 @@ Upon connection the client SHALL send a `hello` frame declaring the set of proto
 
 ### Requirement: Typed frame catalogue
 
-The protocol SHALL define the following frame types. Frames marked C→D are sent by clients; D→C are sent by the daemon; D↔C travel both directions.
+The protocol SHALL define the following frame types. Frames marked C->D are sent by clients; D->C are sent by the daemon; D↔C travel both directions.
 
 | Type          | Direction | Purpose                         |
 | ------------- | --------- | ------------------------------- |
-| `hello`       | C→D       | Handshake initiation            |
-| `hello-ack`   | D→C       | Handshake response              |
-| `spawn`       | C→D       | Create a new session            |
-| `spawn-ack`   | D→C       | Session created, includes pid   |
-| `kill`        | C→D       | Terminate a session             |
-| `list`        | C→D       | Request live session ids        |
-| `list-ack`    | D→C       | Response to list                |
-| `subscribe`   | C→D       | Subscribe to session output     |
-| `unsubscribe` | C→D       | Unsubscribe from session output |
-| `input`       | C→D       | Raw bytes to PTY stdin          |
-| `resize`      | C→D       | PTY window resize               |
-| `interrupt`   | C→D       | Send SIGINT to PTY process      |
-| `data`        | D→C       | PTY output bytes (binary body)  |
-| `exit`        | D→C       | Session exited                  |
-| `hook`        | D→C       | Hook event relay                |
-| `ack`         | C→D       | Flow-control credit return      |
+| `hello`       | C->D       | Handshake initiation            |
+| `hello-ack`   | D->C       | Handshake response              |
+| `spawn`       | C->D       | Create a new session            |
+| `spawn-ack`   | D->C       | Session created, includes pid   |
+| `kill`        | C->D       | Terminate a session             |
+| `list`        | C->D       | Request live session ids        |
+| `list-ack`    | D->C       | Response to list                |
+| `subscribe`   | C->D       | Subscribe to session output     |
+| `unsubscribe` | C->D       | Unsubscribe from session output |
+| `input`       | C->D       | Raw bytes to PTY stdin          |
+| `resize`      | C->D       | PTY window resize               |
+| `interrupt`   | C->D       | Send SIGINT to PTY process      |
+| `data`        | D->C       | PTY output bytes (binary body)  |
+| `exit`        | D->C       | Session exited                  |
+| `hook`        | D->C       | Hook event relay                |
+| `ack`         | C->D       | Flow-control credit return      |
 | `error`       | D↔C       | Typed error                     |
 
 #### Scenario: Unknown frame type dropped

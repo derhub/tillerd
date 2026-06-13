@@ -53,7 +53,7 @@ ADR-0003. It supersedes no prior ADR.
   behind the same plug points, with no edits to call sites or to the core.
 - The two-runtime asymmetry (explicit child object in TS, implicit span context in Rust) is a
   permanent, intentional shape contributors must learn; it is idiomatic to each language.
-- A breaking constructor change (`createLogger(sessionId?)` → `createLogger(resource)`) ripples
+- A breaking constructor change (`createLogger(sessionId?)` -> `createLogger(resource)`) ripples
   to all consumers, accepted pre-v1 with no compatibility shim.
 - This ADR deliberately scopes out metrics, distributed tracing spans as a product feature,
   cross-process trace-context propagation, and ADR-0007's redacted raw-I/O capture; each remains

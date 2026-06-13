@@ -111,7 +111,7 @@ add a new agent -> new adapter (data); engine + apps unchanged.
 ```
 caller            AgentSession        PtyTransport        claude          hooks/disk
   │ start(adapter,opts) │ install hook(once) ──────────────────────────▶ settings.json
-  │────────────────────▶│ spawn $SHELL -lc 'exec claude --session-id…' ▶│ boots
+  │────────────────────▶│ spawn $SHELL -lc 'exec claude --session-id...' ▶│ boots
   │                     │                              │── SessionStart ─▶ POST+token ▶ IDLE (ready)
   │ send("refactor") ──▶│ (gated on IDLE) paste+submit ▶│ works           │
   │                     │                              │── UserPrompt ───▶ ▶ WORKING
@@ -120,7 +120,7 @@ caller            AgentSession        PtyTransport        claude          hooks/
   │ onContent(tool) ◀───│◀──────── transcript delta ───────────────────── │
   │ interrupt() ───────▶│ send Esc ────────────────────▶│ (cancel turn)   │
   │                     │                              │── Stop ─────────▶ ▶ IDLE (+final read)
-  │ onStatus(…) ◀───────│  kill(): SIGTERM→grace→SIGKILL → Exited{code,signal}
+  │ onStatus(...) ◀───────│  kill(): SIGTERM->grace->SIGKILL -> Exited{code,signal}
 ```
 
 (every POST -> ingress verifies token, calls `adapter.parseHook` -> `HookEvent`, then status + content consume it — D15.)
@@ -132,7 +132,7 @@ auth        user's own subscription login · no API key · 1 sub = 1 user (bring
 adapter     hybrid: DATA (launch flags · hook-install spec · version range)
                     FUNCTIONS (parseHook · transcriptPath · parseTranscriptEntry)
 engine      instance-based (createEngine()), no globals -> many concurrent sessions
-reliability TERM→grace→KILL · timeouts · typed errors (incl. NotAuthenticated) ·
+reliability TERM->grace->KILL · timeouts · typed errors (incl. NotAuthenticated) ·
             token-auth bridge · backpressure · plane degradation · CLI version check ·
             session-correlated logs
 bytes       raw end-to-end, no ANSI strip / no re-decode · resize -> PTY ioctl
@@ -164,7 +164,7 @@ Status is sourced from the agent's native lifecycle hooks, but the engine is spl
 
 - **Why:** PTY bytes carry no reliable machine-readable state, and scraping the terminal is fragile. The agent's own lifecycle hooks are an authoritative signal; localhost HTTP is agent-agnostic and trivial to receive. Splitting ingress (how events arrive) from status (what they mean) keeps status logic transport-blind and unit-testable. The only agent-specific step is `parseHook` (D12); because it normalizes to the fixed contract enum, the status mapper is **generic** (no per-adapter table).
 - **Alternatives:** (a) scrape terminal output for state — fragile, breaks on UI changes. (b) unix socket / file transport — more plumbing, less portable than localhost HTTP; remains a future `HookEvent` producer behind the same contract. (c) derive status from the transcript instead of hooks — collapses planes but loses real-time latency and reliable `WAITING_INPUT`; rejected as the default, but becomes just another `HookEvent` producer if ever wanted. The transcript is content-only (D4); status comes from hooks.
-- **Generic contract enum → status mapping** (engine, fixed — the contract enum has defined meaning):
+- **Generic contract enum -> status mapping** (engine, fixed — the contract enum has defined meaning):
 
 ```
 SessionStart                       -> IDLE          (booted)
@@ -267,7 +267,7 @@ FUNCTIONS (logic — agent-specific):
 ```
 
 - **Why:** Declarative is easy and clear for stable structural config (flags, hook events, settings path, version range) — a new agent edits data there. But parsing (hook payloads, transcript entries) and the cwd-encoding rule are _logic_; forcing them into a data schema builds a config-DSL + a growing engine interpreter (indirection, hard debugging, an expressiveness ceiling). A plain function is unit-testable (`parseHook(sample) === expected`), debuggable with a breakpoint, and unbounded in expressiveness. Hybrid puts each concern where it's cheapest to maintain.
-- **Consequence:** The engine stays Claude-blind — it calls `adapter.parseHook` and receives a `HookEvent`; it never knows the agent's payload shape. Because `parseHook` normalizes to the **fixed contract enum**, the engine maps the enum → status **generically** (no per-adapter status table). The adapter functions are reached through the `AgentDefinition` contract (sdk) and the concrete adapter is injected at the composition root, so the engine still never imports a specific adapter (D8).
+- **Consequence:** The engine stays Claude-blind — it calls `adapter.parseHook` and receives a `HookEvent`; it never knows the agent's payload shape. Because `parseHook` normalizes to the **fixed contract enum**, the engine maps the enum -> status **generically** (no per-adapter status table). The adapter functions are reached through the `AgentDefinition` contract (sdk) and the concrete adapter is injected at the composition root, so the engine still never imports a specific adapter (D8).
 - **Trade-off:** Adapters are now code (a small module + tests), not pure data — accepted; the cross-language motivation for pure data is gone, and code is the more maintainable choice for the parsing parts.
 - **Alternatives:** Pure-data declarative — nice for config but turns parsing/encoding into a hard-to-maintain config-DSL + interpreter; rejected. Fully functional (everything code) — fine, but loses the clarity of declarative config for the stable parts; the hybrid keeps that.
 
@@ -275,7 +275,7 @@ FUNCTIONS (logic — agent-specific):
 
 These are operability requirements every `Engine` impl must honor; they slot into the existing planes, not the architecture.
 
-- **D13.1 Process lifecycle & graceful shutdown.** `kill()` SHALL escalate SIGTERM → grace period → SIGKILL. The engine SHALL capture the agent's exit code/signal, emit a terminal `Exited { code, signal }` event, reap the child, and clean up the PTY and per-session bridge state on both normal exit and crash. No leaked processes or orphaned PTYs.
+- **D13.1 Process lifecycle & graceful shutdown.** `kill()` SHALL escalate SIGTERM -> grace period -> SIGKILL. The engine SHALL capture the agent's exit code/signal, emit a terminal `Exited { code, signal }` event, reap the child, and clean up the PTY and per-session bridge state on both normal exit and crash. No leaked processes or orphaned PTYs.
 - **D13.2 Timeouts on every external interaction.** Bounded startup (agent fails to boot), shutdown grace, and idle timeouts. A timeout produces a typed error and a defined transition, never an indefinite hang.
 - **D13.3 Typed error taxonomy.** Errors are a closed set, not strings: `BinaryNotFound`, `NotAuthenticated`, `SpawnFailed`, `HookInstallFailed`, `TranscriptUnavailable`, `TransportClosed`, `Timeout`, `VersionUnsupported`. Surfaced on the canonical event model so callers can branch.
 - **D13.4 Authenticated hook bridge.** The bridge is loopback-only AND authenticated: the engine mints a per-session secret, injects it via env + the hook URL, and verifies it on every callback. Unauthenticated or mismatched callbacks are rejected. Closes local-process spoofing of lifecycle state.
@@ -314,8 +314,8 @@ test                       bun test
 The engine consumes lifecycle exclusively as a normalized `HookEvent` contract (in `@athing/sdk`) — roughly `{ sessionId, type: SessionStart|UserPromptSubmit|PostToolUse|PermissionRequest|Stop|SessionEnd, payload? }`. Inside the engine, the ingress (D3) is the producer — it calls `adapter.parseHook` to build `HookEvent`s; the status mapper and content reader are the consumers. The consumer side knows nothing about HTTP, tokens, or raw payload shapes.
 
 - **Why:** This is the seam that makes "the engine doesn't care how hooks arrive" structurally true. Any producer — the loopback HTTP receiver (v1), a unix socket, a transcript-derived source, a stream-json source, or a test stub calling `dispatchHook(event)` — feeds the same contract. Status and content logic are tested by handing them `HookEvent`s directly, with no I/O.
-- **Consequence:** The auth token and envelope validation live on the **producer** side (ingress, D13.4); the agent-specific raw→contract parsing is `adapter.parseHook` (D12); the engine trusts the `HookEvent`s it receives. Whoever can call `dispatchHook` is inside the trust boundary — the HTTP receiver guards that boundary with the token.
-- **Boundary:** the agent-specific knowledge is split — hook-install config is adapter **data**, raw→`HookEvent` parsing is an adapter **function** (D12); the generic act of receiving, authenticating, and dispatching is engine code (`hook-ingress`).
+- **Consequence:** The auth token and envelope validation live on the **producer** side (ingress, D13.4); the agent-specific raw->contract parsing is `adapter.parseHook` (D12); the engine trusts the `HookEvent`s it receives. Whoever can call `dispatchHook` is inside the trust boundary — the HTTP receiver guards that boundary with the token.
+- **Boundary:** the agent-specific knowledge is split — hook-install config is adapter **data**, raw->`HookEvent` parsing is an adapter **function** (D12); the generic act of receiving, authenticating, and dispatching is engine code (`hook-ingress`).
 
 ### D16: Engine is instantiable; sessions run concurrently (mixed modes)
 
@@ -330,32 +330,32 @@ The engine is created via a factory (`createEngine()`) returning an isolated ins
 Driving the _interactive_ TUI (not headless `-p`) has a lifecycle the engine must handle explicitly:
 
 - **First-run blockers.** Before the agent is ready, an interactive launch can hit blocking dialogs: workspace **trust**, onboarding/theme, or — if not logged in — the **login** flow. The engine SHALL launch with flags/preconditions that skip trust/onboarding where possible, treat a session that is not ready within the startup timeout (D13.2) as a typed error, and detect a not-logged-in state as `NotAuthenticated` (D13.3) rather than hang.
-- **Ready gating.** A session is "ready" for prompts only after `SessionStart` (status IDLE). `send()` issued before ready, or while `WORKING`, is queued until the next IDLE (bounded queue; overflow → typed error). The first prompt waits for ready.
+- **Ready gating.** A session is "ready" for prompts only after `SessionStart` (status IDLE). `send()` issued before ready, or while `WORKING`, is queued until the next IDLE (bounded queue; overflow -> typed error). The first prompt waits for ready.
 - **`send` vs `input`.** `send(text)` submits a prompt _turn_ — delivered via bracketed paste (multi-line safe) then the submit key; gated on readiness. `input(bytes)` writes raw keystrokes verbatim (answering in-TUI prompts, arrows, y/n) with no gating.
 - **`interrupt()`.** Cancels the _current turn_ (sends the agent's interrupt key, e.g. Esc) while keeping the session alive — distinct from `kill()`, which terminates it.
-- **Clean launch (no shell noise).** Spawn the user's login shell as `$SHELL -lc 'exec <claude> …'`: the login shell loads the user's environment (PATH, version managers, rc files) and `exec` replaces it with `claude`, so the byte stream is the agent TUI only — no shell prompt or echoed command.
-- **Binary resolution.** Resolve `claude` via `CLAUDE_CODE_EXECUTABLE`, then the login-shell PATH (from the `-l` above), then common install locations; failure → `BinaryNotFound` (D13.3). The login-shell launch makes PATH resolution match the user's interactive environment.
-- **IDLE semantics.** Under `--dangerously-skip-permissions`, `PermissionRequest`/`WAITING_INPUT` rarely fires; a clarifying question from the agent simply ends the turn (`Stop` → IDLE). So IDLE means "awaiting the user" (done **or** asking) — the UI should treat IDLE as the input-ready state, not strictly "finished."
+- **Clean launch (no shell noise).** Spawn the user's login shell as `$SHELL -lc 'exec <claude> ...'`: the login shell loads the user's environment (PATH, version managers, rc files) and `exec` replaces it with `claude`, so the byte stream is the agent TUI only — no shell prompt or echoed command.
+- **Binary resolution.** Resolve `claude` via `CLAUDE_CODE_EXECUTABLE`, then the login-shell PATH (from the `-l` above), then common install locations; failure -> `BinaryNotFound` (D13.3). The login-shell launch makes PATH resolution match the user's interactive environment.
+- **IDLE semantics.** Under `--dangerously-skip-permissions`, `PermissionRequest`/`WAITING_INPUT` rarely fires; a clarifying question from the agent simply ends the turn (`Stop` -> IDLE). So IDLE means "awaiting the user" (done **or** asking) — the UI should treat IDLE as the input-ready state, not strictly "finished."
 
 ## Risks / Trade-offs
 
-- Opaque PTY bytes (no structure) → mitigated by the D4 transcript content plane; raw bytes are a feature for terminal rendering, not a defect.
-- Skipping permissions is unsafe in untrusted contexts → document clearly; intended for trusted local/sandboxed use; a structured permission control plane is left as a future option.
-- The PTY binding (node-pty v1.1.0) is a native addon → accept the native dependency, pin the version, and verify it builds/loads under Bun in CI.
-- Mutating the user's agent settings to register hooks → merge non-destructively, scope hooks to the SDK, provide clean uninstall; never clobber existing user hooks.
-- Transcript timing → with read-on-hook (D4), the first read happens on `PostToolUse`/`Stop`, by which point the file exists; the reader must still treat a missing/short file as empty content (typed `TranscriptUnavailable`) rather than erroring, and track a byte offset to read only the delta each time.
-- Hook-bridge port binding → bind an ephemeral port on `127.0.0.1`, inject the resolved URL into the PTY env at spawn, and handle port-in-use.
-- Encoding hops mangle the terminal → enforce a byte-aligned path end-to-end (D7), covered by a no-encoding-hops test.
-- Auth / billing / ToS (subscription model) → the SDK rides the user's own Claude login, no API key. **Constraint: one subscription = one user (bring-your-own-login).** Individual local use is supported; a multi-user service on a single subscription violates Anthropic's terms (no third-party claude.ai login; no account sharing) and would require API keys under the Commercial Terms (pay-as-you-go). Billing nuance (from Jun 15 2026): PTY _interactive_ draws the larger interactive plan limits, while `claude -p`/SDK draws a separate, capped Agent SDK credit — so PTY is cheaper/roomier on a subscription, but automating the interactive transport is the ToS-grayer path Anthropic reserves for human use and may police. `claude -p`/SDK is the officially-blessed but metered path. Implication: PTY-first for individual subscription use; API-key/Commercial for any multi-user deployment.
-- Unauthenticated local control plane → any local process could spoof lifecycle events → per-session secret token verified on every hook callback (D13.4).
-- Hook callbacks over HTTP are at-least-once (the script may retry) → status application must be idempotent so duplicate callbacks do not corrupt state.
-- Upstream CLI changes its hook names or transcript schema → silent breakage → adapter declares a CLI version range and the engine detects/refuses on mismatch (D13.7); guard with golden-fixture contract tests.
-- Slow consumer + chatty agent → unbounded memory → bounded buffer with PTY pause/resume or a logged drop policy (D13.5).
-- Leaked processes / orphaned PTYs on crash → SIGTERM→grace→SIGKILL escalation, exit capture, and teardown on all exit paths (D13.1).
-- UI reconnect needs recent output → a session-scoped replay buffer is required by `apps/server`; deferred from the SDK core, noted as a harness gap to build with the WS layer.
-- Transcript rewrite/truncation (e.g. `/compact` or session edits) → byte-offset tailing (D4) would read garbage → detect offset > file size or an inode/identity change and reset, re-reading from the start.
-- Observability raw-I/O capture (D13.8) can record secrets the user types/pastes (tokens, passwords) → make capture opt-in, redact where feasible, and warn explicitly; never on by default.
-- Notify command portability → the hook command POSTs to the loopback bridge; `curl` may be absent → use a portable poster (e.g. `bun -e`/node) rather than assuming `curl`.
+- Opaque PTY bytes (no structure) -> mitigated by the D4 transcript content plane; raw bytes are a feature for terminal rendering, not a defect.
+- Skipping permissions is unsafe in untrusted contexts -> document clearly; intended for trusted local/sandboxed use; a structured permission control plane is left as a future option.
+- The PTY binding (node-pty v1.1.0) is a native addon -> accept the native dependency, pin the version, and verify it builds/loads under Bun in CI.
+- Mutating the user's agent settings to register hooks -> merge non-destructively, scope hooks to the SDK, provide clean uninstall; never clobber existing user hooks.
+- Transcript timing -> with read-on-hook (D4), the first read happens on `PostToolUse`/`Stop`, by which point the file exists; the reader must still treat a missing/short file as empty content (typed `TranscriptUnavailable`) rather than erroring, and track a byte offset to read only the delta each time.
+- Hook-bridge port binding -> bind an ephemeral port on `127.0.0.1`, inject the resolved URL into the PTY env at spawn, and handle port-in-use.
+- Encoding hops mangle the terminal -> enforce a byte-aligned path end-to-end (D7), covered by a no-encoding-hops test.
+- Auth / billing / ToS (subscription model) -> the SDK rides the user's own Claude login, no API key. **Constraint: one subscription = one user (bring-your-own-login).** Individual local use is supported; a multi-user service on a single subscription violates Anthropic's terms (no third-party claude.ai login; no account sharing) and would require API keys under the Commercial Terms (pay-as-you-go). Billing nuance (from Jun 15 2026): PTY _interactive_ draws the larger interactive plan limits, while `claude -p`/SDK draws a separate, capped Agent SDK credit — so PTY is cheaper/roomier on a subscription, but automating the interactive transport is the ToS-grayer path Anthropic reserves for human use and may police. `claude -p`/SDK is the officially-blessed but metered path. Implication: PTY-first for individual subscription use; API-key/Commercial for any multi-user deployment.
+- Unauthenticated local control plane -> any local process could spoof lifecycle events -> per-session secret token verified on every hook callback (D13.4).
+- Hook callbacks over HTTP are at-least-once (the script may retry) -> status application must be idempotent so duplicate callbacks do not corrupt state.
+- Upstream CLI changes its hook names or transcript schema -> silent breakage -> adapter declares a CLI version range and the engine detects/refuses on mismatch (D13.7); guard with golden-fixture contract tests.
+- Slow consumer + chatty agent -> unbounded memory -> bounded buffer with PTY pause/resume or a logged drop policy (D13.5).
+- Leaked processes / orphaned PTYs on crash -> SIGTERM->grace->SIGKILL escalation, exit capture, and teardown on all exit paths (D13.1).
+- UI reconnect needs recent output -> a session-scoped replay buffer is required by `apps/server`; deferred from the SDK core, noted as a harness gap to build with the WS layer.
+- Transcript rewrite/truncation (e.g. `/compact` or session edits) -> byte-offset tailing (D4) would read garbage -> detect offset > file size or an inode/identity change and reset, re-reading from the start.
+- Observability raw-I/O capture (D13.8) can record secrets the user types/pastes (tokens, passwords) -> make capture opt-in, redact where feasible, and warn explicitly; never on by default.
+- Notify command portability -> the hook command POSTs to the loopback bridge; `curl` may be absent -> use a portable poster (e.g. `bun -e`/node) rather than assuming `curl`.
 
 ## Constraints
 
@@ -367,6 +367,6 @@ Greenfield; nothing to migrate. Rollout = add `packages/sdk` to the existing tur
 
 ## Open Questions
 
-All prior open questions are resolved: hook install hygiene → D9 (install once + env scoping); resume in v1 → D10 (minimal resume); hook-bridge port model → D11 (one shared bridge, multiplexed by session id).
+All prior open questions are resolved: hook install hygiene -> D9 (install once + env scoping); resume in v1 -> D10 (minimal resume); hook-bridge port model -> D11 (one shared bridge, multiplexed by session id).
 
 No in-force ADRs to revisit (greenfield); the adr step should record the durable decisions: transport route (D1), one engine with transport as a per-session feature (D2), content unifier (D4), ports-and-adapters packaging (D8), hybrid adapters — declarative config + parse functions (D12), the reliability/operability harness contract (D13 — notably authenticated control plane, typed error taxonomy, CLI version awareness, and clean lifecycle), the `HookEvent` lifecycle seam (D15), an instantiable engine with concurrent mixed-mode sessions (D16), and the interactive PTY session lifecycle (D17 — ready-gating, interrupt, first-run blockers, clean exec launch).

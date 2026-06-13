@@ -1,4 +1,4 @@
-//! Front peer: single most-recent (v1 limitation). Relay async server→client requests.
+//! Front peer: single most-recent (v1 limitation). Relay async server->client requests.
 
 use rmcp::service::Peer;
 use rmcp::RoleServer;

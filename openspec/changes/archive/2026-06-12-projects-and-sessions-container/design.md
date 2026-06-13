@@ -2,7 +2,7 @@
 
 The orchestrator (ADR-0022) has established a two-level id model (ADR-0023) and owns the surface runtime (ADR-0024). The database schema exists with all nine tables including `project`, `session` (with `layout_json`, `title_source`), `surface` (with `deleted_at`), and the seeded Unfiled row (`ProjectId::UNFILED = "00000000-0000-0000-0000-000000000000"`).
 
-The `SurfaceApi` today creates an unnamed, unowned session for every surface call. There is no way to name, group, list, or resume sessions from the UI. Version 0.0.4 closes that gap by adding complete CRUD for the project → session → surface hierarchy, layout persistence per session, and the archive lifecycle.
+The `SurfaceApi` today creates an unnamed, unowned session for every surface call. There is no way to name, group, list, or resume sessions from the UI. Version 0.0.4 closes that gap by adding complete CRUD for the project -> session -> surface hierarchy, layout persistence per session, and the archive lifecycle.
 
 The persistence types, store trait skeleton (8 methods), and surface runtime with `SurfaceApi` / `create_terminal_surface` / `create_agent_surface` already exist. The `PanelNode` type system and `usePanelTree` hook exist but are backed only by a single localStorage key. The `SessionSidebar` component renders a flat session list by truncated id and cwd basename.
 
@@ -74,7 +74,7 @@ The persistence types, store trait skeleton (8 methods), and surface runtime wit
 ### 6. Soft-delete vs hard-delete: cascade, timing, and workflow
 
 **Decision:**
-- Soft-delete (archive): sets `deleted_at` timestamp. Cascades to children (project → sessions → surfaces).
+- Soft-delete (archive): sets `deleted_at` timestamp. Cascades to children (project -> sessions -> surfaces).
 - Hard-delete: removes row outright. Requires `deleted_at IS NOT NULL` (must be already archived).
 - Soft-delete is the user-facing action (UI calls archive-project, archive-session).
 - Hard-delete is an internal cleanup tool (exposed in the API but not surfaced in the UI for 0.0.4).

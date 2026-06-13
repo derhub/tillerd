@@ -50,7 +50,7 @@ A versioned, declarative description of what a session starts: an ordered list o
 
 | Field | Meaning |
 | --- | --- |
-| `target` | surface kind to create (an ADR-0020 kind: `terminal`, `agent`, …) |
+| `target` | surface kind to create (an ADR-0020 kind: `terminal`, `agent`, ...) |
 | `placement` | where the surface lands in the layout (see Placement) |
 | `command` | a command-library reference, or an inline `{ cli, args, env }`; default is a login shell |
 | `pre` / `post` | scripts run before the command starts / after it exits |

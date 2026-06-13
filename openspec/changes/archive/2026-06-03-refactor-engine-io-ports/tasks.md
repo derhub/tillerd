@@ -45,7 +45,7 @@
 - [x] 4.1 Exercise `createEngine({ transport, fileSource, logger, hooksSocketPath })` driving a
       full session. (`tests/integration/engine.test.ts` builds the deps and drives real PTY
       sessions end-to-end; proxy unit tests cover the same wiring with fakes.)
-- [x] 4.2 Change `createEngine()` → `createEngine(deps)` carrying `transport`, `fileSource`,
+- [x] 4.2 Change `createEngine()` -> `createEngine(deps)` carrying `transport`, `fileSource`,
       `logger`, and `hooksSocketPath`; thread them into proxies; remove lazy
       `getDaemonClient`/`adoptOrSpawn`, `checkCliVersion`, and `prepareNotifyScript` from the
       engine.

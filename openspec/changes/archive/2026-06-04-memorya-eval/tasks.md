@@ -2,7 +2,7 @@
 
 - [x] 1.1 Define the dataset record: `{ query, gold_chunk_ids, category }` with categories simple / complex / multi-hop
 - [x] 1.2 Add committed golden fixtures under `apps/memorya-rs/eval/`: `corpus.jsonl` (searchable chunks) and `queries.jsonl` (`{ query, gold, category }`)
-- [x] 1.3 Document the one-time generation recipe (chunk real docs → LLM-author queries → label gold chunks); generation is manual, not part of the run
+- [x] 1.3 Document the one-time generation recipe (chunk real docs -> LLM-author queries -> label gold chunks); generation is manual, not part of the run
 
 ## 2. Metrics
 

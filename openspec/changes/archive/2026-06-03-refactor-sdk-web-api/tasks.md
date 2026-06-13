@@ -1,4 +1,4 @@
-## 1. sdk wire codec → standard byte APIs
+## 1. sdk wire codec -> standard byte APIs
 
 - [x] 1.1 Rewrite `packages/sdk/src/protocol/codec.ts` `encodeFrame` using `Uint8Array` +
       `DataView` (4-byte big-endian length) + `TextEncoder`; concatenate header/meta/body as
@@ -9,7 +9,7 @@
 - [x] 1.3 Add sdk codec tests asserting `Uint8Array` bodies, round-trip, multi-frame and
       split-chunk framing, and deterministic byte output (`packages/sdk/tests/codec.test.ts`).
 
-## 2. sdk snapshot renderer + signals → neutral
+## 2. sdk snapshot renderer + signals -> neutral
 
 - [x] 2.1 `packages/sdk/src/protocol/snapshot-render.ts`: replace `Buffer.from(...)` with
       `new TextEncoder().encode(...)`; return a real `Uint8Array`.

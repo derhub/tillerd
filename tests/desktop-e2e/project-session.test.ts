@@ -1,9 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { type Browser, createProject, launchReadyApp } from "./helpers";
 
-// UI-flow for the workspace feature: create a project, then a second session within it. Asserts the
-// create-project -> create-session-in-project path routes correctly and the project shows in the
-// sidebar. Terminal rendering is covered by terminal.test.ts.
+// Test create-project -> create-session-in-project routing and sidebar display.
 
 let browser: Browser | undefined;
 afterEach(async () => {
@@ -15,17 +13,14 @@ test("creates a project and a session within it", async () => {
   const b = (browser = await launchReadyApp());
   const project = `Smoke ${Date.now()}`;
 
-  // Creating the project also makes a default session and navigates to it.
   const firstSessionUrl = await createProject(b, project);
   expect(firstSessionUrl).toContain("/session/");
 
-  // The project appears in the sidebar with its own "New session" control.
   await b.waitUntil(async () => (await b.$("body").getText()).includes(project), {
     timeout: 10_000,
     timeoutMsg: "created project did not appear in the sidebar",
   });
 
-  // A second session within that project routes to a different session.
   const newSession = await b.$(`button[title="New session in ${project}"]`);
   await newSession.waitForExist({ timeout: 10_000 });
   await newSession.click();

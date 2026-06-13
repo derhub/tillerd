@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":dependencyDashboardApproval"
+  ],
+  "packageRules": [
+    {
+      "description": "Tauri core, build, plugins and JS packages are version-locked - bump together.",
+      "matchPackageNames": [
+        "tauri",
+        "tauri-build",
+        "tauri-plugin-*",
+        "@tauri-apps/*"
+      ],
+      "groupName": "tauri"
+    },
+    {
+      "description": "Bundle all GitHub Actions updates into a single PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions"
+    }
+  ]
+}

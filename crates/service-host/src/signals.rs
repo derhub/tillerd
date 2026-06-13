@@ -1,4 +1,4 @@
-//! Lifecycle signals. SIGTERM / SIGINT → graceful-then-forced teardown now (stop). SIGUSR2 → drain
+//! Lifecycle signals. SIGTERM / SIGINT -> graceful-then-forced teardown now (stop). SIGUSR2 -> drain
 //! (refuse new work, finish active work, exit when idle — design D1).
 
 use tokio::signal::unix::{signal, SignalKind};

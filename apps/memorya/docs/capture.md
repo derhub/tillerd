@@ -23,26 +23,26 @@ ListMcpResourcesTool  SlashCommand  Skill  TodoWrite  AskUserQuestion
 **Tool auto-title** (for `kind='tool'` chunks):
 
 ```
-Read  src/auth.rs       →  "Read src/auth.rs"
-Edit  src/auth.rs       →  "Edit src/auth.rs"
-Bash  cargo test --lib  →  "Bash cargo test --lib"
+Read  src/auth.rs       ->  "Read src/auth.rs"
+Edit  src/auth.rs       ->  "Edit src/auth.rs"
+Bash  cargo test --lib  ->  "Bash cargo test --lib"
 ```
 
 ## Write pipeline
 
 ```
 UserPromptSubmit:
-  → ingest: INSERT chunk + FTS5 trigger        (sync, <150ms)
-  → emit embedding_pending                     (async, out-of-band)
+  -> ingest: INSERT chunk + FTS5 trigger        (sync, <150ms)
+  -> emit embedding_pending                     (async, out-of-band)
 
 PostToolUse (non-skipped):
-  → skip-list check
-  → auto-title
-  → ingest tool chunk
-  → emit embedding_pending
+  -> skip-list check
+  -> auto-title
+  -> ingest tool chunk
+  -> emit embedding_pending
 
 Stop:
-  → session_end: aggregate uncovered chunks → INSERT digest scope='session'
+  -> session_end: aggregate uncovered chunks -> INSERT digest scope='session'
 ```
 
 Documents are indexed verbatim. See [chunking](chunking.md).

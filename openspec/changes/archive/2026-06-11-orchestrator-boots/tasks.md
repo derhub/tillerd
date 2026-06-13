@@ -22,9 +22,9 @@
 
 ## 4. Orchestrator boot, API, and event sink
 
-- [x] 4.1 Define the `EventSink` trait the host implements and the transport-agnostic API for this slice: a `status()` request method and a streamed lifecycle event — `Booting → OpeningStore → Supervising → Ready` with a terminal `Failed { reason }` (orchestrator-core: transport-agnostic API surface; ADR-0022).
+- [x] 4.1 Define the `EventSink` trait the host implements and the transport-agnostic API for this slice: a `status()` request method and a streamed lifecycle event — `Booting -> OpeningStore -> Supervising -> Ready` with a terminal `Failed { reason }` (orchestrator-core: transport-agnostic API surface; ADR-0022).
 - [x] 4.2 Write failing tests for the boot lifecycle using a fake `EventSink` and the in-memory fake `Store` (2.1): boot opens the store and supervises services, then reaches `ready`; `ready` is not reported until store-open and services-available both hold (orchestrator-core: boot lifecycle reaches an observable ready state).
-- [x] 4.3 Implement the boot sequence (open+migrate store → supervise services → ready), emit the lifecycle transitions (`Booting → OpeningStore → Supervising → Ready`) over the `EventSink`, and expose the current state via `status()`; a failed prerequisite emits terminal `Failed { reason }` (typed) and does not report `ready` (orchestrator-core: boot lifecycle / readiness gate).
+- [x] 4.3 Implement the boot sequence (open+migrate store -> supervise services -> ready), emit the lifecycle transitions (`Booting -> OpeningStore -> Supervising -> Ready`) over the `EventSink`, and expose the current state via `status()`; a failed prerequisite emits terminal `Failed { reason }` (typed) and does not report `ready` (orchestrator-core: boot lifecycle / readiness gate).
 - [x] 4.4 Assert single-instance, embedded-in-process construction (one instance owns the backend per host process) (orchestrator-core: runtime-agnostic embeddable library).
 
 ## 5. Desktop host embedding
@@ -42,6 +42,6 @@
 
 ## 7. Verification
 
-- [x] 7.1 End-to-end: launch the desktop host with no services running → orchestrator spawns gate + daemon, opens a fresh `tillerd.db` with the Unfiled seed, and the blank renderer observes `ready`.
-- [x] 7.2 Re-launch with services already running → orchestrator adopts them (no duplicate spawn) and reaches `ready`.
+- [x] 7.1 End-to-end: launch the desktop host with no services running -> orchestrator spawns gate + daemon, opens a fresh `tillerd.db` with the Unfiled seed, and the blank renderer observes `ready`.
+- [x] 7.2 Re-launch with services already running -> orchestrator adopts them (no duplicate spawn) and reaches `ready`.
 - [x] 7.3 Run the workspace checks (build, test, lint, format) green for the new crate, the host wiring, and the SDK client.

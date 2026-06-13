@@ -42,7 +42,7 @@ Capture commits the chunk and enqueues an embedding request; embedding happens a
 
 ### Aggregation-only consolidation ladder + coverage-driven lazy eviction
 
-Content rolls up a ladder (session → daily → weekly → monthly) by concatenating already-stored content — no model call at any step. When content is rolled into a higher digest it is marked covered. Eviction scores chunks by age, time-since-access, coverage, and access frequency, and moves high scorers to archive in atomic batches. This keeps the active database small and fast while preserving everything — covered, forgotten content leaves the hot set first; uncovered or frequently used content stays. Monthly digests, facts, entities, and relations are never evicted.
+Content rolls up a ladder (session -> daily -> weekly -> monthly) by concatenating already-stored content — no model call at any step. When content is rolled into a higher digest it is marked covered. Eviction scores chunks by age, time-since-access, coverage, and access frequency, and moves high scorers to archive in atomic batches. This keeps the active database small and fast while preserving everything — covered, forgotten content leaves the hot set first; uncovered or frequently used content stays. Monthly digests, facts, entities, and relations are never evicted.
 
 ### Year-sharded, read-only-sealed archive with on-demand deepening
 
@@ -58,11 +58,11 @@ The capability specs describe behavior generically (embedded store, vector index
 
 ## Risks / Trade-offs
 
-- **Static embedding quality is lower than a transformer encoder** → Hybrid retrieval (lexical + vector + fusion) recovers matches semantics alone would miss; corpus is personal-scale where the gap is small.
-- **Per-session full doc re-index repeats work for unchanged files** → Static embedding is microsecond-scale and indexing is async; the simplicity of delete-and-reinsert outweighs incremental-diff bookkeeping at this scale.
-- **Archive growth is unbounded over years** → Year sharding plus size-triggered rotation bounds any single file; cold queries open only the shards a date range needs.
-- **Duplicate hook fires could double-store events** → A uniqueness constraint on (session, position, kind) suppresses same-session duplicates while preserving genuinely distinct cross-session content.
-- **Empty fact graph until curation lands** → The `entity()` surface returns nothing until the follow-up change populates facts; recall over conversation chunks and docs still works fully.
+- **Static embedding quality is lower than a transformer encoder** -> Hybrid retrieval (lexical + vector + fusion) recovers matches semantics alone would miss; corpus is personal-scale where the gap is small.
+- **Per-session full doc re-index repeats work for unchanged files** -> Static embedding is microsecond-scale and indexing is async; the simplicity of delete-and-reinsert outweighs incremental-diff bookkeeping at this scale.
+- **Archive growth is unbounded over years** -> Year sharding plus size-triggered rotation bounds any single file; cold queries open only the shards a date range needs.
+- **Duplicate hook fires could double-store events** -> A uniqueness constraint on (session, position, kind) suppresses same-session duplicates while preserving genuinely distinct cross-session content.
+- **Empty fact graph until curation lands** -> The `entity()` surface returns nothing until the follow-up change populates facts; recall over conversation chunks and docs still works fully.
 
 ## Migration Plan
 

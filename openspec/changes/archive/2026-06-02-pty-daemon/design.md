@@ -63,7 +63,7 @@ Paths are derived from `$HOME` at runtime. No random ports. No manifest entries 
 
 **Message taxonomy:**
 
-Client → Daemon:
+Client -> Daemon:
 
 ```
 { op: "spawn",      sessionId, launch: { command, args, flags }, hookSocketPath, token, cols, rows, cwd }
@@ -77,7 +77,7 @@ Client → Daemon:
 { op: "list" }
 ```
 
-Daemon → Client:
+Daemon -> Client:
 
 ```
 { ev: "spawned",   sessionId }
@@ -95,7 +95,7 @@ Daemon → Client:
 
 **Why:** Keeps the existing `createEngine()` API unchanged. A synchronous factory is simpler for callers. The first `start()` is already async, so the adoption latency is absorbed there.
 
-**Implementation deviation:** The original plan called for a `useDaemon?: boolean` flag on `createEngine()` defaulting to `false` for staged rollout. During implementation this flag was dropped: the engine is daemon-only and the direct-PTY path (`AgentSessionImpl`, `HookReceiver`, `HookDispatcher`, `PtyTransport`) was removed entirely. The `useDaemon` flag in decision §7 ("non-daemon path implements `listSessions` as `[]`") is also moot. Rollback now requires a code change rather than a config toggle.
+**Implementation deviation:** The original plan called for a `useDaemon?: boolean` flag on `createEngine()` defaulting to `false` for staged rollout. During implementation this flag was dropped: the engine is daemon-only and the direct-PTY path (`AgentSessionImpl`, `HookReceiver`, `HookDispatcher`, `PtyTransport`) was removed entirely. The `useDaemon` flag in decision  ("non-daemon path implements `listSessions` as `[]`") is also moot. Rollback now requires a code change rather than a config toggle.
 
 ### 6. Session store in `apps/server` using embedded SQL
 
@@ -111,11 +111,11 @@ Daemon → Client:
 
 ## Risks / Trade-offs
 
-- **Daemon version drift** → Manifest includes a `version` field; engine refuses to adopt a daemon with an incompatible version and spawns a fresh one. The old daemon is SIGTERMed.
-- **Stale socket file after daemon crash** → On adopt, if the socket file exists but the PID is dead, engine deletes the stale socket file before spawning. Checked by `process.kill(pid, 0)` in the supervisor.
-- **Replay buffer memory per session** → Buffer is bounded at 64 KB per session. For a single-user tool with a handful of sessions, total memory is negligible.
-- **NDJSON throughput ceiling** → For very high-bandwidth PTY output (e.g., `cat` of a large file), serialising bytes as JSON integer arrays adds ~3× overhead vs. raw binary. Acceptable for interactive agent use; revisit if profiling shows it as a bottleneck.
-- **Daemon as single point of failure** → If the daemon crashes, all sessions are lost. This is accepted scope for Phase 1. Phase 2 adds daemon crash recovery.
+- **Daemon version drift** -> Manifest includes a `version` field; engine refuses to adopt a daemon with an incompatible version and spawns a fresh one. The old daemon is SIGTERMed.
+- **Stale socket file after daemon crash** -> On adopt, if the socket file exists but the PID is dead, engine deletes the stale socket file before spawning. Checked by `process.kill(pid, 0)` in the supervisor.
+- **Replay buffer memory per session** -> Buffer is bounded at 64 KB per session. For a single-user tool with a handful of sessions, total memory is negligible.
+- **NDJSON throughput ceiling** -> For very high-bandwidth PTY output (e.g., `cat` of a large file), serialising bytes as JSON integer arrays adds ~3× overhead vs. raw binary. Acceptable for interactive agent use; revisit if profiling shows it as a bottleneck.
+- **Daemon as single point of failure** -> If the daemon crashes, all sessions are lost. This is accepted scope for Phase 1. Phase 2 adds daemon crash recovery.
 
 ## Migration Plan
 

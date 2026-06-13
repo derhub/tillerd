@@ -21,7 +21,7 @@
 
 ## 4. Daemon transport (tokio, in the surface-runtime)
 
-- [x] 4.1 Write failing tests against a fake daemon socket: the transport connects, sends `hello` with `["snapshot"]`, asserts `hello-ack` v1, then round-trips `spawn` → `spawn-ack` keyed by `surface_id` (daemon-wire-protocol; ADR-0008/0009).
+- [x] 4.1 Write failing tests against a fake daemon socket: the transport connects, sends `hello` with `["snapshot"]`, asserts `hello-ack` v1, then round-trips `spawn` -> `spawn-ack` keyed by `surface_id` (daemon-wire-protocol; ADR-0008/0009).
 - [x] 4.2 Implement a `tokio::net::UnixStream` transport in `crates/orchestrator`: connect, handshake, framed read loop via `FrameDecoder`, framed writes; typed errors on handshake/version failure. Discover the socket via `service-host` paths (`<TILLERD_DIR>/daemon.sock`).
 - [x] 4.3 Add `tokio` to `crates/orchestrator` deps and a runtime handle the surface-runtime spawns tasks on; `boot()`/`EventSink` stay synchronous.
 

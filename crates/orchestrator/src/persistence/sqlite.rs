@@ -330,7 +330,7 @@ impl Store for SqliteStore {
         }
         let conn = self.lock()?;
         let tx = conn.unchecked_transaction().map_err(persist)?;
-        // cascade surfaces → sessions → project
+        // cascade surfaces -> sessions -> project
         tx.execute(
             "UPDATE surface SET deleted_at = datetime('now')
              WHERE deleted_at IS NULL

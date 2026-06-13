@@ -24,7 +24,7 @@
 
 - [x] 5.1 Unit tests: each credential/PII class hit, entropy boundary, allowlist suppression, Luhn gate, phone context gate
 - [x] 5.2 Unit tests: `[REDACTED]` output, labeled-pair key preserved, clean input unchanged, fail-closed
-- [x] 5.3 CLI test: pipe secret through stdin → `[REDACTED]` on stdout, exit zero
+- [x] 5.3 CLI test: pipe secret through stdin -> `[REDACTED]` on stdout, exit zero
 
 ## 6. Wire memorya capture
 
@@ -36,4 +36,4 @@
 ## 7. Verify
 
 - [x] 7.1 `cargo clippy --all-targets -- -D warnings` clean; `cargo test` green for both crates
-- [x] 7.2 Runtime: drive `memorya serve` → `POST /hook` with a secret → stored chunk shows `[REDACTED]`
+- [x] 7.2 Runtime: drive `memorya serve` -> `POST /hook` with a secret -> stored chunk shows `[REDACTED]`

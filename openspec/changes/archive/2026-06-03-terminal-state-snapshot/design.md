@@ -33,7 +33,7 @@ The daemon emits `{ type: "snapshot", sessionId, rows, cols, cells, cursor }` ov
 
 ### Decision 4: Additive, capability-negotiated protocol — never a breaking, restart-forcing bump
 
-The daemon-survives invariant forbids a breaking wire change that would force a daemon restart and kill PTYs. On connect, the engine advertises supported features (e.g. `["snapshot"]`); the daemon records them per connection and serves accordingly: capable → snapshot, non-capable → legacy ring-buffer replay. New frames are opt-in; an older engine on a newer daemon keeps working. `VersionUnsupported` is reserved for genuine incompatibility (e.g. agent CLI version per ADR-0007), not missing optional features. The ring buffer is therefore **retained** as the legacy reconnect path.
+The daemon-survives invariant forbids a breaking wire change that would force a daemon restart and kill PTYs. On connect, the engine advertises supported features (e.g. `["snapshot"]`); the daemon records them per connection and serves accordingly: capable -> snapshot, non-capable -> legacy ring-buffer replay. New frames are opt-in; an older engine on a newer daemon keeps working. `VersionUnsupported` is reserved for genuine incompatibility (e.g. agent CLI version per ADR-0007), not missing optional features. The ring buffer is therefore **retained** as the legacy reconnect path.
 
 ### Decision 5: Daemon upgrades preserve sessions via successor handoff with PTY adoption
 
@@ -45,12 +45,12 @@ Reflowing wrapped lines on resize is hard and error-prone. v1 preserves cells in
 
 ## Risks / Trade-offs
 
-- **VT parser correctness** → A bad parse yields a garbled snapshot. Mitigation: adopt a well-tested headless terminal emulator as the backend; fixture tests of common escape sequences against expected grids. Confirm the parser tracks alternate-screen enter/exit (DECSET 1049) for full-screen programs.
-- **Wide-character fidelity** → Grid→escape-sequence conversion must handle CJK double-width and combining characters or cursor columns drift. Mitigation: explicit Unicode-width tests in the conversion path.
-- **Parser CPU overhead** → Output is parsed synchronously before forwarding. Mitigation: profile; if on the critical path, parse in a microtask after forwarding (snapshot may lag live by one tick).
-- **Snapshot/live-stream seam (race)** → Between snapshot generation and live attach, bytes could be lost or duplicated. Mitigation: capture snapshot and begin the live subscription under the same synchronous tick/lock — snapshot is an exact prefix, live stream the exact suffix.
-- **Snapshot latency & backpressure** → The ~110 KB snapshot write SHALL pass through the existing credit/backpressure path, not bypass it. JSON encode of a 220×50 grid is under 1 ms.
-- **Memory per session** → Grid 80×24 ≈ 19 KB, 220×50 ≈ 110 KB; plus ring buffers. Acceptable for single-user; make grid dims configurable per session.
+- **VT parser correctness** -> A bad parse yields a garbled snapshot. Mitigation: adopt a well-tested headless terminal emulator as the backend; fixture tests of common escape sequences against expected grids. Confirm the parser tracks alternate-screen enter/exit (DECSET 1049) for full-screen programs.
+- **Wide-character fidelity** -> Grid->escape-sequence conversion must handle CJK double-width and combining characters or cursor columns drift. Mitigation: explicit Unicode-width tests in the conversion path.
+- **Parser CPU overhead** -> Output is parsed synchronously before forwarding. Mitigation: profile; if on the critical path, parse in a microtask after forwarding (snapshot may lag live by one tick).
+- **Snapshot/live-stream seam (race)** -> Between snapshot generation and live attach, bytes could be lost or duplicated. Mitigation: capture snapshot and begin the live subscription under the same synchronous tick/lock — snapshot is an exact prefix, live stream the exact suffix.
+- **Snapshot latency & backpressure** -> The ~110 KB snapshot write SHALL pass through the existing credit/backpressure path, not bypass it. JSON encode of a 220×50 grid is under 1 ms.
+- **Memory per session** -> Grid 80×24 ≈ 19 KB, 220×50 ≈ 110 KB; plus ring buffers. Acceptable for single-user; make grid dims configurable per session.
 
 ## Migration Plan
 

@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 use tillerd_paths::daemon_socket;
 
-/// Event emitted to the renderer when the daemon connection drops unexpectedly (§5.6).
+/// Event emitted to the renderer when the daemon connection drops unexpectedly.
 pub const DAEMON_LOST_EVENT: &str = "daemon-lost";
 
 /// The byte bridge to the daemon's Unix socket. Forwards renderer bytes verbatim and streams

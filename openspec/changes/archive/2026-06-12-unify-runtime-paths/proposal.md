@@ -19,11 +19,11 @@ does tillerd put things and what are its env vars."
 
 - **Introduce a `tillerd-paths` crate** — the lowest layer (no host or UI deps) and the single source
   of truth for the runtime layout and the `TILLERD_*` environment surface. It owns:
-  - **Runtime dir resolution** — `TILLERD_DIR` → `~/.tillerd`, one implementation.
+  - **Runtime dir resolution** — `TILLERD_DIR` -> `~/.tillerd`, one implementation.
   - **Runtime-layout path builders** keyed off the runtime dir — daemon socket (`daemon.sock`), gate
     socket (`gate.sock`), daemon manifest (`daemon.json`), product store (`tillerd.db`).
-  - **Service-binary resolution** for daemon / gate / notify, by the precedence `$TILLERD_*_BIN` →
-    `bin/<name>` or `target/{release,debug}/<name>` under the cwd or an ancestor → `~/.local/bin/<name>`
+  - **Service-binary resolution** for daemon / gate / notify, by the precedence `$TILLERD_*_BIN` ->
+    `bin/<name>` or `target/{release,debug}/<name>` under the cwd or an ancestor -> `~/.local/bin/<name>`
     (the dev/CI auto-discovery currently living only in the desktop `paths.rs`).
   - **`TILLERD_*` env-var name constants** (the names, not the runtime auth-token values).
 - **Migrate every owner to it. BREAKING (internal).** `service-host`, `process-launch`, `daemon-pty`,

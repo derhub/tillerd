@@ -64,7 +64,7 @@ fn memory_only_slice_subscribes_to_gate_without_daemon_or_gateway() {
 /// - A session generating hook events at `TILLERD_SESSION_ID`
 ///
 /// Run with:
-///   TILLERD_DIR=… TILLERD_SESSION_ID=… \
+///   TILLERD_DIR=... TILLERD_SESSION_ID=... \
 ///   cargo test -p memorya --test deployment_slice \
 ///     full_slice_daemon_gate_gateway_memory -- --ignored
 #[test]

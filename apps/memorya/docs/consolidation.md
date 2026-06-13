@@ -23,7 +23,7 @@ WEEKLY DIGEST      scope='weekly'
 MONTHLY DIGEST     scope='monthly'  (never evicted)
 ```
 
-Each step concatenates the level below → INSERT digest → embed async → mark the
+Each step concatenates the level below -> INSERT digest -> embed async -> mark the
 sources `covered_by`. (The deferred curation change adds the one daily LLM step
 that also produces `MEMORY.md` and extracts facts.)
 
@@ -66,7 +66,7 @@ fn eviction_score(c: &ChunkStat, now: i64) -> f32 {
 Doc chunks are not evicted (regenerated each session). Facts, entities, relations,
 and `scope='monthly'` digests are never evicted.
 
-Move (atomic, batch 500): `ATTACH` the year shard, `INSERT … SELECT` then `DELETE`
+Move (atomic, batch 500): `ATTACH` the year shard, `INSERT ... SELECT` then `DELETE`
 in one transaction, `DETACH`.
 
 ## Archive sharding

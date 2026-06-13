@@ -1,4 +1,4 @@
-//! Message frames: client→daemon parsing, daemon→client ad hoc construction.
+//! Message frames: client->daemon parsing, daemon->client ad hoc construction.
 
 use serde::Deserialize;
 use std::collections::BTreeMap;
