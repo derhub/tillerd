@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { Plus, FolderPlus, Archive, ArrowUpRight, ExternalLink } from "lucide-react";
+import { Plus, FolderPlus, Archive, ArrowUpRight, ExternalLink, Trash2 } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { cn } from "~/lib/utils";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import {
@@ -12,6 +20,7 @@ import {
   projectLabel,
   projectQuery,
 } from "~/lib/windows";
+import { InlineRenameInput } from "~/components/InlineRenameInput";
 
 import type { Project, Session } from "@tillerd/sdk/orchestrator";
 
@@ -48,8 +57,9 @@ export function SessionSidebar() {
   const host = useDesktopHost();
   const navigate = useNavigate();
   const { projects, sessions, refresh } = useSidebarData();
-  // Projects opened in a child window — runtime-only, cleared when the child re-attaches.
   const [detachedProjects, setDetachedProjects] = useState<Set<string>>(() => new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const handleOpenInNewWindow = useCallback((projectId: string, firstSessionId: string | null) => {
     void openWindow(projectLabel(projectId), projectQuery(projectId, firstSessionId));
@@ -114,6 +124,27 @@ export function SessionSidebar() {
     [host, navigate, refresh],
   );
 
+  const handleRenameProject = useCallback(
+    async (projectId: string, newName: string) => {
+      if (host.status !== "ready") return;
+      await host.orchestratorClient.renameProject({ id: projectId, name: newName });
+      await refresh();
+      setEditingId(null);
+    },
+    [host, refresh],
+  );
+
+  const handleDeleteProject = useCallback(
+    async (projectId: string) => {
+      if (host.status !== "ready") return;
+      await host.orchestratorClient.deleteProject({ id: projectId });
+      await refresh();
+      setDeleteConfirm(null);
+      void navigate("/");
+    },
+    [host, navigate, refresh],
+  );
+
   // Group sessions by projectId
   const sessionsByProject = new Map<string, Session[]>();
   for (const s of sessions) {
@@ -130,6 +161,29 @@ export function SessionSidebar() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <AlertDialog open={true}>
+          <AlertDialogContent>
+            <AlertDialogTitle>Delete {deleteConfirm.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the project and all its sessions.
+            </AlertDialogDescription>
+            <div className="flex gap-2 justify-end">
+              <AlertDialogCancel onClick={() => setDeleteConfirm(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => void handleDeleteProject(deleteConfirm.id)}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       {/* Top controls */}
       <div className="px-3 pt-2 pb-1 shrink-0 flex items-center gap-1">
         {isDesktop && (
@@ -164,6 +218,10 @@ export function SessionSidebar() {
                   sessions={projSessions}
                   isDesktop={isDesktop}
                   detached={detachedProjects.has(proj.id)}
+                  isEditing={editingId === proj.id}
+                  onStartEdit={() => setEditingId(proj.id)}
+                  onRename={(newName) => void handleRenameProject(proj.id, newName)}
+                  onDelete={() => setDeleteConfirm({ id: proj.id, name: proj.name })}
                   onNewSession={() => void handleNewSession(proj.id)}
                   onArchiveSession={handleArchiveSession}
                   onOpenInNewWindow={() =>
@@ -182,6 +240,10 @@ export function SessionSidebar() {
                 sessions={unfiledSessions}
                 isDesktop={isDesktop}
                 detached={detachedProjects.has(UNFILED_ID)}
+                isEditing={editingId === UNFILED_ID}
+                onStartEdit={() => setEditingId(UNFILED_ID)}
+                onRename={(newName) => void handleRenameProject(UNFILED_ID, newName)}
+                onDelete={() => {}}
                 onNewSession={() => void handleNewSession(UNFILED_ID)}
                 onArchiveSession={handleArchiveSession}
                 onOpenInNewWindow={() =>
@@ -202,6 +264,10 @@ function ProjectGroup({
   sessions,
   isDesktop,
   detached,
+  isEditing,
+  onStartEdit,
+  onRename,
+  onDelete,
   onNewSession,
   onArchiveSession,
   onOpenInNewWindow,
@@ -211,6 +277,10 @@ function ProjectGroup({
   sessions: Session[];
   isDesktop: boolean;
   detached: boolean;
+  isEditing: boolean;
+  onStartEdit: () => void;
+  onRename: (newName: string) => void;
+  onDelete: () => void;
   onNewSession: () => void;
   onArchiveSession: (id: string, currentPath: string) => Promise<void>;
   onOpenInNewWindow: () => void;
@@ -232,9 +302,21 @@ function ProjectGroup({
             : undefined
         }
       >
-        <span className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1">
-          {project.name}
-        </span>
+        {isEditing ? (
+          <InlineRenameInput
+            initialValue={project.name}
+            onConfirm={onRename}
+            onCancel={() => {}}
+            isProject={true}
+          />
+        ) : (
+          <span
+            onDoubleClick={onStartEdit}
+            className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1 cursor-text"
+          >
+            {project.name}
+          </span>
+        )}
         {detached && (
           <button
             type="button"
@@ -273,6 +355,10 @@ function ProjectGroup({
             onOpenInNewWindow();
             setMenuAt(null);
           }}
+          onDelete={() => {
+            onDelete();
+            setMenuAt(null);
+          }}
         />
       )}
 
@@ -291,16 +377,17 @@ function ProjectGroup({
   );
 }
 
-// Lightweight right-click menu — closes on outside click or Escape. One action in 0.0.11; the full
-// project action list lands in 0.0.12.
+// Right-click menu with full project action list.
 function ProjectContextMenu({
   at,
   onClose,
   onOpenInNewWindow,
+  onDelete,
 }: {
   at: { x: number; y: number };
   onClose: () => void;
   onOpenInNewWindow: () => void;
+  onDelete: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -334,6 +421,15 @@ function ProjectContextMenu({
       >
         <ExternalLink size={12} />
         <span>Open in new window</span>
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onDelete}
+        className="flex w-full items-center gap-2 rounded-sm px-2 h-7 text-left text-[0.833rem] text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+      >
+        <Trash2 size={12} />
+        <span>Delete</span>
       </button>
     </div>
   );
