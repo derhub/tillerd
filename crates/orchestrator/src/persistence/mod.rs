@@ -339,6 +339,22 @@ pub struct SettingEntry {
     pub value_json: String,
 }
 
+/// A durably-stored user-facing notification (ADR-0031). `ts` is event time in epoch
+/// milliseconds; `actions_json` is a JSON-encoded action list when present.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotificationRecord {
+    pub id: String,
+    pub category: String,
+    pub severity: String,
+    pub title: Option<String>,
+    pub message: String,
+    pub detail: Option<String>,
+    pub ts: i64,
+    pub session_id: Option<String>,
+    pub surface_id: Option<String>,
+    pub actions_json: Option<String>,
+}
+
 pub trait Store: Send + Sync {
     fn schema_version(&self) -> Result<u32>;
 
@@ -490,4 +506,15 @@ pub trait Store: Send + Sync {
         }
         self.get_setting(&SettingScope::Global, key)
     }
+
+    // ── notifications (ADR-0031) ──────────────────────────────────────────
+
+    /// Append a notification to the durable history.
+    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()>;
+
+    /// The most recent `limit` notifications, newest first.
+    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>>;
+
+    /// Retain only the most recent `keep` notifications, discarding older ones.
+    fn prune_notifications(&self, keep: u32) -> Result<()>;
 }

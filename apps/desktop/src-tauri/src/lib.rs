@@ -5,6 +5,7 @@ mod daemon_session;
 mod diag;
 mod files;
 mod gate_admin;
+mod notification_host;
 mod orchestrator_host;
 mod settings_host;
 mod store;
@@ -45,6 +46,8 @@ pub fn run() {
     // builder auto-saves on exit and restores on launch; no manual save/restore calls needed.
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    // Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
+    let builder = builder.plugin(tauri_plugin_notification::init());
     builder
         .manage(BridgeState::default())
         .manage(StoreState::load())
@@ -124,6 +127,7 @@ pub fn run() {
             settings_host::setting_get,
             settings_host::setting_set,
             settings_host::setting_list,
+            notification_host::notifications_list,
         ])
         .build(app_context())
         .expect("error while building tauri application")

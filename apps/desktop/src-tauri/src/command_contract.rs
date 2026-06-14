@@ -35,21 +35,16 @@ impl SurfaceEventSink for NullSink {
 fn contract_app() -> tauri::App<MockRuntime> {
     let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
     let api = Arc::new(SurfaceApi::new(
-        store,
+        store.clone(),
         Arc::new(NullSink),
         "/tmp/tillerd-contract.sock".into(),
     ));
-    let surfaces = SurfaceState {
-        api,
-        channels: Default::default(),
-    };
 
-    mock_builder()
+    let app = mock_builder()
         .manage(bridge::BridgeState::default())
         .manage(store::StoreState::load())
         .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
-        .manage(surfaces)
         .invoke_handler(tauri::generate_handler![
             // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
             // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
@@ -91,9 +86,16 @@ fn contract_app() -> tauri::App<MockRuntime> {
             settings_host::setting_get,
             settings_host::setting_set,
             settings_host::setting_list,
+            crate::notification_host::notifications_list,
         ])
         .build(crate::app_context())
-        .expect("app builds with the full command set + managed state")
+        .expect("app builds with the full command set + managed state");
+    app.manage(SurfaceState {
+        api,
+        channels: Default::default(),
+        store,
+    });
+    app
 }
 
 fn main_webview(app: &tauri::App<MockRuntime>) -> WebviewWindow<MockRuntime> {
@@ -252,6 +254,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "setting_list",
             serde_json::json!({ "scope": "global", "projectId": null }),
         ),
+        ("notifications_list", serde_json::json!({})),
     ];
 
     for (cmd, body) in cases {

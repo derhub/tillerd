@@ -5,9 +5,9 @@ use std::sync::Mutex;
 use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface, SurfaceId,
-    TitleSource, Worktree, WorktreeId,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, NotificationRecord,
+    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
+    SurfaceId, TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -25,6 +25,8 @@ struct Inner {
     launch_templates: HashMap<String, LaunchTemplate>,
     /// Keyed by (scope, project_id, key) -> value_json, mirroring the sqlite primary key.
     settings: HashMap<(String, String, String), String>,
+    /// Insertion-ordered notification history (oldest first); mirrors the sqlite rowid order.
+    notifications: Vec<NotificationRecord>,
 }
 
 #[derive(Clone)]
@@ -79,6 +81,7 @@ impl InMemoryStore {
                 worktrees: HashMap::new(),
                 launch_templates: HashMap::new(),
                 settings: HashMap::new(),
+                notifications: Vec::new(),
             }),
         };
         // Seed prebuilt commands on creation (idempotent).
@@ -677,6 +680,34 @@ impl Store for InMemoryStore {
             .collect();
         entries.sort_by(|a, b| a.key.cmp(&b.key));
         Ok(entries)
+    }
+
+    // ── notifications (ADR-0031) ──────────────────────────────────────────
+
+    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
+        self.inner.lock().unwrap().notifications.push(rec.clone());
+        Ok(())
+    }
+
+    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner
+            .notifications
+            .iter()
+            .rev()
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
+
+    fn prune_notifications(&self, keep: u32) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        let len = inner.notifications.len();
+        let keep = keep as usize;
+        if len > keep {
+            inner.notifications.drain(0..len - keep);
+        }
+        Ok(())
     }
 }
 
