@@ -202,17 +202,17 @@ Tear-off panels and project windows (picture-in-picture model). Orchestrator eve
 sink already supports multiple concurrent subscribers (one per window); no backend
 connectivity changes needed.
 
-- [ ] Panel detach — panel header "detach" button tears the panel into a new child
+- [x] Panel detach — panel header "detach" button tears the panel into a new child
   window. Parent shows a greyed-out placeholder with a "Focus →" button to bring the
   child window to front.
-- [ ] Project in new window — right-click a project in the sidebar → "Open in new
+- [x] Project in new window — right-click a project in the sidebar → "Open in new
   window"; parent sidebar entry shows a pending-detach indicator; clicking it focuses
   the child window.
-- [ ] Re-attach — child window has a "Re-attach" action that returns the panel /
+- [x] Re-attach — child window has a "Re-attach" action that returns the panel /
   project to its parent window and auto-focuses the parent.
-- [ ] Closing the parent window does not affect detached child windows.
-- [ ] Only panels with a live surface support detach; empty panels do not.
-- [ ] E2E: panel detach → "Focus →" → re-attach on macOS and Linux CI.
+- [x] Closing the parent window does not affect detached child windows.
+- [x] Only panels with a live surface support detach; empty panels do not.
+- [x] E2E: panel detach → "Focus →" → re-attach on macOS and Linux CI.
 
 ---
 
