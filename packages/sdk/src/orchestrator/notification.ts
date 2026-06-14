@@ -14,12 +14,10 @@ export type NotificationCategory =
   // eslint-disable-next-line @typescript-eslint/ban-types -- open union keeps literal autocomplete while allowing future categories
   | (string & {});
 
-/** How prominently a notification reads. */
 export type NotificationSeverity = "info" | "warning" | "error";
 
 /** An extra activatable action beyond the default session click-through. */
 export interface NotificationAction {
-  /** Button label. */
   label: string;
   /** In-app route to navigate to when activated (e.g. `/session/abc`, `/logs?service=x`). */
   to: string;
@@ -32,22 +30,19 @@ export interface NotificationAction {
  * optional `title`/`detail`/`actions` carry richer content as it arrives.
  */
 export interface NotificationEvent {
-  /** Host-assigned unique id (de-dupe / list key). */
   id: string;
   category: NotificationCategory;
   severity: NotificationSeverity;
-  /** Optional short heading; the center falls back to a category label when absent. */
+  /** Optional heading; the center falls back to a category label when absent. */
   title?: string;
-  /** One-line summary, always present. */
+  /** One-line summary, always present (unlike `title`/`detail`). */
   message: string;
-  /** Optional longer detail rendered under the message. */
   detail?: string;
   /** Epoch milliseconds when the event occurred. */
   ts: number;
   /** Present when the event concerns a surface — drives the default click-through. */
   sessionId?: string;
   surfaceId?: string;
-  /** Extra actions rendered as buttons when present. */
   actions?: NotificationAction[];
 }
 

@@ -11,7 +11,6 @@ import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
 import { boundedPrepend, MAX_ITEMS } from "./store";
 
 interface NotificationsState {
-  /** Recent notifications, most recent first. */
   items: NotificationEvent[];
   /** Count recorded since the center was last opened. */
   unread: number;

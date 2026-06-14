@@ -13,9 +13,7 @@ export const NOTIFICATIONS_LIST = "notifications_list";
  * (`history` -> index endpoint, `subscribe` -> SSE/WS) without changing the feed.
  */
 export interface NotificationSource {
-  /** Durable history (most recent first), hydrated on boot. */
   history(): Promise<NotificationEvent[]>;
-  /** Subscribe to live notifications; returns an unsubscribe handle. */
   subscribe(handler: (event: NotificationEvent) => void): Promise<() => void>;
 }
 

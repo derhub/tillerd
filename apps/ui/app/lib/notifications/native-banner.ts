@@ -5,13 +5,9 @@ import { notificationHeading } from "./store";
 
 /** The host capabilities a native banner needs; injected so the policy is testable. */
 export interface BannerDeps {
-  /** Whether the app window currently has focus. */
   isFocused(): Promise<boolean>;
-  /** Whether the OS notification permission is already granted. */
   isPermissionGranted(): Promise<boolean>;
-  /** Prompt for permission; resolves to whether it was granted. */
   requestPermission(): Promise<boolean>;
-  /** Send a native OS banner. */
   send(title: string, body: string): void;
 }
 

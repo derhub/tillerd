@@ -28,7 +28,6 @@ export function notificationHeading(event: NotificationEvent): string {
   return CATEGORY_LABEL[event.category] ?? "Notification";
 }
 
-/** Dot colour per severity, keyed for the chrome. */
 export const SEVERITY_DOT: Record<NotificationSeverity, string> = {
   info: "bg-sky-500",
   warning: "bg-amber-500",

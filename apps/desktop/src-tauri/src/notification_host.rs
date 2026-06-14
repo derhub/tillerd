@@ -95,7 +95,6 @@ impl NotificationWire {
     }
 }
 
-/// Current wall-clock time in epoch milliseconds (the notification timestamp).
 pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -103,7 +102,6 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// Strip the `tillerd-` prefix for a compact service label.
 fn short_service(name: &str) -> &str {
     name.strip_prefix("tillerd-").unwrap_or(name)
 }
