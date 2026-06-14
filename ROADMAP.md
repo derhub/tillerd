@@ -179,17 +179,20 @@ Deferred to follow-up changes (each builds on the store shipped here):
 User-facing event notifications: in-app persistent history and native OS banners.
 Distinct from the dev log viewer (raw structured logs); this is user-facing signal.
 
-- [ ] In-app notification center — bell icon in the app chrome (toolbar); click opens
-  a popover / drawer listing recent events with timestamp and session context.
-- [ ] Event types surfaced: surface started / stopped, session error, service health
-  change (gate / daemon up / down), and any other user-relevant orchestrator event.
-- [ ] Native OS notifications (Tauri notification plugin) — send a system banner
-  (macOS / Linux) for background events when the app is not in focus. User can
-  dismiss or click through to the relevant session.
-- [ ] Notification history stored per app launch (in-memory or SQLite); cleared on
-  quit (no cross-session persistence required in 0.0.x).
-- [ ] Unread badge on the bell icon; clears on open.
-- [ ] Notification center is the sole user-facing feedback channel — no Sonner toasts.
+- [x] In-app notification center — bell in the bottom-right chrome cluster; click opens
+  a popover listing recent events with timestamp and session context, most recent first.
+- [x] Event types surfaced: surface started / stopped / error, service health change
+  (gate / daemon up / down), and orchestrator status. Derived host-side from existing
+  signals behind a host-agnostic `NotificationSource` port (server adapter deferred).
+- [x] Native OS notifications (Tauri notification plugin) — system banner (macOS / Linux)
+  for background events when the app is unfocused; dismissable, brings the app forward
+  (the in-app feed does the per-session click-through).
+- [x] Notification history is durable — persisted in the orchestrator `notification` table
+  (additive `migration_v5`), survives restart, bounded by prune-on-insert. Reverses the
+  original "cleared on quit" ([ADR-0031](./docs/adr/0031-notifications-persist-in-the-orchestrator-store.md)).
+- [x] Unread badge on the bell; clears on open.
+- [x] Notification center is the sole user-facing feedback channel — no toasts. Model is
+  future-ready (severity / title / detail / actions, open category union).
 
 ---
 
