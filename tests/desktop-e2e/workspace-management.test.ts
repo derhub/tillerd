@@ -38,9 +38,9 @@ async function dispatchMouse(b: Browser, selector: string, type: "dblclick" | "c
 async function dispatchProjectMouse(b: Browser, name: string, type: "dblclick" | "contextmenu") {
   await b.execute(
     (nm, evType) => {
-      const el = Array.from(
-        document.querySelectorAll('[data-testid="project-name"]'),
-      ).find((e) => e.textContent === nm);
+      const el = Array.from(document.querySelectorAll('[data-testid="project-name"]')).find(
+        (e) => e.textContent === nm,
+      );
       if (!el) return;
       const r = el.getBoundingClientRect();
       el.dispatchEvent(
@@ -163,7 +163,11 @@ test("delete project after confirming dialog", async () => {
 
   // The confirm handler dismisses the dialog only after the delete resolves; a stuck-open dialog
   // means the IPC rejected.
-  await dialog.waitForExist({ reverse: true, timeout: 10_000, timeoutMsg: "delete dialog stayed open" });
+  await dialog.waitForExist({
+    reverse: true,
+    timeout: 10_000,
+    timeoutMsg: "delete dialog stayed open",
+  });
 
   // This test's uniquely-named project header disappears once the delete cascade completes (other
   // tests' projects remain — the suite shares one TILLERD_DIR).
