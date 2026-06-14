@@ -1,16 +1,30 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use orchestrator::persistence::{SessionId, SurfaceId};
+use orchestrator::persistence::{SessionId, Store, SurfaceId};
 use orchestrator::surface::transport::default_daemon_socket;
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+use crate::notification_host;
 
 pub type SurfaceChannels = Arc<Mutex<HashMap<String, tauri::ipc::Channel<Vec<u8>>>>>;
 
 pub struct TauriSurfaceSink {
     channels: SurfaceChannels,
     app: AppHandle,
+    store: Arc<dyn Store>,
+}
+
+impl TauriSurfaceSink {
+    /// The session a surface belongs to, for click-through context. `None` if the row is gone.
+    fn session_of(&self, surface: &SurfaceId) -> Option<String> {
+        self.store
+            .get_surface(surface)
+            .ok()
+            .flatten()
+            .map(|s| s.session_id.as_str().to_string())
+    }
 }
 
 impl SurfaceEventSink for TauriSurfaceSink {
@@ -33,6 +47,16 @@ impl SurfaceEventSink for TauriSurfaceSink {
             "surface://exit",
             serde_json::json!({ "surfaceId": surface.as_str(), "qualifier": qualifier }),
         );
+        notification_host::record(
+            &self.app,
+            self.store.as_ref(),
+            notification_host::surface_stopped(
+                surface.as_str(),
+                self.session_of(surface),
+                qualifier,
+                notification_host::now_ms(),
+            ),
+        );
         let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         channels.remove(surface.as_str());
     }
@@ -42,12 +66,23 @@ impl SurfaceEventSink for TauriSurfaceSink {
             "surface:error",
             serde_json::json!({ "surfaceId": surface.as_str(), "reason": reason }),
         );
+        notification_host::record(
+            &self.app,
+            self.store.as_ref(),
+            notification_host::surface_error(
+                surface.as_str(),
+                self.session_of(surface),
+                reason,
+                notification_host::now_ms(),
+            ),
+        );
     }
 }
 
 pub struct SurfaceState {
     pub api: Arc<SurfaceApi>,
     pub channels: SurfaceChannels,
+    pub store: Arc<dyn Store>,
 }
 
 pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store>) {
@@ -55,8 +90,13 @@ pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store
     let sink = Arc::new(TauriSurfaceSink {
         channels: channels.clone(),
         app: app.clone(),
+        store: store.clone(),
     });
-    let api = Arc::new(SurfaceApi::new(store, sink, default_daemon_socket()));
+    let api = Arc::new(SurfaceApi::new(
+        store.clone(),
+        sink,
+        default_daemon_socket(),
+    ));
 
     let api_for_resume = api.clone();
     tauri::async_runtime::spawn(async move {
@@ -65,11 +105,19 @@ pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store
         }
     });
 
-    app.manage(SurfaceState { api, channels });
+    app.manage(SurfaceState {
+        api,
+        channels,
+        store,
+    });
 }
 
+// The arg list mirrors the renderer's IPC call shape (channel + placement + geometry); the
+// injected `AppHandle` tips it over clippy's threshold.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub async fn surface_create(
+pub async fn surface_create<R: tauri::Runtime>(
+    app: AppHandle<R>,
     state: State<'_, SurfaceState>,
     channel: tauri::ipc::Channel<Vec<u8>>,
     session_id: String,
@@ -116,6 +164,7 @@ pub async fn surface_create(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .insert(id.clone(), channel);
+    let session_str = session.as_str().to_string();
     state
         .api
         .create_terminal_surface(
@@ -128,6 +177,11 @@ pub async fn surface_create(
         )
         .await
         .map_err(|e| e.to_string())?;
+    notification_host::record(
+        &app,
+        state.store.as_ref(),
+        notification_host::surface_started(&id, &session_str, notification_host::now_ms()),
+    );
     Ok(id)
 }
 

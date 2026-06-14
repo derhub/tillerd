@@ -143,12 +143,33 @@ fn migration_v4() -> String {
         .to_string()
 }
 
+// Durable user-facing notification history (ADR-0031). Additive table under the 0.0.6 data-model
+// freeze: nothing existing changes. `ts` is event time (epoch ms); `rowid` orders insertion for
+// list/prune. Retention prunes to the most recent N (see `prune_notifications`).
+fn migration_v5() -> String {
+    "CREATE TABLE notification (
+         id           TEXT PRIMARY KEY,
+         category     TEXT NOT NULL,
+         severity     TEXT NOT NULL,
+         title        TEXT,
+         message      TEXT NOT NULL,
+         detail       TEXT,
+         ts           INTEGER NOT NULL,
+         session_id   TEXT,
+         surface_id   TEXT,
+         actions_json TEXT,
+         created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+     );"
+    .to_string()
+}
+
 pub fn migrations() -> Vec<String> {
     vec![
         migration_v1(),
         migration_v2(),
         migration_v3(),
         migration_v4(),
+        migration_v5(),
     ]
 }
 

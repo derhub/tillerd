@@ -12,6 +12,8 @@ use orchestrator::{
 use process_launch::LaunchError;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
+
+use crate::notification_host;
 use tillerd_paths::{
     daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin,
     runtime_dir,
@@ -114,6 +116,44 @@ impl Default for OrchestratorState {
 struct TauriEventSink {
     app: AppHandle,
     status: Arc<Mutex<StatusWire>>,
+    /// Filled once the orchestrator has booted; until then status notifications are not
+    /// persisted (the store does not exist yet).
+    store: Arc<Mutex<Option<Arc<dyn Store>>>>,
+    /// Previous health snapshot for diffing; seeded from the first post-boot read.
+    prev_health: Arc<Mutex<Option<Vec<ServiceHealthWire>>>>,
+}
+
+impl TauriEventSink {
+    /// Persist service-up/down (health diff) and ready/failed notifications for a status change.
+    /// No-op until the store is available; the in-boot `Ready` is recorded by `spawn_boot` instead.
+    fn record_status_notifications(&self, event: &Status) {
+        let store = self.store.lock().unwrap().clone();
+        let Some(store) = store else {
+            return;
+        };
+        let ts = notification_host::now_ms();
+        let current = service_health_snapshot();
+        let prev = self.prev_health.lock().unwrap().clone();
+        if let Some(prev) = prev {
+            for n in notification_host::health_change_notifications(&prev, &current, ts) {
+                notification_host::record(&self.app, store.as_ref(), n);
+            }
+        }
+        *self.prev_health.lock().unwrap() = Some(current);
+        match event {
+            Status::Ready => notification_host::record(
+                &self.app,
+                store.as_ref(),
+                notification_host::orchestrator_status(true, None, ts),
+            ),
+            Status::Failed { reason } => notification_host::record(
+                &self.app,
+                store.as_ref(),
+                notification_host::orchestrator_status(false, Some(reason), ts),
+            ),
+            _ => {}
+        }
+    }
 }
 
 impl EventSink for TauriEventSink {
@@ -121,6 +161,7 @@ impl EventSink for TauriEventSink {
         let wire = StatusWire::from(event);
         *self.status.lock().unwrap() = wire.clone();
         let _ = self.app.emit(ORCHESTRATOR_STATUS_EVENT, wire);
+        self.record_status_notifications(event);
     }
 }
 
@@ -155,12 +196,16 @@ fn service_health_specs() -> Vec<HealthSpec> {
 /// service that is down, mismatched, or draining is observable even when the
 /// orchestrator never reached `ready`. The renderer re-queries this on each
 /// `orchestrator://status` event; there is no separate health event.
-#[tauri::command]
-pub fn service_health() -> Vec<ServiceHealthWire> {
+fn service_health_snapshot() -> Vec<ServiceHealthWire> {
     read_service_health(&service_health_specs(), process_launch::pid_is_alive)
         .into_iter()
         .map(ServiceHealthWire::from)
         .collect()
+}
+
+#[tauri::command]
+pub fn service_health() -> Vec<ServiceHealthWire> {
+    service_health_snapshot()
 }
 
 fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) -> SpawnFn {
@@ -212,17 +257,40 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let slot = state.orchestrator.clone();
     std::thread::spawn(move || {
         let app_for_surface = app.clone();
-        let sink = TauriEventSink { app, status };
+        let sink = TauriEventSink {
+            app,
+            status,
+            store: Arc::new(Mutex::new(None)),
+            prev_health: Arc::new(Mutex::new(None)),
+        };
         let mut supervisor = build_supervisor();
         let open_store = || SqliteStore::open_default().map(|s| Box::new(s) as Box<dyn Store>);
         match boot(open_store, &mut supervisor, &sink) {
             Ok(orchestrator) => {
+                let store = orchestrator.store_arc();
+                // The in-boot `Ready` emit ran before the store was shared with the sink; wire it
+                // up now, seed the health baseline, and record the ready notification.
+                *sink.store.lock().unwrap() = Some(store.clone());
+                *sink.prev_health.lock().unwrap() = Some(service_health_snapshot());
+                notification_host::record(
+                    &app_for_surface,
+                    store.as_ref(),
+                    notification_host::orchestrator_status(true, None, notification_host::now_ms()),
+                );
                 // Register the surface layer before stashing the orchestrator so
                 // SurfaceState exists before any IPC command can fire.
-                crate::surface_host::register(&app_for_surface, orchestrator.store_arc());
+                crate::surface_host::register(&app_for_surface, store);
                 *slot.lock().unwrap() = Some(orchestrator);
             }
             Err(error) => {
+                notification_host::emit_only(
+                    &app_for_surface,
+                    notification_host::orchestrator_status(
+                        false,
+                        Some(&error.to_string()),
+                        notification_host::now_ms(),
+                    ),
+                );
                 eprintln!("orchestrator boot failed: {error}");
             }
         }

@@ -18,6 +18,13 @@ export { ORCHESTRATOR_STATUS_EVENT, ORCHESTRATOR_STATUS_METHOD, isFailed, isRead
 export type { OrchestratorStatus } from "./status";
 export { SERVICE_HEALTH_METHOD, isServiceHealthy } from "./service-health";
 export type { ServiceHealth, ServiceState } from "./service-health";
+export { NOTIFICATION_EVENT } from "./notification";
+export type {
+  NotificationCategory,
+  NotificationSeverity,
+  NotificationAction,
+  NotificationEvent,
+} from "./notification";
 export {
   SURFACE_CREATE,
   SURFACE_SPAWN,

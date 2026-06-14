@@ -6,9 +6,9 @@ use rusqlite::{params, Connection, OptionalExtension};
 use super::schema;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, Project, ProjectId,
-    Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface, SurfaceId,
-    SurfaceKind, TitleSource, Worktree, WorktreeId,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, NotificationRecord,
+    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
+    SurfaceId, SurfaceKind, TitleSource, Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -1024,6 +1024,76 @@ impl Store for SqliteStore {
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(persist)
     }
+
+    // ── notifications (ADR-0031) ──────────────────────────────────────────
+
+    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
+        self.lock()?
+            .execute(
+                "INSERT INTO notification
+                     (id, category, severity, title, message, detail, ts, session_id, surface_id, actions_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    rec.id,
+                    rec.category,
+                    rec.severity,
+                    rec.title,
+                    rec.message,
+                    rec.detail,
+                    rec.ts,
+                    rec.session_id,
+                    rec.surface_id,
+                    rec.actions_json,
+                ],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
+
+    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, category, severity, title, message, detail, ts, session_id, surface_id, actions_json
+                 FROM notification
+                 ORDER BY rowid DESC
+                 LIMIT ?1",
+            )
+            .map_err(persist)?;
+        let rows = stmt
+            .query_map(params![limit], row_to_notification)
+            .map_err(persist)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(persist)
+    }
+
+    fn prune_notifications(&self, keep: u32) -> Result<()> {
+        self.lock()?
+            .execute(
+                "DELETE FROM notification
+                 WHERE rowid NOT IN (
+                     SELECT rowid FROM notification ORDER BY rowid DESC LIMIT ?1
+                 )",
+                params![keep],
+            )
+            .map_err(persist)?;
+        Ok(())
+    }
+}
+
+fn row_to_notification(row: &rusqlite::Row<'_>) -> rusqlite::Result<NotificationRecord> {
+    Ok(NotificationRecord {
+        id: row.get(0)?,
+        category: row.get(1)?,
+        severity: row.get(2)?,
+        title: row.get(3)?,
+        message: row.get(4)?,
+        detail: row.get(5)?,
+        ts: row.get(6)?,
+        session_id: row.get(7)?,
+        surface_id: row.get(8)?,
+        actions_json: row.get(9)?,
+    })
 }
 
 fn row_to_surface(row: &rusqlite::Row<'_>) -> rusqlite::Result<Surface> {
@@ -2231,6 +2301,71 @@ mod tests {
             sess.spec_json.as_deref(),
             Some(r#"{"version":1,"items":[]}"#)
         );
+    }
+
+    fn notif(id: &str, ts: i64) -> crate::persistence::NotificationRecord {
+        crate::persistence::NotificationRecord {
+            id: id.to_string(),
+            category: "surface-stopped".to_string(),
+            severity: "info".to_string(),
+            title: None,
+            message: format!("msg {id}"),
+            detail: None,
+            ts,
+            session_id: Some("sess-1".to_string()),
+            surface_id: Some("surf-1".to_string()),
+            actions_json: None,
+        }
+    }
+
+    #[test]
+    fn notifications_list_newest_first() {
+        let (_dir, path) = temp_db("notif-list");
+        let store = SqliteStore::open(&path).unwrap();
+        store.insert_notification(&notif("a", 1)).unwrap();
+        store.insert_notification(&notif("b", 2)).unwrap();
+        store.insert_notification(&notif("c", 3)).unwrap();
+
+        let ids: Vec<String> = store
+            .list_notifications(10)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.id)
+            .collect();
+        assert_eq!(ids, vec!["c", "b", "a"]);
+    }
+
+    #[test]
+    fn notifications_prune_keeps_newest() {
+        let (_dir, path) = temp_db("notif-prune");
+        let store = SqliteStore::open(&path).unwrap();
+        for i in 0..5 {
+            store
+                .insert_notification(&notif(&format!("n{i}"), i))
+                .unwrap();
+        }
+        store.prune_notifications(2).unwrap();
+        let ids: Vec<String> = store
+            .list_notifications(10)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.id)
+            .collect();
+        assert_eq!(ids, vec!["n4", "n3"]);
+    }
+
+    #[test]
+    fn notifications_survive_a_restart() {
+        let (_dir, path) = temp_db("notif-persist");
+        {
+            let store = SqliteStore::open(&path).unwrap();
+            store.insert_notification(&notif("x", 1)).unwrap();
+        }
+        // Reopen against the same file — the history persists (ADR-0031).
+        let store = SqliteStore::open(&path).unwrap();
+        let listed = store.list_notifications(10).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "x");
     }
 
     #[test]
