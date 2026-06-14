@@ -194,7 +194,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
                 "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL AND project_id = ?1
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt
@@ -209,7 +209,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
                 "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt.query_map([], row_to_session).map_err(persist)?;
@@ -303,7 +303,7 @@ impl Store for SqliteStore {
                 "SELECT id, name, source_kind, root_path
                  FROM project
                  WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt
@@ -402,6 +402,20 @@ impl Store for SqliteStore {
         tx.execute("DELETE FROM project WHERE id = ?1", params![id.as_str()])
             .map_err(persist)?;
         tx.commit().map_err(persist)?;
+        Ok(())
+    }
+
+    fn reorder_project(&self, id: &ProjectId, sort_order: u32) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE project SET sort_order = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+                params![sort_order as i64, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 
@@ -559,6 +573,20 @@ impl Store for SqliteStore {
         tx.execute("DELETE FROM session WHERE id = ?1", params![id.as_str()])
             .map_err(persist)?;
         tx.commit().map_err(persist)?;
+        Ok(())
+    }
+
+    fn reorder_session(&self, id: &SessionId, sort_order: u32) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE session SET sort_order = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+                params![sort_order as i64, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 
