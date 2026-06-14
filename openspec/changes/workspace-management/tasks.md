@@ -6,20 +6,20 @@
 
 ## 2. Backend API: Orchestrator Persistence Methods
 
-- [ ] 2.1 Implement `PersistenceStore::delete_project(id) → Result<()>` (hard-delete, cascade to sessions)
-- [ ] 2.2 Implement `PersistenceStore::delete_session(id) → Result<()>` (hard-delete, cascade to surfaces)
-- [ ] 2.3 Implement `PersistenceStore::reorder_project(id, sort_order) → Result<()>`
-- [ ] 2.4 Implement `PersistenceStore::reorder_session(id, sort_order) → Result<()>`
-- [ ] 2.5 Update `PersistenceStore::list_projects()` to sort by `COALESCE(sort_order, created_at DESC)`
-- [ ] 2.6 Update `PersistenceStore::list_sessions()` to sort by `COALESCE(sort_order, created_at DESC)`
+- [x] 2.1 Implement `PersistenceStore::delete_project(id) → Result<()>` (hard-delete, cascade to sessions)
+- [x] 2.2 Implement `PersistenceStore::delete_session(id) → Result<()>` (hard-delete, cascade to surfaces)
+- [x] 2.3 Implement `PersistenceStore::reorder_project(id, sort_order) → Result<()>`
+- [x] 2.4 Implement `PersistenceStore::reorder_session(id, sort_order) → Result<()>`
+- [x] 2.5 Update `PersistenceStore::list_projects()` to sort by `COALESCE(sort_order, created_at DESC)`
+- [x] 2.6 Update `PersistenceStore::list_sessions()` to sort by `COALESCE(sort_order, created_at DESC)`
 
 ## 3. Backend API: Orchestrator Public Interface
 
-- [ ] 3.1 Add `Orchestrator::delete_project(id) → Result<()>` wrapper
-- [ ] 3.2 Add `Orchestrator::delete_session(id) → Result<()>` wrapper
-- [ ] 3.3 Add `Orchestrator::reorder_project(id, sort_order) → Result<()>` wrapper
-- [ ] 3.4 Add `Orchestrator::reorder_session(id, sort_order) → Result<()>` wrapper
-- [ ] 3.5 Verify new methods are exposed in the orchestrator API (handler routes in gate-admin or surface runtime)
+- [x] 3.1 Add `Orchestrator::delete_project(id) → Result<()>` wrapper
+- [x] 3.2 Add `Orchestrator::delete_session(id) → Result<()>` wrapper
+- [x] 3.3 Add `Orchestrator::reorder_project(id, sort_order) → Result<()>` wrapper
+- [x] 3.4 Add `Orchestrator::reorder_session(id, sort_order) → Result<()>` wrapper
+- [x] 3.5 Verify new methods are exposed in the orchestrator API (handler routes in gate-admin or surface runtime)
 
 ## 4. SDK Client Methods
 
@@ -66,8 +66,8 @@
 
 ## 9. E2E Tests: Inline Rename
 
-- [ ] 9.1 Write spec test: "Rename project by double-clicking and pressing Enter"
-- [ ] 9.2 Write spec test: "Cancel project rename by pressing Escape"
+- [x] 9.1 Write spec test: "Rename project by double-clicking and pressing Enter"
+- [x] 9.2 Write spec test: "Cancel project rename by pressing Escape"
 - [ ] 9.3 Write spec test: "Empty project name is rejected"
 - [ ] 9.4 Write spec test: "Rename session by double-clicking and pressing Enter"
 - [ ] 9.5 Write spec test: "Cancel session rename by pressing Escape"
@@ -75,7 +75,7 @@
 
 ## 10. E2E Tests: Delete
 
-- [ ] 10.1 Write spec test: "Delete project after confirming dialog"
+- [x] 10.1 Write spec test: "Delete project after confirming dialog"
 - [ ] 10.2 Write spec test: "Cancel project deletion"
 - [ ] 10.3 Write spec test: "Deleted project and its sessions vanish immediately"
 - [ ] 10.4 Write spec test: "Navigating away from a deleted project"
@@ -96,7 +96,7 @@
 
 ## 12. E2E Tests: Context Menu
 
-- [ ] 12.1 Write spec test: "Right-click project opens context menu"
+- [x] 12.1 Write spec test: "Right-click project opens context menu"
 - [ ] 12.2 Write spec test: "Right-click session opens context menu"
 - [ ] 12.3 Write spec test: "Context menu actions invoke correctly (rename, archive, delete, open)"
 - [ ] 12.4 Write spec test: "Context menu closes on outside click"
