@@ -2,8 +2,8 @@
 
 ### Requirement: Host creates and focuses child windows on request
 
-The host SHALL expose IPC commands for the renderer to open a child window at a renderer route
-(by label) and to raise an existing window to the front by its label. All windows SHALL share the
+The host SHALL expose IPC commands for the renderer to open a child window at a renderer URL
+(label + intent query) and to raise an existing window to the front by its label. All windows SHALL share the
 single embedded orchestrator backend; opening a child window SHALL NOT spawn a backend. A window
 closes itself through the core window API; closing one SHALL NOT tear down the backend.
 

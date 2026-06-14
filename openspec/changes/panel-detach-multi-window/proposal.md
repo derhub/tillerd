@@ -37,8 +37,8 @@ orchestrator-seam change (ADR-0030, ADR-0020).
 ## Impact
 
 - Code: `apps/ui` — panel header (`ui-panel-compound`), `AppShell` render (`ui-shell`), sidebar
-  project rows (`ui-session-sidebar`), a child-window route + a cross-window registry/messaging
-  module. `apps/desktop/src-tauri` — child-window create/focus/close commands, capabilities.
+  project rows (`ui-session-sidebar`), a child-window view + a cross-window registry/messaging
+  module. `apps/desktop/src-tauri` — child-window create / focus commands, capabilities.
 - APIs: new desktop IPC commands only. No orchestrator API, wire-protocol, or data-model change.
 - Dependencies: none new — `@tauri-apps/api/window` (already present) and Tauri core window
   permissions.
