@@ -1,11 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window. The app's own #[tauri::command]s (daemon_connect/send/disconnect, file_size/file_read, log_forward, pref_*, registry_*) are allowed by default and need no permission string; the daemon-stream Channel rides core IPC covered by core:default.",
-  "windows": ["main"],
+  "description": "App windows. The app's own #[tauri::command]s (daemon_connect/send/disconnect, file_size/file_read, log_forward, pref_*, registry_*, window_open/focus) are allowed by default and need no permission string; the daemon-stream Channel rides core IPC covered by core:default. Child windows (detached-*, project-*) load the same renderer and need the same core IPC, plus core:window self-close/start-dragging for their own chrome.",
+  "windows": ["main", "detached-*", "project-*"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-set-focus",
     "window-state:default",
     "notification:default"
   ]

@@ -1,9 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { Plus, FolderPlus, Archive } from "lucide-react";
+import { Plus, FolderPlus, Archive, ArrowUpRight, ExternalLink } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 import { useDesktopHost } from "~/lib/useDesktopHost";
+import {
+  focusSelf,
+  focusWindow,
+  onReattachProject,
+  openWindow,
+  projectLabel,
+  projectQuery,
+} from "~/lib/windows";
 
 import type { Project, Session } from "@tillerd/sdk/orchestrator";
 
@@ -40,6 +48,27 @@ export function SessionSidebar() {
   const host = useDesktopHost();
   const navigate = useNavigate();
   const { projects, sessions, refresh } = useSidebarData();
+  // Projects opened in a child window — runtime-only, cleared when the child re-attaches.
+  const [detachedProjects, setDetachedProjects] = useState<Set<string>>(() => new Set());
+
+  const handleOpenInNewWindow = useCallback((projectId: string, firstSessionId: string | null) => {
+    void openWindow(projectLabel(projectId), projectQuery(projectId, firstSessionId));
+    setDetachedProjects((prev) => new Set(prev).add(projectId));
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onReattachProject(({ projectId }) => {
+      setDetachedProjects((prev) => {
+        if (!prev.has(projectId)) return prev;
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+      void focusSelf();
+    }).then((u) => (unlisten = u));
+    return () => unlisten?.();
+  }, []);
 
   const handleNewProject = useCallback(async () => {
     if (host.status !== "ready") return;
@@ -134,8 +163,13 @@ export function SessionSidebar() {
                   project={proj}
                   sessions={projSessions}
                   isDesktop={isDesktop}
+                  detached={detachedProjects.has(proj.id)}
                   onNewSession={() => void handleNewSession(proj.id)}
                   onArchiveSession={handleArchiveSession}
+                  onOpenInNewWindow={() =>
+                    handleOpenInNewWindow(proj.id, projSessions[0]?.id ?? null)
+                  }
+                  onFocusDetached={() => void focusWindow(projectLabel(proj.id))}
                 />
               );
             })}
@@ -147,8 +181,13 @@ export function SessionSidebar() {
                 project={{ id: UNFILED_ID, name: "Unfiled", sourceKind: "blank", rootPath: null }}
                 sessions={unfiledSessions}
                 isDesktop={isDesktop}
+                detached={detachedProjects.has(UNFILED_ID)}
                 onNewSession={() => void handleNewSession(UNFILED_ID)}
                 onArchiveSession={handleArchiveSession}
+                onOpenInNewWindow={() =>
+                  handleOpenInNewWindow(UNFILED_ID, unfiledSessions[0]?.id ?? null)
+                }
+                onFocusDetached={() => void focusWindow(projectLabel(UNFILED_ID))}
               />
             )}
           </div>
@@ -162,22 +201,55 @@ function ProjectGroup({
   project,
   sessions,
   isDesktop,
+  detached,
   onNewSession,
   onArchiveSession,
+  onOpenInNewWindow,
+  onFocusDetached,
 }: {
   project: Project;
   sessions: Session[];
   isDesktop: boolean;
+  detached: boolean;
   onNewSession: () => void;
   onArchiveSession: (id: string, currentPath: string) => Promise<void>;
+  onOpenInNewWindow: () => void;
+  onFocusDetached: () => void;
 }) {
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+
   return (
     <div>
       {/* Project heading + add-session control */}
-      <div className="flex items-center gap-1 px-3 mb-0.5">
+      <div
+        className="flex items-center gap-1 px-3 mb-0.5"
+        onContextMenu={
+          isDesktop
+            ? (e) => {
+                e.preventDefault();
+                setMenuAt({ x: e.clientX, y: e.clientY });
+              }
+            : undefined
+        }
+      >
         <span className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1">
           {project.name}
         </span>
+        {detached && (
+          <button
+            type="button"
+            onClick={onFocusDetached}
+            aria-label={`Focus ${project.name} window`}
+            title={`${project.name} is open in another window`}
+            data-testid="project-detached-indicator"
+            className={cn(
+              "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+              "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
+            )}
+          >
+            <ArrowUpRight size={10} strokeWidth={2} />
+          </button>
+        )}
         {isDesktop && (
           <button
             type="button"
@@ -193,6 +265,17 @@ function ProjectGroup({
         )}
       </div>
 
+      {menuAt && (
+        <ProjectContextMenu
+          at={menuAt}
+          onClose={() => setMenuAt(null)}
+          onOpenInNewWindow={() => {
+            onOpenInNewWindow();
+            setMenuAt(null);
+          }}
+        />
+      )}
+
       {/* Session rows */}
       <div className="flex flex-col gap-px">
         {sessions.map((s) => (
@@ -204,6 +287,54 @@ function ProjectGroup({
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+// Lightweight right-click menu — closes on outside click or Escape. One action in 0.0.11; the full
+// project action list lands in 0.0.12.
+function ProjectContextMenu({
+  at,
+  onClose,
+  onOpenInNewWindow,
+}: {
+  at: { x: number; y: number };
+  onClose: () => void;
+  onOpenInNewWindow: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      style={{ position: "fixed", top: at.y, left: at.x, zIndex: 50 }}
+      className="min-w-44 rounded-md border border-border/60 bg-popover p-1 shadow-md"
+    >
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onOpenInNewWindow}
+        className="flex w-full items-center gap-2 rounded-sm px-2 h-7 text-left text-[0.833rem] text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+      >
+        <ExternalLink size={12} />
+        <span>Open in new window</span>
+      </button>
     </div>
   );
 }

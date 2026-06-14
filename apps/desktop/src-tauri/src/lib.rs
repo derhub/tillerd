@@ -11,6 +11,7 @@ mod settings_host;
 mod store;
 mod supervisor;
 mod surface_host;
+mod window_host;
 mod workspace_host;
 
 use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
@@ -110,6 +111,8 @@ pub fn run() {
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
+            window_host::window_open,
+            window_host::window_focus,
             workspace_host::project_create,
             workspace_host::project_list,
             workspace_host::project_rename,
@@ -132,6 +135,9 @@ pub fn run() {
         .build(app_context())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            // Shutdown is bound to app exit (ExitRequested fires only when the LAST window closes),
+            // never per-window-close — so closing a parent window while a detached child remains
+            // open leaves the owned daemon running (roadmap 0.0.11, desktop-shell spec).
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 supervisor::shutdown_owned(&app_handle.state::<SupervisorState>());
             }

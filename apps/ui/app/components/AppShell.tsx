@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { Columns2, Rows2 } from "lucide-react";
+import { ArrowUpRight, Columns2, ExternalLink, Rows2, Undo2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
 import { SessionSidebar } from "~/components/SessionSidebar";
@@ -13,6 +13,17 @@ import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
 import { countLeaves } from "~/lib/panelTree";
 import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/panelTree";
+import {
+  armReattachOnClose,
+  closeSelf,
+  detachedLabel,
+  detachedQuery,
+  emitReattachProject,
+  focusSelf,
+  focusWindow,
+  onReattachPanel,
+  openWindow,
+} from "~/lib/windows";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { isDesktopHost } from "~/lib/transport";
 import { useDelayedTrue } from "~/lib/useDelayedTrue";
@@ -34,14 +45,26 @@ function getTerminalClient(): Promise<TerminalSurfaceClient> {
   })());
 }
 
-export function AppShell() {
+export function AppShell({
+  projectWindowId,
+  initialSessionId,
+}: {
+  // Set when this AppShell is itself a detached project child window: shows a Re-attach control and
+  // overrides the session (the window loads at root, so there is no `:id` route param).
+  projectWindowId?: string;
+  initialSessionId?: string | null;
+} = {}) {
   const params = useParams();
-  const sessionId = params["id"] ?? null;
+  const sessionId = params["id"] ?? initialSessionId ?? null;
+  const isProjectWindow = projectWindowId != null;
   const onLogs = useLocation().pathname === "/logs";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const logsService = searchParams.get("service") ?? undefined;
   const [status, setStatus] = useState("");
+  // Placements detached to a child window — renderer-runtime only, never written to layout_json
+  // (the frozen panel tree). A relaunch starts with everything attached.
+  const [detached, setDetached] = useState<Set<string>>(() => new Set());
 
   // Native menu (View > Logs) routes here by emitting "menu:navigate".
   useEffect(() => {
@@ -89,6 +112,45 @@ export function AppShell() {
     [sessionId, close],
   );
 
+  // Detach a live panel into a child window. The panel content stays terminal in the tree; the
+  // placement is flagged detached so its leaf renders a placeholder until re-attached.
+  const handleDetach = useCallback(
+    (leaf: PanelLeaf) => {
+      if (leaf.content.type !== "terminal" || !sessionId) return;
+      const placement = leaf.content.placement;
+      void openWindow(detachedLabel(placement), detachedQuery(sessionId, placement));
+      setDetached((prev) => new Set(prev).add(placement));
+    },
+    [sessionId],
+  );
+
+  // Parent side: when a child emits re-attach, drop the detached flag (re-mounting the pane, whose
+  // revisit path re-binds the live PTY) and focus this window. Child windows skip this.
+  useEffect(() => {
+    if (isProjectWindow) return;
+    let unlisten: (() => void) | undefined;
+    void onReattachPanel(({ placement }) => {
+      setDetached((prev) => {
+        if (!prev.has(placement)) return prev;
+        const next = new Set(prev);
+        next.delete(placement);
+        return next;
+      });
+      void focusSelf();
+    }).then((u) => (unlisten = u));
+    return () => unlisten?.();
+  }, [isProjectWindow]);
+
+  // Child project window: any close path emits project re-attach so the parent clears its indicator.
+  useEffect(() => {
+    if (!isProjectWindow || !projectWindowId) return;
+    let unlisten: (() => void) | undefined;
+    void armReattachOnClose(() => emitReattachProject({ projectId: projectWindowId })).then(
+      (u) => (unlisten = u),
+    );
+    return () => unlisten?.();
+  }, [isProjectWindow, projectWindowId]);
+
   const renderNode = useCallback(
     (node: PanelNode, path: string): React.ReactNode => {
       if (node.kind === "group") {
@@ -97,7 +159,17 @@ export function AppShell() {
       return renderLeaf(node, path);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [split, handleClose, handleSpawn, setActiveTab, totalPanels, sessionId, orchestratorClient],
+    [
+      split,
+      handleClose,
+      handleSpawn,
+      handleDetach,
+      detached,
+      setActiveTab,
+      totalPanels,
+      sessionId,
+      orchestratorClient,
+    ],
   );
 
   function renderGroup(group: PanelGroupNode, path: string): React.ReactNode {
@@ -200,6 +272,13 @@ export function AppShell() {
                 label="Split down"
                 onClick={() => split(leaf.id, "vertical")}
               />
+              {leaf.content.type === "terminal" && !detached.has(leaf.content.placement) && (
+                <Panel.Toolbar.Button
+                  icon={<ExternalLink size={12} />}
+                  label="Detach"
+                  onClick={() => handleDetach(leaf)}
+                />
+              )}
               <Panel.CloseButton totalPanels={totalPanels} />
             </Panel.Toolbar>
           </Panel.Header>
@@ -219,6 +298,13 @@ export function AppShell() {
           />
         );
       case "terminal":
+        if (detached.has(content.placement)) {
+          return (
+            <DetachedPlaceholder
+              onFocus={() => void focusWindow(detachedLabel(content.placement))}
+            />
+          );
+        }
         return (
           <DesktopTerminalPane
             key={`${sessionId ?? "none"}:${content.placement}`}
@@ -249,6 +335,17 @@ export function AppShell() {
                 <ContentSkeleton />
               ) : null}
               <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
+                {isProjectWindow && (
+                  <button
+                    type="button"
+                    onClick={() => void closeSelf()}
+                    aria-label="Re-attach"
+                    className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+                  >
+                    <Undo2 size={12} />
+                    <span>Re-attach</span>
+                  </button>
+                )}
                 <NotificationIndicator />
                 <SettingsPanel />
                 <ServiceHealthIndicator />
@@ -258,6 +355,29 @@ export function AppShell() {
         </SessionContext>
       </NotificationsProvider>
     </SettingsProvider>
+  );
+}
+
+/** Stand-in for a panel whose surface is detached to a child window; "Focus" raises that window. */
+function DetachedPlaceholder({ onFocus }: { onFocus: () => void }) {
+  return (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/20"
+      data-testid="detached-placeholder"
+    >
+      <span className="text-[0.917rem] text-muted-foreground select-none">
+        Detached to a separate window
+      </span>
+      <button
+        type="button"
+        onClick={onFocus}
+        aria-label="Focus detached window"
+        className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+      >
+        <span>Focus</span>
+        <ArrowUpRight size={12} />
+      </button>
+    </div>
   );
 }
 
