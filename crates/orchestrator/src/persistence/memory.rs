@@ -222,7 +222,7 @@ impl Store for InMemoryStore {
 
     fn reorder_project(&self, id: &ProjectId, _sort_order: u32) -> Result<()> {
         let inner = self.inner.lock().unwrap();
-        if inner.projects.get(id.as_str()).is_none() {
+        if !inner.projects.contains_key(id.as_str()) {
             return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
         }
         Ok(())
@@ -342,7 +342,7 @@ impl Store for InMemoryStore {
 
     fn reorder_session(&self, id: &SessionId, _sort_order: u32) -> Result<()> {
         let inner = self.inner.lock().unwrap();
-        if inner.sessions.get(id.as_str()).is_none() {
+        if !inner.sessions.contains_key(id.as_str()) {
             return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
         }
         Ok(())

@@ -159,6 +159,46 @@ pub fn project_archive(id: String, state: State<'_, OrchestratorState>) -> Resul
     do_project_archive(&store, id).map_err(|e| format!("{e:?}"))
 }
 
+/// Hard-delete a project. The store's `hard_delete_project` requires the project be archived first,
+/// so a live project is archived (cascading its sessions/surfaces to soft-deleted) then purged in
+/// one host call. An already-archived project skips straight to the purge.
+pub fn do_project_delete(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    let pid = ProjectId::new(id);
+    match store.archive_project(&pid) {
+        Ok(()) => {}
+        // Already archived (or absent): the purge below reports the definitive outcome.
+        Err(orchestrator::OrchestratorError::ProjectNotFound(_)) => {}
+        Err(e) => return Err(map_store_err(e)),
+    }
+    store.hard_delete_project(&pid).map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn project_delete(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_delete(&store, id).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_project_reorder(
+    store: &Arc<dyn Store>,
+    id: String,
+    sort_order: u32,
+) -> Result<(), WorkspaceError> {
+    store
+        .reorder_project(&ProjectId::new(id), sort_order)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn project_reorder(
+    id: String,
+    sort_order: u32,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_reorder(&store, id, sort_order).map_err(|e| format!("{e:?}"))
+}
+
 // ── session ───────────────────────────────────────────────────────────────────
 
 pub fn do_session_list(
@@ -209,6 +249,44 @@ pub fn do_session_archive(store: &Arc<dyn Store>, id: String) -> Result<(), Work
 pub fn session_archive(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
     do_session_archive(&store, id).map_err(|e| format!("{e:?}"))
+}
+
+/// Hard-delete a session. Mirrors `do_project_delete`: archive first (the store's
+/// `hard_delete_session` requires an archived row) then purge.
+pub fn do_session_delete(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    let sid = SessionId::from_string(id);
+    match store.archive_session(&sid) {
+        Ok(()) => {}
+        Err(orchestrator::OrchestratorError::SessionNotFound(_)) => {}
+        Err(e) => return Err(map_store_err(e)),
+    }
+    store.hard_delete_session(&sid).map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn session_delete(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_session_delete(&store, id).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_session_reorder(
+    store: &Arc<dyn Store>,
+    id: String,
+    sort_order: u32,
+) -> Result<(), WorkspaceError> {
+    store
+        .reorder_session(&SessionId::from_string(id), sort_order)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn session_reorder(
+    id: String,
+    sort_order: u32,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_session_reorder(&store, id, sort_order).map_err(|e| format!("{e:?}"))
 }
 
 /// Session-creation draft (built by the `session_create` command from the client's flat args).
@@ -598,6 +676,40 @@ mod tests {
     }
 
     #[test]
+    fn project_delete_archives_then_purges_a_live_project() {
+        let store = fake_store();
+        let id = make_project(&store, "Doomed");
+        do_project_delete(&store, id.as_str().to_string()).unwrap();
+        // Purged entirely: not in the active list and the row is gone.
+        assert!(store.get_project(&id).unwrap().is_none());
+        assert!(!do_project_list(&store)
+            .unwrap()
+            .iter()
+            .any(|p| p.id == id.as_str()));
+    }
+
+    #[test]
+    fn project_delete_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_project_delete(&store, "no-such".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn project_reorder_reaches_the_store() {
+        let store = fake_store();
+        let id = make_project(&store, "Movable");
+        do_project_reorder(&store, id.as_str().to_string(), 5).unwrap();
+    }
+
+    #[test]
+    fn project_reorder_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_project_reorder(&store, "no-such".to_string(), 0).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
     fn session_rename_reaches_the_store() {
         let store = fake_store();
         let sess = store
@@ -632,6 +744,43 @@ mod tests {
     fn session_archive_on_absent_is_not_found() {
         let store = fake_store();
         let err = do_session_archive(&store, "no-such".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn session_delete_archives_then_purges_a_live_session() {
+        let store = fake_store();
+        let sess = store
+            .create_session(orchestrator::persistence::NewSession::default())
+            .unwrap();
+        do_session_delete(&store, sess.id.as_str().to_string()).unwrap();
+        assert!(store.get_session(&sess.id).unwrap().is_none());
+        assert!(!do_session_list(&store, None)
+            .unwrap()
+            .iter()
+            .any(|s| s.id == sess.id.as_str()));
+    }
+
+    #[test]
+    fn session_delete_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_session_delete(&store, "no-such".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
+    }
+
+    #[test]
+    fn session_reorder_reaches_the_store() {
+        let store = fake_store();
+        let sess = store
+            .create_session(orchestrator::persistence::NewSession::default())
+            .unwrap();
+        do_session_reorder(&store, sess.id.as_str().to_string(), 3).unwrap();
+    }
+
+    #[test]
+    fn session_reorder_on_absent_is_not_found() {
+        let store = fake_store();
+        let err = do_session_reorder(&store, "no-such".to_string(), 0).unwrap_err();
         assert!(matches!(err, WorkspaceError::NotFound { .. }));
     }
 
