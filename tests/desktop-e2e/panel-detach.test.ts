@@ -63,7 +63,9 @@ test("opening a project in a new window marks the parent row", async () => {
     );
   }, name);
 
-  const openItem = await b.$('button[role="menuitem"]');
+  // The 0.0.12 project menu carries the full action list (Rename / Open in new window / Delete), so
+  // target the open action by its label rather than menu position.
+  const openItem = await b.$("button*=Open in new window");
   await openItem.waitForExist({ timeout: 10_000 });
   await openItem.click();
 

@@ -194,7 +194,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
                 "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL AND project_id = ?1
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt
@@ -209,7 +209,7 @@ fn query_sessions(conn: &Connection, project_id: Option<&str>) -> Result<Vec<Ses
                 "SELECT id, project_id, title, title_source, created_at, spec_version, spec_json
                  FROM session
                  WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt.query_map([], row_to_session).map_err(persist)?;
@@ -303,7 +303,7 @@ impl Store for SqliteStore {
                 "SELECT id, name, source_kind, root_path
                  FROM project
                  WHERE deleted_at IS NULL
-                 ORDER BY created_at DESC",
+                 ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt
@@ -402,6 +402,20 @@ impl Store for SqliteStore {
         tx.execute("DELETE FROM project WHERE id = ?1", params![id.as_str()])
             .map_err(persist)?;
         tx.commit().map_err(persist)?;
+        Ok(())
+    }
+
+    fn reorder_project(&self, id: &ProjectId, sort_order: u32) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE project SET sort_order = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+                params![sort_order as i64, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 
@@ -559,6 +573,20 @@ impl Store for SqliteStore {
         tx.execute("DELETE FROM session WHERE id = ?1", params![id.as_str()])
             .map_err(persist)?;
         tx.commit().map_err(persist)?;
+        Ok(())
+    }
+
+    fn reorder_session(&self, id: &SessionId, sort_order: u32) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE session SET sort_order = ?1 WHERE id = ?2 AND deleted_at IS NULL",
+                params![sort_order as i64, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 
@@ -1499,6 +1527,98 @@ mod tests {
         // only active projects; p1 is archived
         assert!(!list.iter().any(|p| p.id == p1.id));
         assert!(list.iter().any(|p| p.id == p2.id));
+    }
+
+    #[test]
+    fn reorder_project_changes_list_order() {
+        let (_dir, path) = temp_db("proj-reorder");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let mk = |name: &str| {
+            store
+                .create_project(NewProject {
+                    source_kind: SourceKind::Blank,
+                    root_path: None,
+                    name: Some(name.to_string()),
+                })
+                .unwrap()
+        };
+        let a = mk("a");
+        let b = mk("b");
+        let c = mk("c");
+
+        // Insertion order is a, b, c (COALESCE falls back to rowid). Push `a` last, `c` first.
+        store.reorder_project(&c.id, 0).unwrap();
+        store.reorder_project(&b.id, 1).unwrap();
+        store.reorder_project(&a.id, 2).unwrap();
+
+        let named: Vec<String> = store
+            .list_projects()
+            .unwrap()
+            .into_iter()
+            .filter(|p| !ProjectId::new(p.id.as_str().to_string()).is_unfiled())
+            .map(|p| p.name)
+            .collect();
+        assert_eq!(named, vec!["c", "b", "a"]);
+    }
+
+    #[test]
+    fn reorder_project_on_absent_is_not_found() {
+        let (_dir, path) = temp_db("proj-reorder-absent");
+        let store = SqliteStore::open(&path).unwrap();
+        let err = store
+            .reorder_project(&ProjectId::new("no-such"), 0)
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::ProjectNotFound(_)));
+    }
+
+    #[test]
+    fn reorder_session_changes_list_order_within_project() {
+        let (_dir, path) = temp_db("sess-reorder");
+        let store = SqliteStore::open(&path).unwrap();
+
+        let proj = store
+            .create_project(NewProject {
+                source_kind: SourceKind::Blank,
+                root_path: None,
+                name: Some("p".to_string()),
+            })
+            .unwrap();
+        let mk = |title: &str| {
+            store
+                .create_session(NewSession {
+                    project_id: Some(proj.id.clone()),
+                    title: Some(title.to_string()),
+                    title_source: TitleSource::Custom,
+                    ..Default::default()
+                })
+                .unwrap()
+        };
+        let s1 = mk("one");
+        let s2 = mk("two");
+        let s3 = mk("three");
+
+        store.reorder_session(&s3.id, 0).unwrap();
+        store.reorder_session(&s2.id, 1).unwrap();
+        store.reorder_session(&s1.id, 2).unwrap();
+
+        let titles: Vec<String> = store
+            .list_sessions(Some(&proj.id))
+            .unwrap()
+            .into_iter()
+            .map(|s| s.title)
+            .collect();
+        assert_eq!(titles, vec!["three", "two", "one"]);
+    }
+
+    #[test]
+    fn reorder_session_on_absent_is_not_found() {
+        let (_dir, path) = temp_db("sess-reorder-absent");
+        let store = SqliteStore::open(&path).unwrap();
+        let err = store
+            .reorder_session(&SessionId::from_string("no-such"), 0)
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::SessionNotFound(_)));
     }
 
     #[test]

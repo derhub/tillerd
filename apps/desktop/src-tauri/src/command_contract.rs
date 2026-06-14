@@ -78,10 +78,14 @@ fn contract_app() -> tauri::App<MockRuntime> {
             workspace_host::project_list,
             workspace_host::project_rename,
             workspace_host::project_archive,
+            workspace_host::project_delete,
+            workspace_host::project_reorder,
             workspace_host::session_list,
             workspace_host::session_create,
             workspace_host::session_rename,
             workspace_host::session_archive,
+            workspace_host::session_delete,
+            workspace_host::session_reorder,
             workspace_host::session_layout_set,
             workspace_host::session_layout_get,
             workspace_host::command_list,
@@ -227,6 +231,11 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "id": "contract", "name": "x" }),
         ),
         ("project_archive", serde_json::json!({ "id": "contract" })),
+        ("project_delete", serde_json::json!({ "id": "contract" })),
+        (
+            "project_reorder",
+            serde_json::json!({ "id": "contract", "sortOrder": 0 }),
+        ),
         ("session_list", serde_json::json!({ "projectId": null })),
         (
             "session_create",
@@ -237,6 +246,11 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "id": "contract", "title": "x" }),
         ),
         ("session_archive", serde_json::json!({ "id": "contract" })),
+        ("session_delete", serde_json::json!({ "id": "contract" })),
+        (
+            "session_reorder",
+            serde_json::json!({ "id": "contract", "sortOrder": 0 }),
+        ),
         (
             "session_layout_set",
             serde_json::json!({ "id": "contract", "layoutJson": "{}" }),

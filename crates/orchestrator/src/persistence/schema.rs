@@ -163,6 +163,12 @@ fn migration_v5() -> String {
     .to_string()
 }
 
+fn migration_v6() -> String {
+    "ALTER TABLE project ADD COLUMN sort_order INTEGER;
+     ALTER TABLE session ADD COLUMN sort_order INTEGER;"
+        .to_string()
+}
+
 pub fn migrations() -> Vec<String> {
     vec![
         migration_v1(),
@@ -170,6 +176,7 @@ pub fn migrations() -> Vec<String> {
         migration_v3(),
         migration_v4(),
         migration_v5(),
+        migration_v6(),
     ]
 }
 

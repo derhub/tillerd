@@ -220,6 +220,14 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
+    fn reorder_project(&self, id: &ProjectId, _sort_order: u32) -> Result<()> {
+        let inner = self.inner.lock().unwrap();
+        if !inner.projects.contains_key(id.as_str()) {
+            return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
+        }
+        Ok(())
+    }
+
     // ── session ───────────────────────────────────────────────────────────
 
     fn create_session(&self, draft: NewSession) -> Result<Session> {
@@ -329,6 +337,14 @@ impl Store for InMemoryStore {
             .surfaces
             .retain(|_, s| s.surface.session_id.as_str() != sid);
         inner.sessions.remove(id.as_str());
+        Ok(())
+    }
+
+    fn reorder_session(&self, id: &SessionId, _sort_order: u32) -> Result<()> {
+        let inner = self.inner.lock().unwrap();
+        if !inner.sessions.contains_key(id.as_str()) {
+            return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
+        }
         Ok(())
     }
 

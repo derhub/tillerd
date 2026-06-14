@@ -380,6 +380,10 @@ pub trait Store: Send + Sync {
     /// Returns `ProjectNotArchived` if the project is not archived.
     fn hard_delete_project(&self, id: &ProjectId) -> Result<()>;
 
+    /// Reorder a project to a new sort position.
+    /// Returns `ProjectNotFound` if the project does not exist.
+    fn reorder_project(&self, id: &ProjectId, sort_order: u32) -> Result<()>;
+
     // ── session ───────────────────────────────────────────────────────────
 
     fn create_session(&self, draft: NewSession) -> Result<Session>;
@@ -399,6 +403,10 @@ pub trait Store: Send + Sync {
 
     /// Permanently remove an already-archived session and its surface rows.
     fn hard_delete_session(&self, id: &SessionId) -> Result<()>;
+
+    /// Reorder a session to a new sort position.
+    /// Returns `SessionNotFound` if the session does not exist.
+    fn reorder_session(&self, id: &SessionId, sort_order: u32) -> Result<()>;
 
     // ── surface ───────────────────────────────────────────────────────────
 
