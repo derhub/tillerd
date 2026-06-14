@@ -23,26 +23,26 @@
 
 ## 4. SDK Client Methods
 
-- [ ] 4.1 Add SDK type: `deleteProject(id: ProjectId) → Promise<void>`
-- [ ] 4.2 Add SDK type: `deleteSession(id: SessionId) → Promise<void>`
-- [ ] 4.3 Add SDK type: `reorderProject(id: ProjectId, sortOrder: number) → Promise<void>`
-- [ ] 4.4 Add SDK type: `reorderSession(id: SessionId, sortOrder: number) → Promise<void>`
-- [ ] 4.5 Implement desktop host client for new methods (routes to orchestrator transport)
+- [x] 4.1 Add SDK type: `deleteProject(id: ProjectId) → Promise<void>`
+- [x] 4.2 Add SDK type: `deleteSession(id: SessionId) → Promise<void>`
+- [x] 4.3 Add SDK type: `reorderProject(id: ProjectId, sortOrder: number) → Promise<void>`
+- [x] 4.4 Add SDK type: `reorderSession(id: SessionId, sortOrder: number) → Promise<void>`
+- [x] 4.5 Implement desktop host client for new methods (routes to orchestrator transport)
 
 ## 5. UI Component: InlineRenameInput
 
-- [ ] 5.1 Create `InlineRenameInput.tsx` component (contentEditable or input-based, auto-focus, select-all on mount)
-- [ ] 5.2 Wire Enter key to confirm and call callback with new name
-- [ ] 5.3 Wire Escape key to cancel without saving
-- [ ] 5.4 Handle blur to cancel (optional, depending on UX preference)
-- [ ] 5.5 Validate non-empty input for projects; allow empty for sessions (fallback to ID prefix)
+- [x] 5.1 Create `InlineRenameInput.tsx` component (contentEditable or input-based, auto-focus, select-all on mount)
+- [x] 5.2 Wire Enter key to confirm and call callback with new name
+- [x] 5.3 Wire Escape key to cancel without saving
+- [x] 5.4 Handle blur to cancel (optional, depending on UX preference)
+- [x] 5.5 Validate non-empty input for projects; allow empty for sessions (fallback to ID prefix)
 
 ## 6. UI Component: Context Menus
 
-- [ ] 6.1 Expand `ProjectContextMenu` to show all four actions: Rename, Archive, Delete, Open in new window
+- [x] 6.1 Expand `ProjectContextMenu` to show all four actions: Rename, Archive, Delete, Open in new window
 - [ ] 6.2 Create `SessionContextMenu` with three actions: Rename, Archive, Delete
 - [ ] 6.3 Add keyboard navigation (Tab/Shift+Tab to focus items, Enter to invoke)
-- [ ] 6.4 Style both menus consistently with shadcn primitives and design tokens
+- [x] 6.4 Style both menus consistently with shadcn primitives and design tokens
 
 ## 7. UI: Drag-Drop Support
 
@@ -55,14 +55,14 @@
 
 ## 8. UI: SessionSidebar Integration
 
-- [ ] 8.1 Add state: `editingId` to track which project/session is in edit mode
-- [ ] 8.2 Wire up `onDoubleClick` on project names to activate inline rename (set editingId)
+- [x] 8.1 Add state: `editingId` to track which project/session is in edit mode
+- [x] 8.2 Wire up `onDoubleClick` on project names to activate inline rename (set editingId)
 - [ ] 8.3 Wire up `onDoubleClick` on session names to activate inline rename
-- [ ] 8.4 Add handlers: `handleRenameProject(id, newName)` and `handleRenameSession(id, newName)`
-- [ ] 8.5 Add handlers: `handleDeleteProject(id)` and `handleDeleteSession(id)` with confirmation dialogs (shadcn AlertDialog)
+- [x] 8.4 Add handlers: `handleRenameProject(id, newName)` and `handleRenameSession(id, newName)`
+- [x] 8.5 Add handlers: `handleDeleteProject(id)` and `handleDeleteSession(id)` with confirmation dialogs (shadcn AlertDialog)
 - [ ] 8.6 Add handlers: `handleReorderProject(id, newIndex)` and `handleReorderSession(id, newIndex)`
-- [ ] 8.7 Wire context menu handlers to activate inline rename or delete
-- [ ] 8.8 Call `refresh()` after each operation to sync with backend
+- [x] 8.7 Wire context menu handlers to activate inline rename or delete
+- [x] 8.8 Call `refresh()` after each operation to sync with backend
 
 ## 9. E2E Tests: Inline Rename
 
