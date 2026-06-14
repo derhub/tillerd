@@ -280,6 +280,7 @@ export function SessionSidebar() {
                   editingId={editingId}
                   onStartEdit={() => setEditingId(proj.id)}
                   onStartEditSession={(sid) => setEditingId(sid)}
+                  onCancelEdit={() => setEditingId(null)}
                   onRename={(newName) => void handleRenameProject(proj.id, newName)}
                   onRenameSession={handleRenameSession}
                   onDelete={() =>
@@ -313,6 +314,7 @@ export function SessionSidebar() {
                 editingId={editingId}
                 onStartEdit={() => setEditingId(UNFILED_ID)}
                 onStartEditSession={(sid) => setEditingId(sid)}
+                onCancelEdit={() => setEditingId(null)}
                 onRename={(newName) => void handleRenameProject(UNFILED_ID, newName)}
                 onRenameSession={handleRenameSession}
                 onDelete={() => {}}
@@ -350,6 +352,7 @@ function ProjectGroup({
   editingId,
   onStartEdit,
   onStartEditSession,
+  onCancelEdit,
   onRename,
   onRenameSession,
   onDelete,
@@ -370,6 +373,7 @@ function ProjectGroup({
   editingId: string | null;
   onStartEdit: () => void;
   onStartEditSession: (sessionId: string) => void;
+  onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onRenameSession: (sessionId: string, newName: string) => void;
   onDelete: () => void;
@@ -447,7 +451,7 @@ function ProjectGroup({
           <InlineRenameInput
             initialValue={project.name}
             onConfirm={onRename}
-            onCancel={() => {}}
+            onCancel={onCancelEdit}
             isProject={true}
           />
         ) : (
@@ -518,6 +522,7 @@ function ProjectGroup({
             isDesktop={isDesktop}
             isEditing={editingId === s.id}
             onStartEdit={() => onStartEditSession(s.id)}
+            onCancelEdit={onCancelEdit}
             onRename={(newName) => onRenameSession(s.id, newName)}
             onArchive={() => void onArchiveSession(s.id, window.location.pathname)}
             onDelete={() => onDeleteSession(s.id, s.title || s.id.slice(0, 8))}
@@ -672,6 +677,7 @@ function SessionRow({
   isDesktop,
   isEditing,
   onStartEdit,
+  onCancelEdit,
   onRename,
   onArchive,
   onDelete,
@@ -681,6 +687,7 @@ function SessionRow({
   isDesktop: boolean;
   isEditing: boolean;
   onStartEdit: () => void;
+  onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onArchive: () => void;
   onDelete: () => void;
@@ -693,7 +700,11 @@ function SessionRow({
   if (isEditing) {
     return (
       <div className="flex items-center gap-1 px-3">
-        <InlineRenameInput initialValue={session.title} onConfirm={onRename} onCancel={() => {}} />
+        <InlineRenameInput
+          initialValue={session.title}
+          onConfirm={onRename}
+          onCancel={onCancelEdit}
+        />
       </div>
     );
   }
