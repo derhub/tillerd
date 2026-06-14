@@ -453,6 +453,7 @@ function ProjectGroup({
         ) : (
           <span
             onDoubleClick={isUnfiled ? undefined : onStartEdit}
+            data-testid="project-name"
             className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1 cursor-text"
           >
             {project.name}

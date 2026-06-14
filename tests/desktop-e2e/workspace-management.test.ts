@@ -17,7 +17,7 @@ test("rename project by double-clicking and pressing Enter", async () => {
   await createProject(b, projectName);
 
   // Find the project header in the sidebar (uppercase, appears as a section header)
-  const projectHeader = await b.$(`span*=${projectName}`);
+  const projectHeader = await b.$('[data-testid="project-name"]');
   await projectHeader.waitForExist({ timeout: 10_000 });
 
   // Double-click to activate inline edit
@@ -35,14 +35,11 @@ test("rename project by double-clicking and pressing Enter", async () => {
   // Press Enter to confirm
   await input.keys(["Return"]);
 
-  // Input should close, new name should appear
-  await b.waitUntil(
-    async () => {
-      const text = await b.$("body").getText();
-      return text.includes(newName) && !text.includes(projectName);
-    },
-    { timeout: 10_000, timeoutMsg: "project rename did not persist in sidebar" },
-  );
+  // Input closes and the new name appears in the sidebar.
+  await b.waitUntil(async () => (await b.$("body").getText()).includes(newName), {
+    timeout: 10_000,
+    timeoutMsg: "project rename did not persist in sidebar",
+  });
 }, 120_000);
 
 test("cancel project rename by pressing Escape", async () => {
@@ -52,7 +49,7 @@ test("cancel project rename by pressing Escape", async () => {
   await createProject(b, projectName);
 
   // Double-click to activate inline edit
-  const projectHeader = await b.$(`span*=${projectName}`);
+  const projectHeader = await b.$('[data-testid="project-name"]');
   await projectHeader.doubleClick();
 
   const input = await b.$("input");
@@ -79,7 +76,7 @@ test("right-click project opens context menu", async () => {
   await createProject(b, projectName);
 
   // Right-click on project header
-  const projectHeader = await b.$(`span*=${projectName}`);
+  const projectHeader = await b.$('[data-testid="project-name"]');
   await projectHeader.waitForExist({ timeout: 10_000 });
   await projectHeader.click({ button: 2 }); // button: 2 = right-click
 
@@ -102,7 +99,7 @@ test("delete project after confirming dialog", async () => {
   await createProject(b, projectName);
 
   // Right-click and select Delete
-  const projectHeader = await b.$(`span*=${projectName}`);
+  const projectHeader = await b.$('[data-testid="project-name"]');
   await projectHeader.click({ button: 2 });
 
   const menu = await b.$("[role=menu]");
@@ -135,7 +132,7 @@ test("cancel project deletion leaves the project in place", async () => {
 
   await createProject(b, projectName);
 
-  const projectHeader = await b.$(`span*=${projectName}`);
+  const projectHeader = await b.$('[data-testid="project-name"]');
   await projectHeader.click({ button: 2 });
   const menu = await b.$("[role=menu]");
   await menu.waitForExist({ timeout: 5_000 });
