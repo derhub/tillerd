@@ -64,10 +64,10 @@ test("cancel project rename by pressing Escape", async () => {
   await input.keys(["Escape"]);
 
   // Input should close, original name should remain
-  await b.waitUntil(
-    async () => (await b.$("body").getText()).includes(projectName),
-    { timeout: 10_000, timeoutMsg: "project name reverted after Escape" },
-  );
+  await b.waitUntil(async () => (await b.$("body").getText()).includes(projectName), {
+    timeout: 10_000,
+    timeoutMsg: "project name reverted after Escape",
+  });
 }, 120_000);
 
 // ── Context Menu ───────────────────────────────────────────────────────────
