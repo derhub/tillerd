@@ -128,3 +128,93 @@ test("delete project after confirming dialog", async () => {
     { timeout: 10_000, timeoutMsg: "deleted project still appears in sidebar" },
   );
 }, 120_000);
+
+test("cancel project deletion leaves the project in place", async () => {
+  const b = (browser = await launchReadyApp());
+  const projectName = `Project ${Date.now()}`;
+
+  await createProject(b, projectName);
+
+  const projectHeader = await b.$(`span*=${projectName}`);
+  await projectHeader.click({ button: 2 });
+  const menu = await b.$("[role=menu]");
+  await menu.waitForExist({ timeout: 5_000 });
+  await (await menu.$("button*=Delete")).click();
+
+  const dialog = await b.$("[role=alertdialog]");
+  await dialog.waitForExist({ timeout: 5_000 });
+  await (await dialog.$("button*=Cancel")).click();
+
+  // Project remains after cancel.
+  await b.waitUntil(async () => (await b.$("body").getText()).includes(projectName), {
+    timeout: 10_000,
+    timeoutMsg: "project vanished after cancelling deletion",
+  });
+}, 120_000);
+
+// ── Session inline rename / context menu ────────────────────────────────────
+
+test("rename session by double-clicking and pressing Enter", async () => {
+  const b = (browser = await launchReadyApp());
+  const projectName = `Project ${Date.now()}`;
+  const newTitle = `Renamed Session ${Date.now()}`;
+
+  const firstSessionUrl = await createProject(b, projectName);
+  const sessionId = firstSessionUrl.split("/session/")[1];
+
+  // The session row carries the first 8 chars of its id as the default label.
+  const sessionRow = await b.$(`a[href="/session/${sessionId}"]`);
+  await sessionRow.waitForExist({ timeout: 10_000 });
+  await sessionRow.doubleClick();
+
+  const input = await b.$('[data-testid="inline-rename-input"]');
+  await input.waitForExist({ timeout: 5_000 });
+  await input.setValue(newTitle);
+  await input.keys(["Return"]);
+
+  await b.waitUntil(async () => (await b.$("body").getText()).includes(newTitle), {
+    timeout: 10_000,
+    timeoutMsg: "session rename did not persist in sidebar",
+  });
+}, 120_000);
+
+test("right-click session opens a context menu with rename, archive, delete", async () => {
+  const b = (browser = await launchReadyApp());
+  const projectName = `Project ${Date.now()}`;
+
+  const firstSessionUrl = await createProject(b, projectName);
+  const sessionId = firstSessionUrl.split("/session/")[1];
+
+  const sessionRow = await b.$(`a[href="/session/${sessionId}"]`);
+  await sessionRow.waitForExist({ timeout: 10_000 });
+  await sessionRow.click({ button: 2 });
+
+  const menu = await b.$("[role=menu]");
+  await menu.waitForExist({ timeout: 5_000 });
+  const menuText = await menu.getText();
+  expect(menuText).toMatch(/rename/i);
+  expect(menuText).toMatch(/archive/i);
+  expect(menuText).toMatch(/delete/i);
+}, 120_000);
+
+test("session context menu closes on outside click", async () => {
+  const b = (browser = await launchReadyApp());
+  const projectName = `Project ${Date.now()}`;
+
+  const firstSessionUrl = await createProject(b, projectName);
+  const sessionId = firstSessionUrl.split("/session/")[1];
+
+  const sessionRow = await b.$(`a[href="/session/${sessionId}"]`);
+  await sessionRow.waitForExist({ timeout: 10_000 });
+  await sessionRow.click({ button: 2 });
+
+  const menu = await b.$("[role=menu]");
+  await menu.waitForExist({ timeout: 5_000 });
+
+  // Click elsewhere — the menu should close.
+  await (await b.$("body")).click();
+  await b.waitUntil(async () => !(await menu.isExisting()), {
+    timeout: 5_000,
+    timeoutMsg: "context menu stayed open after an outside click",
+  });
+}, 120_000);

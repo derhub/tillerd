@@ -29,6 +29,7 @@ import {
   projectQuery,
 } from "~/lib/windows";
 import { InlineRenameInput } from "~/components/InlineRenameInput";
+import { reorderByDrop } from "~/lib/reorder";
 
 import type { Project, Session } from "@tillerd/sdk/orchestrator";
 
@@ -391,24 +392,17 @@ function ProjectGroup({
   const handleProjectDrop = (e: React.DragEvent) => {
     setDragOver(false);
     const sourceId = e.dataTransfer.getData(DRAG_PROJECT);
-    if (!sourceId || sourceId === project.id || isUnfiled) return;
-    const ids = [...projectIds];
-    const from = ids.indexOf(sourceId);
-    const to = ids.indexOf(project.id);
-    if (from < 0 || to < 0) return;
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
-    onReorderProjects(ids);
+    if (!sourceId || isUnfiled) return;
+    const next = reorderByDrop(projectIds, sourceId, project.id);
+    if (next !== projectIds) onReorderProjects(next);
   };
 
-  // Drop a session onto another within the SAME project to reorder; cross-project drops are rejected.
+  // Drop a session onto another within the SAME project to reorder. A session from another project
+  // is absent from this list, so `reorderByDrop` returns the input unchanged — cross-project rejected.
   const handleSessionDrop = (sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return;
     const ids = sessions.map((s) => s.id);
-    const from = ids.indexOf(sourceId);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0) return; // source not in this project → cross-project, reject
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
-    onReorderSessions(ids);
+    const next = reorderByDrop(ids, sourceId, targetId);
+    if (next !== ids) onReorderSessions(next);
   };
 
   return (
