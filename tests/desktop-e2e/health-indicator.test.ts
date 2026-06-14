@@ -13,35 +13,44 @@ afterEach(async () => {
   browser = undefined;
 });
 
-test("the health indicator lists each service and its logs link opens the filtered viewer", async () => {
+// Open the popover, click `service`'s logs link, and assert every rendered row is that service.
+async function expectLogsFilteredTo(b: Browser, service: string) {
+  await (await b.$('[aria-label^="Service health"]')).click();
+  await (await b.$('[data-slot="popover-content"]')).waitForExist({ timeout: 10_000 });
+  await (await b.$(`a[href="/logs?service=${service}"]`)).click();
+
+  await b.waitUntil(async () => (await b.getUrl()).includes(`service=${service}`), {
+    timeout: 10_000,
+    timeoutMsg: `${service} logs link did not navigate`,
+  });
+  await (await b.$('[data-testid="log-viewer"]')).waitForExist({ timeout: 10_000 });
+  // Wait for this service's rows so we never read stale rows from the prior navigation.
+  await b.waitUntil(
+    () => b.execute((s) => document.querySelectorAll(`[data-service="${s}"]`).length > 0, service),
+    { timeout: 15_000, timeoutMsg: `no ${service} rows appeared` },
+  );
+  const rows = await b.execute(() =>
+    Array.from(document.querySelectorAll("[data-service]")).map((el) =>
+      el.getAttribute("data-service"),
+    ),
+  );
+  expect(rows.length).toBeGreaterThan(0);
+  expect(rows.every((s) => s === service)).toBe(true);
+}
+
+test("each health-row logs link filters the viewer to its own service", async () => {
   const b = await launchReadyApp();
   browser = b;
 
   await (await b.$('[aria-label^="Service health"]')).click();
   const panel = await b.$('[data-slot="popover-content"]');
   await panel.waitForExist({ timeout: 10_000 });
+  const panelText = await panel.getText();
+  expect(panelText).toContain("orchestrator");
+  expect(panelText).toContain("gate");
+  expect(panelText).toContain("daemon");
+  await b.keys(["Escape"]); // close it; each assertion reopens the popover
 
-  const text = await panel.getText();
-  expect(text).toContain("orchestrator");
-  expect(text).toContain("gate");
-  expect(text).toContain("daemon");
-
-  // Click the gate row's logs link: it must client-side navigate (no hard `tauri://` load) to the
-  // viewer pre-filtered to that service.
-  const gateLogs = await b.$('a[href="/logs?service=tillerd-gate"]');
-  await gateLogs.waitForExist({ timeout: 10_000 });
-  await gateLogs.click();
-
-  await b.waitUntil(async () => (await b.getUrl()).includes("service=tillerd-gate"), {
-    timeout: 10_000,
-    timeoutMsg: "logs link did not navigate to the filtered viewer",
-  });
-  // Wait for the viewer to mount: the route changes before React renders it, and on a slow
-  // (xvfb) runner an immediate `isExisting` races the render.
-  const viewer = await b.$('[data-testid="log-viewer"]');
-  await viewer.waitForExist({ timeout: 10_000 });
-  expect(await viewer.isExisting()).toBe(true);
-  const facet = await b.$('select[aria-label="service"]');
-  await facet.waitForExist({ timeout: 5_000 });
-  expect(await facet.getValue()).toBe("tillerd-gate");
+  await expectLogsFilteredTo(b, "tillerd-gate");
+  await expectLogsFilteredTo(b, "tillerd-desktop");
 }, 120_000);
