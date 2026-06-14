@@ -13,7 +13,10 @@
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::surface_host::SurfaceState;
-use crate::{bridge, diag, files, settings_host, store, supervisor, surface_host, workspace_host};
+use crate::{
+    bridge, diag, files, settings_host, store, supervisor, surface_host, window_host,
+    workspace_host,
+};
 use orchestrator::persistence::memory::InMemoryStore;
 use orchestrator::persistence::{Store, SurfaceId};
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
@@ -69,6 +72,8 @@ fn contract_app() -> tauri::App<MockRuntime> {
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
+            window_host::window_open,
+            window_host::window_focus,
             workspace_host::project_create,
             workspace_host::project_list,
             workspace_host::project_rename,
@@ -210,6 +215,11 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "surface_detach",
             serde_json::json!({ "surfaceId": "contract" }),
         ),
+        (
+            "window_open",
+            serde_json::json!({ "label": "detached-contract", "query": "?w=detached&session=s&placement=p" }),
+        ),
+        ("window_focus", serde_json::json!({ "label": "main" })),
         ("project_create", serde_json::json!({ "name": "contract" })),
         ("project_list", serde_json::json!({})),
         (

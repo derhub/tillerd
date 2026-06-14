@@ -11,7 +11,11 @@ export function DesktopTerminalPane(_props: {
   placement: string;
   cwd: string;
   onSessionStart?: (id: string) => void;
+  // Detach the surface proxy on unmount (default). A detached child window passes `false` so closing
+  // it leaves the live PTY for the parent's revisit path to re-bind — avoids a channel-remove race.
+  detachOnUnmount?: boolean;
 }) {
+  const detachOnUnmount = _props.detachOnUnmount ?? true;
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<string>("connecting");
   // Exposed as `data-surface-id` so a session's surface is observable (e.g. the desktop e2e asserts
@@ -111,7 +115,7 @@ export function DesktopTerminalPane(_props: {
         ro.disconnect();
         unsubStatus();
         unsubExit();
-        void client.detach(surfaceId);
+        if (detachOnUnmount) void client.detach(surfaceId);
         term.dispose();
         termRef.current = null;
       };
