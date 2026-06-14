@@ -113,4 +113,4 @@
 - [x] 13.2 Verify sidebar loads and displays projects/sessions in sort_order (COALESCE(sort_order, rowid) tested)
 - [x] 13.3 Smoke test: rename, delete, reorder operations work end-to-end (workspace-management e2e: 8 pass)
 - [x] 13.4 E2E suite passes on macOS dev environment (full desktop-e2e: 25 pass)
-- [ ] 13.5 E2E suite passes on Linux CI (GitHub Actions) — confirmed in the COMMIT CI watch
+- [x] 13.5 E2E suite passes on Linux CI (GitHub Actions) — PR #27 e2e (ubuntu-latest) green
