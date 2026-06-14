@@ -109,8 +109,8 @@
 
 ## 13. Integration & Verification
 
-- [ ] 13.1 Run `bun run verify` locally (format, types, lint, tests, e2e) until green
+- [x] 13.1 Run verify locally — format/check-types/lint (14 tasks) + unit/integration (18 tasks) + desktop-e2e (25 tests) all green
 - [x] 13.2 Verify sidebar loads and displays projects/sessions in sort_order (COALESCE(sort_order, rowid) tested)
-- [ ] 13.3 Smoke test: rename, delete, reorder operations work end-to-end
-- [ ] 13.4 E2E suite passes on macOS dev environment
-- [ ] 13.5 E2E suite passes on Linux CI (GitHub Actions)
+- [x] 13.3 Smoke test: rename, delete, reorder operations work end-to-end (workspace-management e2e: 8 pass)
+- [x] 13.4 E2E suite passes on macOS dev environment (full desktop-e2e: 25 pass)
+- [ ] 13.5 E2E suite passes on Linux CI (GitHub Actions) — confirmed in the COMMIT CI watch
