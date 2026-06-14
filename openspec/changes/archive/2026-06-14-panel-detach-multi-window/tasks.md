@@ -40,7 +40,7 @@ and manual verification.
 - [x] 6.4 Renderer unit (`windows.test.ts`): intent parse + label helpers — the cross-window identity contract.
 - [x] 6.5 Desktop contract test: `window_open` / `window_focus` dispatch through the live IPC path with their arg shape.
 - [x] 6.6 Last-window shutdown invariant: shutdown fires only on `RunEvent::ExitRequested` (documented in `run()`); closing a non-last window never drains. Covers parent-close isolation (spec 8) — not E2E-able (closing the driven window ends the session).
-- [ ] 6.7 CI: run `tests/desktop-e2e/panel-detach.test.ts` green on macOS and Linux (needs the built desktop binary + `tauri-webdriver`; not run locally).
+- [x] 6.7 CI: `tests/desktop-e2e/panel-detach.test.ts` green on macOS and Linux (PR #25 — e2e ubuntu + macos both passed).
 
 NOT E2E-able (covered by impl + unit + manual): re-attach round-trip (child-initiated; no emit/invoke from `execute`), child-window existence and focus-raise (single webview), detach→relaunch no-persist (detach state is React-only, never written to `layout_json`, so a relaunch is trivially attached). Verify these by running the app (`/run` or `tests/desktop-e2e/run.sh`).
 
