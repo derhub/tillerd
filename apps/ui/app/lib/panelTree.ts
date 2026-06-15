@@ -133,3 +133,8 @@ export function countLeaves(tree: PanelNode): number {
   if (tree.kind === "panel") return 1;
   return tree.children.reduce((s, c) => s + countLeaves(c), 0);
 }
+
+export function collectLeaves(tree: PanelNode): PanelLeaf[] {
+  if (tree.kind === "panel") return [tree];
+  return tree.children.flatMap(collectLeaves);
+}

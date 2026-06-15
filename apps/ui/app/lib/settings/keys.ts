@@ -5,6 +5,14 @@ export const DEFAULT_COMMAND_KEY = "default.command";
 export const DEFAULT_TEMPLATE_KEY = "default.template";
 export const SIDEBAR_EXPANDED_KEY = "sidebar.expanded";
 
+/** Command center: active keybinding preset, the leader-key chord, and the per-action override map. */
+export const KEYBINDINGS_PRESET_KEY = "keybindings.preset";
+export const KEYBINDINGS_LEADER_KEY = "keybindings.leader";
+export const KEYBINDINGS_OVERRIDES_KEY = "keybindings.overrides";
+
+/** Opens the command center; rebindable. Common palette convention, registered natively on desktop. */
+export const DEFAULT_LEADER = "CmdOrCtrl+K";
+
 /** Prefix for "don't ask again" confirmation-suppression keys (e.g. `confirm.close-surface`). */
 export const CONFIRM_PREFIX = "confirm.";
 

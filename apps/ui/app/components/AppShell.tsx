@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowUpRight, Columns2, ExternalLink, Rows2, Undo2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
@@ -11,7 +11,7 @@ import { DesktopTerminalPane } from "~/components/DesktopTerminalPane";
 import type { TerminalSurfaceClient } from "@tillerd/sdk/orchestrator";
 import { SessionContext } from "~/lib/sessionContext";
 import { usePanelTree } from "~/lib/usePanelTree";
-import { countLeaves } from "~/lib/panelTree";
+import { countLeaves, collectLeaves } from "~/lib/panelTree";
 import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/panelTree";
 import {
   armReattachOnClose,
@@ -30,10 +30,13 @@ import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { bootContent } from "~/lib/health/boot-content";
 import { ServiceHealthIndicator } from "~/components/ServiceHealthIndicator";
 import { NotificationIndicator } from "~/components/NotificationIndicator";
-import { SettingsPanel } from "~/components/SettingsPanel";
+import { SettingsPanel, SETTINGS_OPEN_EVENT } from "~/components/SettingsPanel";
 import { SettingsProvider } from "~/lib/settings/context";
 import { NotificationsProvider } from "~/lib/notifications/context";
 import { Skeleton } from "~/components/ui/skeleton";
+import { CommandCenter } from "~/components/CommandCenter";
+import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
+import { ACTION, ACTION_TITLES } from "~/lib/commands/ids";
 
 // Memoized so spawn and close share one transport instead of re-importing + rebuilding per action.
 let terminalClient: Promise<TerminalSurfaceClient> | null = null;
@@ -88,6 +91,21 @@ export function AppShell({
     orchestratorClient,
   );
   const totalPanels = countLeaves(tree);
+
+  // Refs so the command thunks read the current tree / active leaf / detached set at run time
+  // (the command array stays stable; no churn from these changing).
+  const treeRef = useRef(tree);
+  treeRef.current = tree;
+  const detachedRef = useRef(detached);
+  detachedRef.current = detached;
+  const activeLeafRef = useRef<string | null>(null);
+
+  // Track the active leaf from the last pointer-down within the content region.
+  const onContentPointerDown = useCallback((e: React.PointerEvent) => {
+    const el = (e.target as HTMLElement).closest("[data-panel-id]");
+    const id = el?.getAttribute("data-panel-id");
+    if (id) activeLeafRef.current = id;
+  }, []);
 
   const handleSpawn = useCallback(
     async (leafId: string) => {
@@ -150,6 +168,77 @@ export function AppShell({
     );
     return () => unlisten?.();
   }, [isProjectWindow, projectWindowId]);
+
+  // Panel / surface / chrome commands for the palette. Thunks read refs so the array is stable;
+  // each acts on the active leaf (falling back to the first matching leaf).
+  const shellCommands = useMemo<Command[]>(() => {
+    const pick = (pred: (l: PanelLeaf) => boolean): PanelLeaf | undefined => {
+      const leaves = collectLeaves(treeRef.current);
+      return leaves.find((l) => l.id === activeLeafRef.current && pred(l)) ?? leaves.find(pred);
+    };
+    return [
+      {
+        id: ACTION.panelSplitH,
+        title: ACTION_TITLES[ACTION.panelSplitH],
+        keywords: ["split", "horizontal", "right"],
+        run: () => {
+          const leaf = pick(() => true);
+          if (leaf) split(leaf.id, "horizontal");
+        },
+      },
+      {
+        id: ACTION.panelSplitV,
+        title: ACTION_TITLES[ACTION.panelSplitV],
+        keywords: ["split", "vertical", "down"],
+        run: () => {
+          const leaf = pick(() => true);
+          if (leaf) split(leaf.id, "vertical");
+        },
+      },
+      {
+        id: ACTION.surfaceSpawn,
+        title: ACTION_TITLES[ACTION.surfaceSpawn],
+        keywords: ["terminal", "surface", "spawn"],
+        run: () => {
+          const leaf = pick((l) => l.content.type === "empty");
+          if (leaf) void handleSpawn(leaf.id);
+        },
+      },
+      {
+        id: ACTION.surfaceClose,
+        title: ACTION_TITLES[ACTION.surfaceClose],
+        keywords: ["close", "surface"],
+        run: () => {
+          if (collectLeaves(treeRef.current).length <= 1) return;
+          const leaf = pick(() => true);
+          if (leaf) handleClose(leaf);
+        },
+      },
+      {
+        id: ACTION.surfaceDetach,
+        title: ACTION_TITLES[ACTION.surfaceDetach],
+        keywords: ["detach", "window"],
+        run: () => {
+          const leaf = pick(
+            (l) => l.content.type === "terminal" && !detachedRef.current.has(l.content.placement),
+          );
+          if (leaf) handleDetach(leaf);
+        },
+      },
+      {
+        id: ACTION.viewLogs,
+        title: ACTION_TITLES[ACTION.viewLogs],
+        keywords: ["logs", "observability"],
+        run: () => void navigate("/logs"),
+      },
+      {
+        id: ACTION.appSettings,
+        title: ACTION_TITLES[ACTION.appSettings],
+        keywords: ["preferences", "theme", "keybindings"],
+        run: () => window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)),
+      },
+    ];
+  }, [split, handleClose, handleSpawn, handleDetach, navigate]);
 
   const renderNode = useCallback(
     (node: PanelNode, path: string): React.ReactNode => {
@@ -319,40 +408,47 @@ export function AppShell({
   return (
     <SettingsProvider>
       <NotificationsProvider>
-        <SessionContext value={{ sessionId, status, setStatus }}>
-          <div className="h-dvh w-full flex overflow-hidden">
-            <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-              <SessionSidebar />
-            </aside>
-            <div className="flex-1 min-w-0 pt-px relative">
-              {onLogs ? (
-                <LogViewer initialService={logsService} />
-              ) : host.status === "web" ? (
-                <TerminalPane sessionId={sessionId} />
-              ) : bootRegion === "content" ? (
-                renderNode(tree, "root")
-              ) : bootRegion === "skeleton" ? (
-                <ContentSkeleton />
-              ) : null}
-              <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
-                {isProjectWindow && (
-                  <button
-                    type="button"
-                    onClick={() => void closeSelf()}
-                    aria-label="Re-attach"
-                    className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
-                  >
-                    <Undo2 size={12} />
-                    <span>Re-attach</span>
-                  </button>
-                )}
-                <NotificationIndicator />
-                <SettingsPanel />
-                <ServiceHealthIndicator />
+        <CommandRegistryProvider>
+          <SessionContext value={{ sessionId, status, setStatus }}>
+            <RegisterCommands commands={shellCommands} />
+            <CommandCenter />
+            <div className="h-dvh w-full flex overflow-hidden">
+              <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
+                <SessionSidebar />
+              </aside>
+              <div
+                className="flex-1 min-w-0 pt-px relative"
+                onPointerDownCapture={onContentPointerDown}
+              >
+                {onLogs ? (
+                  <LogViewer initialService={logsService} />
+                ) : host.status === "web" ? (
+                  <TerminalPane sessionId={sessionId} />
+                ) : bootRegion === "content" ? (
+                  renderNode(tree, "root")
+                ) : bootRegion === "skeleton" ? (
+                  <ContentSkeleton />
+                ) : null}
+                <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
+                  {isProjectWindow && (
+                    <button
+                      type="button"
+                      onClick={() => void closeSelf()}
+                      aria-label="Re-attach"
+                      className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+                    >
+                      <Undo2 size={12} />
+                      <span>Re-attach</span>
+                    </button>
+                  )}
+                  <NotificationIndicator />
+                  <SettingsPanel />
+                  <ServiceHealthIndicator />
+                </div>
               </div>
             </div>
-          </div>
-        </SessionContext>
+          </SessionContext>
+        </CommandRegistryProvider>
       </NotificationsProvider>
     </SettingsProvider>
   );
