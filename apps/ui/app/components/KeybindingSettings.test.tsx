@@ -45,10 +45,12 @@ describe("KeybindingSettings", () => {
   test("editing an override persists the canonicalized chord", async () => {
     const sets = renderPanel();
     const input = (await screen.findByTestId(`kb-${ACTION.surfaceClose}`)) as HTMLInputElement;
+    // The default binding hydrates into the input; edit only once it has settled.
+    await waitFor(() => expect(input.value).toBe("CmdOrCtrl+W"));
     fireEvent.change(input, { target: { value: "cmd+shift+w" } });
     fireEvent.blur(input);
     await waitFor(() => {
-      const written = sets.find((s) => s.key === "keybindings.overrides");
+      const written = sets.findLast((s) => s.key === "keybindings.overrides");
       expect(written).toBeDefined();
       expect(JSON.parse(written!.value as string)[ACTION.surfaceClose]).toBe("CmdOrCtrl+Shift+W");
     });
@@ -59,10 +61,12 @@ describe("KeybindingSettings", () => {
       "keybindings.overrides": JSON.stringify({ [ACTION.surfaceClose]: "CmdOrCtrl+Shift+W" }),
     });
     const input = (await screen.findByTestId(`kb-${ACTION.surfaceClose}`)) as HTMLInputElement;
+    // Wait for the seeded override to hydrate so a late reset cannot clobber the cleared draft.
+    await waitFor(() => expect(input.value).toBe("CmdOrCtrl+Shift+W"));
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.blur(input);
     await waitFor(() => {
-      const written = sets.find((s) => s.key === "keybindings.overrides");
+      const written = sets.findLast((s) => s.key === "keybindings.overrides");
       expect(written).toBeDefined();
       expect(ACTION.surfaceClose in JSON.parse(written!.value as string)).toBe(false);
     });
