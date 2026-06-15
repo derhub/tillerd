@@ -328,15 +328,15 @@ Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 
 Configurable keyboard shortcuts with a leader-key–activated command palette.
 
-- [ ] Leader key — a configurable key sequence (e.g. Shift+Shift or Cmd+Shift)
+- [x] Leader key — a configurable key sequence (e.g. Shift+Shift or Cmd+Shift)
   registered at the Tauri native-menu level so it fires even when the terminal has
   focus. Activating it opens the command center overlay.
-- [ ] Command center overlay — fuzzy-searchable palette of all available actions
+- [x] Command center overlay — fuzzy-searchable palette of all available actions
   (create project / session / surface, close, switch session, split panel, detach,
   …). Actions invoke the same handlers as toolbar buttons and menu accelerators.
-- [ ] Configurable bindings — every action has a rebindable key; bindings stored in
+- [x] Configurable bindings — every action has a rebindable key; bindings stored in
   global settings (0.0.9).
-- [ ] Preset profiles — ship built-in keybinding presets: `default`, `vim`, `vscode`,
+- [x] Preset profiles — ship built-in keybinding presets: `default`, `vim`, `vscode`,
   `tmux`. User selects a preset as a baseline and can override individual bindings.
 
 ---

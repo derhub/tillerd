@@ -5,6 +5,7 @@ mod daemon_session;
 mod diag;
 mod files;
 mod gate_admin;
+mod menu;
 mod notification_host;
 mod orchestrator_host;
 mod settings_host;
@@ -14,8 +15,7 @@ mod surface_host;
 mod window_host;
 mod workspace_host;
 
-use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 use bridge::BridgeState;
 use orchestrator_host::OrchestratorState;
@@ -54,32 +54,13 @@ pub fn run() {
         .manage(StoreState::load())
         .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
+        .manage(menu::LeaderMenuState::default())
         .setup(|app| {
-            // Native menu: the platform default (app / Edit / View / Window / Help) with a
-            // Logs entry added to the existing View submenu. It routes the renderer to /logs
-            // via a "menu:navigate" event. Falls back to a new View submenu if the default
-            // has none.
-            let logs = MenuItemBuilder::with_id("view_logs", "Logs").build(app)?;
-            let menu = Menu::default(app.handle())?;
-            let mut placed = false;
-            for item in menu.items()? {
-                if let MenuItemKind::Submenu(sub) = item {
-                    if sub.text().unwrap_or_default() == "View" {
-                        sub.append(&logs)?;
-                        placed = true;
-                        break;
-                    }
-                }
-            }
-            if !placed {
-                menu.append(&SubmenuBuilder::new(app, "View").item(&logs).build()?)?;
-            }
-            app.set_menu(menu)?;
-            app.on_menu_event(|app_handle, event| {
-                if event.id().as_ref() == "view_logs" {
-                    let _ = app_handle.emit("menu:navigate", "/logs");
-                }
-            });
+            // Native menu: the platform default (app / Edit / View / Window / Help) with Logs and
+            // Command Center entries in the View submenu. Logs routes the renderer to /logs; the
+            // Command Center accelerator is the leader key (fires over terminal focus) and emits
+            // "command-center:open".
+            menu::install_menu(app)?;
 
             // Construct and boot the single embedded orchestrator instance; it
             // streams lifecycle events to the renderer and reaches `ready`.
@@ -135,6 +116,7 @@ pub fn run() {
             settings_host::setting_set,
             settings_host::setting_list,
             notification_host::notifications_list,
+            menu::command_center_set_leader,
         ])
         .build(app_context())
         .expect("error while building tauri application")

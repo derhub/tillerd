@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { NavLink, useNavigate } from "react-router";
 import {
   Plus,
@@ -30,6 +30,8 @@ import {
 } from "~/lib/windows";
 import { InlineRenameInput } from "~/components/InlineRenameInput";
 import { reorderByDrop } from "~/lib/reorder";
+import { useRegisterCommands, type Command } from "~/lib/commands/registry";
+import { ACTION, ACTION_TITLES, SESSION_SWITCH_PREFIX } from "~/lib/commands/ids";
 
 import type { Project, Session } from "@tillerd/sdk/orchestrator";
 
@@ -197,6 +199,47 @@ export function SessionSidebar() {
     },
     [host, refresh],
   );
+
+  // Project / session commands for the palette. Session-switch entries are dynamic (one per
+  // session) and unbindable; the rest act on the current project (derived from the open session).
+  const sidebarCommands = useMemo<Command[]>(() => {
+    const currentProjectId = (): string => {
+      const path = typeof window !== "undefined" ? window.location.pathname : "";
+      const sid = path.startsWith("/session/") ? path.slice("/session/".length) : null;
+      return sessions.find((s) => s.id === sid)?.projectId ?? UNFILED_ID;
+    };
+    const base: Command[] = [
+      {
+        id: ACTION.projectNew,
+        title: ACTION_TITLES[ACTION.projectNew],
+        keywords: ["project", "create"],
+        run: () => void handleNewProject(),
+      },
+      {
+        id: ACTION.sessionNew,
+        title: ACTION_TITLES[ACTION.sessionNew],
+        keywords: ["session", "create"],
+        run: () => void handleNewSession(currentProjectId()),
+      },
+      {
+        id: ACTION.projectOpenNewWindow,
+        title: ACTION_TITLES[ACTION.projectOpenNewWindow],
+        keywords: ["window", "project", "detach"],
+        run: () => {
+          const pid = currentProjectId();
+          handleOpenInNewWindow(pid, sessions.find((s) => s.projectId === pid)?.id ?? null);
+        },
+      },
+    ];
+    const switchCommands: Command[] = sessions.map((s) => ({
+      id: `${SESSION_SWITCH_PREFIX}${s.id}`,
+      title: `Switch to: ${s.title || s.id.slice(0, 8)}`,
+      keywords: ["session", "switch", "go to"],
+      run: () => void navigate(`/session/${s.id}`),
+    }));
+    return [...base, ...switchCommands];
+  }, [sessions, navigate, handleNewProject, handleNewSession, handleOpenInNewWindow]);
+  useRegisterCommands(sidebarCommands);
 
   // Group sessions by projectId
   const sessionsByProject = new Map<string, Session[]>();

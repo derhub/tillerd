@@ -48,6 +48,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
         .manage(store::StoreState::load())
         .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
+        .manage(crate::menu::LeaderMenuState::default())
         .invoke_handler(tauri::generate_handler![
             // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
             // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
@@ -96,6 +97,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
             settings_host::setting_set,
             settings_host::setting_list,
             crate::notification_host::notifications_list,
+            crate::menu::command_center_set_leader,
         ])
         .build(crate::app_context())
         .expect("app builds with the full command set + managed state");
@@ -279,6 +281,10 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "scope": "global", "projectId": null }),
         ),
         ("notifications_list", serde_json::json!({})),
+        (
+            "command_center_set_leader",
+            serde_json::json!({ "accelerator": "CmdOrCtrl+K" }),
+        ),
     ];
 
     for (cmd, body) in cases {
