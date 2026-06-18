@@ -148,6 +148,18 @@ export function AppShell({
     [sessionId],
   );
 
+  const handleReattachPanel = useCallback((placement: string) => {
+    void closeWindow(detachedLabel(placement));
+    // Parent-initiated: clear now rather than waiting for the child's re-attach event, which may
+    // not fire if the child is closed before it armed its close handler.
+    setDetached((prev) => {
+      if (!prev.has(placement)) return prev;
+      const next = new Set(prev);
+      next.delete(placement);
+      return next;
+    });
+  }, []);
+
   // Parent side: when a child emits re-attach, drop the detached flag (re-mounting the pane, whose
   // revisit path re-binds the live PTY) and focus this window. Child windows skip this.
   useEffect(() => {
@@ -405,11 +417,7 @@ export function AppShell({
         );
       case "terminal":
         if (detached.has(content.placement)) {
-          return (
-            <DetachedPlaceholder
-              onReattach={() => void closeWindow(detachedLabel(content.placement))}
-            />
-          );
+          return <DetachedPlaceholder onReattach={() => handleReattachPanel(content.placement)} />;
         }
         return (
           <DesktopTerminalPane

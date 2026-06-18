@@ -213,6 +213,14 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
 
   const handleReattach = useCallback((workspaceId: string) => {
     void closeWindow(workspaceLabel(workspaceId));
+    // Parent-initiated: clear the flag now rather than waiting for the child's re-attach event,
+    // which may not fire if the child is closed before it armed its close handler.
+    setDetachedWorkspaces((prev) => {
+      if (!prev.has(workspaceId)) return prev;
+      const next = new Set(prev);
+      next.delete(workspaceId);
+      return next;
+    });
   }, []);
 
   return (

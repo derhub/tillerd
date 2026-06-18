@@ -86,6 +86,18 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
     setDetachedProjects((prev) => new Set(prev).add(projectId));
   }, []);
 
+  const handleReattachProject = useCallback((projectId: string) => {
+    void closeWindow(projectLabel(projectId));
+    // Parent-initiated: clear now rather than waiting for the child's re-attach event, which may
+    // not fire if the child is closed before it armed its close handler.
+    setDetachedProjects((prev) => {
+      if (!prev.has(projectId)) return prev;
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     void onReattachProject(({ projectId }) => {
@@ -346,7 +358,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                   onOpenInNewWindow={() =>
                     handleOpenInNewWindow(proj.id, projSessions[0]?.id ?? null)
                   }
-                  onFocusDetached={() => void closeWindow(projectLabel(proj.id))}
+                  onFocusDetached={() => handleReattachProject(proj.id)}
                 />
               );
             })}
@@ -384,7 +396,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                 onOpenInNewWindow={() =>
                   handleOpenInNewWindow(UNFILED_ID, unfiledSessions[0]?.id ?? null)
                 }
-                onFocusDetached={() => void closeWindow(projectLabel(UNFILED_ID))}
+                onFocusDetached={() => handleReattachProject(UNFILED_ID)}
               />
             )}
           </div>
