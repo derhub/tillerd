@@ -21,8 +21,8 @@ import {
 import { cn } from "~/lib/utils";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import {
+  closeWindow,
   focusSelf,
-  focusWindow,
   onReattachProject,
   openWindow,
   projectLabel,
@@ -346,7 +346,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                   onOpenInNewWindow={() =>
                     handleOpenInNewWindow(proj.id, projSessions[0]?.id ?? null)
                   }
-                  onFocusDetached={() => void focusWindow(projectLabel(proj.id))}
+                  onFocusDetached={() => void closeWindow(projectLabel(proj.id))}
                 />
               );
             })}
@@ -384,7 +384,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                 onOpenInNewWindow={() =>
                   handleOpenInNewWindow(UNFILED_ID, unfiledSessions[0]?.id ?? null)
                 }
-                onFocusDetached={() => void focusWindow(projectLabel(UNFILED_ID))}
+                onFocusDetached={() => void closeWindow(projectLabel(UNFILED_ID))}
               />
             )}
           </div>
@@ -522,8 +522,8 @@ function ProjectGroup({
           <button
             type="button"
             onClick={onFocusDetached}
-            aria-label={`Focus ${project.name} window`}
-            title={`${project.name} is open in another window`}
+            aria-label={`Re-attach ${project.name}`}
+            title={`${project.name} is in another window — click to re-attach`}
             data-testid="project-detached-indicator"
             className={cn(
               "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",

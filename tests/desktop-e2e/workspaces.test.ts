@@ -126,7 +126,7 @@ test("two workspaces keep their projects isolated in the sidebar", async () => {
   );
 }, 120_000);
 
-test("re-opening a detached workspace focuses rather than opening a second window", async () => {
+test("re-attaching a detached workspace from the parent restores its detach control", async () => {
   const b = getApp();
   await resetToHome(b);
 
@@ -141,11 +141,17 @@ test("re-opening a detached workspace focuses rather than opening a second windo
     `[data-testid="workspace-detached-indicator"][data-workspace-id="${id}"]`,
   );
   await indicator.waitForExist({ timeout: 10_000 });
+  // Clicking the indicator closes the child window from the parent, which re-attaches the
+  // workspace — the row returns to its detach control.
   await indicator.click();
 
-  expect(await indicator.isExisting()).toBe(true);
   const detachAgain = await b.$(`[data-testid="workspace-detach"][data-workspace-id="${id}"]`);
-  expect(await detachAgain.isExisting()).toBe(false);
+  await detachAgain.waitForExist({ timeout: 10_000 });
+  expect(
+    await b
+      .$(`[data-testid="workspace-detached-indicator"][data-workspace-id="${id}"]`)
+      .then((el) => el.isExisting()),
+  ).toBe(false);
 }, 120_000);
 
 test("the switcher lists multiple workspaces alongside Default", async () => {

@@ -16,12 +16,12 @@ import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/p
 import {
   armReattachOnClose,
   closeSelf,
+  closeWindow,
   detachedLabel,
   detachedQuery,
   emitReattachProject,
   emitReattachWorkspace,
   focusSelf,
-  focusWindow,
   onReattachPanel,
   openWindow,
 } from "~/lib/windows";
@@ -407,7 +407,7 @@ export function AppShell({
         if (detached.has(content.placement)) {
           return (
             <DetachedPlaceholder
-              onFocus={() => void focusWindow(detachedLabel(content.placement))}
+              onReattach={() => void closeWindow(detachedLabel(content.placement))}
             />
           );
         }
@@ -472,7 +472,7 @@ export function AppShell({
 }
 
 /** Stand-in for a panel whose surface is detached to a child window; "Focus" raises that window. */
-function DetachedPlaceholder({ onFocus }: { onFocus: () => void }) {
+function DetachedPlaceholder({ onReattach }: { onReattach: () => void }) {
   return (
     <div
       className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/20"
@@ -483,11 +483,11 @@ function DetachedPlaceholder({ onFocus }: { onFocus: () => void }) {
       </span>
       <button
         type="button"
-        onClick={onFocus}
-        aria-label="Focus detached window"
+        onClick={onReattach}
+        aria-label="Re-attach detached window"
         className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
       >
-        <span>Focus</span>
+        <span>Re-attach</span>
         <ArrowUpRight size={12} />
       </button>
     </div>

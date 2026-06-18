@@ -5,8 +5,8 @@ import { InlineRenameInput } from "~/components/InlineRenameInput";
 import { SessionSidebar } from "~/components/SessionSidebar";
 import { cn } from "~/lib/utils";
 import {
+  closeWindow,
   focusSelf,
-  focusWindow,
   onReattachWorkspace,
   openWindow,
   workspaceLabel,
@@ -26,7 +26,8 @@ export interface WorkspaceSwitcherProps {
   onSelect: (id: string) => void;
   onNewWorkspace: () => void;
   onDetach: (id: string) => void;
-  onFocusDetached: (id: string) => void;
+  /** Re-attach a detached workspace by closing its window (which fires the re-attach event). */
+  onReattach: (id: string) => void;
   /** Id of the workspace whose name is being edited inline, or null. */
   editingId: string | null;
   onStartEdit: (id: string) => void;
@@ -43,7 +44,7 @@ export function WorkspaceSwitcherList({
   onSelect,
   onNewWorkspace,
   onDetach,
-  onFocusDetached,
+  onReattach,
   editingId,
   onStartEdit,
   onCancelEdit,
@@ -82,9 +83,9 @@ export function WorkspaceSwitcherList({
           {detachedIds.has(ws.id) ? (
             <button
               type="button"
-              onClick={() => onFocusDetached(ws.id)}
-              aria-label={`Focus ${ws.name} window`}
-              title={`${ws.name} is open in another window`}
+              onClick={() => onReattach(ws.id)}
+              aria-label={`Re-attach ${ws.name}`}
+              title={`${ws.name} is in another window — click to re-attach`}
               data-testid="workspace-detached-indicator"
               data-workspace-id={ws.id}
               className={cn(
@@ -210,8 +211,8 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     setDetachedWorkspaces((prev) => new Set(prev).add(workspaceId));
   }, []);
 
-  const handleFocusDetached = useCallback((workspaceId: string) => {
-    void focusWindow(workspaceLabel(workspaceId));
+  const handleReattach = useCallback((workspaceId: string) => {
+    void closeWindow(workspaceLabel(workspaceId));
   }, []);
 
   return (
@@ -224,7 +225,7 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
         onSelect={setActiveWorkspaceId}
         onNewWorkspace={() => void handleNewWorkspace()}
         onDetach={handleDetach}
-        onFocusDetached={handleFocusDetached}
+        onReattach={handleReattach}
         editingId={editingId}
         onStartEdit={setEditingId}
         onCancelEdit={() => setEditingId(null)}
