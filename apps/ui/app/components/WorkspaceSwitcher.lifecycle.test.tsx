@@ -10,16 +10,19 @@ const beta = { id: "ws-2", name: "Beta" };
 
 const opened: string[] = [];
 const created: { name: string }[] = [];
+let workspaceList: { id: string; name: string }[] = [alpha, beta];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
 mock.module("~/lib/useDesktopHost", () => ({
   useDesktopHost: () => ({
     status: "ready",
     orchestratorClient: {
-      listWorkspaces: async () => [alpha, beta],
+      listWorkspaces: async () => [...workspaceList],
       createWorkspace: async ({ name }: { name: string }) => {
         created.push({ name });
-        return { id: "ws-new", name };
+        const ws = { id: "ws-new", name };
+        workspaceList.push(ws);
+        return ws;
       },
     },
   }),
@@ -47,6 +50,7 @@ afterEach(() => {
   cleanup();
   opened.length = 0;
   created.length = 0;
+  workspaceList = [alpha, beta];
   reattach = undefined;
 });
 
@@ -74,22 +78,19 @@ test("detaching a workspace opens its window and re-attaching closes it back to 
   expect(detachBtn()).not.toBeNull();
 });
 
-// Guards the bug where New workspace bailed on a null prompt — window.prompt returns null in the
-// Tauri webview, so the button must still create a workspace (under a default name).
-test("New workspace still creates one when window.prompt returns null", async () => {
-  const original = window.prompt;
-  window.prompt = () => null;
-  try {
-    render(<WorkspaceSwitcher />);
-    await waitFor(() =>
-      expect(document.querySelector('[data-testid="new-workspace"]')).not.toBeNull(),
-    );
-    act(() => {
-      (document.querySelector('[data-testid="new-workspace"]') as HTMLElement).click();
-    });
-    await waitFor(() => expect(created).toHaveLength(1));
-    expect(created[0].name).toBe("New workspace");
-  } finally {
-    window.prompt = original;
-  }
+// New workspace must not depend on window.prompt (unreliable in the Tauri webview): it creates a
+// placeholder workspace and drops straight into inline rename.
+test("New workspace creates a placeholder and opens it for inline rename", async () => {
+  render(<WorkspaceSwitcher />);
+  await waitFor(() =>
+    expect(document.querySelector('[data-testid="new-workspace"]')).not.toBeNull(),
+  );
+  act(() => {
+    (document.querySelector('[data-testid="new-workspace"]') as HTMLElement).click();
+  });
+  await waitFor(() => expect(created).toHaveLength(1));
+  expect(created[0].name).toBe("New workspace");
+  await waitFor(() =>
+    expect(document.querySelector('[data-testid="inline-rename-input"]')).not.toBeNull(),
+  );
 });

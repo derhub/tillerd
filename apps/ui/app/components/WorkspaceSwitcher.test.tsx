@@ -18,6 +18,10 @@ function renderSwitcher(over: Partial<WorkspaceSwitcherProps> = {}) {
     onNewWorkspace: () => {},
     onDetach: () => {},
     onFocusDetached: () => {},
+    editingId: null,
+    onStartEdit: () => {},
+    onCancelEdit: () => {},
+    onRename: () => {},
     ...over,
   };
   return render(
@@ -117,5 +121,18 @@ describe("WorkspaceSwitcherList", () => {
 
     fireEvent.click(indicator);
     expect(focused).toEqual(["ws-1"]);
+  });
+
+  test("an editing workspace shows the inline rename input and renames on Enter", () => {
+    const renamed: [string, string][] = [];
+    renderSwitcher({
+      workspaces: [alpha],
+      editingId: "ws-1",
+      onRename: (id, name) => renamed.push([id, name]),
+    });
+    const input = screen.getByTestId("inline-rename-input");
+    fireEvent.change(input, { target: { value: "Renamed" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(renamed).toEqual([["ws-1", "Renamed"]]);
   });
 });

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createProject, resetToHome, stubPrompt, uniqueName, type Browser } from "./helpers";
+import { createProject, resetToHome, uniqueName, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
 // Native windows are unreachable under WebDriver, so detach is asserted via its DOM affordance.
@@ -11,12 +11,16 @@ async function workspaceItem(b: Browser, name: string) {
   return null;
 }
 
-// Returns the new workspace's id; the created workspace becomes active.
+// New workspace creates a placeholder and opens an inline rename input (no native prompt); type the
+// name and confirm. Returns the new workspace's id; the created workspace becomes active.
 async function createWorkspace(b: Browser, name: string): Promise<string> {
-  await stubPrompt(b, name);
   const add = await b.$('[data-testid="new-workspace"]');
   await add.waitForExist({ timeout: 10_000 });
   await add.click();
+  const input = await b.$('[data-testid="inline-rename-input"]');
+  await input.waitForExist({ timeout: 10_000 });
+  await input.setValue(name);
+  await b.keys(["Enter"]);
   let id = "";
   await b.waitUntil(
     async () => {

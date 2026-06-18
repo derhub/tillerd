@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { FolderPlus, ArrowUpRight } from "lucide-react";
 import { useDesktopHost } from "~/lib/useDesktopHost";
+import { InlineRenameInput } from "~/components/InlineRenameInput";
 import { SessionSidebar } from "~/components/SessionSidebar";
 import { cn } from "~/lib/utils";
 import {
@@ -26,6 +27,11 @@ export interface WorkspaceSwitcherProps {
   onNewWorkspace: () => void;
   onDetach: (id: string) => void;
   onFocusDetached: (id: string) => void;
+  /** Id of the workspace whose name is being edited inline, or null. */
+  editingId: string | null;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onRename: (id: string, name: string) => void;
 }
 
 /** Presentational list of workspace chips + new-workspace control — no data fetching. */
@@ -38,6 +44,10 @@ export function WorkspaceSwitcherList({
   onNewWorkspace,
   onDetach,
   onFocusDetached,
+  editingId,
+  onStartEdit,
+  onCancelEdit,
+  onRename,
 }: WorkspaceSwitcherProps) {
   return (
     <div
@@ -46,20 +56,29 @@ export function WorkspaceSwitcherList({
     >
       {workspaces.map((ws) => (
         <div key={ws.id} className="flex items-center gap-1">
-          <button
-            type="button"
-            data-testid="workspace-item"
-            data-workspace-id={ws.id}
-            onClick={() => onSelect(ws.id)}
-            className={cn(
-              "flex-1 text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-              ws.id === activeId
-                ? "font-medium bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {ws.name}
-          </button>
+          {editingId === ws.id ? (
+            <InlineRenameInput
+              initialValue={ws.name}
+              onConfirm={(name) => onRename(ws.id, name)}
+              onCancel={onCancelEdit}
+            />
+          ) : (
+            <button
+              type="button"
+              data-testid="workspace-item"
+              data-workspace-id={ws.id}
+              onClick={() => onSelect(ws.id)}
+              onDoubleClick={() => onStartEdit(ws.id)}
+              className={cn(
+                "flex-1 text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                ws.id === activeId
+                  ? "font-medium bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              {ws.name}
+            </button>
+          )}
           {detachedIds.has(ws.id) ? (
             <button
               type="button"
@@ -128,6 +147,7 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     initialWorkspaceId ?? null,
   );
   const [detachedWorkspaces, setDetachedWorkspaces] = useState<Set<string>>(() => new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const isDesktop = host.status === "ready";
 
@@ -162,14 +182,27 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     return () => unlisten?.();
   }, []);
 
+  const handleRenameWorkspace = useCallback(
+    async (id: string, newName: string) => {
+      if (host.status !== "ready") return;
+      await host.orchestratorClient.renameWorkspace({
+        id,
+        name: newName.trim() || "New workspace",
+      });
+      await refresh();
+      setEditingId(null);
+    },
+    [host, refresh],
+  );
+
+  // Create under a placeholder name, then drop straight into inline rename. The Tauri webview has no
+  // reliable text-input dialog (window.prompt returns null), so naming happens in-app, not via prompt.
   const handleNewWorkspace = useCallback(async () => {
     if (host.status !== "ready") return;
-    // window.prompt is unreliable in the Tauri webview (often returns null with no dialog), so a
-    // cancelled/empty result still creates a workspace under a default name — matching "New project".
-    const name = window.prompt("Workspace name:")?.trim() || "New workspace";
-    const ws = await host.orchestratorClient.createWorkspace({ name });
+    const ws = await host.orchestratorClient.createWorkspace({ name: "New workspace" });
     await refresh();
     setActiveWorkspaceId(ws.id);
+    setEditingId(ws.id);
   }, [host, refresh]);
 
   const handleDetach = useCallback((workspaceId: string) => {
@@ -192,6 +225,10 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
         onNewWorkspace={() => void handleNewWorkspace()}
         onDetach={handleDetach}
         onFocusDetached={handleFocusDetached}
+        editingId={editingId}
+        onStartEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onRename={(id, name) => void handleRenameWorkspace(id, name)}
       />
       <SessionSidebar activeWorkspaceId={activeWorkspaceId ?? undefined} />
     </div>
