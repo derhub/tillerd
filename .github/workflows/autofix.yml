@@ -1,10 +1,7 @@
 name: autofix.ci # must keep this name
 
 on:
-  workflow_call:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
