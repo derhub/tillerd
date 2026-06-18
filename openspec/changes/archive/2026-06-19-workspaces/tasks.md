@@ -39,5 +39,5 @@
   workspace (sidebar reflects scoped projects), move a project between workspaces, detach a
   workspace into its own window. Detach open/focus asserted via DOM affordance + host
   command contract, not native windows.
-- [ ] 5.2 Final fix-all gate: `bun run verify` (format/check-types/lint/test) + desktop
+- [x] 5.2 Final fix-all gate: `bun run verify` (format/check-types/lint/test) + desktop
   e2e green; `openspec verify` (or manual scenario<->test 1:1) reports no gaps.
