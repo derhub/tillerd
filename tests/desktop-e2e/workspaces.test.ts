@@ -94,3 +94,76 @@ test("detaching a workspace surfaces its detached affordance", async () => {
   await indicator.waitForExist({ timeout: 10_000 });
   expect(await indicator.isExisting()).toBe(true);
 }, 120_000);
+
+test("two workspaces keep their projects isolated in the sidebar", async () => {
+  const b = getApp();
+  await resetToHome(b);
+
+  const wsA = uniqueName("WsA");
+  await createWorkspace(b, wsA); // active = wsA
+  const projA = uniqueName("ProjA");
+  await createProject(b, projA); // belongs to wsA
+
+  const wsB = uniqueName("WsB");
+  await createWorkspace(b, wsB); // active = wsB
+  const projB = uniqueName("ProjB");
+  await createProject(b, projB); // belongs to wsB
+
+  // wsA shows only its own project.
+  await selectWorkspace(b, wsA);
+  await b.waitUntil(
+    async () => {
+      const text = await b.$("body").getText();
+      return text.includes(projA) && !text.includes(projB);
+    },
+    { timeout: 10_000, timeoutMsg: "wsA sidebar did not isolate to its own project" },
+  );
+
+  // wsB shows only its own project.
+  await selectWorkspace(b, wsB);
+  await b.waitUntil(
+    async () => {
+      const text = await b.$("body").getText();
+      return text.includes(projB) && !text.includes(projA);
+    },
+    { timeout: 10_000, timeoutMsg: "wsB sidebar did not isolate to its own project" },
+  );
+}, 120_000);
+
+test("re-opening a detached workspace focuses rather than opening a second window", async () => {
+  const b = getApp();
+  await resetToHome(b);
+
+  const wsName = uniqueName("WSF");
+  const id = await createWorkspace(b, wsName);
+
+  const detach = await b.$(`[data-testid="workspace-detach"][data-workspace-id="${id}"]`);
+  await detach.waitForExist({ timeout: 10_000 });
+  await detach.click();
+
+  // Once detached, the detach control is replaced by a focus control; clicking it focuses the
+  // existing window (no second window) — the row stays detached, the detach control stays gone.
+  const indicator = await b.$(
+    `[data-testid="workspace-detached-indicator"][data-workspace-id="${id}"]`,
+  );
+  await indicator.waitForExist({ timeout: 10_000 });
+  await indicator.click();
+
+  expect(await indicator.isExisting()).toBe(true);
+  const detachAgain = await b.$(`[data-testid="workspace-detach"][data-workspace-id="${id}"]`);
+  expect(await detachAgain.isExisting()).toBe(false);
+}, 120_000);
+
+test("the switcher lists multiple workspaces alongside Default", async () => {
+  const b = getApp();
+  await resetToHome(b);
+
+  const wsA = uniqueName("WsList-A");
+  const wsB = uniqueName("WsList-B");
+  await createWorkspace(b, wsA);
+  await createWorkspace(b, wsB);
+
+  expect(await workspaceItem(b, "Default")).not.toBeNull();
+  expect(await workspaceItem(b, wsA)).not.toBeNull();
+  expect(await workspaceItem(b, wsB)).not.toBeNull();
+}, 120_000);
