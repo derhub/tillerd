@@ -26,7 +26,7 @@ nothing is shortcut to a `.0` bucket.
 ## 0.0.x — Working app
 
 The Rust inversion, then everything a daily-usable app needs. The line ends with the
-working app shipping at **0.0.15**.
+working app shipping at **0.0.20**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -169,7 +169,7 @@ Deferred to follow-up changes (each builds on the store shipped here):
   command-list method.
 - Per-project overrides (launch template, project env) — needs a project-scoped settings UI +
   launch-executor env injection.
-- Sidebar expand state — lands with the 0.0.15 project-tree expand/collapse UI; persists via
+- Sidebar expand state — lands with the 0.0.20 project-tree expand/collapse UI; persists via
   this store.
 - Env secrets via the OS keychain (`secret_ref` stores handles only) — no keychain dependency
   in 0.0.x.
@@ -256,7 +256,7 @@ migration under the 0.0.6 data-model freeze.
 
 ---
 
-### 0.0.15 — UX/UI (ships the working app)
+### 0.0.20 — UX/UI (ships the working app)
 
 Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
 0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (project & session
