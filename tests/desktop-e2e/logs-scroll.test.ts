@@ -1,7 +1,8 @@
-import { afterEach, test } from "bun:test";
+import { test } from "bun:test";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Browser, clearLogSeeds, launchReadyApp, openLogViewer } from "./helpers";
+import { clearLogSeeds, openLogViewer, type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Auto-scroll needs real layout (scrollHeight/clientHeight), which happy-dom lacks — so it is
 // covered here, in a real webview. Seeds an overflowing log file (far-future timestamps so
@@ -54,18 +55,11 @@ function readMetrics(b: Browser): Promise<Metrics> {
 
 const atBottom = (m: Metrics): boolean => m.height - m.top - m.client < 16;
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("auto-scroll follows new logs to the bottom", async () => {
   const file = logFile();
   writeFileSync(file, Array.from({ length: 800 }, (_, i) => line(i)).join(""));
 
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
   await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
 

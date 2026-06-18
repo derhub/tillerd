@@ -1,5 +1,6 @@
-import { afterEach, test } from "bun:test";
-import { type Browser, launchReadyApp } from "./helpers";
+import { test } from "bun:test";
+import { type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // The command center is a leader-activated fuzzy palette over the chrome actions. The native leader
 // accelerator is not WebDriver-reachable (native menu lives outside the webview), so these drive the
@@ -7,12 +8,6 @@ import { type Browser, launchReadyApp } from "./helpers";
 // assert listing, fuzzy filtering, invocation, and that a keybinding-preset change persists across a
 // reload. The native accelerator registration is covered by a Rust host test; the resolution/merge
 // logic by unit tests.
-
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
 
 function openPalette(b: Browser): Promise<void> {
   return b.execute(() => window.dispatchEvent(new CustomEvent("command-center:open")));
@@ -43,8 +38,7 @@ function newTerminalHint(b: Browser): Promise<string> {
 }
 
 test("the palette opens, fuzzy-filters, and invokes an action", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   await openPalette(b);
   const palette = await b.$('[data-testid="command-center"]');
@@ -73,8 +67,7 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
 }, 120_000);
 
 test("a keybinding-preset change reflects in the palette and survives a reload", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   // Switch the preset to vscode through the settings panel (vscode binds New terminal to a backtick
   // chord; the default does not).

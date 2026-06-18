@@ -1,11 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp } from "./helpers";
-
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
+import { expect, test } from "bun:test";
+import { createProject, type Browser, uniqueName } from "./helpers";
+import { getApp } from "./shared-app";
 
 // WebdriverIO's synthetic click/doubleClick/right-click do not reliably reach React's delegated
 // event listeners in WKWebView (see the `testing` memory). Dispatch real DOM MouseEvents on the
@@ -81,9 +76,9 @@ async function mousedownBody(b: Browser) {
 // ── Inline Rename ──────────────────────────────────────────────────────────
 
 test("rename project by double-clicking and pressing Enter", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
-  const newName = `Renamed ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
+  const newName = uniqueName("Renamed");
 
   await createProject(b, projectName);
 
@@ -103,8 +98,8 @@ test("rename project by double-clicking and pressing Enter", async () => {
 }, 120_000);
 
 test("cancel project rename by pressing Escape", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   await createProject(b, projectName);
 
@@ -126,8 +121,8 @@ test("cancel project rename by pressing Escape", async () => {
 // ── Context Menu ───────────────────────────────────────────────────────────
 
 test("right-click project opens context menu", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   await createProject(b, projectName);
 
@@ -145,8 +140,8 @@ test("right-click project opens context menu", async () => {
 // ── Delete ─────────────────────────────────────────────────────────────────
 
 test("delete project after confirming dialog", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   await createProject(b, projectName);
 
@@ -183,8 +178,8 @@ test("delete project after confirming dialog", async () => {
 }, 120_000);
 
 test("cancel project deletion leaves the project in place", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   await createProject(b, projectName);
 
@@ -208,9 +203,9 @@ test("cancel project deletion leaves the project in place", async () => {
 // ── Session inline rename / context menu ────────────────────────────────────
 
 test("rename session by double-clicking and pressing Enter", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
-  const newTitle = `Renamed Session ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
+  const newTitle = uniqueName("Renamed Session");
 
   const firstSessionUrl = await createProject(b, projectName);
   const sessionId = firstSessionUrl.split("/session/")[1];
@@ -231,8 +226,8 @@ test("rename session by double-clicking and pressing Enter", async () => {
 }, 120_000);
 
 test("right-click session opens a context menu with rename, archive, delete", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   const firstSessionUrl = await createProject(b, projectName);
   const sessionId = firstSessionUrl.split("/session/")[1];
@@ -250,8 +245,8 @@ test("right-click session opens a context menu with rename, archive, delete", as
 }, 120_000);
 
 test("session context menu closes on outside click", async () => {
-  const b = (browser = await launchReadyApp());
-  const projectName = `Project ${Date.now()}`;
+  const b = getApp();
+  const projectName = uniqueName("Project");
 
   const firstSessionUrl = await createProject(b, projectName);
   const sessionId = firstSessionUrl.split("/session/")[1];

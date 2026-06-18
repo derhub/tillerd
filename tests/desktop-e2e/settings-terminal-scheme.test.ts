@@ -1,17 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal, type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Changing the terminal color scheme in the settings panel must re-theme an already-mounted
 // terminal live (no respawn). The terminal pane's background tracks the scheme, so it is the
 // observable proxy: github-dark = rgb(13, 17, 23), github-light = rgb(255, 255, 255). This guards
 // the cross-component reactive path (panel write -> shared state -> mounted terminal re-render),
 // which a per-component setting read silently broke.
-
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
 
 async function selectValue(b: Browser, ariaLabel: string, value: string): Promise<void> {
   await b.execute(
@@ -34,8 +29,7 @@ function terminalBackground(b: Browser): Promise<string> {
 }
 
 test("changing the terminal scheme re-themes a mounted terminal live", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   await createProject(b, "scheme-e2e");
   await openTerminal(b);

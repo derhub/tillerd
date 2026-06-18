@@ -1,5 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal, uniqueName } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Panel detach / multi-window (roadmap 0.0.11), parent-webview scenarios. tauri-webdriver drives a
 // single webview and cannot invoke commands or emit events from `execute`, so child-window
@@ -7,16 +8,10 @@ import { type Browser, createProject, launchReadyApp, openTerminal } from "./hel
 // command-contract test, the renderer unit tests, and manual verification. What IS observable is the
 // parent's DOM reaction to each action, asserted below.
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 // Scenario (multi-window 1.2): an empty panel exposes no detach affordance.
 test("an empty panel shows no detach affordance", async () => {
-  const b = (browser = await launchReadyApp());
-  await createProject(b, `Detach ${Date.now()}`);
+  const b = getApp();
+  await createProject(b, uniqueName("Detach"));
 
   // A fresh session opens to an empty leaf; nothing is spawned, so there is no live surface.
   const detach = await b.$('button[aria-label="Detach"]');
@@ -26,8 +21,8 @@ test("an empty panel shows no detach affordance", async () => {
 // Scenario (multi-window 1.1, parent side): detaching a live terminal replaces the panel with a
 // greyed placeholder bearing a Focus button, and the live surface leaves the parent.
 test("detaching a terminal replaces it with a Focus placeholder", async () => {
-  const b = (browser = await launchReadyApp());
-  await createProject(b, `Detach ${Date.now()}`);
+  const b = getApp();
+  await createProject(b, uniqueName("Detach"));
   const surface = await openTerminal(b);
   expect(surface).toBeTruthy();
 
@@ -48,8 +43,8 @@ test("detaching a terminal replaces it with a Focus placeholder", async () => {
 // Scenario (open project in new window, parent side): the context-menu action marks the parent
 // project row with a pending-detach indicator.
 test("opening a project in a new window marks the parent row", async () => {
-  const b = (browser = await launchReadyApp());
-  const name = `Detach ${Date.now()}`;
+  const b = getApp();
+  const name = uniqueName("Detach");
   await createProject(b, name);
 
   // Dispatch the context menu on the project heading (native right-click is unreliable under
