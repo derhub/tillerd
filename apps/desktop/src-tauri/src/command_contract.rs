@@ -81,6 +81,12 @@ fn contract_app() -> tauri::App<MockRuntime> {
             workspace_host::project_archive,
             workspace_host::project_delete,
             workspace_host::project_reorder,
+            workspace_host::project_move,
+            workspace_host::workspace_create,
+            workspace_host::workspace_list,
+            workspace_host::workspace_rename,
+            workspace_host::workspace_reorder,
+            workspace_host::workspace_delete,
             workspace_host::session_list,
             workspace_host::session_create,
             workspace_host::session_rename,
@@ -238,6 +244,24 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "project_reorder",
             serde_json::json!({ "id": "contract", "sortOrder": 0 }),
         ),
+        (
+            "project_move",
+            serde_json::json!({ "id": "contract", "workspaceId": "contract" }),
+        ),
+        (
+            "workspace_create",
+            serde_json::json!({ "name": "contract" }),
+        ),
+        ("workspace_list", serde_json::json!({})),
+        (
+            "workspace_rename",
+            serde_json::json!({ "id": "contract", "name": "x" }),
+        ),
+        (
+            "workspace_reorder",
+            serde_json::json!({ "id": "contract", "sortOrder": 0 }),
+        ),
+        ("workspace_delete", serde_json::json!({ "id": "contract" })),
         ("session_list", serde_json::json!({ "projectId": null })),
         (
             "session_create",
