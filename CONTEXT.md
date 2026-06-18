@@ -4,11 +4,13 @@ A local-first desktop workspace that runs terminal (and later agent/diff) surfac
 
 ## Language
 
-### Workspace
+**Workspace**:
+A named group of projects that owns its own window; the top of the tree (`workspace → project → session → surface`). A project belongs to exactly one workspace. The built-in Default workspace is un-deletable.
+_Avoid_: project, repo
 
 **Project**:
-A named workspace root that owns a default launch template and groups sessions.
-_Avoid_: workspace, repo
+A launch root that owns a default launch template and groups sessions; belongs to exactly one workspace.
+_Avoid_: repo
 
 **Session**:
 A container instantiated from a project's launch template; owns its launch spec, its surfaces, and its panel tree. The launch spec may diverge from the template per session.
