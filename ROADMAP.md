@@ -26,7 +26,7 @@ nothing is shortcut to a `.0` bucket.
 ## 0.0.x — Working app
 
 The Rust inversion, then everything a daily-usable app needs. The line ends with the
-working app shipping at **0.0.14**.
+working app shipping at **0.0.15**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -169,7 +169,7 @@ Deferred to follow-up changes (each builds on the store shipped here):
   command-list method.
 - Per-project overrides (launch template, project env) — needs a project-scoped settings UI +
   launch-executor env injection.
-- Sidebar expand state — lands with the 0.0.14 project-tree expand/collapse UI; persists via
+- Sidebar expand state — lands with the 0.0.15 project-tree expand/collapse UI; persists via
   this store.
 - Env secrets via the OS keychain (`secret_ref` stores handles only) — no keychain dependency
   in 0.0.x.
@@ -216,33 +216,51 @@ connectivity changes needed.
 
 ---
 
-### 0.0.12 — Workspace management
+### 0.0.12 — Project & session management
 
 Project and session CRUD UX, plus session ordering. Backend (rename / delete) landed
 in 0.0.4; this milestone ships the interaction design for those operations and adds
 sort order.
 
-- [ ] Inline rename — double-click a project or session row in the sidebar to rename
+- [x] Inline rename — double-click a project or session row in the sidebar to rename
   in place; Enter confirms, Escape cancels.
-- [ ] Delete — right-click context menu (or hover button) → "Delete"; shadcn
+- [x] Delete — right-click context menu (or hover button) → "Delete"; shadcn
   AlertDialog confirmation; hard-delete cascades to surfaces (PTYs terminated).
   Distinct from archive (soft-delete, PTY preserved).
-- [ ] Session reorder — drag sessions within a project to reorder; `sort_order` column
+- [x] Session reorder — drag sessions within a project to reorder; `sort_order` column
   added to `sessions` table (migration + orchestrator API); order persists across
   restarts.
-- [ ] Project reorder — drag projects in the sidebar; `sort_order` on `projects` table
+- [x] Project reorder — drag projects in the sidebar; `sort_order` on `projects` table
   (same migration pass).
-- [ ] Context menus — right-click on project and session rows surfaces the full action
+- [x] Context menus — right-click on project and session rows surfaces the full action
   list (rename, archive, delete, open in new window).
-- [ ] E2E: rename, delete, and reorder flows on macOS and Linux CI.
+- [x] E2E: rename, delete, and reorder flows on macOS and Linux CI.
 
 ---
 
-### 0.0.14 — UX/UI (ships the working app)
+### 0.0.14 — Workspaces
+
+A `workspace` tier above `project` (ADR-0032): a named group of projects that owns its
+own window. Strict containment — every project belongs to exactly one workspace — with a
+single un-deletable Default workspace that existing projects migrate into. Additive schema
+migration under the 0.0.6 data-model freeze.
+
+- [x] Schema — `workspace` table + `project.workspace_id`; additive migration backfills
+  every existing project into Default; orchestrator workspace CRUD/reorder + `move_project`.
+- [x] Switcher — single main window with a workspace switcher; selecting a workspace
+  re-scopes the sidebar to its projects in place.
+- [x] Detach — a workspace opens in its own window via the existing project/session detach
+  machinery (`window_open` / `window_focus`, `?w=workspace`).
+- [x] Glossary + ADR — CONTEXT.md Workspace term; ADR-0032 extends ADR-0023.
+- [x] E2E: create, switch, and detach flows on macOS and Linux CI.
+
+---
+
+### 0.0.15 — UX/UI (ships the working app)
 
 Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
-0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (workspace management),
-0.0.13 (command center).
+0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (project & session
+management), 0.0.13 (command center), 0.0.14 (workspaces).
 Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 
 **Interaction polish**

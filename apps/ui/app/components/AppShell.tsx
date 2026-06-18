@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { ArrowUpRight, Columns2, ExternalLink, Rows2, Undo2 } from "lucide-react";
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
-import { SessionSidebar } from "~/components/SessionSidebar";
+import { WorkspaceSwitcher } from "~/components/WorkspaceSwitcher";
 import { LogViewer } from "~/components/LogViewer";
 import { EmptyPanel } from "~/components/EmptyPanel";
 import { TerminalPane } from "~/components/TerminalPane";
@@ -414,7 +414,7 @@ export function AppShell({
             <CommandCenter />
             <div className="h-dvh w-full flex overflow-hidden">
               <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-                <SessionSidebar />
+                <WorkspaceSwitcher />
               </aside>
               <div
                 className="flex-1 min-w-0 pt-px relative"

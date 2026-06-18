@@ -64,6 +64,30 @@ impl ProjectId {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WorkspaceId(String);
+
+impl WorkspaceId {
+    /// Fixed well-known id of the built-in Default workspace (mirrors `ProjectId::UNFILED`).
+    pub const DEFAULT: &'static str = "00000000-0000-0000-0000-000000000001";
+
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    pub fn default_id() -> Self {
+        Self(Self::DEFAULT.to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn is_default(&self) -> bool {
+        self.0 == Self::DEFAULT
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceKind {
     Blank,
@@ -104,6 +128,22 @@ pub struct Project {
     pub name: String,
     pub source_kind: SourceKind,
     pub root_path: Option<String>,
+    /// Owning workspace; never null at rest after the workspace migration.
+    pub workspace_id: WorkspaceId,
+}
+
+/// A named group of projects (the top of the tree). Strict containment: every project
+/// belongs to exactly one workspace.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Workspace {
+    pub id: WorkspaceId,
+    pub name: String,
+}
+
+/// Parameters for creating a new workspace.
+#[derive(Debug, Clone)]
+pub struct NewWorkspace {
+    pub name: String,
 }
 
 /// How a session's display title is derived.
@@ -138,6 +178,8 @@ pub struct NewProject {
     pub root_path: Option<String>,
     /// Explicit name; overrides inference when supplied.
     pub name: Option<String>,
+    /// Owning workspace; defaults to the Default workspace when `None`.
+    pub workspace_id: Option<WorkspaceId>,
 }
 
 /// Parameters for creating a new session.
@@ -369,8 +411,13 @@ pub trait Store: Send + Sync {
     /// `ProjectIsUnfiled` for the built-in Unfiled project.
     fn rename_project(&self, id: &ProjectId, name: &str) -> Result<()>;
 
-    /// Return non-archived projects ordered by `created_at` descending.
-    fn list_projects(&self) -> Result<Vec<Project>>;
+    /// Return non-archived projects, optionally scoped to a single workspace. Ordered by
+    /// `sort_order` ascending, falling back to `created_at` descending.
+    fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>>;
+
+    /// Move a project to a different workspace. Returns `ProjectNotFound` for an unknown
+    /// project, `WorkspaceNotFound` for an unknown target workspace.
+    fn move_project(&self, project_id: &ProjectId, workspace_id: &WorkspaceId) -> Result<()>;
 
     /// Soft-delete a project and cascade to its sessions and surfaces atomically.
     /// Returns `ProjectIsUnfiled` for the built-in project, `ProjectNotFound` if missing.
@@ -383,6 +430,26 @@ pub trait Store: Send + Sync {
     /// Reorder a project to a new sort position.
     /// Returns `ProjectNotFound` if the project does not exist.
     fn reorder_project(&self, id: &ProjectId, sort_order: u32) -> Result<()>;
+
+    // ── workspace ─────────────────────────────────────────────────────────
+
+    /// Create a workspace, ordered last. An empty name is allowed and stored as-is.
+    fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace>;
+
+    /// Rename a workspace. Returns `WorkspaceNotFound` for an unknown id.
+    fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()>;
+
+    /// Return all workspaces ordered by `sort_order` ascending, falling back to creation
+    /// time. The Default workspace is always present.
+    fn list_workspaces(&self) -> Result<Vec<Workspace>>;
+
+    /// Reorder a workspace to a new sort position.
+    /// Returns `WorkspaceNotFound` if the workspace does not exist.
+    fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()>;
+
+    /// Delete a non-Default workspace, reassigning its projects to the Default workspace.
+    /// Returns `WorkspaceIsDefault` for the Default workspace, `WorkspaceNotFound` if missing.
+    fn delete_workspace(&self, id: &WorkspaceId) -> Result<()>;
 
     // ── session ───────────────────────────────────────────────────────────
 

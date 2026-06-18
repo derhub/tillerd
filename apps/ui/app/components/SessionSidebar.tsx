@@ -36,9 +36,11 @@ import { ACTION, ACTION_TITLES, SESSION_SWITCH_PREFIX } from "~/lib/commands/ids
 import type { Project, Session } from "@tillerd/sdk/orchestrator";
 
 const UNFILED_ID = "00000000-0000-0000-0000-000000000000";
+// Fixed id of the built-in Default workspace (mirrors the orchestrator's WorkspaceId::DEFAULT).
+const DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
 
 /** Fetch projects and sessions from the orchestrator transport (desktop) or HTTP API (web). */
-function useSidebarData() {
+function useSidebarData(activeWorkspaceId?: string) {
   const host = useDesktopHost();
   const [projects, setProjects] = useState<Project[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -47,7 +49,10 @@ function useSidebarData() {
     if (host.status === "ready") {
       try {
         const client = host.orchestratorClient;
-        const [ps, ss] = await Promise.all([client.listProjects(), client.listSessions()]);
+        const [ps, ss] = await Promise.all([
+          client.listProjects(activeWorkspaceId ? { workspaceId: activeWorkspaceId } : undefined),
+          client.listSessions(),
+        ]);
         setProjects(ps);
         setSessions(ss);
       } catch {
@@ -55,7 +60,7 @@ function useSidebarData() {
       }
     }
     // web path: data comes via loader revalidation; sidebar stays read-only here
-  }, [host]);
+  }, [host, activeWorkspaceId]);
 
   useEffect(() => {
     void refresh();
@@ -64,10 +69,10 @@ function useSidebarData() {
   return { projects, sessions, refresh };
 }
 
-export function SessionSidebar() {
+export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: string } = {}) {
   const host = useDesktopHost();
   const navigate = useNavigate();
-  const { projects, sessions, refresh } = useSidebarData();
+  const { projects, sessions, refresh } = useSidebarData(activeWorkspaceId);
   const [detachedProjects, setDetachedProjects] = useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -101,6 +106,7 @@ export function SessionSidebar() {
     const proj = await host.orchestratorClient.createProject({
       sourceKind: "blank",
       name: name.trim() || undefined,
+      workspaceId: activeWorkspaceId,
     });
     await refresh();
     // Navigate to first session of new project (not yet created)
@@ -112,7 +118,7 @@ export function SessionSidebar() {
     });
     await refresh();
     void navigate(`/session/${sess.id}`);
-  }, [host, navigate, refresh]);
+  }, [host, navigate, refresh, activeWorkspaceId]);
 
   const handleNewSession = useCallback(
     async (projectId: string) => {
@@ -349,7 +355,13 @@ export function SessionSidebar() {
             {unfiledSessions.length > 0 && (
               <ProjectGroup
                 key={UNFILED_ID}
-                project={{ id: UNFILED_ID, name: "Unfiled", sourceKind: "blank", rootPath: null }}
+                project={{
+                  id: UNFILED_ID,
+                  name: "Unfiled",
+                  sourceKind: "blank",
+                  rootPath: null,
+                  workspaceId: DEFAULT_WORKSPACE_ID,
+                }}
                 sessions={unfiledSessions}
                 isDesktop={isDesktop}
                 detached={detachedProjects.has(UNFILED_ID)}

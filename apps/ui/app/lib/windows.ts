@@ -8,7 +8,8 @@ import { isDesktopHost, loadTauriCore } from "./transport/core";
 export type WindowIntent =
   | { kind: "main" }
   | { kind: "detached"; sessionId: string; placement: string }
-  | { kind: "project"; projectId: string; sessionId: string | null };
+  | { kind: "project"; projectId: string; sessionId: string | null }
+  | { kind: "workspace"; workspaceId: string };
 
 export function detachedLabel(placement: string): string {
   return `detached-${placement}`;
@@ -28,6 +29,14 @@ export function projectQuery(projectId: string, sessionId: string | null): strin
   return `?${params.toString()}`;
 }
 
+export function workspaceLabel(workspaceId: string): string {
+  return `workspace-${workspaceId}`;
+}
+
+export function workspaceQuery(workspaceId: string): string {
+  return `?${new URLSearchParams({ w: "workspace", workspace: workspaceId }).toString()}`;
+}
+
 export function parseWindowIntent(search: string): WindowIntent {
   const params = new URLSearchParams(search);
   switch (params.get("w")) {
@@ -40,6 +49,11 @@ export function parseWindowIntent(search: string): WindowIntent {
     case "project": {
       const projectId = params.get("project");
       if (projectId) return { kind: "project", projectId, sessionId: params.get("session") };
+      return { kind: "main" };
+    }
+    case "workspace": {
+      const workspaceId = params.get("workspace");
+      if (workspaceId) return { kind: "workspace", workspaceId };
       return { kind: "main" };
     }
     default:
@@ -65,9 +79,11 @@ export function focusWindow(label: string): Promise<void | null> {
 
 const REATTACH_PANEL = "panel:reattach";
 const REATTACH_PROJECT = "project:reattach";
+const REATTACH_WORKSPACE = "workspace:reattach";
 
 export type ReattachPanel = { sessionId: string; placement: string };
 export type ReattachProject = { projectId: string };
+export type ReattachWorkspace = { workspaceId: string };
 
 async function emit(event: string, payload: unknown): Promise<void> {
   if (!isDesktopHost()) return;
@@ -83,8 +99,11 @@ async function listen<T>(event: string, cb: (payload: T) => void): Promise<() =>
 
 export const emitReattachPanel = (p: ReattachPanel) => emit(REATTACH_PANEL, p);
 export const emitReattachProject = (p: ReattachProject) => emit(REATTACH_PROJECT, p);
+export const emitReattachWorkspace = (p: ReattachWorkspace) => emit(REATTACH_WORKSPACE, p);
 export const onReattachPanel = (cb: (p: ReattachPanel) => void) => listen(REATTACH_PANEL, cb);
 export const onReattachProject = (cb: (p: ReattachProject) => void) => listen(REATTACH_PROJECT, cb);
+export const onReattachWorkspace = (cb: (p: ReattachWorkspace) => void) =>
+  listen(REATTACH_WORKSPACE, cb);
 
 // Focus the window this code runs in (the parent, when re-attaching back to it).
 export async function focusSelf(): Promise<void> {

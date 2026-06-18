@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use orchestrator::persistence::{
-    Command, CommandOrigin, LaunchTemplateId, NewCommand, NewSession, Project, ProjectId, Session,
-    SessionId, SourceKind, Store, TitleSource,
+    Command, CommandOrigin, LaunchTemplateId, NewCommand, NewProject, NewSession, NewWorkspace,
+    Project, ProjectId, Session, SessionId, SourceKind, Store, TitleSource, Workspace, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -20,6 +20,7 @@ pub struct ProjectResponse {
     pub name: String,
     pub source_kind: String,
     pub root_path: Option<String>,
+    pub workspace_id: String,
 }
 
 fn project_response(p: Project) -> ProjectResponse {
@@ -28,6 +29,21 @@ fn project_response(p: Project) -> ProjectResponse {
         name: p.name,
         source_kind: p.source_kind.as_str().to_string(),
         root_path: p.root_path,
+        workspace_id: p.workspace_id.as_str().to_string(),
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceResponse {
+    pub id: String,
+    pub name: String,
+}
+
+fn workspace_response(w: Workspace) -> WorkspaceResponse {
+    WorkspaceResponse {
+        id: w.id.as_str().to_string(),
+        name: w.name,
     }
 }
 
@@ -73,11 +89,14 @@ pub enum WorkspaceError {
 pub fn map_store_err(e: orchestrator::OrchestratorError) -> WorkspaceError {
     use orchestrator::OrchestratorError::*;
     match e {
-        ProjectNotFound(m) | SessionNotFound(m) | CommandNotFound(m) => {
+        ProjectNotFound(m) | SessionNotFound(m) | CommandNotFound(m) | WorkspaceNotFound(m) => {
             WorkspaceError::NotFound { message: m }
         }
         ProjectIsUnfiled => WorkspaceError::UnfiledGuard {
             message: "the Unfiled project cannot be modified".to_string(),
+        },
+        WorkspaceIsDefault => WorkspaceError::UnfiledGuard {
+            message: "the Default workspace cannot be deleted".to_string(),
         },
         other => WorkspaceError::Internal {
             message: other.to_string(),
@@ -96,12 +115,14 @@ fn get_store(state: &OrchestratorState) -> Result<Arc<dyn Store>, WorkspaceError
 pub fn do_project_create(
     store: &Arc<dyn Store>,
     name: Option<String>,
+    workspace_id: Option<String>,
 ) -> Result<ProjectResponse, WorkspaceError> {
     let project = store
-        .create_project(orchestrator::persistence::NewProject {
+        .create_project(NewProject {
             source_kind: SourceKind::Blank,
             root_path: None,
             name,
+            workspace_id: workspace_id.map(WorkspaceId::new),
         })
         .map_err(map_store_err)?;
     Ok(project_response(project))
@@ -110,21 +131,29 @@ pub fn do_project_create(
 #[tauri::command]
 pub fn project_create(
     name: Option<String>,
+    workspace_id: Option<String>,
     state: State<'_, OrchestratorState>,
 ) -> Result<ProjectResponse, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_project_create(&store, name).map_err(|e| format!("{e:?}"))
+    do_project_create(&store, name, workspace_id).map_err(|e| format!("{e:?}"))
 }
 
-pub fn do_project_list(store: &Arc<dyn Store>) -> Result<Vec<ProjectResponse>, WorkspaceError> {
-    let projects = store.list_projects().map_err(map_store_err)?;
+pub fn do_project_list(
+    store: &Arc<dyn Store>,
+    workspace_id: Option<String>,
+) -> Result<Vec<ProjectResponse>, WorkspaceError> {
+    let scope = workspace_id.map(WorkspaceId::new);
+    let projects = store.list_projects(scope.as_ref()).map_err(map_store_err)?;
     Ok(projects.into_iter().map(project_response).collect())
 }
 
 #[tauri::command]
-pub fn project_list(state: State<'_, OrchestratorState>) -> Result<Vec<ProjectResponse>, String> {
+pub fn project_list(
+    workspace_id: Option<String>,
+    state: State<'_, OrchestratorState>,
+) -> Result<Vec<ProjectResponse>, String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
-    do_project_list(&store).map_err(|e| format!("{e:?}"))
+    do_project_list(&store, workspace_id).map_err(|e| format!("{e:?}"))
 }
 
 pub fn do_project_rename(
@@ -197,6 +226,112 @@ pub fn project_reorder(
 ) -> Result<(), String> {
     let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
     do_project_reorder(&store, id, sort_order).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_project_move(
+    store: &Arc<dyn Store>,
+    id: String,
+    workspace_id: String,
+) -> Result<(), WorkspaceError> {
+    store
+        .move_project(&ProjectId::new(id), &WorkspaceId::new(workspace_id))
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn project_move(
+    id: String,
+    workspace_id: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_project_move(&store, id, workspace_id).map_err(|e| format!("{e:?}"))
+}
+
+// ── workspace ───────────────────────────────────────────────────────────────────
+
+pub fn do_workspace_create(
+    store: &Arc<dyn Store>,
+    name: String,
+) -> Result<WorkspaceResponse, WorkspaceError> {
+    let workspace = store
+        .create_workspace(NewWorkspace { name })
+        .map_err(map_store_err)?;
+    Ok(workspace_response(workspace))
+}
+
+#[tauri::command]
+pub fn workspace_create(
+    name: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<WorkspaceResponse, String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_workspace_create(&store, name).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_workspace_list(store: &Arc<dyn Store>) -> Result<Vec<WorkspaceResponse>, WorkspaceError> {
+    let workspaces = store.list_workspaces().map_err(map_store_err)?;
+    Ok(workspaces.into_iter().map(workspace_response).collect())
+}
+
+#[tauri::command]
+pub fn workspace_list(
+    state: State<'_, OrchestratorState>,
+) -> Result<Vec<WorkspaceResponse>, String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_workspace_list(&store).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_workspace_rename(
+    store: &Arc<dyn Store>,
+    id: String,
+    name: String,
+) -> Result<(), WorkspaceError> {
+    store
+        .rename_workspace(&WorkspaceId::new(id), &name)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn workspace_rename(
+    id: String,
+    name: String,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_workspace_rename(&store, id, name).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_workspace_reorder(
+    store: &Arc<dyn Store>,
+    id: String,
+    sort_order: u32,
+) -> Result<(), WorkspaceError> {
+    store
+        .reorder_workspace(&WorkspaceId::new(id), sort_order)
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn workspace_reorder(
+    id: String,
+    sort_order: u32,
+    state: State<'_, OrchestratorState>,
+) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_workspace_reorder(&store, id, sort_order).map_err(|e| format!("{e:?}"))
+}
+
+pub fn do_workspace_delete(store: &Arc<dyn Store>, id: String) -> Result<(), WorkspaceError> {
+    store
+        .delete_workspace(&WorkspaceId::new(id))
+        .map_err(map_store_err)
+}
+
+#[tauri::command]
+pub fn workspace_delete(id: String, state: State<'_, OrchestratorState>) -> Result<(), String> {
+    let store = get_store(&state).map_err(|e| format!("{e:?}"))?;
+    do_workspace_delete(&store, id).map_err(|e| format!("{e:?}"))
 }
 
 // ── session ───────────────────────────────────────────────────────────────────
@@ -501,10 +636,10 @@ mod tests {
     #[test]
     fn project_response_matches_sdk_project_shape() {
         let store = fake_store();
-        let p = do_project_create(&store, Some("P".to_string())).unwrap();
+        let p = do_project_create(&store, Some("P".to_string()), None).unwrap();
         assert_keys(
             &serde_json::to_value(p).unwrap(),
-            &["id", "name", "sourceKind", "rootPath"],
+            &["id", "name", "sourceKind", "rootPath", "workspaceId"],
         );
     }
 
@@ -547,7 +682,7 @@ mod tests {
     #[test]
     fn project_create_delegates_to_store() {
         let store = fake_store();
-        let result = do_project_create(&store, Some("MyProject".to_string())).unwrap();
+        let result = do_project_create(&store, Some("MyProject".to_string()), None).unwrap();
         assert_eq!(result.name, "MyProject");
         assert_eq!(result.source_kind, "blank");
     }
@@ -555,7 +690,7 @@ mod tests {
     #[test]
     fn project_create_without_name_yields_a_blank_project() {
         let store = fake_store();
-        let result = do_project_create(&store, None).unwrap();
+        let result = do_project_create(&store, None, None).unwrap();
         assert_eq!(result.name, "");
         assert_eq!(result.source_kind, "blank");
     }
@@ -563,8 +698,8 @@ mod tests {
     #[test]
     fn project_list_includes_created_projects() {
         let store = fake_store();
-        let created = do_project_create(&store, Some("Listed".to_string())).unwrap();
-        let projects = do_project_list(&store).unwrap();
+        let created = do_project_create(&store, Some("Listed".to_string()), None).unwrap();
+        let projects = do_project_list(&store, None).unwrap();
         assert!(projects
             .iter()
             .any(|p| p.id == created.id && p.name == "Listed"));
@@ -640,6 +775,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some(name.to_string()),
+                workspace_id: None,
             })
             .unwrap()
             .id
@@ -682,7 +818,7 @@ mod tests {
         do_project_delete(&store, id.as_str().to_string()).unwrap();
         // Purged entirely: not in the active list and the row is gone.
         assert!(store.get_project(&id).unwrap().is_none());
-        assert!(!do_project_list(&store)
+        assert!(!do_project_list(&store, None)
             .unwrap()
             .iter()
             .any(|p| p.id == id.as_str()));
@@ -829,5 +965,58 @@ mod tests {
         assert_eq!(session.title, "My Session");
         let fetched = store.get_session(&session.id).unwrap().unwrap();
         assert_eq!(fetched.spec_version, Some(1));
+    }
+
+    // ── workspace ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn workspace_response_matches_sdk_workspace_shape() {
+        let store = fake_store();
+        let w = do_workspace_create(&store, "W".to_string()).unwrap();
+        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name"]);
+    }
+
+    #[test]
+    fn workspace_create_and_list_reach_the_store() {
+        let store = fake_store();
+        let created = do_workspace_create(&store, "Mine".to_string()).unwrap();
+        let listed = do_workspace_list(&store).unwrap();
+        assert!(listed
+            .iter()
+            .any(|w| w.id == created.id && w.name == "Mine"));
+    }
+
+    #[test]
+    fn workspace_rename_reaches_the_store() {
+        let store = fake_store();
+        let created = do_workspace_create(&store, "old".to_string()).unwrap();
+        do_workspace_rename(&store, created.id.clone(), "new".to_string()).unwrap();
+        let listed = do_workspace_list(&store).unwrap();
+        assert!(listed.iter().any(|w| w.id == created.id && w.name == "new"));
+    }
+
+    #[test]
+    fn workspace_delete_default_is_guarded() {
+        let store = fake_store();
+        let err = do_workspace_delete(&store, WorkspaceId::DEFAULT.to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::UnfiledGuard { .. }));
+    }
+
+    #[test]
+    fn project_move_reaches_the_store_and_scopes_list() {
+        let store = fake_store();
+        let ws = do_workspace_create(&store, "Target".to_string()).unwrap();
+        let project = do_project_create(&store, Some("P".to_string()), None).unwrap();
+        do_project_move(&store, project.id.clone(), ws.id.clone()).unwrap();
+        let scoped = do_project_list(&store, Some(ws.id)).unwrap();
+        assert!(scoped.iter().any(|p| p.id == project.id));
+    }
+
+    #[test]
+    fn project_move_to_unknown_workspace_is_not_found() {
+        let store = fake_store();
+        let project = do_project_create(&store, Some("P".to_string()), None).unwrap();
+        let err = do_project_move(&store, project.id, "nope".to_string()).unwrap_err();
+        assert!(matches!(err, WorkspaceError::NotFound { .. }));
     }
 }
