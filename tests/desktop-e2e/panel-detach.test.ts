@@ -19,8 +19,8 @@ test("an empty panel shows no detach affordance", async () => {
 }, 120_000);
 
 // Scenario (multi-window 1.1, parent side): detaching a live terminal replaces the panel with a
-// greyed placeholder bearing a Focus button, and the live surface leaves the parent.
-test("detaching a terminal replaces it with a Focus placeholder", async () => {
+// greyed placeholder bearing a Re-attach button, and the live surface leaves the parent.
+test("detaching a terminal replaces it with a re-attach placeholder", async () => {
   const b = getApp();
   await createProject(b, uniqueName("Detach"));
   const surface = await openTerminal(b);
@@ -32,8 +32,8 @@ test("detaching a terminal replaces it with a Focus placeholder", async () => {
 
   const placeholder = await b.$('[data-testid="detached-placeholder"]');
   await placeholder.waitForExist({ timeout: 10_000 });
-  const focus = await b.$('button[aria-label="Focus detached window"]');
-  expect(await focus.isExisting()).toBe(true);
+  const reattach = await b.$('button[aria-label="Re-attach detached window"]');
+  expect(await reattach.isExisting()).toBe(true);
 
   // The live terminal surface no longer renders in the parent window.
   const surfaceEl = await b.$("[data-surface-id]");

@@ -94,6 +94,7 @@ pub fn run() {
             surface_host::surface_detach,
             window_host::window_open,
             window_host::window_focus,
+            window_host::window_close,
             workspace_host::project_create,
             workspace_host::project_list,
             workspace_host::project_rename,

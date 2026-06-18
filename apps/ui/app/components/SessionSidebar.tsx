@@ -21,8 +21,8 @@ import {
 import { cn } from "~/lib/utils";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import {
+  closeWindow,
   focusSelf,
-  focusWindow,
   onReattachProject,
   openWindow,
   projectLabel,
@@ -84,6 +84,18 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
   const handleOpenInNewWindow = useCallback((projectId: string, firstSessionId: string | null) => {
     void openWindow(projectLabel(projectId), projectQuery(projectId, firstSessionId));
     setDetachedProjects((prev) => new Set(prev).add(projectId));
+  }, []);
+
+  const handleReattachProject = useCallback((projectId: string) => {
+    void closeWindow(projectLabel(projectId));
+    // Parent-initiated: clear now rather than waiting for the child's re-attach event, which may
+    // not fire if the child is closed before it armed its close handler.
+    setDetachedProjects((prev) => {
+      if (!prev.has(projectId)) return prev;
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -346,7 +358,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                   onOpenInNewWindow={() =>
                     handleOpenInNewWindow(proj.id, projSessions[0]?.id ?? null)
                   }
-                  onFocusDetached={() => void focusWindow(projectLabel(proj.id))}
+                  onFocusDetached={() => handleReattachProject(proj.id)}
                 />
               );
             })}
@@ -384,7 +396,7 @@ export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: stri
                 onOpenInNewWindow={() =>
                   handleOpenInNewWindow(UNFILED_ID, unfiledSessions[0]?.id ?? null)
                 }
-                onFocusDetached={() => void focusWindow(projectLabel(UNFILED_ID))}
+                onFocusDetached={() => handleReattachProject(UNFILED_ID)}
               />
             )}
           </div>
@@ -522,8 +534,8 @@ function ProjectGroup({
           <button
             type="button"
             onClick={onFocusDetached}
-            aria-label={`Focus ${project.name} window`}
-            title={`${project.name} is open in another window`}
+            aria-label={`Re-attach ${project.name}`}
+            title={`${project.name} is in another window — click to re-attach`}
             data-testid="project-detached-indicator"
             className={cn(
               "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",

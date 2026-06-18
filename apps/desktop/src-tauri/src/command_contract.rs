@@ -75,6 +75,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
             surface_host::surface_detach,
             window_host::window_open,
             window_host::window_focus,
+            window_host::window_close,
             workspace_host::project_create,
             workspace_host::project_list,
             workspace_host::project_rename,
@@ -232,6 +233,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "label": "detached-contract", "query": "?w=detached&session=s&placement=p" }),
         ),
         ("window_focus", serde_json::json!({ "label": "main" })),
+        ("window_close", serde_json::json!({ "label": "main" })),
         ("project_create", serde_json::json!({ "name": "contract" })),
         ("project_list", serde_json::json!({})),
         (

@@ -16,11 +16,12 @@ import type { PanelNode, PanelGroupNode, PanelLeaf, PanelContent } from "~/lib/p
 import {
   armReattachOnClose,
   closeSelf,
+  closeWindow,
   detachedLabel,
   detachedQuery,
   emitReattachProject,
+  emitReattachWorkspace,
   focusSelf,
-  focusWindow,
   onReattachPanel,
   openWindow,
 } from "~/lib/windows";
@@ -51,15 +52,20 @@ function getTerminalClient(): Promise<TerminalSurfaceClient> {
 export function AppShell({
   projectWindowId,
   initialSessionId,
+  workspaceWindowId,
 }: {
   // Set when this AppShell is itself a detached project child window: shows a Re-attach control and
   // overrides the session (the window loads at root, so there is no `:id` route param).
   projectWindowId?: string;
   initialSessionId?: string | null;
+  // Set when this AppShell is a detached workspace child window: scopes the sidebar to the
+  // workspace and shows a Re-attach control.
+  workspaceWindowId?: string;
 } = {}) {
   const params = useParams();
   const sessionId = params["id"] ?? initialSessionId ?? null;
   const isProjectWindow = projectWindowId != null;
+  const isWorkspaceWindow = workspaceWindowId != null;
   const onLogs = useLocation().pathname === "/logs";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -142,6 +148,18 @@ export function AppShell({
     [sessionId],
   );
 
+  const handleReattachPanel = useCallback((placement: string) => {
+    void closeWindow(detachedLabel(placement));
+    // Parent-initiated: clear now rather than waiting for the child's re-attach event, which may
+    // not fire if the child is closed before it armed its close handler.
+    setDetached((prev) => {
+      if (!prev.has(placement)) return prev;
+      const next = new Set(prev);
+      next.delete(placement);
+      return next;
+    });
+  }, []);
+
   // Parent side: when a child emits re-attach, drop the detached flag (re-mounting the pane, whose
   // revisit path re-binds the live PTY) and focus this window. Child windows skip this.
   useEffect(() => {
@@ -168,6 +186,17 @@ export function AppShell({
     );
     return () => unlisten?.();
   }, [isProjectWindow, projectWindowId]);
+
+  // Child workspace window: any close path emits workspace re-attach so the parent switcher clears
+  // its detached indicator.
+  useEffect(() => {
+    if (!isWorkspaceWindow || !workspaceWindowId) return;
+    let unlisten: (() => void) | undefined;
+    void armReattachOnClose(() => emitReattachWorkspace({ workspaceId: workspaceWindowId })).then(
+      (u) => (unlisten = u),
+    );
+    return () => unlisten?.();
+  }, [isWorkspaceWindow, workspaceWindowId]);
 
   // Panel / surface / chrome commands for the palette. Thunks read refs so the array is stable;
   // each acts on the active leaf (falling back to the first matching leaf).
@@ -388,11 +417,7 @@ export function AppShell({
         );
       case "terminal":
         if (detached.has(content.placement)) {
-          return (
-            <DetachedPlaceholder
-              onFocus={() => void focusWindow(detachedLabel(content.placement))}
-            />
-          );
+          return <DetachedPlaceholder onReattach={() => handleReattachPanel(content.placement)} />;
         }
         return (
           <DesktopTerminalPane
@@ -414,7 +439,7 @@ export function AppShell({
             <CommandCenter />
             <div className="h-dvh w-full flex overflow-hidden">
               <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-                <WorkspaceSwitcher />
+                <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
               </aside>
               <div
                 className="flex-1 min-w-0 pt-px relative"
@@ -430,7 +455,7 @@ export function AppShell({
                   <ContentSkeleton />
                 ) : null}
                 <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
-                  {isProjectWindow && (
+                  {(isProjectWindow || isWorkspaceWindow) && (
                     <button
                       type="button"
                       onClick={() => void closeSelf()}
@@ -455,7 +480,7 @@ export function AppShell({
 }
 
 /** Stand-in for a panel whose surface is detached to a child window; "Focus" raises that window. */
-function DetachedPlaceholder({ onFocus }: { onFocus: () => void }) {
+function DetachedPlaceholder({ onReattach }: { onReattach: () => void }) {
   return (
     <div
       className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/20"
@@ -466,11 +491,11 @@ function DetachedPlaceholder({ onFocus }: { onFocus: () => void }) {
       </span>
       <button
         type="button"
-        onClick={onFocus}
-        aria-label="Focus detached window"
+        onClick={onReattach}
+        aria-label="Re-attach detached window"
         className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
       >
-        <span>Focus</span>
+        <span>Re-attach</span>
         <ArrowUpRight size={12} />
       </button>
     </div>

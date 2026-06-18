@@ -17,7 +17,11 @@ function renderSwitcher(over: Partial<WorkspaceSwitcherProps> = {}) {
     onSelect: () => {},
     onNewWorkspace: () => {},
     onDetach: () => {},
-    onFocusDetached: () => {},
+    onReattach: () => {},
+    editingId: null,
+    onStartEdit: () => {},
+    onCancelEdit: () => {},
+    onRename: () => {},
     ...over,
   };
   return render(
@@ -102,13 +106,13 @@ describe("WorkspaceSwitcherList", () => {
     expect(detached).toEqual(["ws-1"]);
   });
 
-  // Scenario: A detached workspace shows the focus affordance instead of the detach control
-  test("a detached workspace shows the focus indicator and hides the detach control", () => {
-    const focused: string[] = [];
+  // Scenario: A detached workspace shows the re-attach affordance instead of the detach control
+  test("a detached workspace shows the re-attach indicator and hides the detach control", () => {
+    const reattached: string[] = [];
     renderSwitcher({
       workspaces: [alpha],
       detachedIds: new Set(["ws-1"]),
-      onFocusDetached: (id) => focused.push(id),
+      onReattach: (id) => reattached.push(id),
     });
 
     expect(screen.queryByTestId("workspace-detach")).toBeNull();
@@ -116,6 +120,19 @@ describe("WorkspaceSwitcherList", () => {
     expect(indicator.getAttribute("data-workspace-id")).toBe("ws-1");
 
     fireEvent.click(indicator);
-    expect(focused).toEqual(["ws-1"]);
+    expect(reattached).toEqual(["ws-1"]);
+  });
+
+  test("an editing workspace shows the inline rename input and renames on Enter", () => {
+    const renamed: [string, string][] = [];
+    renderSwitcher({
+      workspaces: [alpha],
+      editingId: "ws-1",
+      onRename: (id, name) => renamed.push([id, name]),
+    });
+    const input = screen.getByTestId("inline-rename-input");
+    fireEvent.change(input, { target: { value: "Renamed" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(renamed).toEqual([["ws-1", "Renamed"]]);
   });
 });

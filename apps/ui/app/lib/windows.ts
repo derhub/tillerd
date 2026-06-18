@@ -75,6 +75,12 @@ export function focusWindow(label: string): Promise<void | null> {
   return invoke<void>("window_focus", { label });
 }
 
+// Close a child window by label from the parent. The child's onCloseRequested handler
+// (armReattachOnClose) runs, emitting the re-attach event — so this is the parent-side re-attach.
+export function closeWindow(label: string): Promise<void | null> {
+  return invoke<void>("window_close", { label });
+}
+
 // ── Cross-window re-attach event contract ────────────────────────────────────
 
 const REATTACH_PANEL = "panel:reattach";

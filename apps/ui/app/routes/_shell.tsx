@@ -25,6 +25,7 @@ export default function Shell() {
       <AppShell
         projectWindowId={intent.kind === "project" ? intent.projectId : undefined}
         initialSessionId={intent.kind === "project" ? intent.sessionId : undefined}
+        workspaceWindowId={intent.kind === "workspace" ? intent.workspaceId : undefined}
       />
     </DesktopHostProvider>
   );

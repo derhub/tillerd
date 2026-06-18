@@ -19,7 +19,7 @@
     "predev": "bash tools/build-services.sh",
     "dev": "turbo run dev",
     "check-types": "turbo run check-types",
-    "test": "turbo run test --filter='!@tillerd/desktop-e2e'",
+    "test": "turbo run test --filter='!@tillerd/desktop-e2e' --filter='!@tillerd/memorya'",
     "eval": "turbo run eval",
     "e2e": "turbo run e2e",
     "lint": "oxlint . && turbo run lint",

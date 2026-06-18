@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { FolderPlus, ArrowUpRight } from "lucide-react";
 import { useDesktopHost } from "~/lib/useDesktopHost";
+import { InlineRenameInput } from "~/components/InlineRenameInput";
 import { SessionSidebar } from "~/components/SessionSidebar";
 import { cn } from "~/lib/utils";
 import {
+  closeWindow,
   focusSelf,
-  focusWindow,
   onReattachWorkspace,
   openWindow,
   workspaceLabel,
@@ -25,7 +26,13 @@ export interface WorkspaceSwitcherProps {
   onSelect: (id: string) => void;
   onNewWorkspace: () => void;
   onDetach: (id: string) => void;
-  onFocusDetached: (id: string) => void;
+  /** Re-attach a detached workspace by closing its window (which fires the re-attach event). */
+  onReattach: (id: string) => void;
+  /** Id of the workspace whose name is being edited inline, or null. */
+  editingId: string | null;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onRename: (id: string, name: string) => void;
 }
 
 /** Presentational list of workspace chips + new-workspace control — no data fetching. */
@@ -37,7 +44,11 @@ export function WorkspaceSwitcherList({
   onSelect,
   onNewWorkspace,
   onDetach,
-  onFocusDetached,
+  onReattach,
+  editingId,
+  onStartEdit,
+  onCancelEdit,
+  onRename,
 }: WorkspaceSwitcherProps) {
   return (
     <div
@@ -46,26 +57,35 @@ export function WorkspaceSwitcherList({
     >
       {workspaces.map((ws) => (
         <div key={ws.id} className="flex items-center gap-1">
-          <button
-            type="button"
-            data-testid="workspace-item"
-            data-workspace-id={ws.id}
-            onClick={() => onSelect(ws.id)}
-            className={cn(
-              "flex-1 text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-              ws.id === activeId
-                ? "font-medium bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {ws.name}
-          </button>
+          {editingId === ws.id ? (
+            <InlineRenameInput
+              initialValue={ws.name}
+              onConfirm={(name) => onRename(ws.id, name)}
+              onCancel={onCancelEdit}
+            />
+          ) : (
+            <button
+              type="button"
+              data-testid="workspace-item"
+              data-workspace-id={ws.id}
+              onClick={() => onSelect(ws.id)}
+              onDoubleClick={() => onStartEdit(ws.id)}
+              className={cn(
+                "flex-1 text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                ws.id === activeId
+                  ? "font-medium bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              {ws.name}
+            </button>
+          )}
           {detachedIds.has(ws.id) ? (
             <button
               type="button"
-              onClick={() => onFocusDetached(ws.id)}
-              aria-label={`Focus ${ws.name} window`}
-              title={`${ws.name} is open in another window`}
+              onClick={() => onReattach(ws.id)}
+              aria-label={`Re-attach ${ws.name}`}
+              title={`${ws.name} is in another window — click to re-attach`}
               data-testid="workspace-detached-indicator"
               data-workspace-id={ws.id}
               className={cn(
@@ -121,11 +141,14 @@ export function WorkspaceSwitcherList({
  * and renders the sidebar scoped to the selected workspace.
  * Drop-in replacement for SessionSidebar when workspace support is needed.
  */
-export function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?: string } = {}) {
   const host = useDesktopHost();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
+    initialWorkspaceId ?? null,
+  );
   const [detachedWorkspaces, setDetachedWorkspaces] = useState<Set<string>>(() => new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const isDesktop = host.status === "ready";
 
@@ -160,13 +183,27 @@ export function WorkspaceSwitcher() {
     return () => unlisten?.();
   }, []);
 
+  const handleRenameWorkspace = useCallback(
+    async (id: string, newName: string) => {
+      if (host.status !== "ready") return;
+      await host.orchestratorClient.renameWorkspace({
+        id,
+        name: newName.trim() || "New workspace",
+      });
+      await refresh();
+      setEditingId(null);
+    },
+    [host, refresh],
+  );
+
+  // Create under a placeholder name, then drop straight into inline rename. The Tauri webview has no
+  // reliable text-input dialog (window.prompt returns null), so naming happens in-app, not via prompt.
   const handleNewWorkspace = useCallback(async () => {
     if (host.status !== "ready") return;
-    const name = window.prompt("Workspace name:")?.trim();
-    if (!name) return;
-    const ws = await host.orchestratorClient.createWorkspace({ name });
+    const ws = await host.orchestratorClient.createWorkspace({ name: "New workspace" });
     await refresh();
     setActiveWorkspaceId(ws.id);
+    setEditingId(ws.id);
   }, [host, refresh]);
 
   const handleDetach = useCallback((workspaceId: string) => {
@@ -174,8 +211,16 @@ export function WorkspaceSwitcher() {
     setDetachedWorkspaces((prev) => new Set(prev).add(workspaceId));
   }, []);
 
-  const handleFocusDetached = useCallback((workspaceId: string) => {
-    void focusWindow(workspaceLabel(workspaceId));
+  const handleReattach = useCallback((workspaceId: string) => {
+    void closeWindow(workspaceLabel(workspaceId));
+    // Parent-initiated: clear the flag now rather than waiting for the child's re-attach event,
+    // which may not fire if the child is closed before it armed its close handler.
+    setDetachedWorkspaces((prev) => {
+      if (!prev.has(workspaceId)) return prev;
+      const next = new Set(prev);
+      next.delete(workspaceId);
+      return next;
+    });
   }, []);
 
   return (
@@ -188,7 +233,11 @@ export function WorkspaceSwitcher() {
         onSelect={setActiveWorkspaceId}
         onNewWorkspace={() => void handleNewWorkspace()}
         onDetach={handleDetach}
-        onFocusDetached={handleFocusDetached}
+        onReattach={handleReattach}
+        editingId={editingId}
+        onStartEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onRename={(id, name) => void handleRenameWorkspace(id, name)}
       />
       <SessionSidebar activeWorkspaceId={activeWorkspaceId ?? undefined} />
     </div>
