@@ -2,8 +2,10 @@ import { test, expect, describe } from "bun:test";
 import {
   detachedLabel,
   projectLabel,
+  workspaceLabel,
   detachedQuery,
   projectQuery,
+  workspaceQuery,
   parseWindowIntent,
 } from "./windows";
 
@@ -14,6 +16,10 @@ describe("window labels", () => {
 
   test("project label namespaces the project id", () => {
     expect(projectLabel("pr1")).toBe("project-pr1");
+  });
+
+  test("workspace label namespaces the workspace id", () => {
+    expect(workspaceLabel("ws1")).toBe("workspace-ws1");
   });
 });
 
@@ -49,6 +55,17 @@ describe("parseWindowIntent", () => {
       sessionId: null,
     });
   });
+
+  test("workspace intent carries workspaceId", () => {
+    expect(parseWindowIntent("?w=workspace&workspace=ws1")).toEqual({
+      kind: "workspace",
+      workspaceId: "ws1",
+    });
+  });
+
+  test("workspace intent missing workspace param falls back to main", () => {
+    expect(parseWindowIntent("?w=workspace")).toEqual({ kind: "main" });
+  });
 });
 
 describe("intent queries round-trip through parseWindowIntent", () => {
@@ -73,6 +90,13 @@ describe("intent queries round-trip through parseWindowIntent", () => {
       kind: "project",
       projectId: "pr9",
       sessionId: null,
+    });
+  });
+
+  test("workspace", () => {
+    expect(parseWindowIntent(workspaceQuery("ws9"))).toEqual({
+      kind: "workspace",
+      workspaceId: "ws9",
     });
   });
 });
