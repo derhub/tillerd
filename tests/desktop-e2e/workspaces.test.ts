@@ -167,3 +167,31 @@ test("the switcher lists multiple workspaces alongside Default", async () => {
   expect(await workspaceItem(b, wsA)).not.toBeNull();
   expect(await workspaceItem(b, wsB)).not.toBeNull();
 }, 120_000);
+
+test("creating a workspace adds it to the switcher", async () => {
+  const b = getApp();
+  await resetToHome(b);
+
+  const name = uniqueName("WsCreate");
+  expect(await workspaceItem(b, name)).toBeNull(); // absent before
+  await createWorkspace(b, name);
+  expect(await workspaceItem(b, name)).not.toBeNull(); // present after
+}, 120_000);
+
+test("a newly created workspace is ordered last in the switcher", async () => {
+  const b = getApp();
+  await resetToHome(b);
+
+  const first = uniqueName("WsOrd-A");
+  const second = uniqueName("WsOrd-B");
+  await createWorkspace(b, first);
+  await createWorkspace(b, second);
+
+  const names: string[] = [];
+  for (const item of await b.$$('[data-testid="workspace-item"]')) {
+    names.push((await item.getText()).trim());
+  }
+  // Default seeds at sort_order 0; each new workspace appends after the last.
+  expect(names.indexOf("Default")).toBeLessThan(names.indexOf(first));
+  expect(names.indexOf(first)).toBeLessThan(names.indexOf(second));
+}, 120_000);
