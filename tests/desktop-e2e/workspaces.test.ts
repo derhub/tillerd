@@ -2,9 +2,7 @@ import { expect, test } from "bun:test";
 import { createProject, resetToHome, stubPrompt, uniqueName, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
-// The workspace switcher is the left-rail strip (data-testid="workspace-switcher"); each row is a
-// "workspace-item" button carrying its id. Native windows are unreachable under WebDriver, so detach
-// is asserted via its DOM affordance (the detached indicator), not by driving a second window.
+// Native windows are unreachable under WebDriver, so detach is asserted via its DOM affordance.
 
 async function workspaceItem(b: Browser, name: string) {
   for (const item of await b.$$('[data-testid="workspace-item"]')) {
@@ -13,8 +11,7 @@ async function workspaceItem(b: Browser, name: string) {
   return null;
 }
 
-// Create a workspace via the new-workspace control (its name comes from window.prompt, stubbed) and
-// return its id. The new workspace becomes the active one.
+// Returns the new workspace's id; the created workspace becomes active.
 async function createWorkspace(b: Browser, name: string): Promise<string> {
   await stubPrompt(b, name);
   const add = await b.$('[data-testid="new-workspace"]');
@@ -50,9 +47,8 @@ test("creating a workspace and selecting it re-scopes the sidebar in place", asy
   await resetToHome(b);
 
   const wsName = uniqueName("WS");
-  await createWorkspace(b, wsName); // becomes the active workspace
+  await createWorkspace(b, wsName);
 
-  // A project created while the new workspace is active belongs to it and shows in its sidebar.
   const projName = uniqueName("WsProj");
   const url = await createProject(b, projName);
   expect(url).toContain("/session/");
@@ -61,7 +57,6 @@ test("creating a workspace and selecting it re-scopes the sidebar in place", asy
     timeoutMsg: "new project did not appear in its workspace's sidebar",
   });
 
-  // Switching to Default re-scopes the sidebar away from that project — and opens no new window.
   await selectWorkspace(b, "Default");
   await b.waitUntil(async () => !(await b.$("body").getText()).includes(projName), {
     timeout: 10_000,
@@ -69,7 +64,6 @@ test("creating a workspace and selecting it re-scopes the sidebar in place", asy
   });
   expect(await b.getUrl()).toBe(url);
 
-  // Switching back brings it into view again.
   await selectWorkspace(b, wsName);
   await b.waitUntil(async () => (await b.$("body").getText()).includes(projName), {
     timeout: 10_000,
@@ -100,16 +94,15 @@ test("two workspaces keep their projects isolated in the sidebar", async () => {
   await resetToHome(b);
 
   const wsA = uniqueName("WsA");
-  await createWorkspace(b, wsA); // active = wsA
+  await createWorkspace(b, wsA);
   const projA = uniqueName("ProjA");
-  await createProject(b, projA); // belongs to wsA
+  await createProject(b, projA);
 
   const wsB = uniqueName("WsB");
-  await createWorkspace(b, wsB); // active = wsB
+  await createWorkspace(b, wsB);
   const projB = uniqueName("ProjB");
-  await createProject(b, projB); // belongs to wsB
+  await createProject(b, projB);
 
-  // wsA shows only its own project.
   await selectWorkspace(b, wsA);
   await b.waitUntil(
     async () => {
@@ -119,7 +112,6 @@ test("two workspaces keep their projects isolated in the sidebar", async () => {
     { timeout: 10_000, timeoutMsg: "wsA sidebar did not isolate to its own project" },
   );
 
-  // wsB shows only its own project.
   await selectWorkspace(b, wsB);
   await b.waitUntil(
     async () => {
@@ -141,8 +133,6 @@ test("re-opening a detached workspace focuses rather than opening a second windo
   await detach.waitForExist({ timeout: 10_000 });
   await detach.click();
 
-  // Once detached, the detach control is replaced by a focus control; clicking it focuses the
-  // existing window (no second window) — the row stays detached, the detach control stays gone.
   const indicator = await b.$(
     `[data-testid="workspace-detached-indicator"][data-workspace-id="${id}"]`,
   );
@@ -173,9 +163,9 @@ test("creating a workspace adds it to the switcher", async () => {
   await resetToHome(b);
 
   const name = uniqueName("WsCreate");
-  expect(await workspaceItem(b, name)).toBeNull(); // absent before
+  expect(await workspaceItem(b, name)).toBeNull();
   await createWorkspace(b, name);
-  expect(await workspaceItem(b, name)).not.toBeNull(); // present after
+  expect(await workspaceItem(b, name)).not.toBeNull();
 }, 120_000);
 
 test("a newly created workspace is ordered last in the switcher", async () => {
@@ -191,7 +181,6 @@ test("a newly created workspace is ordered last in the switcher", async () => {
   for (const item of await b.$$('[data-testid="workspace-item"]')) {
     names.push((await item.getText()).trim());
   }
-  // Default seeds at sort_order 0; each new workspace appends after the last.
   expect(names.indexOf("Default")).toBeLessThan(names.indexOf(first));
   expect(names.indexOf(first)).toBeLessThan(names.indexOf(second));
 }, 120_000);
