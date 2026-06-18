@@ -256,6 +256,101 @@ migration under the 0.0.6 data-model freeze.
 
 ---
 
+### Foundation — shared design (0.0.15–0.0.18)
+
+> The substrate the working app needs before the 0.0.20 UX/UI ship: a finalized storage
+> model, a standard state model, and the real client engine. Design is **solidified**
+> (decisions locked below); split into four versions, each extracted into its own OpenSpec
+> change. Ordered by dependency: storage (0.0.15) → state model (0.0.16) → client engine
+> (0.0.17) → integration (0.0.18). The shared invariants + folder structure below apply
+> across all four.
+
+**Shared design invariants (locked):**
+- **Domain hierarchy = `workspace → project → session`.** Profile is NOT a tier — it is a
+  portable settings bundle (below). Domain (workspace/project/session/panel layout + surface
+  bindings) = readable JSON snapshot tree. Operational (runtime status, notifications, command
+  lib, worktrees, id→path index, view pointers, baseline hashes) = `state.db` SQLite,
+  gitignored, regenerable. An entity lives in ONE plane, never both.
+- **Profile = portable, named settings bundle** (the VS Code model). Owns settings only — no
+  domain. Switchable, shareable. **Settings cascade:** `effective(project) = merge(active
+  profile, workspace override?, project override?)` — workspace and project may each carry an
+  optional `settings.jsonc`; session inherits, no override. Switching profile only re-resolves
+  effective settings (hot-apply / reload-notify) — it does NOT touch domain or PTYs.
+- **Storage-agnostic.** The app only requires the domain tree be readable at its path; how the
+  user stores/versions it (git, sync, backup) is their business. Same for portable profiles.
+- **Zero file watchers.** All files reconcile at **startup + an explicit Re-sync button** —
+  domain and settings alike.
+- **Humans may edit any file.** Lazy conflict detection: at write + Re-sync, compare file hash
+  vs per-entity baseline → 3-way field merge. Disjoint fields auto-merge (inferred); overlap /
+  structural change → **prompt: Override (ours wins) / Force-merge (file as base, replay ours
+  on top)**. Uniform across settings + domain. No event sourcing, no continuous watching, no
+  conflict markers.
+- **Clean cutover, no migration** (pre-v1; dev-only data discarded).
+
+```
+<app-config>/tillerd/config.jsonc          machine-local: activeProfile, paths, app prefs
+<profiles>/<profile-name>/
+  settings.jsonc                            portable settings bundle (switchable, shareable)
+<data-root>/
+  state.db                                  operational, gitignored, regenerable
+  workspaces/<ws-slug>/   workspace.json    { id, name, sortOrder }   (slug dir, stable id)
+    settings.jsonc                          OPTIONAL workspace settings override
+    projects/<proj-slug>/ project.json      { id, name, sourceKind, rootPath, sortOrder }
+      settings.jsonc                        OPTIONAL project settings override
+      .archive/<…>/                         archived subtrees (atomic move)
+      sessions/<sess-slug>/ session.json    { id, title, titleSource, spec, sortOrder }
+        layout.json                         panel tree (geometry) + surface bindings
+                                            surface = { id, kind, placement, cwd, worktreeId }
+```
+Containment encodes hierarchy (no `workspace_id`/`project_id` fields); refs use stable `id`;
+ordering via explicit `sortOrder`; archive = move subtree to `.archive/`.
+
+### 0.0.15 — Storage & settings profiles
+
+The storage substrate (Feature A). Needs an ADR (new pattern; moves the 0.0.6 storage seam).
+
+- [ ] ADR — two-plane storage (snapshot tree + operational `state.db`) + settings-profile cascade.
+- [ ] Snapshot tree store — `workspace → project → session`; slug dirs + stable `id`, containment hierarchy, `sortOrder`, atomic write-temp-rename, `.archive/` subtree move; replaces SQLite domain tables.
+- [ ] `state.db` operational store — runtime status, notifications, command lib, worktrees, id→path index, view pointers, per-entity baseline hashes.
+- [ ] Settings profiles — portable named bundle (`<profiles>/<name>/settings.jsonc`); `config.jsonc` holds active-profile pointer + paths; switch = re-resolve effective settings only (no domain teardown); CONTEXT.md term.
+- [ ] Settings cascade — `merge(active profile, workspace override?, project override?)`; optional `settings.jsonc` at workspace + project; hot-apply where safe, else reload-notify.
+- [ ] Reconcile — startup scan + Re-sync command; lazy 3-way merge (auto-merge disjoint, prompt Override/Force-merge on overlap); no watchers.
+- [ ] Surface reattach on reload — diff `layout.json` placements → `detach` removed / `resume` added.
+
+### 0.0.16 — State model
+
+Standardize the state model (Feature B) over the 0.0.15 storage. Needs an ADR (new pattern: state-model-as-contract).
+
+- [ ] ADR — state-model-as-contract (lifecycle / sync / guards; authority split).
+- [ ] `contracts/state-model.json` (+ `.schema.json`) — single source; loaded both sides (Rust `include_str!`+serde, TS import+zod), no codegen.
+- [ ] Lifecycle FSM — shared CRUD (Creating→Active→Archiving→Archived→Deleting); surface special (Spawning→Attaching→Live→Closing→Closed). Contract marks persistable vs runtime-only states.
+- [ ] Surface status split — runtime `ProxyState` (Spawning/Attaching/Closing, in-memory, rebuilt at boot via `resume_all`) vs persisted typed `last_status` (Live | Exited | Crashed, `state.db`) gating resume-on-boot; replaces the free-form string.
+- [ ] Sync status — `Confirmed | Pending | Rejected | Stale | Conflicted`; optimistic with rollback; `Conflicted` locks entity until resolved.
+- [ ] Guards — `*-ing` states locked; only stable states accept actions; orchestrator enforces, client advisory.
+- [ ] View pointers — global in `state.db`: `activeWorkspace`, `sidebar.expanded.<proj>`, `lastSession.<proj>`; resolved against live lifecycle (Active only, else default). Per-window context comes from URL intent; `focusedLeaf` stays in-memory (not persisted).
+- [ ] Contract test — UI and server guards agree (like `command_contract.rs`).
+
+### 0.0.17 — Client engine: TanStack
+
+The real client engine (Feature C). Drop react-router's data model (routes render `null`, no
+loaders — paying for an unused router). Move to TanStack Router + Query + Store.
+
+- [ ] TanStack Router — replace react-router routing.
+- [ ] TanStack Query — server-state cache = the sync axis (pending/error/stale/refetch); kills imperative `refresh()`.
+- [ ] TanStack Store — reactive client store; coherent lists across windows.
+- [ ] Internal multi-window coherence — orchestrator emits `changed{id}` on its own writes → windows invalidate the matching Query key (app-internal, not file-watching).
+- [ ] Wire view pointers + state-model guards through Query/Store.
+
+### 0.0.18 — Foundation integration
+
+Buffer + integration pass: the three slices proven together end-to-end before the 0.0.20 UX/UI ship.
+
+- [ ] End-to-end — storage + state model + TanStack working as one across create / switch / reload / Re-sync / multi-window.
+- [ ] Re-sync UX — placement + conflict-prompt (Override / Force-merge) flow.
+- [ ] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.17 lands here.
+
+---
+
 ### 0.0.20 — UX/UI (ships the working app)
 
 Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
