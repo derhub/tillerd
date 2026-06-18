@@ -1,18 +1,13 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal } from "./helpers";
+import { getApp } from "./shared-app";
 
 // A spawned terminal surface streams the daemon's shell through the orchestrator and paints xterm.
 // Non-empty rendered text proves the end-to-end PTY path. Self-contained: creates its own project,
 // then spawns a terminal into the default (empty) session.
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("a session terminal renders streamed output", async () => {
-  const b = (browser = await launchReadyApp());
+  const b = getApp();
   await createProject(b, `Terminal ${Date.now()}`);
   await openTerminal(b);
 

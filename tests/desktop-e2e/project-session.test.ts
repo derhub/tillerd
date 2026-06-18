@@ -1,16 +1,11 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Test create-project -> create-session-in-project routing and sidebar display.
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("creates a project and a session within it", async () => {
-  const b = (browser = await launchReadyApp());
+  const b = getApp();
   const project = `Smoke ${Date.now()}`;
 
   const firstSessionUrl = await createProject(b, project);

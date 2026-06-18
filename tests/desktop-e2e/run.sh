@@ -53,16 +53,21 @@ trap '
 sleep 1
 
 # ── tests ─────────────────────────────────────────────────────────────────────
-# `bun test` runs every *.test.ts sequentially in one process (no parallel app launches), reports
-# pass/fail structurally, and exits non-zero on any failure — no log parsing. Each test defers its
-# own app launch via the WebDriver session it opens. `--bail` stops at the first failure.
+# `bun test` runs every *.test.ts sequentially in one process and exits non-zero on any failure.
+# `--bail` stops at the first failure. The scenario suite shares one app launched by the setup.ts
+# preload; resume runs without the preload so its real-restart launches never collide with it.
+SETUP="$REPO_ROOT/tests/desktop-e2e/setup.ts"
+RESUME="$REPO_ROOT/tests/desktop-e2e/resume.test.ts"
 
-# Dev build: boot, full project/session create flows, resume-after-restart, surface isolation,
-# terminal — the whole suite.
-TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$REPO_ROOT/tests/desktop-e2e"
+# Dev scenario suite: one shared app (preload) across every spec except resume.
+SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME")
+# shellcheck disable=SC2086
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail --preload "$SETUP" $SCENARIO_SPECS
 
-# Bundled build: boot-to-ready only (isolated so a release-only packaging failure does not mask the
-# rest of the suite — design D9).
+# Resume-after-restart: its own launches against the shared TILLERD_DIR.
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME"
+
+# Bundled build: boot-to-ready only, via the same shared-app preload against the release binary.
 if [[ -n "$BUNDLED_BIN" ]]; then
-  TILLERD_DESKTOP_BIN="$BUNDLED_BIN" bun test --bail "$REPO_ROOT/tests/desktop-e2e/boot.test.ts"
+  TILLERD_DESKTOP_BIN="$BUNDLED_BIN" bun test --bail --preload "$SETUP" "$REPO_ROOT/tests/desktop-e2e/boot.test.ts"
 fi

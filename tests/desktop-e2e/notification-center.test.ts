@@ -1,5 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal } from "./helpers";
+import { getApp } from "./shared-app";
 
 // The notification bell sits in the shell's bottom-right cluster. A live lifecycle event (here, a
 // spawned terminal -> "surface-started") raises an unread badge; clicking the bell opens the
@@ -7,15 +8,8 @@ import { type Browser, createProject, launchReadyApp, openTerminal } from "./hel
 // session. Popover open, the unread badge, and in-portal link navigation are real-webview concerns
 // (happy-dom has no layout/router), so they live here; row content is unit-tested.
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("a live event badges the bell; opening clears it and a session row navigates", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   // Create a session and spawn a terminal — the spawn raises a live "surface-started"
   // notification carrying this session id.

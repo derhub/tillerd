@@ -1,17 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, launchReadyApp } from "./helpers";
+import { expect, test } from "bun:test";
+import { type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // The aggregate health indicator sits in the shell's bottom-right cluster. Clicking it opens a
 // non-modal popover listing the orchestrator and each service, each with a logs link that performs
 // a client-side navigation to the viewer filtered to that service. Popover open + the in-portal
 // link navigation are real-webview concerns (happy-dom has no layout and no router), so they live
 // here; row content and aggregate state are unit-tested.
-
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
 
 // Open the popover, click `service`'s logs link, and assert every rendered row is that service.
 async function expectLogsFilteredTo(b: Browser, service: string) {
@@ -39,8 +34,7 @@ async function expectLogsFilteredTo(b: Browser, service: string) {
 }
 
 test("each health-row logs link filters the viewer to its own service", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   await (await b.$('[aria-label^="Service health"]')).click();
   const panel = await b.$('[data-slot="popover-content"]');

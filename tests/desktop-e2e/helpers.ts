@@ -97,3 +97,36 @@ export async function openLogViewer(browser: Browser): Promise<void> {
   const viewer = await browser.$('[data-testid="log-viewer"]');
   await viewer.waitForExist({ timeout: 15_000 });
 }
+
+// Monotonic counter keeps names unique for back-to-back tests sharing one app (no boot to space
+// out Date.now()).
+let nameSeq = 0;
+export function uniqueName(prefix: string): string {
+  return `${prefix} ${Date.now()}-${nameSeq++}`;
+}
+
+export async function resetToHome(browser: Browser): Promise<void> {
+  // Escape closes the focused palette/menu/dialog/rename input; body mousedown closes the rest.
+  await browser.keys(["Escape"]);
+  await browser.execute(() => {
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  });
+  await browser.execute(() => {
+    window.history.pushState({}, "", "/");
+    window.dispatchEvent(new Event("popstate"));
+  });
+  await browser.waitUntil(
+    async () => {
+      for (const sel of [
+        '[data-testid="command-center"]',
+        '[role="menu"]',
+        '[role="alertdialog"]',
+        '[data-testid="inline-rename-input"]',
+      ]) {
+        if (await (await browser.$(sel)).isExisting()) return false;
+      }
+      return (await browser.$("button*=New project")).isExisting();
+    },
+    { timeout: 10_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
+  );
+}

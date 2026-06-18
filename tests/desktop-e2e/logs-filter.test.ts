@@ -1,7 +1,8 @@
-import { afterEach, test } from "bun:test";
+import { test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Browser, clearLogSeeds, launchReadyApp, openLogViewer } from "./helpers";
+import { clearLogSeeds, openLogViewer, type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // The viewer's facets are exact-match. Each test seeds a log file (far-future timestamps so rows
 // sort to the bottom and auto-scroll into view), changes one facet, and asserts the rendered rows.
@@ -40,12 +41,6 @@ async function setSelectValue(b: Browser, selector: string, value: string): Prom
   );
 }
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("the level filter shows only the chosen level", async () => {
   const dir = join(process.env.TILLERD_DIR ?? `${process.env.HOME}/.tillerd`, "logs");
   mkdirSync(dir, { recursive: true });
@@ -56,8 +51,7 @@ test("the level filter shows only the chosen level", async () => {
   ].join("");
   writeFileSync(join(dir, "zzz-e2e-filter.log"), seed);
 
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
   await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
 
@@ -92,8 +86,7 @@ test("the service filter shows only the chosen service", async () => {
   ].join("");
   writeFileSync(join(dir, "zzz-e2e-service.log"), seed);
 
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
   await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
 

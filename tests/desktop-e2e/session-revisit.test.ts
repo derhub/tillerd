@@ -1,5 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal, surfaceId } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal, surfaceId } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Revisit isolation + persistence: with two sessions open (each with a spawned terminal), navigating
 // back to a session must show THAT session's own terminal — not the other session's, and the SAME
@@ -7,14 +8,8 @@ import { type Browser, createProject, launchReadyApp, openTerminal, surfaceId } 
 // `data-surface-id` (keyboard input to xterm is not drivable under tauri-webdriver, so the surface
 // id stands in for "the terminal I was looking at").
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("revisiting a session shows that session's own terminal", async () => {
-  const b = (browser = await launchReadyApp());
+  const b = getApp();
   const project = `Revisit ${Date.now()}`;
 
   // Wait for a mounted surface whose id differs from `other` (handles the unmount/remount gap when

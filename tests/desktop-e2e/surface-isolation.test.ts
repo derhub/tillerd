@@ -1,19 +1,14 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, createProject, launchReadyApp, openTerminal } from "./helpers";
+import { expect, test } from "bun:test";
+import { createProject, openTerminal } from "./helpers";
+import { getApp } from "./shared-app";
 
 // Surface isolation: each session drives its OWN terminal surface. A spawned pane exposes its
 // surface id as `data-surface-id`; two sessions in the same project must mount two DISTINCT
 // surfaces. A shared surface would reuse the first id. The live counterpart of the data-layer test
 // `each_session_gets_its_own_distinct_surface`.
 
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
-
 test("each session mounts its own distinct surface", async () => {
-  const b = (browser = await launchReadyApp());
+  const b = getApp();
   const project = `Isolation ${Date.now()}`;
 
   const session1Url = await createProject(b, project);

@@ -1,16 +1,11 @@
-import { afterEach, expect, test } from "bun:test";
-import { type Browser, launchReadyApp } from "./helpers";
+import { expect, test } from "bun:test";
+import { type Browser } from "./helpers";
+import { getApp } from "./shared-app";
 
 // The settings gear sits in the shell's bottom-right cluster. Clicking it opens a non-modal
 // popover with a Theme select. Choosing an appearance applies it in real time by toggling the
 // `.dark` class on the document root — a real-webview concern (happy-dom has no real paint and
 // the popover renders in a portal), so it lives here; the apply/persist logic is unit-tested.
-
-let browser: Browser | undefined;
-afterEach(async () => {
-  await browser?.deleteSession();
-  browser = undefined;
-});
 
 // Set a React controlled <select> by value and fire `change` — webdriverio's selectBy* helpers
 // do not reliably trigger React's onChange under WKWebView.
@@ -32,8 +27,7 @@ function hasDarkClass(b: Browser): Promise<boolean> {
 }
 
 test("selecting a theme in the settings panel toggles the appearance in real time", async () => {
-  const b = await launchReadyApp();
-  browser = b;
+  const b = getApp();
 
   // Open the settings popover from the bottom-right cluster.
   await (await b.$('[aria-label="Settings"]')).click();
