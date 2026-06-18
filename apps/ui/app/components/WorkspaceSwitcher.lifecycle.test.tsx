@@ -9,12 +9,19 @@ const alpha = { id: "ws-1", name: "Alpha" };
 const beta = { id: "ws-2", name: "Beta" };
 
 const opened: string[] = [];
+const created: { name: string }[] = [];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
 mock.module("~/lib/useDesktopHost", () => ({
   useDesktopHost: () => ({
     status: "ready",
-    orchestratorClient: { listWorkspaces: async () => [alpha, beta] },
+    orchestratorClient: {
+      listWorkspaces: async () => [alpha, beta],
+      createWorkspace: async ({ name }: { name: string }) => {
+        created.push({ name });
+        return { id: "ws-new", name };
+      },
+    },
   }),
 }));
 
@@ -39,6 +46,7 @@ const { WorkspaceSwitcher } = await import("./WorkspaceSwitcher");
 afterEach(() => {
   cleanup();
   opened.length = 0;
+  created.length = 0;
   reattach = undefined;
 });
 
@@ -64,4 +72,24 @@ test("detaching a workspace opens its window and re-attaching closes it back to 
   });
   await waitFor(() => expect(detachedIndicator()).toBeNull());
   expect(detachBtn()).not.toBeNull();
+});
+
+// Guards the bug where New workspace bailed on a null prompt — window.prompt returns null in the
+// Tauri webview, so the button must still create a workspace (under a default name).
+test("New workspace still creates one when window.prompt returns null", async () => {
+  const original = window.prompt;
+  window.prompt = () => null;
+  try {
+    render(<WorkspaceSwitcher />);
+    await waitFor(() =>
+      expect(document.querySelector('[data-testid="new-workspace"]')).not.toBeNull(),
+    );
+    act(() => {
+      (document.querySelector('[data-testid="new-workspace"]') as HTMLElement).click();
+    });
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0].name).toBe("New workspace");
+  } finally {
+    window.prompt = original;
+  }
 });

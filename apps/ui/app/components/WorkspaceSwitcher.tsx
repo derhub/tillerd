@@ -121,10 +121,12 @@ export function WorkspaceSwitcherList({
  * and renders the sidebar scoped to the selected workspace.
  * Drop-in replacement for SessionSidebar when workspace support is needed.
  */
-export function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?: string } = {}) {
   const host = useDesktopHost();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(
+    initialWorkspaceId ?? null,
+  );
   const [detachedWorkspaces, setDetachedWorkspaces] = useState<Set<string>>(() => new Set());
 
   const isDesktop = host.status === "ready";
@@ -162,8 +164,9 @@ export function WorkspaceSwitcher() {
 
   const handleNewWorkspace = useCallback(async () => {
     if (host.status !== "ready") return;
-    const name = window.prompt("Workspace name:")?.trim();
-    if (!name) return;
+    // window.prompt is unreliable in the Tauri webview (often returns null with no dialog), so a
+    // cancelled/empty result still creates a workspace under a default name — matching "New project".
+    const name = window.prompt("Workspace name:")?.trim() || "New workspace";
     const ws = await host.orchestratorClient.createWorkspace({ name });
     await refresh();
     setActiveWorkspaceId(ws.id);

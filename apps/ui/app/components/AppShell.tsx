@@ -19,6 +19,7 @@ import {
   detachedLabel,
   detachedQuery,
   emitReattachProject,
+  emitReattachWorkspace,
   focusSelf,
   focusWindow,
   onReattachPanel,
@@ -51,15 +52,20 @@ function getTerminalClient(): Promise<TerminalSurfaceClient> {
 export function AppShell({
   projectWindowId,
   initialSessionId,
+  workspaceWindowId,
 }: {
   // Set when this AppShell is itself a detached project child window: shows a Re-attach control and
   // overrides the session (the window loads at root, so there is no `:id` route param).
   projectWindowId?: string;
   initialSessionId?: string | null;
+  // Set when this AppShell is a detached workspace child window: scopes the sidebar to the
+  // workspace and shows a Re-attach control.
+  workspaceWindowId?: string;
 } = {}) {
   const params = useParams();
   const sessionId = params["id"] ?? initialSessionId ?? null;
   const isProjectWindow = projectWindowId != null;
+  const isWorkspaceWindow = workspaceWindowId != null;
   const onLogs = useLocation().pathname === "/logs";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -168,6 +174,17 @@ export function AppShell({
     );
     return () => unlisten?.();
   }, [isProjectWindow, projectWindowId]);
+
+  // Child workspace window: any close path emits workspace re-attach so the parent switcher clears
+  // its detached indicator.
+  useEffect(() => {
+    if (!isWorkspaceWindow || !workspaceWindowId) return;
+    let unlisten: (() => void) | undefined;
+    void armReattachOnClose(() => emitReattachWorkspace({ workspaceId: workspaceWindowId })).then(
+      (u) => (unlisten = u),
+    );
+    return () => unlisten?.();
+  }, [isWorkspaceWindow, workspaceWindowId]);
 
   // Panel / surface / chrome commands for the palette. Thunks read refs so the array is stable;
   // each acts on the active leaf (falling back to the first matching leaf).
@@ -414,7 +431,7 @@ export function AppShell({
             <CommandCenter />
             <div className="h-dvh w-full flex overflow-hidden">
               <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-                <WorkspaceSwitcher />
+                <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
               </aside>
               <div
                 className="flex-1 min-w-0 pt-px relative"
@@ -430,7 +447,7 @@ export function AppShell({
                   <ContentSkeleton />
                 ) : null}
                 <div className="fixed bottom-2 right-2 z-50 flex items-center gap-2">
-                  {isProjectWindow && (
+                  {(isProjectWindow || isWorkspaceWindow) && (
                     <button
                       type="button"
                       onClick={() => void closeSelf()}
