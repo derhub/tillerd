@@ -5,6 +5,7 @@ import { SERVICE_HEALTH_METHOD } from "./service-health";
 import {
   createWorkspaceClient,
   type WorkspaceClient,
+  type Workspace,
   type Project,
   type Session,
   type CreateProjectArgs,
@@ -12,6 +13,8 @@ import {
   type ArchiveProjectArgs,
   type DeleteProjectArgs,
   type ReorderProjectArgs,
+  type ListProjectsArgs,
+  type MoveProjectArgs,
   type CreateSessionArgs,
   type RenameSessionArgs,
   type ListSessionsArgs,
@@ -20,6 +23,10 @@ import {
   type ReorderSessionArgs,
   type SetSessionLayoutArgs,
   type GetSessionLayoutArgs,
+  type CreateWorkspaceArgs,
+  type RenameWorkspaceArgs,
+  type ReorderWorkspaceArgs,
+  type DeleteWorkspaceArgs,
 } from "./workspace";
 import {
   createSettingsClient,
@@ -56,6 +63,7 @@ export function createOrchestratorClient(transport: OrchestratorHostTransport): 
 }
 
 export type {
+  Workspace,
   Project,
   Session,
   CreateProjectArgs,
@@ -63,6 +71,8 @@ export type {
   ArchiveProjectArgs,
   DeleteProjectArgs,
   ReorderProjectArgs,
+  ListProjectsArgs,
+  MoveProjectArgs,
   CreateSessionArgs,
   RenameSessionArgs,
   ListSessionsArgs,
@@ -71,6 +81,10 @@ export type {
   ReorderSessionArgs,
   SetSessionLayoutArgs,
   GetSessionLayoutArgs,
+  CreateWorkspaceArgs,
+  RenameWorkspaceArgs,
+  ReorderWorkspaceArgs,
+  DeleteWorkspaceArgs,
   SettingScope,
   SettingEntry,
   GetSettingArgs,

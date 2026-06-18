@@ -6,6 +6,7 @@ export const PROJECT_LIST = "project_list";
 export const PROJECT_ARCHIVE = "project_archive";
 export const PROJECT_DELETE = "project_delete";
 export const PROJECT_REORDER = "project_reorder";
+export const PROJECT_MOVE = "project_move";
 
 export const SESSION_CREATE = "session_create";
 export const SESSION_RENAME = "session_rename";
@@ -16,17 +17,29 @@ export const SESSION_REORDER = "session_reorder";
 export const SESSION_LAYOUT_SET = "session_layout_set";
 export const SESSION_LAYOUT_GET = "session_layout_get";
 
+export const WORKSPACE_CREATE = "workspace_create";
+export const WORKSPACE_LIST = "workspace_list";
+export const WORKSPACE_RENAME = "workspace_rename";
+export const WORKSPACE_REORDER = "workspace_reorder";
+export const WORKSPACE_DELETE = "workspace_delete";
+
 // ── domain types ──────────────────────────────────────────────────────────────
 
 export type SourceKind = "blank" | "local_dir" | "git_repo" | "git_worktree";
 
 export type TitleSource = "agent-title" | "branch" | "both" | "custom";
 
+export interface Workspace {
+  id: string;
+  name: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   sourceKind: SourceKind;
   rootPath: string | null;
+  workspaceId: string;
 }
 
 export interface Session {
@@ -43,6 +56,7 @@ export interface CreateProjectArgs {
   sourceKind: SourceKind;
   rootPath?: string;
   name?: string;
+  workspaceId?: string;
 }
 
 export interface RenameProjectArgs {
@@ -61,6 +75,15 @@ export interface DeleteProjectArgs {
 export interface ReorderProjectArgs {
   id: string;
   sortOrder: number;
+}
+
+export interface ListProjectsArgs {
+  workspaceId?: string;
+}
+
+export interface MoveProjectArgs {
+  id: string;
+  workspaceId: string;
 }
 
 export interface CreateSessionArgs {
@@ -100,15 +123,34 @@ export interface GetSessionLayoutArgs {
   id: string;
 }
 
+export interface CreateWorkspaceArgs {
+  name: string;
+}
+
+export interface RenameWorkspaceArgs {
+  id: string;
+  name: string;
+}
+
+export interface ReorderWorkspaceArgs {
+  id: string;
+  sortOrder: number;
+}
+
+export interface DeleteWorkspaceArgs {
+  id: string;
+}
+
 // ── client interface ──────────────────────────────────────────────────────────
 
 export interface WorkspaceClient {
   createProject(args: CreateProjectArgs): Promise<Project>;
   renameProject(args: RenameProjectArgs): Promise<void>;
-  listProjects(): Promise<Project[]>;
+  listProjects(args?: ListProjectsArgs): Promise<Project[]>;
   archiveProject(args: ArchiveProjectArgs): Promise<void>;
   deleteProject(args: DeleteProjectArgs): Promise<void>;
   reorderProject(args: ReorderProjectArgs): Promise<void>;
+  moveProject(args: MoveProjectArgs): Promise<void>;
 
   createSession(args: CreateSessionArgs): Promise<Session>;
   renameSession(args: RenameSessionArgs): Promise<void>;
@@ -119,6 +161,12 @@ export interface WorkspaceClient {
 
   setSessionLayout(args: SetSessionLayoutArgs): Promise<void>;
   getSessionLayout(args: GetSessionLayoutArgs): Promise<string | null>;
+
+  createWorkspace(args: CreateWorkspaceArgs): Promise<Workspace>;
+  listWorkspaces(): Promise<Workspace[]>;
+  renameWorkspace(args: RenameWorkspaceArgs): Promise<void>;
+  reorderWorkspace(args: ReorderWorkspaceArgs): Promise<void>;
+  deleteWorkspace(args: DeleteWorkspaceArgs): Promise<void>;
 }
 
 export interface WorkspaceTransport {
@@ -131,10 +179,11 @@ export function createWorkspaceClient(transport: WorkspaceTransport): WorkspaceC
   return {
     createProject: (args) => call<Project>(PROJECT_CREATE, args),
     renameProject: (args) => call<void>(PROJECT_RENAME, args),
-    listProjects: () => call<Project[]>(PROJECT_LIST),
+    listProjects: (args) => call<Project[]>(PROJECT_LIST, args),
     archiveProject: (args) => call<void>(PROJECT_ARCHIVE, args),
     deleteProject: (args) => call<void>(PROJECT_DELETE, args),
     reorderProject: (args) => call<void>(PROJECT_REORDER, args),
+    moveProject: (args) => call<void>(PROJECT_MOVE, args),
 
     createSession: (args) => call<Session>(SESSION_CREATE, args),
     renameSession: (args) => call<void>(SESSION_RENAME, args),
@@ -145,5 +194,11 @@ export function createWorkspaceClient(transport: WorkspaceTransport): WorkspaceC
 
     setSessionLayout: (args) => call<void>(SESSION_LAYOUT_SET, args),
     getSessionLayout: (args) => call<string | null>(SESSION_LAYOUT_GET, args),
+
+    createWorkspace: (args) => call<Workspace>(WORKSPACE_CREATE, args),
+    listWorkspaces: () => call<Workspace[]>(WORKSPACE_LIST),
+    renameWorkspace: (args) => call<void>(WORKSPACE_RENAME, args),
+    reorderWorkspace: (args) => call<void>(WORKSPACE_REORDER, args),
+    deleteWorkspace: (args) => call<void>(WORKSPACE_DELETE, args),
   };
 }
