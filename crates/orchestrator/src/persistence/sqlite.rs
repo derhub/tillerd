@@ -6,9 +6,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 use super::schema;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, NotificationRecord,
-    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
-    SurfaceId, SurfaceKind, TitleSource, Worktree, WorktreeId,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorkspace, NewWorktree,
+    NotificationRecord, Project, ProjectId, Session, SessionId, SettingEntry, SettingScope,
+    SourceKind, Store, Surface, SurfaceId, SurfaceKind, TitleSource, Workspace, WorkspaceId,
+    Worktree, WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -231,22 +232,11 @@ impl Store for SqliteStore {
     fn get_project(&self, id: &ProjectId) -> Result<Option<Project>> {
         self.lock()?
             .query_row(
-                "SELECT id, name, source_kind, root_path
+                "SELECT id, name, source_kind, root_path, workspace_id
                  FROM project
                  WHERE id = ?1 AND deleted_at IS NULL",
                 params![id.as_str()],
-                |row| {
-                    let id: String = row.get(0)?;
-                    let name: String = row.get(1)?;
-                    let source_kind: String = row.get(2)?;
-                    let root_path: Option<String> = row.get(3)?;
-                    Ok(Project {
-                        id: ProjectId::new(id),
-                        name,
-                        source_kind: parse_source_kind(&source_kind),
-                        root_path,
-                    })
-                },
+                row_to_project,
             )
             .optional()
             .map_err(persist)
@@ -258,15 +248,17 @@ impl Store for SqliteStore {
             .name
             .or_else(|| infer_project_name(draft.source_kind, draft.root_path.as_deref()))
             .unwrap_or_default();
+        let workspace_id = draft.workspace_id.unwrap_or_else(WorkspaceId::default_id);
         self.lock()?
             .execute(
-                "INSERT INTO project (id, name, source_kind, root_path)
-                 VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO project (id, name, source_kind, root_path, workspace_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![
                     id.as_str(),
                     &name,
                     draft.source_kind.as_str(),
-                    &draft.root_path
+                    &draft.root_path,
+                    workspace_id.as_str()
                 ],
             )
             .map_err(persist)?;
@@ -275,6 +267,7 @@ impl Store for SqliteStore {
             name,
             source_kind: draft.source_kind,
             root_path: draft.root_path,
+            workspace_id,
         })
     }
 
@@ -296,29 +289,19 @@ impl Store for SqliteStore {
         Ok(())
     }
 
-    fn list_projects(&self) -> Result<Vec<Project>> {
+    fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>> {
         let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
-                "SELECT id, name, source_kind, root_path
+                "SELECT id, name, source_kind, root_path, workspace_id
                  FROM project
                  WHERE deleted_at IS NULL
+                   AND (?1 IS NULL OR workspace_id = ?1)
                  ORDER BY COALESCE(sort_order, rowid), created_at DESC",
             )
             .map_err(persist)?;
         let rows = stmt
-            .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let name: String = row.get(1)?;
-                let source_kind: String = row.get(2)?;
-                let root_path: Option<String> = row.get(3)?;
-                Ok(Project {
-                    id: ProjectId::new(id),
-                    name,
-                    source_kind: parse_source_kind(&source_kind),
-                    root_path,
-                })
-            })
+            .query_map(params![workspace_id.map(|w| w.as_str())], row_to_project)
             .map_err(persist)?;
         rows.collect::<std::result::Result<Vec<_>, _>>()
             .map_err(persist)
@@ -415,6 +398,131 @@ impl Store for SqliteStore {
             .map_err(persist)?;
         if rows == 0 {
             return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
+        }
+        Ok(())
+    }
+
+    fn move_project(&self, project_id: &ProjectId, workspace_id: &WorkspaceId) -> Result<()> {
+        let conn = self.lock()?;
+        let exists: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM workspace WHERE id = ?1",
+                params![workspace_id.as_str()],
+                |r| r.get(0),
+            )
+            .map_err(persist)?;
+        if exists == 0 {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                workspace_id.as_str().to_string(),
+            ));
+        }
+        let rows = conn
+            .execute(
+                "UPDATE project SET workspace_id = ?1, updated_at = datetime('now')
+                 WHERE id = ?2 AND deleted_at IS NULL",
+                params![workspace_id.as_str(), project_id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::ProjectNotFound(
+                project_id.as_str().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    // ── workspace ─────────────────────────────────────────────────────────
+
+    fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
+        let id = WorkspaceId::new(uuid::Uuid::new_v4().to_string());
+        self.lock()?
+            .execute(
+                "INSERT INTO workspace (id, name, sort_order)
+                 VALUES (?1, ?2, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM workspace))",
+                params![id.as_str(), &draft.name],
+            )
+            .map_err(persist)?;
+        Ok(Workspace {
+            id,
+            name: draft.name,
+        })
+    }
+
+    fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE workspace SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
+                params![name, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn list_workspaces(&self) -> Result<Vec<Workspace>> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, name FROM workspace
+                 ORDER BY COALESCE(sort_order, rowid), created_at ASC",
+            )
+            .map_err(persist)?;
+        let rows = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let name: String = row.get(1)?;
+                Ok(Workspace {
+                    id: WorkspaceId::new(id),
+                    name,
+                })
+            })
+            .map_err(persist)?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(persist)
+    }
+
+    fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()> {
+        let rows = self
+            .lock()?
+            .execute(
+                "UPDATE workspace SET sort_order = ?1 WHERE id = ?2",
+                params![sort_order as i64, id.as_str()],
+            )
+            .map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn delete_workspace(&self, id: &WorkspaceId) -> Result<()> {
+        if id.is_default() {
+            return Err(OrchestratorError::WorkspaceIsDefault);
+        }
+        let conn = self.lock()?;
+        let tx = conn.unchecked_transaction().map_err(persist)?;
+        // Reassign this workspace's projects to Default rather than deleting them.
+        tx.execute(
+            "UPDATE project SET workspace_id = ?1, updated_at = datetime('now')
+             WHERE workspace_id = ?2",
+            params![WorkspaceId::DEFAULT, id.as_str()],
+        )
+        .map_err(persist)?;
+        let rows = tx
+            .execute("DELETE FROM workspace WHERE id = ?1", params![id.as_str()])
+            .map_err(persist)?;
+        tx.commit().map_err(persist)?;
+        if rows == 0 {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            ));
         }
         Ok(())
     }
@@ -1143,6 +1251,21 @@ fn row_to_surface(row: &rusqlite::Row<'_>) -> rusqlite::Result<Surface> {
     })
 }
 
+fn row_to_project(row: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
+    let id: String = row.get(0)?;
+    let name: String = row.get(1)?;
+    let source_kind: String = row.get(2)?;
+    let root_path: Option<String> = row.get(3)?;
+    let workspace_id: String = row.get(4)?;
+    Ok(Project {
+        id: ProjectId::new(id),
+        name,
+        source_kind: parse_source_kind(&source_kind),
+        root_path,
+        workspace_id: WorkspaceId::new(workspace_id),
+    })
+}
+
 fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<Session> {
     let id: String = row.get(0)?;
     let project_id: String = row.get(1)?;
@@ -1422,6 +1545,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("My Project".to_string()),
+                workspace_id: None,
             })
             .unwrap();
 
@@ -1439,6 +1563,7 @@ mod tests {
                 source_kind: SourceKind::LocalDir,
                 root_path: Some("/home/user/myapp".to_string()),
                 name: None,
+                workspace_id: None,
             })
             .unwrap();
 
@@ -1455,6 +1580,7 @@ mod tests {
                 source_kind: SourceKind::LocalDir,
                 root_path: Some("/home/user/myapp".to_string()),
                 name: Some("custom-name".to_string()),
+                workspace_id: None,
             })
             .unwrap();
 
@@ -1471,11 +1597,12 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("old".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         store.rename_project(&p.id, "new").unwrap();
 
-        let list = store.list_projects().unwrap();
+        let list = store.list_projects(None).unwrap();
         let found = list.iter().find(|x| x.id == p.id).unwrap();
         assert_eq!(found.name, "new");
     }
@@ -1512,6 +1639,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("first".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let p2 = store
@@ -1519,11 +1647,12 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("second".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         store.archive_project(&p1.id).unwrap();
 
-        let list = store.list_projects().unwrap();
+        let list = store.list_projects(None).unwrap();
         // only active projects; p1 is archived
         assert!(!list.iter().any(|p| p.id == p1.id));
         assert!(list.iter().any(|p| p.id == p2.id));
@@ -1540,6 +1669,7 @@ mod tests {
                     source_kind: SourceKind::Blank,
                     root_path: None,
                     name: Some(name.to_string()),
+                    workspace_id: None,
                 })
                 .unwrap()
         };
@@ -1553,7 +1683,7 @@ mod tests {
         store.reorder_project(&a.id, 2).unwrap();
 
         let named: Vec<String> = store
-            .list_projects()
+            .list_projects(None)
             .unwrap()
             .into_iter()
             .filter(|p| !ProjectId::new(p.id.as_str().to_string()).is_unfiled())
@@ -1582,6 +1712,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let mk = |title: &str| {
@@ -1631,6 +1762,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let sess = store
@@ -1679,6 +1811,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         store.archive_project(&proj.id).unwrap();
@@ -1706,6 +1839,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
 
@@ -1800,6 +1934,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let s1 = store
@@ -2103,6 +2238,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let wt = store
@@ -2306,6 +2442,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
 
@@ -2331,6 +2468,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
 
@@ -2360,6 +2498,7 @@ mod tests {
                     source_kind: SourceKind::Blank,
                     root_path: None,
                     name: Some("p".to_string()),
+                    workspace_id: None,
                 })
                 .unwrap();
             project_id = project.id.clone();
@@ -2399,6 +2538,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let tmpl = store
@@ -2498,6 +2638,7 @@ mod tests {
                 source_kind: SourceKind::Blank,
                 root_path: None,
                 name: Some("p".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         let tmpl = store
@@ -2601,5 +2742,321 @@ mod tests {
                 .as_deref(),
             Some(r#""g""#)
         );
+    }
+
+    // ── workspace ─────────────────────────────────────────────────────────
+
+    fn blank_project(name: &str, workspace_id: Option<WorkspaceId>) -> NewProject {
+        NewProject {
+            source_kind: SourceKind::Blank,
+            root_path: None,
+            name: Some(name.to_string()),
+            workspace_id,
+        }
+    }
+
+    #[test]
+    fn create_workspace_persists_and_returns_id() {
+        let (_dir, path) = temp_db("ws-create");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "Work".to_string(),
+            })
+            .unwrap();
+        assert_eq!(ws.name, "Work");
+        let listed = store.list_workspaces().unwrap();
+        assert!(listed.iter().any(|w| w.id == ws.id && w.name == "Work"));
+    }
+
+    #[test]
+    fn new_workspace_is_ordered_last() {
+        let (_dir, path) = temp_db("ws-order-last");
+        let store = SqliteStore::open(&path).unwrap();
+        let first = store
+            .create_workspace(NewWorkspace {
+                name: "first".to_string(),
+            })
+            .unwrap();
+        let second = store
+            .create_workspace(NewWorkspace {
+                name: "second".to_string(),
+            })
+            .unwrap();
+        let order: Vec<WorkspaceId> = store
+            .list_workspaces()
+            .unwrap()
+            .into_iter()
+            .map(|w| w.id)
+            .collect();
+        let pos = |id: &WorkspaceId| order.iter().position(|o| o == id).unwrap();
+        assert!(pos(&first.id) < pos(&second.id));
+        assert!(pos(&WorkspaceId::default_id()) < pos(&first.id));
+    }
+
+    #[test]
+    fn rename_workspace_persists() {
+        let (_dir, path) = temp_db("ws-rename");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "old".to_string(),
+            })
+            .unwrap();
+        store.rename_workspace(&ws.id, "new").unwrap();
+        let listed = store.list_workspaces().unwrap();
+        assert_eq!(
+            listed
+                .iter()
+                .find(|w| w.id == ws.id)
+                .map(|w| w.name.as_str()),
+            Some("new")
+        );
+    }
+
+    #[test]
+    fn rename_unknown_workspace_returns_not_found() {
+        let (_dir, path) = temp_db("ws-rename-unknown");
+        let store = SqliteStore::open(&path).unwrap();
+        let err = store
+            .rename_workspace(&WorkspaceId::new("nope"), "x")
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::WorkspaceNotFound(_)));
+    }
+
+    #[test]
+    fn workspaces_listed_by_sort_order() {
+        let (_dir, path) = temp_db("ws-sorted");
+        let store = SqliteStore::open(&path).unwrap();
+        let a = store
+            .create_workspace(NewWorkspace {
+                name: "a".to_string(),
+            })
+            .unwrap();
+        let b = store
+            .create_workspace(NewWorkspace {
+                name: "b".to_string(),
+            })
+            .unwrap();
+        store.reorder_workspace(&a.id, 10).unwrap();
+        store.reorder_workspace(&b.id, 5).unwrap();
+        let order: Vec<WorkspaceId> = store
+            .list_workspaces()
+            .unwrap()
+            .into_iter()
+            .map(|w| w.id)
+            .collect();
+        assert!(order.iter().position(|o| *o == b.id) < order.iter().position(|o| *o == a.id));
+    }
+
+    #[test]
+    fn default_workspace_always_present() {
+        let (_dir, path) = temp_db("ws-default-present");
+        let store = SqliteStore::open(&path).unwrap();
+        let listed = store.list_workspaces().unwrap();
+        assert!(listed.iter().any(|w| w.id == WorkspaceId::default_id()));
+    }
+
+    #[test]
+    fn workspace_order_persists_across_restart() {
+        let (_dir, path) = temp_db("ws-restart");
+        let (a, b) = {
+            let store = SqliteStore::open(&path).unwrap();
+            let a = store
+                .create_workspace(NewWorkspace {
+                    name: "a".to_string(),
+                })
+                .unwrap();
+            let b = store
+                .create_workspace(NewWorkspace {
+                    name: "b".to_string(),
+                })
+                .unwrap();
+            store.reorder_workspace(&a.id, 20).unwrap();
+            store.reorder_workspace(&b.id, 1).unwrap();
+            (a.id, b.id)
+        };
+        let reopened = SqliteStore::open(&path).unwrap();
+        let order: Vec<WorkspaceId> = reopened
+            .list_workspaces()
+            .unwrap()
+            .into_iter()
+            .map(|w| w.id)
+            .collect();
+        assert!(order.iter().position(|o| *o == b) < order.iter().position(|o| *o == a));
+    }
+
+    #[test]
+    fn delete_default_workspace_is_rejected() {
+        let (_dir, path) = temp_db("ws-del-default");
+        let store = SqliteStore::open(&path).unwrap();
+        let err = store
+            .delete_workspace(&WorkspaceId::default_id())
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::WorkspaceIsDefault));
+        assert!(store
+            .list_workspaces()
+            .unwrap()
+            .iter()
+            .any(|w| w.id == WorkspaceId::default_id()));
+    }
+
+    #[test]
+    fn delete_workspace_reassigns_projects_to_default() {
+        let (_dir, path) = temp_db("ws-del-reassign");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "tmp".to_string(),
+            })
+            .unwrap();
+        let project = store
+            .create_project(blank_project("p", Some(ws.id.clone())))
+            .unwrap();
+        let session = store
+            .create_session(NewSession {
+                project_id: Some(project.id.clone()),
+                ..Default::default()
+            })
+            .unwrap();
+        store.delete_workspace(&ws.id).unwrap();
+        assert!(store
+            .list_workspaces()
+            .unwrap()
+            .iter()
+            .all(|w| w.id != ws.id));
+        let moved = store.get_project(&project.id).unwrap().unwrap();
+        assert_eq!(moved.workspace_id, WorkspaceId::default_id());
+        // sessions unaffected
+        assert!(store.get_session(&session.id).unwrap().is_some());
+    }
+
+    #[test]
+    fn delete_empty_workspace_removes_it() {
+        let (_dir, path) = temp_db("ws-del-empty");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "tmp".to_string(),
+            })
+            .unwrap();
+        store.delete_workspace(&ws.id).unwrap();
+        assert!(store
+            .list_workspaces()
+            .unwrap()
+            .iter()
+            .all(|w| w.id != ws.id));
+    }
+
+    #[test]
+    fn new_project_defaults_to_default_workspace() {
+        let (_dir, path) = temp_db("proj-default-ws");
+        let store = SqliteStore::open(&path).unwrap();
+        let project = store.create_project(blank_project("p", None)).unwrap();
+        assert_eq!(project.workspace_id, WorkspaceId::default_id());
+        let fetched = store.get_project(&project.id).unwrap().unwrap();
+        assert_eq!(fetched.workspace_id, WorkspaceId::default_id());
+    }
+
+    #[test]
+    fn new_project_assigned_to_given_workspace() {
+        let (_dir, path) = temp_db("proj-given-ws");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "w".to_string(),
+            })
+            .unwrap();
+        let project = store
+            .create_project(blank_project("p", Some(ws.id.clone())))
+            .unwrap();
+        assert_eq!(project.workspace_id, ws.id);
+    }
+
+    #[test]
+    fn move_project_changes_workspace_and_keeps_sessions() {
+        let (_dir, path) = temp_db("proj-move");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "w".to_string(),
+            })
+            .unwrap();
+        let project = store.create_project(blank_project("p", None)).unwrap();
+        let session = store
+            .create_session(NewSession {
+                project_id: Some(project.id.clone()),
+                ..Default::default()
+            })
+            .unwrap();
+        store.move_project(&project.id, &ws.id).unwrap();
+        let moved = store.get_project(&project.id).unwrap().unwrap();
+        assert_eq!(moved.workspace_id, ws.id);
+        assert!(store.get_session(&session.id).unwrap().is_some());
+    }
+
+    #[test]
+    fn move_project_to_unknown_workspace_returns_error() {
+        let (_dir, path) = temp_db("proj-move-unknown");
+        let store = SqliteStore::open(&path).unwrap();
+        let project = store.create_project(blank_project("p", None)).unwrap();
+        let err = store
+            .move_project(&project.id, &WorkspaceId::new("nope"))
+            .unwrap_err();
+        assert!(matches!(err, OrchestratorError::WorkspaceNotFound(_)));
+    }
+
+    #[test]
+    fn list_projects_scoped_to_workspace() {
+        let (_dir, path) = temp_db("proj-scoped");
+        let store = SqliteStore::open(&path).unwrap();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "w".to_string(),
+            })
+            .unwrap();
+        let in_ws = store
+            .create_project(blank_project("in", Some(ws.id.clone())))
+            .unwrap();
+        let _in_default = store.create_project(blank_project("out", None)).unwrap();
+        let scoped = store.list_projects(Some(&ws.id)).unwrap();
+        assert_eq!(scoped.len(), 1);
+        assert_eq!(scoped[0].id, in_ws.id);
+    }
+
+    #[test]
+    fn pre_existing_projects_migrate_into_default() {
+        let (_dir, path) = temp_db("ws-migration");
+        // Build a pre-workspace store (schema v6: no workspace table/column) and insert a
+        // project + session directly, then reopen to run the workspace migration.
+        let pre = schema::migrations()[..6].to_vec();
+        {
+            let store = SqliteStore::open_with(&path, &pre).unwrap();
+            assert_eq!(store.schema_version().unwrap(), 6);
+        }
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute(
+                "INSERT INTO project (id, name, source_kind, root_path)
+                 VALUES ('p1', 'legacy', 'blank', NULL)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO session (id, project_id, title, title_source)
+                 VALUES ('s1', 'p1', 't', 'agent-title')",
+                [],
+            )
+            .unwrap();
+        }
+        let store = SqliteStore::open(&path).unwrap();
+        assert_eq!(store.schema_version().unwrap(), schema::current_version());
+        let project = store.get_project(&ProjectId::new("p1")).unwrap().unwrap();
+        assert_eq!(project.workspace_id, WorkspaceId::default_id());
+        // session intact
+        assert!(store
+            .get_session(&SessionId::from_string("s1"))
+            .unwrap()
+            .is_some());
     }
 }

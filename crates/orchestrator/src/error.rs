@@ -17,6 +17,12 @@ pub enum OrchestratorError {
     #[error("project not found: {0}")]
     ProjectNotFound(String),
 
+    #[error("workspace not found: {0}")]
+    WorkspaceNotFound(String),
+
+    #[error("the Default workspace cannot be deleted")]
+    WorkspaceIsDefault,
+
     #[error("the Unfiled project cannot be archived or deleted")]
     ProjectIsUnfiled,
 

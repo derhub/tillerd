@@ -5,9 +5,10 @@ use std::sync::Mutex;
 use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorktree, NotificationRecord,
-    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
-    SurfaceId, TitleSource, Worktree, WorktreeId,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorkspace, NewWorktree,
+    NotificationRecord, Project, ProjectId, Session, SessionId, SettingEntry, SettingScope,
+    SourceKind, Store, Surface, SurfaceId, TitleSource, Workspace, WorkspaceId, Worktree,
+    WorktreeId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -17,6 +18,7 @@ pub struct InMemoryStore {
 
 struct Inner {
     version: u32,
+    workspaces: HashMap<String, WorkspaceRecord>,
     projects: HashMap<String, ProjectRecord>,
     sessions: HashMap<String, SessionRecord>,
     surfaces: HashMap<String, SurfaceRecord>,
@@ -43,6 +45,13 @@ struct ProjectRecord {
 }
 
 #[derive(Clone)]
+struct WorkspaceRecord {
+    workspace: Workspace,
+    sort_order: u32,
+    created_seq: u64,
+}
+
+#[derive(Clone)]
 struct SessionRecord {
     session: Session,
     deleted: bool,
@@ -57,6 +66,18 @@ struct SurfaceRecord {
 
 impl InMemoryStore {
     pub fn new() -> Self {
+        let mut workspaces = HashMap::new();
+        workspaces.insert(
+            WorkspaceId::DEFAULT.to_string(),
+            WorkspaceRecord {
+                workspace: Workspace {
+                    id: WorkspaceId::default_id(),
+                    name: "Default".to_string(),
+                },
+                sort_order: 0,
+                created_seq: 0,
+            },
+        );
         let mut projects = HashMap::new();
         projects.insert(
             ProjectId::UNFILED.to_string(),
@@ -66,6 +87,7 @@ impl InMemoryStore {
                     name: "Unfiled".to_string(),
                     source_kind: SourceKind::Blank,
                     root_path: None,
+                    workspace_id: WorkspaceId::default_id(),
                 },
                 deleted: false,
                 created_seq: 0,
@@ -74,6 +96,7 @@ impl InMemoryStore {
         let store = Self {
             inner: Mutex::new(Inner {
                 version: current_version(),
+                workspaces,
                 projects,
                 sessions: HashMap::new(),
                 surfaces: HashMap::new(),
@@ -127,6 +150,7 @@ impl Store for InMemoryStore {
             name,
             source_kind: draft.source_kind,
             root_path: draft.root_path,
+            workspace_id: draft.workspace_id.unwrap_or_else(WorkspaceId::default_id),
         };
         inner.projects.insert(
             id.as_str().to_string(),
@@ -153,10 +177,14 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn list_projects(&self) -> Result<Vec<Project>> {
+    fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>> {
         let inner = self.inner.lock().unwrap();
-        let mut records: Vec<&ProjectRecord> =
-            inner.projects.values().filter(|r| !r.deleted).collect();
+        let mut records: Vec<&ProjectRecord> = inner
+            .projects
+            .values()
+            .filter(|r| !r.deleted)
+            .filter(|r| workspace_id.is_none_or(|w| r.project.workspace_id == *w))
+            .collect();
         records.sort_by_key(|r| Reverse(r.created_seq));
         Ok(records.into_iter().map(|r| r.project.clone()).collect())
     }
@@ -224,6 +252,104 @@ impl Store for InMemoryStore {
         let inner = self.inner.lock().unwrap();
         if !inner.projects.contains_key(id.as_str()) {
             return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
+        }
+        Ok(())
+    }
+
+    fn move_project(&self, project_id: &ProjectId, workspace_id: &WorkspaceId) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        if !inner.workspaces.contains_key(workspace_id.as_str()) {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                workspace_id.as_str().to_string(),
+            ));
+        }
+        match inner.projects.get_mut(project_id.as_str()) {
+            Some(r) if !r.deleted => {
+                r.project.workspace_id = workspace_id.clone();
+                Ok(())
+            }
+            _ => Err(OrchestratorError::ProjectNotFound(
+                project_id.as_str().to_string(),
+            )),
+        }
+    }
+
+    // ── workspace ─────────────────────────────────────────────────────────
+
+    fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
+        let mut inner = self.inner.lock().unwrap();
+        let seq = inner.workspaces.len() as u64;
+        let sort_order = inner
+            .workspaces
+            .values()
+            .map(|r| r.sort_order)
+            .max()
+            .unwrap_or(0)
+            + 1;
+        let id = WorkspaceId::new(uuid::Uuid::new_v4().to_string());
+        let workspace = Workspace {
+            id: id.clone(),
+            name: draft.name,
+        };
+        inner.workspaces.insert(
+            id.as_str().to_string(),
+            WorkspaceRecord {
+                workspace: workspace.clone(),
+                sort_order,
+                created_seq: seq,
+            },
+        );
+        Ok(workspace)
+    }
+
+    fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        match inner.workspaces.get_mut(id.as_str()) {
+            Some(r) => {
+                r.workspace.name = name.to_string();
+                Ok(())
+            }
+            None => Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            )),
+        }
+    }
+
+    fn list_workspaces(&self) -> Result<Vec<Workspace>> {
+        let inner = self.inner.lock().unwrap();
+        let mut records: Vec<&WorkspaceRecord> = inner.workspaces.values().collect();
+        records.sort_by_key(|r| (r.sort_order, r.created_seq));
+        Ok(records.into_iter().map(|r| r.workspace.clone()).collect())
+    }
+
+    fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        match inner.workspaces.get_mut(id.as_str()) {
+            Some(r) => {
+                r.sort_order = sort_order;
+                Ok(())
+            }
+            None => Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            )),
+        }
+    }
+
+    fn delete_workspace(&self, id: &WorkspaceId) -> Result<()> {
+        if id.is_default() {
+            return Err(OrchestratorError::WorkspaceIsDefault);
+        }
+        let mut inner = self.inner.lock().unwrap();
+        if inner.workspaces.remove(id.as_str()).is_none() {
+            return Err(OrchestratorError::WorkspaceNotFound(
+                id.as_str().to_string(),
+            ));
+        }
+        let default = WorkspaceId::default_id();
+        for r in inner.projects.values_mut() {
+            if r.project.workspace_id == *id {
+                r.project.workspace_id = default.clone();
+            }
         }
         Ok(())
     }

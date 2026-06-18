@@ -310,6 +310,7 @@ mod tests {
                 source_kind: SourceKind::GitRepo,
                 root_path: Some(root_path.to_string()),
                 name: Some("proj".to_string()),
+                workspace_id: None,
             })
             .unwrap();
         store

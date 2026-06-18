@@ -1,4 +1,4 @@
-use super::ProjectId;
+use super::{ProjectId, WorkspaceId};
 
 fn migration_v1() -> String {
     format!(
@@ -169,6 +169,29 @@ fn migration_v6() -> String {
         .to_string()
 }
 
+// Insert the `workspace` tier above `project` (ADR-0032). Additive under the 0.0.6 data-model
+// freeze: a new table plus a nullable `project.workspace_id`, backfilled to the seeded Default
+// workspace so no project is left unassigned. The column stays nullable at rest only transiently
+// during this migration; the application layer treats it as non-null thereafter.
+fn migration_v7() -> String {
+    format!(
+        "CREATE TABLE workspace (
+             id         TEXT PRIMARY KEY,
+             name       TEXT NOT NULL,
+             sort_order INTEGER,
+             created_at TEXT NOT NULL DEFAULT (datetime('now')),
+             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+         );
+
+         INSERT INTO workspace (id, name) VALUES ('{default}', 'Default');
+
+         ALTER TABLE project ADD COLUMN workspace_id TEXT REFERENCES workspace(id);
+
+         UPDATE project SET workspace_id = '{default}' WHERE workspace_id IS NULL;",
+        default = WorkspaceId::DEFAULT,
+    )
+}
+
 pub fn migrations() -> Vec<String> {
     vec![
         migration_v1(),
@@ -177,6 +200,7 @@ pub fn migrations() -> Vec<String> {
         migration_v4(),
         migration_v5(),
         migration_v6(),
+        migration_v7(),
     ]
 }
 
