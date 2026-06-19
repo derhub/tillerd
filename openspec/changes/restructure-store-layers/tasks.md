@@ -1,6 +1,6 @@
 ## 1. `entities/` -- extract types
 
-- [ ] 1.1 Move the domain types out of `persistence/mod.rs` into `entities/` (one module per
+- [x] 1.1 Move the domain types out of `persistence/mod.rs` into `entities/` (one module per
   aggregate: `workspace`/`project`/`session`/`surface`) -- structs, newtype ids, enums, `New*`
   drafts; pure, no infra deps. Update imports; keep `cargo build` green.
 
