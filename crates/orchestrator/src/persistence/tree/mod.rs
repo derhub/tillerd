@@ -318,10 +318,40 @@ fn persist<E: std::fmt::Display>(e: E) -> OrchestratorError {
     OrchestratorError::Persistence(e.to_string())
 }
 
+/// Recursively create `path`, owner-only (0700) on unix so the domain tree
+/// under the user's data root is not readable by other local accounts.
+fn create_dir_secure(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt as _;
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(path)
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir_all(path)
+    }
+}
+
 /// Atomically write `content` to `path` via a `.tmp` sibling and rename.
+/// The file is owner-only (0600) on unix — domain state may carry spec env.
 fn atomic_write(path: &Path, content: &str) -> Result<()> {
     let tmp = path.with_extension("tmp");
     {
+        #[cfg(unix)]
+        let mut f = {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&tmp)
+                .map_err(persist)?
+        };
+        #[cfg(not(unix))]
         let mut f = fs::File::create(&tmp).map_err(persist)?;
         f.write_all(content.as_bytes()).map_err(persist)?;
         f.flush().map_err(persist)?;
@@ -592,7 +622,7 @@ impl TreeStore {
     /// On first open (empty tree) the Default workspace and Unfiled project are seeded (D9).
     /// On subsequent opens the in-memory index is rebuilt by scanning the tree.
     pub fn open(root: PathBuf) -> Result<Self> {
-        fs::create_dir_all(&root).map_err(persist)?;
+        create_dir_secure(&root).map_err(persist)?;
 
         let ws_root = root.join("workspaces");
         let is_empty = !ws_root.exists() || {
@@ -667,7 +697,7 @@ impl TreeStore {
         let ws_id = WorkspaceId::default_id();
         let ws_slug = "default";
         let ws_dir = self.ws_root().join(ws_slug);
-        fs::create_dir_all(&ws_dir).map_err(persist)?;
+        create_dir_secure(&ws_dir).map_err(persist)?;
 
         let wf = WorkspaceFile {
             id: ws_id.as_str().to_owned(),
@@ -680,7 +710,7 @@ impl TreeStore {
         let proj_id = ProjectId::unfiled();
         let proj_slug = "unfiled";
         let proj_dir = ws_dir.join("projects").join(proj_slug);
-        fs::create_dir_all(&proj_dir).map_err(persist)?;
+        create_dir_secure(&proj_dir).map_err(persist)?;
 
         let pf = ProjectFile {
             id: proj_id.as_str().to_owned(),
@@ -753,7 +783,7 @@ impl DomainStore for TreeStore {
         let slug_base = slugify(&draft.name, id.as_str());
         let slug = unique_slug(&ws_root, &slug_base);
         let ws_dir = ws_root.join(&slug);
-        fs::create_dir_all(&ws_dir).map_err(persist)?;
+        create_dir_secure(&ws_dir).map_err(persist)?;
 
         let wf = WorkspaceFile {
             id: id.as_str().to_owned(),
@@ -851,7 +881,7 @@ impl DomainStore for TreeStore {
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::WorkspaceNotFound(WorkspaceId::DEFAULT.to_owned()))?;
         let default_proj_root = default_ws_dir.join("projects");
-        fs::create_dir_all(&default_proj_root).map_err(persist)?;
+        create_dir_secure(&default_proj_root).map_err(persist)?;
 
         let proj_root = ws_dir.join("projects");
         if proj_root.exists() {
@@ -873,7 +903,7 @@ impl DomainStore for TreeStore {
         let archive_src = proj_root.join(".archive");
         if archive_src.exists() {
             let default_archive = default_proj_root.join(".archive");
-            fs::create_dir_all(&default_archive).map_err(persist)?;
+            create_dir_secure(&default_archive).map_err(persist)?;
             for dir in list_live_dirs(&archive_src)? {
                 let slug = dir
                     .file_name()
@@ -926,7 +956,7 @@ impl DomainStore for TreeStore {
             .clone()
             .unwrap_or_else(|| infer_project_name(&draft));
         let proj_root = ws_dir.join("projects");
-        fs::create_dir_all(&proj_root).map_err(persist)?;
+        create_dir_secure(&proj_root).map_err(persist)?;
 
         let sort_order = {
             let live = list_live_dirs(&proj_root)?;
@@ -945,7 +975,7 @@ impl DomainStore for TreeStore {
         let slug_base = slugify(&name, proj_id.as_str());
         let slug = unique_slug(&proj_root, &slug_base);
         let proj_dir = proj_root.join(&slug);
-        fs::create_dir_all(&proj_dir).map_err(persist)?;
+        create_dir_secure(&proj_dir).map_err(persist)?;
 
         let pf = ProjectFile {
             id: proj_id.as_str().to_owned(),
@@ -1056,7 +1086,7 @@ impl DomainStore for TreeStore {
             .unwrap_or("proj")
             .to_owned();
         let target_proj_root = target_ws_dir.join("projects");
-        fs::create_dir_all(&target_proj_root).map_err(persist)?;
+        create_dir_secure(&target_proj_root).map_err(persist)?;
         let new_slug = unique_slug(&target_proj_root, &slug);
         let new_proj_dir = target_proj_root.join(new_slug);
         fs::rename(&proj_dir, &new_proj_dir).map_err(persist)?;
@@ -1088,7 +1118,7 @@ impl DomainStore for TreeStore {
             .unwrap_or("proj")
             .to_owned();
         let archive_root = proj_root.join(".archive");
-        fs::create_dir_all(&archive_root).map_err(persist)?;
+        create_dir_secure(&archive_root).map_err(persist)?;
         // Disambiguate against entities already archived under the same slug,
         // else the rename collides with a non-empty dir (data loss / ENOTEMPTY).
         let target = archive_root.join(unique_slug(&archive_root, &slug));
@@ -1141,7 +1171,7 @@ impl DomainStore for TreeStore {
         let sess_id = SessionId::mint();
         let title = draft.title.clone().unwrap_or_else(|| "Untitled".to_owned());
         let sess_root = proj_dir.join("sessions");
-        fs::create_dir_all(&sess_root).map_err(persist)?;
+        create_dir_secure(&sess_root).map_err(persist)?;
 
         let sort_order = {
             let live = list_live_dirs(&sess_root)?;
@@ -1160,7 +1190,7 @@ impl DomainStore for TreeStore {
         let slug_base = slugify(&title, sess_id.as_str());
         let slug = unique_slug(&sess_root, &slug_base);
         let sess_dir = sess_root.join(&slug);
-        fs::create_dir_all(&sess_dir).map_err(persist)?;
+        create_dir_secure(&sess_dir).map_err(persist)?;
 
         let (spec_version, spec_json) = match spec {
             Some((v, j)) => (Some(v), Some(j)),
@@ -1303,7 +1333,7 @@ impl DomainStore for TreeStore {
             .unwrap_or("session")
             .to_owned();
         let archive_root = sess_root.join(".archive");
-        fs::create_dir_all(&archive_root).map_err(persist)?;
+        create_dir_secure(&archive_root).map_err(persist)?;
         // Disambiguate against sessions already archived under the same slug.
         let target = archive_root.join(unique_slug(&archive_root, &slug));
         fs::rename(&sess_dir, &target).map_err(persist)?;
@@ -2420,6 +2450,31 @@ mod tests {
 
         // The archived project was reassigned to Default, not destroyed.
         store.hard_delete_project(&proj.id).unwrap();
+    }
+
+    // ── Regression: persisted state is owner-only (0600 files / 0700 dirs) ──
+
+    #[cfg(unix)]
+    #[test]
+    fn persisted_files_and_dirs_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_tmp, store) = open_store();
+        let ws = store
+            .create_workspace(NewWorkspace {
+                name: "Perms".into(),
+            })
+            .unwrap();
+        let ws_dir = store.ws_dir_for(&ws.id).unwrap();
+
+        let dir_mode = fs::metadata(&ws_dir).unwrap().permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "domain directory must be owner-only");
+
+        let file_mode = fs::metadata(ws_dir.join("workspace.json"))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(file_mode, 0o600, "domain file must be owner-only");
     }
 
     // ── Scenario: Concurrent writes from two windows stay consistent ──
