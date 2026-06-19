@@ -322,20 +322,16 @@ fn persist<E: std::fmt::Display>(e: E) -> OrchestratorError {
 fn atomic_write(path: &Path, content: &str) -> Result<()> {
     let tmp = path.with_extension("tmp");
     {
-        let mut f =
-            fs::File::create(&tmp).map_err(persist)?;
-        f.write_all(content.as_bytes())
-            .map_err(persist)?;
-        f.flush()
-            .map_err(persist)?;
+        let mut f = fs::File::create(&tmp).map_err(persist)?;
+        f.write_all(content.as_bytes()).map_err(persist)?;
+        f.flush().map_err(persist)?;
     }
     fs::rename(&tmp, path).map_err(persist)
 }
 
 /// Serialize `value` to pretty JSON with a trailing newline.
 fn to_json<T: Serialize>(value: &T) -> Result<String> {
-    let mut s = serde_json::to_string_pretty(value)
-        .map_err(persist)?;
+    let mut s = serde_json::to_string_pretty(value).map_err(persist)?;
     s.push('\n');
     Ok(s)
 }
@@ -561,11 +557,8 @@ fn all_dirs_including_archive(parent: &Path) -> Result<Vec<PathBuf>> {
         let name_str = name.to_string_lossy();
         if name_str == ".archive" {
             // Also recurse into .archive children
-            for arch_entry in
-                fs::read_dir(&path).map_err(persist)?
-            {
-                let arch_entry =
-                    arch_entry.map_err(persist)?;
+            for arch_entry in fs::read_dir(&path).map_err(persist)? {
+                let arch_entry = arch_entry.map_err(persist)?;
                 let ap = arch_entry.path();
                 if ap.is_dir() {
                     result.push(ap);
@@ -603,8 +596,7 @@ impl TreeStore {
 
         let ws_root = root.join("workspaces");
         let is_empty = !ws_root.exists() || {
-            let mut iter = fs::read_dir(&ws_root)
-                .map_err(persist)?;
+            let mut iter = fs::read_dir(&ws_root).map_err(persist)?;
             iter.next().is_none()
         };
 
@@ -805,8 +797,7 @@ impl DomainStore for TreeStore {
 
         if new_slug != current_slug {
             let new_ws_dir = ws_root.join(&new_slug);
-            fs::rename(&ws_dir, &new_ws_dir)
-                .map_err(persist)?;
+            fs::rename(&ws_dir, &new_ws_dir).map_err(persist)?;
             // Update index: workspace id + all nested project/session ids.
             reindex_subtree(&mut state, &new_ws_dir)?;
         }
@@ -860,8 +851,7 @@ impl DomainStore for TreeStore {
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::WorkspaceNotFound(WorkspaceId::DEFAULT.to_owned()))?;
         let default_proj_root = default_ws_dir.join("projects");
-        fs::create_dir_all(&default_proj_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&default_proj_root).map_err(persist)?;
 
         let proj_root = ws_dir.join("projects");
         if proj_root.exists() {
@@ -873,8 +863,7 @@ impl DomainStore for TreeStore {
                     .to_owned();
                 let target_slug = unique_slug(&default_proj_root, &slug);
                 let target = default_proj_root.join(&target_slug);
-                fs::rename(&dir, &target)
-                    .map_err(persist)?;
+                fs::rename(&dir, &target).map_err(persist)?;
                 reindex_subtree(&mut state, &target)?;
             }
         }
@@ -884,8 +873,7 @@ impl DomainStore for TreeStore {
         let archive_src = proj_root.join(".archive");
         if archive_src.exists() {
             let default_archive = default_proj_root.join(".archive");
-            fs::create_dir_all(&default_archive)
-                .map_err(persist)?;
+            fs::create_dir_all(&default_archive).map_err(persist)?;
             for dir in list_live_dirs(&archive_src)? {
                 let slug = dir
                     .file_name()
@@ -893,8 +881,7 @@ impl DomainStore for TreeStore {
                     .unwrap_or("proj")
                     .to_owned();
                 let target = default_archive.join(unique_slug(&default_archive, &slug));
-                fs::rename(&dir, &target)
-                    .map_err(persist)?;
+                fs::rename(&dir, &target).map_err(persist)?;
                 reindex_subtree(&mut state, &target)?;
             }
         }
@@ -939,8 +926,7 @@ impl DomainStore for TreeStore {
             .clone()
             .unwrap_or_else(|| infer_project_name(&draft));
         let proj_root = ws_dir.join("projects");
-        fs::create_dir_all(&proj_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&proj_root).map_err(persist)?;
 
         let sort_order = {
             let live = list_live_dirs(&proj_root)?;
@@ -1011,8 +997,7 @@ impl DomainStore for TreeStore {
         if slug_base != current_slug {
             let new_slug = unique_slug(&proj_root, &slug_base);
             let new_proj_dir = proj_root.join(&new_slug);
-            fs::rename(&proj_dir, &new_proj_dir)
-                .map_err(persist)?;
+            fs::rename(&proj_dir, &new_proj_dir).map_err(persist)?;
             reindex_subtree(&mut state, &new_proj_dir)?;
         }
         Ok(())
@@ -1071,12 +1056,10 @@ impl DomainStore for TreeStore {
             .unwrap_or("proj")
             .to_owned();
         let target_proj_root = target_ws_dir.join("projects");
-        fs::create_dir_all(&target_proj_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&target_proj_root).map_err(persist)?;
         let new_slug = unique_slug(&target_proj_root, &slug);
         let new_proj_dir = target_proj_root.join(new_slug);
-        fs::rename(&proj_dir, &new_proj_dir)
-            .map_err(persist)?;
+        fs::rename(&proj_dir, &new_proj_dir).map_err(persist)?;
         reindex_subtree(&mut state, &new_proj_dir)?;
         Ok(())
     }
@@ -1105,13 +1088,11 @@ impl DomainStore for TreeStore {
             .unwrap_or("proj")
             .to_owned();
         let archive_root = proj_root.join(".archive");
-        fs::create_dir_all(&archive_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&archive_root).map_err(persist)?;
         // Disambiguate against entities already archived under the same slug,
         // else the rename collides with a non-empty dir (data loss / ENOTEMPTY).
         let target = archive_root.join(unique_slug(&archive_root, &slug));
-        fs::rename(&proj_dir, &target)
-            .map_err(persist)?;
+        fs::rename(&proj_dir, &target).map_err(persist)?;
         reindex_subtree(&mut state, &target)?;
         Ok(())
     }
@@ -1160,8 +1141,7 @@ impl DomainStore for TreeStore {
         let sess_id = SessionId::mint();
         let title = draft.title.clone().unwrap_or_else(|| "Untitled".to_owned());
         let sess_root = proj_dir.join("sessions");
-        fs::create_dir_all(&sess_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&sess_root).map_err(persist)?;
 
         let sort_order = {
             let live = list_live_dirs(&sess_root)?;
@@ -1238,8 +1218,7 @@ impl DomainStore for TreeStore {
         if slug_base != current_slug {
             let new_slug = unique_slug(&sess_root, &slug_base);
             let new_sess_dir = sess_root.join(&new_slug);
-            fs::rename(&sess_dir, &new_sess_dir)
-                .map_err(persist)?;
+            fs::rename(&sess_dir, &new_sess_dir).map_err(persist)?;
             state.insert(id.as_str(), new_sess_dir);
         }
         Ok(())
@@ -1324,12 +1303,10 @@ impl DomainStore for TreeStore {
             .unwrap_or("session")
             .to_owned();
         let archive_root = sess_root.join(".archive");
-        fs::create_dir_all(&archive_root)
-            .map_err(persist)?;
+        fs::create_dir_all(&archive_root).map_err(persist)?;
         // Disambiguate against sessions already archived under the same slug.
         let target = archive_root.join(unique_slug(&archive_root, &slug));
-        fs::rename(&sess_dir, &target)
-            .map_err(persist)?;
+        fs::rename(&sess_dir, &target).map_err(persist)?;
         state.insert(id.as_str(), target);
         Ok(())
     }
@@ -1405,8 +1382,7 @@ impl DomainStore for TreeStore {
         let lf = read_json::<LayoutFile>(&layout_path)?;
         match lf.panel_tree {
             Some(v) => {
-                let s = serde_json::to_string(&v)
-                    .map_err(persist)?;
+                let s = serde_json::to_string(&v).map_err(persist)?;
                 Ok(Some(s))
             }
             None => Ok(None),
@@ -2426,7 +2402,9 @@ mod tests {
     fn deleting_a_workspace_preserves_its_archived_projects() {
         let (_tmp, store) = open_store();
         let ws = store
-            .create_workspace(NewWorkspace { name: "Doomed".into() })
+            .create_workspace(NewWorkspace {
+                name: "Doomed".into(),
+            })
             .unwrap();
         let proj = store
             .create_project(NewProject {
