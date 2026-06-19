@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use super::schema::current_version;
-use super::{
+use crate::entities::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
     NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorkspace, NotificationRecord,
-    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
+    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Surface,
     SurfaceId, TitleSource, Workspace, WorkspaceId,
 };
 use crate::error::{OrchestratorError, Result};
+use crate::persistence::Store;
 
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
@@ -852,8 +853,8 @@ fn chrono_now() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::super::SurfaceKind;
     use super::*;
+    use crate::entities::SurfaceKind;
 
     #[test]
     fn fake_reports_current_schema_version() {

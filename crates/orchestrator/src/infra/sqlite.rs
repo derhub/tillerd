@@ -4,17 +4,18 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use super::schema;
-use super::{
+use crate::entities::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NotificationRecord, OperationalStore, ProjectId, SettingEntry, SettingScope,
+    NewLaunchTemplate, NotificationRecord, ProjectId, SettingEntry, SettingScope,
 };
 use crate::error::{OrchestratorError, Result};
+use crate::persistence::OperationalStore;
 
-pub struct SqliteStore {
+pub struct SqliteBackend {
     conn: Mutex<Connection>,
 }
 
-impl SqliteStore {
+impl SqliteBackend {
     pub fn default_path() -> PathBuf {
         tillerd_paths::store()
     }
@@ -114,7 +115,7 @@ fn run_migrations(conn: &Connection, migrations: &[String]) -> Result<u32> {
     Ok(supported)
 }
 
-impl OperationalStore for SqliteStore {
+impl OperationalStore for SqliteBackend {
     fn schema_version(&self) -> Result<u32> {
         let conn = self.lock()?;
         read_schema_version(&conn)
@@ -472,7 +473,7 @@ mod tests {
         ]
     }
 
-    fn table_exists(store: &SqliteStore, name: &str) -> bool {
+    fn table_exists(store: &SqliteBackend, name: &str) -> bool {
         let conn = store.lock().unwrap();
         let count: i64 = conn
             .query_row(
@@ -489,7 +490,7 @@ mod tests {
     #[test]
     fn fresh_store_initializes_to_current_version_and_records_it() {
         let (_dir, path) = temp_db("fresh");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         assert_eq!(store.schema_version().unwrap(), schema::current_version());
     }
 
@@ -498,13 +499,13 @@ mod tests {
         let (_dir, path) = temp_db("forward");
         let migrations = synthetic_migrations();
 
-        let store = SqliteStore::open_with(&path, &migrations[..1]).unwrap();
+        let store = SqliteBackend::open_with(&path, &migrations[..1]).unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
         assert!(table_exists(&store, "marker_one"));
         assert!(!table_exists(&store, "marker_two"));
         drop(store);
 
-        let store = SqliteStore::open_with(&path, &migrations).unwrap();
+        let store = SqliteBackend::open_with(&path, &migrations).unwrap();
         assert_eq!(store.schema_version().unwrap(), 2);
         assert!(table_exists(&store, "marker_two"));
     }
@@ -514,9 +515,9 @@ mod tests {
         let (_dir, path) = temp_db("newer");
         let migrations = synthetic_migrations();
 
-        SqliteStore::open_with(&path, &migrations).unwrap();
+        SqliteBackend::open_with(&path, &migrations).unwrap();
 
-        let result = SqliteStore::open_with(&path, &migrations[..1]);
+        let result = SqliteBackend::open_with(&path, &migrations[..1]);
         assert!(matches!(
             result,
             Err(OrchestratorError::StoreVersionTooNew {
@@ -531,7 +532,7 @@ mod tests {
     #[test]
     fn prebuilt_entries_present_after_first_open() {
         let (_dir, path) = temp_db("cmd-seed");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.seed_commands().unwrap();
 
         let cmds = store.list_commands().unwrap();
@@ -541,7 +542,7 @@ mod tests {
     #[test]
     fn seed_is_idempotent_on_repeated_open() {
         let (_dir, path) = temp_db("cmd-seed-idem");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.seed_commands().unwrap();
         store.seed_commands().unwrap();
 
@@ -554,13 +555,13 @@ mod tests {
     fn seed_under_concurrent_open_leaves_one_copy() {
         let (_dir, path) = temp_db("cmd-seed-concurrent");
         // Pre-create schema + seed once so the threads only contend on the idempotent insert.
-        SqliteStore::open(&path).unwrap();
+        SqliteBackend::open(&path).unwrap();
 
         let handles: Vec<_> = (0..4)
             .map(|_| {
                 let p = path.clone();
                 std::thread::spawn(move || {
-                    let store = SqliteStore::open(&p).unwrap();
+                    let store = SqliteBackend::open(&p).unwrap();
                     store.seed_commands().unwrap();
                 })
             })
@@ -569,7 +570,7 @@ mod tests {
             h.join().unwrap();
         }
 
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         let cmds = store.list_commands().unwrap();
         assert_eq!(
             cmds.iter().filter(|c| c.name == "login-shell").count(),
@@ -581,7 +582,7 @@ mod tests {
     #[test]
     fn list_returns_all_non_deleted_commands() {
         let (_dir, path) = temp_db("cmd-list");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.seed_commands().unwrap();
 
         let custom = store
@@ -602,7 +603,7 @@ mod tests {
     #[test]
     fn get_returns_matching_entry() {
         let (_dir, path) = temp_db("cmd-get");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.seed_commands().unwrap();
 
         let cmd = store
@@ -622,7 +623,7 @@ mod tests {
     #[test]
     fn get_on_unknown_id_returns_none() {
         let (_dir, path) = temp_db("cmd-get-missing");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         let result = store.get_command("no-such-id").unwrap();
         assert!(result.is_none());
     }
@@ -630,7 +631,7 @@ mod tests {
     #[test]
     fn custom_command_is_added() {
         let (_dir, path) = temp_db("cmd-add");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
 
         let cmd = store
             .create_command(NewCommand {
@@ -649,7 +650,7 @@ mod tests {
     #[test]
     fn command_is_deleted() {
         let (_dir, path) = temp_db("cmd-delete");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.seed_commands().unwrap();
 
         let cmd = store.list_commands().unwrap().into_iter().next().unwrap();
@@ -665,7 +666,7 @@ mod tests {
     #[test]
     fn set_launch_template_spec_on_absent_template_is_not_found() {
         let (_dir, path) = temp_db("tmpl-set-absent");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
 
         let err = store
             .set_launch_template_spec(
@@ -681,7 +682,7 @@ mod tests {
     #[test]
     fn create_then_get_launch_template_round_trips() {
         let (_dir, path) = temp_db("tmpl-rt");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
 
         let tmpl = store
             .create_launch_template(NewLaunchTemplate {
@@ -716,7 +717,7 @@ mod tests {
     #[test]
     fn notifications_list_newest_first() {
         let (_dir, path) = temp_db("notif-list");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.insert_notification(&notif("a", 1)).unwrap();
         store.insert_notification(&notif("b", 2)).unwrap();
         store.insert_notification(&notif("c", 3)).unwrap();
@@ -733,7 +734,7 @@ mod tests {
     #[test]
     fn notifications_prune_keeps_newest() {
         let (_dir, path) = temp_db("notif-prune");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         for i in 0..5 {
             store
                 .insert_notification(&notif(&format!("n{i}"), i))
@@ -753,11 +754,11 @@ mod tests {
     fn notifications_survive_a_restart() {
         let (_dir, path) = temp_db("notif-persist");
         {
-            let store = SqliteStore::open(&path).unwrap();
+            let store = SqliteBackend::open(&path).unwrap();
             store.insert_notification(&notif("x", 1)).unwrap();
         }
         // Reopen against the same file — the history persists (ADR-0031).
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         let listed = store.list_notifications(10).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].id, "x");
@@ -769,13 +770,13 @@ mod tests {
     fn settings_survive_a_restart() {
         let (_dir, path) = temp_db("settings-persist");
         {
-            let store = SqliteStore::open(&path).unwrap();
+            let store = SqliteBackend::open(&path).unwrap();
             store
                 .set_setting(&SettingScope::Global, "theme", r#""light""#)
                 .unwrap();
         }
         // Reopen against the same file — the value persists.
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         assert_eq!(
             store
                 .get_setting(&SettingScope::Global, "theme")
@@ -788,7 +789,7 @@ mod tests {
     #[test]
     fn overwriting_a_setting_upserts_without_duplicate_rows() {
         let (_dir, path) = temp_db("settings-upsert");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         store.set_setting(&SettingScope::Global, "k", "1").unwrap();
         store.set_setting(&SettingScope::Global, "k", "2").unwrap();
 
@@ -814,7 +815,7 @@ mod tests {
     #[test]
     fn project_and_global_settings_are_independent() {
         let (_dir, path) = temp_db("settings-scope");
-        let store = SqliteStore::open(&path).unwrap();
+        let store = SqliteBackend::open(&path).unwrap();
         let pid = ProjectId::unfiled();
         store
             .set_setting(&SettingScope::Global, "env", r#""g""#)

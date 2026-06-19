@@ -44,11 +44,11 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{OrchestratorError, Result},
-    persistence::{
+    entities::{
         NewProject, NewSession, NewSurface, NewWorkspace, Project, ProjectId, Session, SessionId,
         SourceKind, Surface, SurfaceId, SurfaceKind, TitleSource, Workspace, WorkspaceId,
     },
+    error::{OrchestratorError, Result},
 };
 
 // ── DomainStore trait ─────────────────────────────────────────────────────────
@@ -606,18 +606,18 @@ fn is_archived(path: &Path) -> bool {
     path.components().any(|c| c.as_os_str() == ".archive")
 }
 
-// ── TreeStore ─────────────────────────────────────────────────────────────────
+// ── FsBackend ─────────────────────────────────────────────────────────────────
 
 /// File-tree backed `DomainStore` implementation.
 ///
-/// Construct via [`TreeStore::open`]. All mutations are serialized through the write lock.
-pub struct TreeStore {
+/// Construct via [`FsBackend::open`]. All mutations are serialized through the write lock.
+pub struct FsBackend {
     root: PathBuf,
     state: RwLock<TreeState>,
 }
 
-impl TreeStore {
-    /// Open (or create) a `TreeStore` rooted at `root`.
+impl FsBackend {
+    /// Open (or create) a `FsBackend` rooted at `root`.
     ///
     /// On first open (empty tree) the Default workspace and Unfiled project are seeded (D9).
     /// On subsequent opens the in-memory index is rebuilt by scanning the tree.
@@ -630,7 +630,7 @@ impl TreeStore {
             iter.next().is_none()
         };
 
-        let store = TreeStore {
+        let store = FsBackend {
             root: root.clone(),
             state: RwLock::new(TreeState::default()),
         };
@@ -760,7 +760,7 @@ impl TreeStore {
 
 // ── DomainStore impl ──────────────────────────────────────────────────────────
 
-impl DomainStore for TreeStore {
+impl DomainStore for FsBackend {
     // ── workspace ─────────────────────────────────────────────────────────
 
     fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
@@ -1786,9 +1786,9 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn open_store() -> (TempDir, TreeStore) {
+    fn open_store() -> (TempDir, FsBackend) {
         let tmp = TempDir::new().unwrap();
-        let store = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         (tmp, store)
     }
 
@@ -1796,7 +1796,7 @@ mod tests {
     fn malformed_project_json_is_skipped_and_rest_of_tree_loads() {
         use std::io::Write as _;
         let tmp = TempDir::new().unwrap();
-        let store = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         // Seed a workspace to work within.
         let ws = store
             .create_workspace(NewWorkspace { name: "W".into() })
@@ -1818,7 +1818,7 @@ mod tests {
         drop(f);
 
         // Re-open: malformed project is skipped, good project still loads.
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let projects = store2.list_projects(None).unwrap();
         assert!(
             projects.iter().any(|p| p.id == good.id),
@@ -1923,7 +1923,7 @@ mod tests {
             .unwrap();
 
         // Reopen
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
 
         let proj2 = store2.get_project(&proj.id).unwrap().unwrap();
         assert_eq!(proj2.workspace_id, ws.id);
@@ -2049,7 +2049,7 @@ mod tests {
         store.reorder_session(&s0.id, 1).unwrap();
 
         // Reopen
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let sessions = store2.list_sessions(Some(&proj.id)).unwrap();
         assert_eq!(sessions[0].id, s1.id);
         assert_eq!(sessions[1].id, s0.id);
@@ -2109,7 +2109,7 @@ mod tests {
         assert_eq!(sf.id, sess.id.as_str());
 
         // Reopen to verify index rebuilt correctly
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let sess2 = store2.get_session(&sess.id).unwrap();
         assert!(
             sess2.is_some(),
@@ -2269,7 +2269,7 @@ mod tests {
             .unwrap();
 
         // Reopen: new store, fresh scan-built index
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let got = store2.get_project(&proj.id).unwrap();
         assert!(got.is_some());
         assert_eq!(got.unwrap().name, "ScanProject");
@@ -2300,7 +2300,7 @@ mod tests {
         assert_eq!(got.name, "After");
 
         // After a reopen, new scan-built index should also find it
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let got2 = store2.get_project(&proj.id).unwrap().unwrap();
         assert_eq!(got2.name, "After");
     }
@@ -2335,7 +2335,7 @@ mod tests {
             .unwrap();
 
         // Reload store from disk
-        let store2 = TreeStore::open(tmp.path().to_path_buf()).unwrap();
+        let store2 = FsBackend::open(tmp.path().to_path_buf()).unwrap();
         let found = store2
             .find_session_surface_by_placement(&sess.id, "main")
             .unwrap()
@@ -2543,8 +2543,8 @@ mod tests {
     fn domain_tree_resolves_under_data_root_directory() {
         let tmp = TempDir::new().unwrap();
         let data_root = tmp.path().join("data");
-        // data_root does not pre-exist; TreeStore::open should create it
-        let store = TreeStore::open(data_root.clone()).unwrap();
+        // data_root does not pre-exist; FsBackend::open should create it
+        let store = FsBackend::open(data_root.clone()).unwrap();
 
         assert!(data_root.exists(), "data root should be created by open()");
 

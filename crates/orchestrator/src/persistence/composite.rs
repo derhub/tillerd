@@ -1,36 +1,37 @@
 //! Composite store: the full `Store` facade backed by two planes.
 //!
 //! Domain entities (workspace/project/session/surface) are delegated to the file-tree
-//! [`TreeStore`]; operational state (schema_version/command/setting/notification/
-//! launch_template) is delegated to the SQLite [`SqliteStore`]. The only cross-plane
+//! [`FsBackend`]; operational state (schema_version/command/setting/notification/
+//! launch_template) is delegated to the SQLite [`SqliteBackend`]. The only cross-plane
 //! method is [`create_session`](Store::create_session): a `template_id` is resolved to
 //! a `(spec_version, spec_json)` pair via the operational store before the domain store
 //! materializes the session.
 
 use std::path::PathBuf;
 
-use super::tree::{DomainStore, TreeStore};
 use super::{
     Command, LaunchTemplate, LaunchTemplateId, NewCommand, NewLaunchTemplate, NewProject,
     NewSession, NewSurface, NewWorkspace, NotificationRecord, OperationalStore, Project, ProjectId,
-    Session, SessionId, SettingEntry, SettingScope, SqliteStore, Store, Surface, SurfaceId,
-    Workspace, WorkspaceId,
+    Session, SessionId, SettingEntry, SettingScope, Store, Surface, SurfaceId, Workspace,
+    WorkspaceId,
 };
 use crate::error::{OrchestratorError, Result};
+use crate::infra::fs::{DomainStore, FsBackend};
+use crate::infra::sqlite::SqliteBackend;
 
 /// The full `Store` facade composed of a file-tree domain plane and a SQLite
 /// operational plane.
 pub struct CompositeStore {
-    domain: TreeStore,
-    op: SqliteStore,
+    domain: FsBackend,
+    op: SqliteBackend,
 }
 
 impl CompositeStore {
     /// Open both planes: the domain tree rooted at `data_root` and the operational
     /// SQLite database at `store_path`.
     pub fn open(data_root: PathBuf, store_path: PathBuf) -> Result<Self> {
-        let domain = TreeStore::open(data_root)?;
-        let op = SqliteStore::open(&store_path)?;
+        let domain = FsBackend::open(data_root)?;
+        let op = SqliteBackend::open(&store_path)?;
         Ok(Self { domain, op })
     }
 }

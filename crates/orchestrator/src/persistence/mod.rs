@@ -1,12 +1,9 @@
 pub mod composite;
-pub mod memory;
-pub mod schema;
-pub mod sqlite;
-pub mod tree;
+
+pub use crate::infra::{fs, memory, schema, sqlite};
 
 pub use composite::CompositeStore;
 pub use schema::current_version as current_schema_version;
-pub use sqlite::SqliteStore;
 
 pub use crate::entities::*;
 

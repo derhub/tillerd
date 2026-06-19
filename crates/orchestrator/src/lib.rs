@@ -4,6 +4,7 @@ pub mod boot;
 pub mod entities;
 pub mod error;
 pub mod health;
+pub mod infra;
 pub mod launch;
 pub mod persistence;
 pub mod supervision;
