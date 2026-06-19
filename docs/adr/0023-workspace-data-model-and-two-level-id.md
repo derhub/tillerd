@@ -1,6 +1,6 @@
 # 0023. Workspace data model: one SQLite store and a two-level id model
 
-- Status: proposed
+- Status: superseded by ADR-0033
 - Date: 2026-06-11
 
 ## Context

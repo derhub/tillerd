@@ -9,11 +9,11 @@ A named group of projects that owns its own window; the top of the tree (`worksp
 _Avoid_: project, repo
 
 **Project**:
-A launch root that owns a default launch template and groups sessions; belongs to exactly one workspace.
+A launch root that groups sessions and carries a source (`sourceKind`, `rootPath`); belongs to exactly one workspace.
 _Avoid_: repo
 
 **Session**:
-A container instantiated from a project's launch template; owns its launch spec, its surfaces, and its panel tree. The launch spec may diverge from the template per session.
+A container created by picking a template from the library (or none — an empty pane); owns a snapshot launch spec, its surfaces, and its panel tree. The spec is decoupled from the template after creation.
 _Avoid_: tab, window
 
 **Launch spec**:
@@ -28,7 +28,20 @@ The running leaf a launch item produces; kind-tagged (`terminal`, `diff`). Belon
 _Avoid_: pane, panel, terminal-as-noun
 
 **Placement**:
-A per-session-unique slot id, minted by the orchestrator, that binds a launch item's surface to a slot in the panel tree. The seam between a surface and where it renders. Minted when a surface is added to a session (template instantiation or a later spawn); a template carries no placement of its own. Unique per session, distinct from surface_id.
+A per-session-unique slot id, minted by the orchestrator, that binds a launch item's surface to a slot in the panel tree. The boundary between a surface and where it renders. Minted when a surface is added to a session (session creation or a later spawn); a template carries no placement of its own. Unique per session, distinct from surface_id.
+
+### Config
+
+**Profile**:
+A portable, named settings bundle (`<profiles>/<name>/settings.jsonc`). Owns settings only — no domain, no templates. One is active and drives the cascade `effective(project) = merge(active profile, workspace override?, project override?)`. Switchable, shareable.
+_Avoid_: account, workspace
+
+**Template**:
+A portable launch-spec bundle (`<templates>/<slug>/template.jsonc`), sibling to profiles. A library picked from at session creation; the session's spec is a deep-copy snapshot. `prebuilt` (in-code) or `custom` (file). Opt-in and additive — absence or invalidity yields the default empty pane.
+_Avoid_: preset, default layout
+
+**Secret**:
+A named value stored in the Stronghold vault (`vault.stronghold`, machine-local, encrypted), unlocked by an OS-keychain master password. Referenced by env key in a launch spec; resolved at launch.
 
 ### View
 
