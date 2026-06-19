@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
+use crate::entities::{NewSurface, SessionId, SurfaceId, SurfaceKind};
 use crate::error::{OrchestratorError, Result};
 use crate::launch::spec::{CommandRef, LaunchItem, LaunchSpec};
-use crate::persistence::{NewSurface, SessionId, Store, SurfaceId, SurfaceKind};
+use crate::store::{Commands, Surfaces};
 use crate::surface::runtime::ResolvedCommand;
 
 /// Outcome for a single launch item.
@@ -30,12 +30,13 @@ pub trait SurfaceLauncher {
 pub async fn run<L: SurfaceLauncher>(
     spec: &LaunchSpec,
     session_id: &SessionId,
-    store: &Arc<dyn Store>,
+    surfaces: &Surfaces,
+    commands: &Commands,
     launcher: &L,
 ) -> Vec<LaunchItemResult> {
     let mut results = Vec::with_capacity(spec.items.len());
     for (index, item) in spec.items.iter().enumerate() {
-        let error = match try_run_item(item, session_id, store, launcher).await {
+        let error = match try_run_item(item, session_id, surfaces, commands, launcher).await {
             Ok(()) => None,
             Err(e) => Some(e.to_string()),
         };
@@ -47,18 +48,21 @@ pub async fn run<L: SurfaceLauncher>(
 async fn try_run_item<L: SurfaceLauncher>(
     item: &LaunchItem,
     session_id: &SessionId,
-    store: &Arc<dyn Store>,
+    surfaces: &Surfaces,
+    commands: &Commands,
     launcher: &L,
 ) -> Result<()> {
-    let command = resolve_command(&item.command, store)?;
+    let command = resolve_command(&item.command, commands).await?;
     let kind = surface_kind_for(&item.target)?;
-    let surface = store.create_surface(NewSurface {
-        id: None,
-        session_id: session_id.clone(),
-        kind,
-        cwd: None,
-        placement: item.placement.clone(),
-    })?;
+    let surface = surfaces
+        .create(NewSurface {
+            id: None,
+            session_id: session_id.clone(),
+            kind,
+            cwd: None,
+            placement: item.placement.clone(),
+        })
+        .await?;
     launcher
         .launch(&surface.id, kind, command, surface.cwd)
         .await
@@ -66,11 +70,12 @@ async fn try_run_item<L: SurfaceLauncher>(
 
 /// Resolve a launch item's command: a library reference resolves to the stored command; an inline
 /// command is used as given.
-fn resolve_command(command: &CommandRef, store: &Arc<dyn Store>) -> Result<ResolvedCommand> {
+async fn resolve_command(command: &CommandRef, commands: &Commands) -> Result<ResolvedCommand> {
     match command {
         CommandRef::LibraryRef { library_ref } => {
-            let stored = store
-                .get_command(library_ref)?
+            let stored = commands
+                .get(library_ref.clone())
+                .await?
                 .ok_or_else(|| OrchestratorError::CommandNotFound(library_ref.clone()))?;
             Ok(ResolvedCommand {
                 exe: stored.cli,
@@ -97,9 +102,10 @@ fn surface_kind_for(target: &str) -> Result<SurfaceKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::NewSession;
+    use crate::infra::memory::MemoryBackend;
     use crate::launch::spec::{CommandRef, LaunchItem, LaunchSpec};
-    use crate::persistence::memory::InMemoryStore;
-    use crate::persistence::NewSession;
+    use crate::store::Storage;
 
     #[derive(Default)]
     struct RecordingLauncher {
@@ -119,12 +125,17 @@ mod tests {
         }
     }
 
-    fn make_store() -> Arc<dyn Store> {
-        Arc::new(InMemoryStore::new())
+    fn make_storage() -> Storage {
+        Storage::in_memory(MemoryBackend::new())
     }
 
-    fn make_session(store: &Arc<dyn Store>) -> SessionId {
-        store.create_session(NewSession::default()).unwrap().id
+    async fn make_session(storage: &Storage) -> SessionId {
+        storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap()
+            .id
     }
 
     fn item_with_inline(placement: Option<&str>) -> LaunchItem {
@@ -140,15 +151,22 @@ mod tests {
 
     #[tokio::test]
     async fn items_run_in_list_order() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let spec = LaunchSpec {
             version: 1,
             items: vec![item_with_inline(None), item_with_inline(None)],
         };
 
-        let results = run(&spec, &session_id, &store, &launcher).await;
+        let results = run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].index, 0);
@@ -160,8 +178,8 @@ mod tests {
 
     #[tokio::test]
     async fn failed_item_does_not_block_subsequent_items() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let spec = LaunchSpec {
             version: 1,
@@ -177,7 +195,14 @@ mod tests {
             ],
         };
 
-        let results = run(&spec, &session_id, &store, &launcher).await;
+        let results = run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
         assert_eq!(results.len(), 2);
         assert!(
@@ -194,15 +219,22 @@ mod tests {
 
     #[tokio::test]
     async fn resolves_command_and_dispatches_by_target() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let spec = LaunchSpec {
             version: 1,
             items: vec![item_with_inline(None)],
         };
 
-        let results = run(&spec, &session_id, &store, &launcher).await;
+        let results = run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
         assert!(results[0].error.is_none());
         let calls = launcher.calls.lock().unwrap();
@@ -213,8 +245,8 @@ mod tests {
 
     #[tokio::test]
     async fn unsupported_target_fails_the_item() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let mut item = item_with_inline(None);
         item.target = "browser".to_string();
@@ -223,7 +255,14 @@ mod tests {
             items: vec![item],
         };
 
-        let results = run(&spec, &session_id, &store, &launcher).await;
+        let results = run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
         assert!(
             results[0].error.is_some(),
@@ -234,17 +273,24 @@ mod tests {
 
     #[tokio::test]
     async fn placement_hint_stored_when_present() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let spec = LaunchSpec {
             version: 1,
             items: vec![item_with_inline(Some("sidebar"))],
         };
 
-        run(&spec, &session_id, &store, &launcher).await;
+        run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
-        let surfaces = store.list_resumable_surfaces().unwrap();
+        let surfaces = storage.surfaces.list_resumable().await.unwrap();
         assert!(surfaces
             .iter()
             .any(|s| s.placement.as_deref() == Some("sidebar")));
@@ -252,18 +298,25 @@ mod tests {
 
     #[tokio::test]
     async fn null_placement_is_lazy_migrated_on_resume() {
-        let store = make_store();
-        let session_id = make_session(&store);
+        let storage = make_storage();
+        let session_id = make_session(&storage).await;
         let launcher = RecordingLauncher::default();
         let spec = LaunchSpec {
             version: 1,
             items: vec![item_with_inline(None)],
         };
 
-        run(&spec, &session_id, &store, &launcher).await;
+        run(
+            &spec,
+            &session_id,
+            &storage.surfaces,
+            &storage.commands,
+            &launcher,
+        )
+        .await;
 
         // The executor stores the item's absent placement; list_resumable lazy-mints one.
-        let surfaces = store.list_resumable_surfaces().unwrap();
+        let surfaces = storage.surfaces.list_resumable().await.unwrap();
         assert_eq!(surfaces.len(), 1);
         assert!(surfaces.iter().all(|s| s.placement.is_some()));
     }

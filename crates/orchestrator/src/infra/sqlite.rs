@@ -9,7 +9,6 @@ use crate::entities::{
     NewLaunchTemplate, NotificationRecord, ProjectId, SettingEntry, SettingScope,
 };
 use crate::error::{OrchestratorError, Result};
-use crate::persistence::OperationalStore;
 
 pub struct SqliteBackend {
     conn: Mutex<Connection>,
@@ -115,15 +114,15 @@ fn run_migrations(conn: &Connection, migrations: &[String]) -> Result<u32> {
     Ok(supported)
 }
 
-impl OperationalStore for SqliteBackend {
-    fn schema_version(&self) -> Result<u32> {
+impl SqliteBackend {
+    pub(crate) fn schema_version(&self) -> Result<u32> {
         let conn = self.lock()?;
         read_schema_version(&conn)
     }
 
     // ── command library ───────────────────────────────────────────────────
 
-    fn list_commands(&self) -> Result<Vec<Command>> {
+    pub(crate) fn list_commands(&self) -> Result<Vec<Command>> {
         let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
@@ -137,7 +136,7 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn get_command(&self, id: &str) -> Result<Option<Command>> {
+    pub(crate) fn get_command(&self, id: &str) -> Result<Option<Command>> {
         self.lock()?
             .query_row(
                 "SELECT id, name, origin, cli, args_json, env_json
@@ -150,7 +149,7 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn create_command(&self, draft: NewCommand) -> Result<Command> {
+    pub(crate) fn create_command(&self, draft: NewCommand) -> Result<Command> {
         let id = CommandId::mint();
         let args_json = serde_json::to_string(&draft.args).unwrap_or_default();
         let env_json = serde_json::to_string(&draft.env).unwrap_or_default();
@@ -178,7 +177,7 @@ impl OperationalStore for SqliteBackend {
         })
     }
 
-    fn delete_command(&self, id: &str) -> Result<()> {
+    pub(crate) fn delete_command(&self, id: &str) -> Result<()> {
         self.lock()?
             .execute(
                 "UPDATE command SET deleted_at = datetime('now') WHERE id = ?1 AND deleted_at IS NULL",
@@ -188,7 +187,7 @@ impl OperationalStore for SqliteBackend {
         Ok(())
     }
 
-    fn seed_commands(&self) -> Result<()> {
+    pub(crate) fn seed_commands(&self) -> Result<()> {
         // One lock + INSERT OR IGNORE per prebuilt: race-free under concurrent open (no
         // exists-check / lock-release / re-insert window).
         let conn = self.lock()?;
@@ -214,7 +213,10 @@ impl OperationalStore for SqliteBackend {
 
     // ── launch template ───────────────────────────────────────────────────
 
-    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate> {
+    pub(crate) fn create_launch_template(
+        &self,
+        draft: NewLaunchTemplate,
+    ) -> Result<LaunchTemplate> {
         let id = LaunchTemplateId::mint();
         self.lock()?
             .execute(
@@ -236,7 +238,10 @@ impl OperationalStore for SqliteBackend {
         })
     }
 
-    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>> {
+    pub(crate) fn get_launch_template(
+        &self,
+        id: &LaunchTemplateId,
+    ) -> Result<Option<LaunchTemplate>> {
         self.lock()?
             .query_row(
                 "SELECT id, project_id, spec_version, spec_json
@@ -249,7 +254,7 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn set_launch_template_spec(
+    pub(crate) fn set_launch_template_spec(
         &self,
         id: &LaunchTemplateId,
         spec_version: u32,
@@ -274,7 +279,7 @@ impl OperationalStore for SqliteBackend {
 
     // ── settings ──────────────────────────────────────────────────────────
 
-    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
+    pub(crate) fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
         let (scope_col, project_col) = scope.columns();
         self.lock()?
             .query_row(
@@ -287,7 +292,12 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()> {
+    pub(crate) fn set_setting(
+        &self,
+        scope: &SettingScope,
+        key: &str,
+        value_json: &str,
+    ) -> Result<()> {
         let (scope_col, project_col) = scope.columns();
         self.lock()?
             .execute(
@@ -301,7 +311,7 @@ impl OperationalStore for SqliteBackend {
         Ok(())
     }
 
-    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
+    pub(crate) fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
         let (scope_col, project_col) = scope.columns();
         let conn = self.lock()?;
         let mut stmt = conn
@@ -323,7 +333,11 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn resolve_setting(&self, project_id: &ProjectId, key: &str) -> Result<Option<String>> {
+    pub(crate) fn resolve_setting(
+        &self,
+        project_id: &ProjectId,
+        key: &str,
+    ) -> Result<Option<String>> {
         if let Some(v) = self.get_setting(&SettingScope::Project(project_id.clone()), key)? {
             return Ok(Some(v));
         }
@@ -332,7 +346,7 @@ impl OperationalStore for SqliteBackend {
 
     // ── notifications (ADR-0031) ──────────────────────────────────────────
 
-    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
+    pub(crate) fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
         self.lock()?
             .execute(
                 "INSERT INTO notification
@@ -355,7 +369,7 @@ impl OperationalStore for SqliteBackend {
         Ok(())
     }
 
-    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
+    pub(crate) fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
         let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
@@ -372,7 +386,7 @@ impl OperationalStore for SqliteBackend {
             .map_err(persist)
     }
 
-    fn prune_notifications(&self, keep: u32) -> Result<()> {
+    pub(crate) fn prune_notifications(&self, keep: u32) -> Result<()> {
         self.lock()?
             .execute(
                 "DELETE FROM notification
@@ -456,7 +470,7 @@ fn prebuilt_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{CommandOrigin, NewLaunchTemplate, NotificationRecord, SettingScope};
+    use crate::entities::{CommandOrigin, NewLaunchTemplate, NotificationRecord, SettingScope};
 
     fn temp_db(tag: &str) -> (tempfile::TempDir, PathBuf) {
         let dir = tempfile::tempdir().unwrap();

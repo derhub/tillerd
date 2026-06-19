@@ -6,7 +6,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use orchestrator::persistence::{NotificationRecord, Store};
+use orchestrator::entities::NotificationRecord;
+use orchestrator::store::Notifications;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
@@ -235,9 +236,13 @@ pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> Notifi
 
 /// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
 /// Best-effort: a store or emit error never blocks the originating lifecycle event.
-pub fn record<R: tauri::Runtime>(app: &AppHandle<R>, store: &dyn Store, wire: NotificationWire) {
-    let _ = store.insert_notification(&wire.to_record());
-    let _ = store.prune_notifications(MAX_HISTORY);
+pub async fn record<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    notifications: &Notifications,
+    wire: NotificationWire,
+) {
+    let _ = notifications.insert(wire.to_record()).await;
+    let _ = notifications.prune(MAX_HISTORY).await;
     let _ = app.emit(NOTIFICATION_EVENT, wire);
 }
 
@@ -250,16 +255,20 @@ pub fn emit_only<R: tauri::Runtime>(app: &AppHandle<R>, wire: NotificationWire) 
 /// Durable notification history (most recent first) for the renderer to hydrate on boot.
 /// Empty until the orchestrator has booted (the store is unavailable before then).
 #[tauri::command]
-pub fn notifications_list(state: State<'_, OrchestratorState>) -> Vec<NotificationWire> {
-    let Some(store) = state.store_arc() else {
-        return Vec::new();
+pub async fn notifications_list(
+    state: State<'_, OrchestratorState>,
+) -> Result<Vec<NotificationWire>, String> {
+    let Some(storage) = state.storage() else {
+        return Ok(Vec::new());
     };
-    store
-        .list_notifications(HISTORY_LOAD)
+    Ok(storage
+        .notifications
+        .list(HISTORY_LOAD)
+        .await
         .unwrap_or_default()
         .into_iter()
         .map(NotificationWire::from_record)
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]

@@ -6,6 +6,6 @@ pub mod memory;
 pub mod schema;
 pub mod sqlite;
 
-pub use fs::{DomainStore, FsBackend};
-pub use memory::InMemoryStore;
+pub use fs::FsBackend;
+pub use memory::MemoryBackend;
 pub use sqlite::SqliteBackend;

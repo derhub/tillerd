@@ -7,8 +7,9 @@ use daemon_pty_client::{SessionFrame, SpawnParams};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+use crate::entities::{SurfaceId, SurfaceKind};
 use crate::error::{OrchestratorError, Result};
-use crate::persistence::{Store, SurfaceId, SurfaceKind};
+use crate::store::Surfaces;
 use crate::surface::transport::DaemonConnection;
 
 /// A fully resolved launch command: a concrete executable, its arguments, and extra
@@ -45,21 +46,21 @@ struct ProxyCtx {
     wire: WireSessionId,
     conn: Arc<DaemonConnection>,
     sink: Arc<dyn SurfaceEventSink>,
-    store: Arc<dyn Store>,
+    surfaces: Surfaces,
     state: Arc<Mutex<ProxyState>>,
 }
 
 pub struct SurfaceRuntime {
-    store: Arc<dyn Store>,
+    surfaces: Surfaces,
     sink: Arc<dyn SurfaceEventSink>,
     socket: PathBuf,
     proxies: Mutex<HashMap<SurfaceId, TerminalProxy>>,
 }
 
 impl SurfaceRuntime {
-    pub fn new(store: Arc<dyn Store>, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
+    pub fn new(surfaces: Surfaces, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
         Self {
-            store,
+            surfaces,
             sink,
             socket,
             proxies: Mutex::new(HashMap::new()),
@@ -200,7 +201,7 @@ impl SurfaceRuntime {
     }
 
     pub async fn resume_all(&self) -> Result<()> {
-        let surfaces = self.store.list_resumable_surfaces()?;
+        let surfaces = self.surfaces.list_resumable().await?;
         for surface in surfaces {
             if surface.kind != SurfaceKind::Terminal {
                 continue;
@@ -277,7 +278,7 @@ impl SurfaceRuntime {
             wire,
             conn,
             sink: self.sink.clone(),
-            store: self.store.clone(),
+            surfaces: self.surfaces.clone(),
             state,
         }
     }
@@ -344,7 +345,10 @@ async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
         }
         SessionFrame::Status { status, .. } => {
             ctx.sink.on_status(&ctx.surface, &status);
-            let _ = ctx.store.update_surface_status(&ctx.surface, &status);
+            let _ = ctx
+                .surfaces
+                .update_status(ctx.surface.clone(), status)
+                .await;
             true
         }
         SessionFrame::Exit { qualifier, .. } => {
@@ -368,7 +372,8 @@ fn other_to_live(state: ProxyState) -> ProxyState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::memory::InMemoryStore;
+    use crate::infra::memory::MemoryBackend;
+    use crate::store::Storage;
     use daemon_pty_client::{encode_frame, FrameDecoder as DaemonFrameDecoder};
     use std::sync::Mutex as StdMutex;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -468,7 +473,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         });
 
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let store = Storage::in_memory(MemoryBackend::new()).surfaces;
         let sink = Arc::new(CollectingSink::default());
         let runtime = SurfaceRuntime::new(store, sink.clone(), sock);
 
@@ -515,7 +520,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         });
 
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let store = Storage::in_memory(MemoryBackend::new()).surfaces;
         let sink = Arc::new(CollectingSink::default());
         let runtime = SurfaceRuntime::new(store, sink, sock);
 
@@ -551,7 +556,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(30)).await;
         });
 
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let store = Storage::in_memory(MemoryBackend::new()).surfaces;
         let sink = Arc::new(CollectingSink::default());
         let runtime = SurfaceRuntime::new(store, sink, sock);
 
@@ -630,7 +635,7 @@ mod tests {
     }
 
     fn recording_runtime(sock: std::path::PathBuf) -> (SurfaceRuntime, Arc<StdMutex<Vec<String>>>) {
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let store = Storage::in_memory(MemoryBackend::new()).surfaces;
         let sink = Arc::new(CollectingSink::default());
         (
             SurfaceRuntime::new(store, sink, sock),
@@ -837,7 +842,7 @@ mod tests {
     }
 
     fn plain_runtime(daemon_sock: PathBuf, sink: Arc<CollectingSink>) -> SurfaceRuntime {
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let store = Storage::in_memory(MemoryBackend::new()).surfaces;
         SurfaceRuntime::new(store, sink, daemon_sock)
     }
 }

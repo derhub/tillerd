@@ -8,8 +8,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use orchestrator::persistence::memory::InMemoryStore;
-use orchestrator::persistence::{Store, SurfaceId, SurfaceKind};
+use orchestrator::entities::{SurfaceId, SurfaceKind};
+use orchestrator::infra::memory::MemoryBackend;
+use orchestrator::store::Storage;
 use orchestrator::surface::{SurfaceEventSink, SurfaceRuntime};
 
 struct Collect(Mutex<Vec<u8>>);
@@ -23,7 +24,7 @@ impl SurfaceEventSink for Collect {
 }
 
 fn setup(sock: &str) -> (SurfaceRuntime, Arc<Collect>) {
-    let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+    let store = Storage::in_memory(MemoryBackend::new()).surfaces;
     let sink = Arc::new(Collect(Mutex::new(Vec::new())));
     let runtime = SurfaceRuntime::new(store, sink.clone(), PathBuf::from(sock));
     (runtime, sink)

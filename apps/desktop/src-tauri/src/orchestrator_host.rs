@@ -3,7 +3,9 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use orchestrator::persistence::{CompositeStore, Store};
+use orchestrator::infra::fs::FsBackend;
+use orchestrator::infra::sqlite::SqliteBackend;
+use orchestrator::store::Storage;
 use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
 use orchestrator::{
     boot, read_service_health, EventSink, HealthSpec, Orchestrator, ServiceHealth, ServiceState,
@@ -94,13 +96,13 @@ pub struct OrchestratorState {
 }
 
 impl OrchestratorState {
-    /// Return the store if the orchestrator has booted, or `None`.
-    pub fn store_arc(&self) -> Option<Arc<dyn Store>> {
+    /// Return the storage aggregate if the orchestrator has booted, or `None`.
+    pub fn storage(&self) -> Option<Arc<Storage>> {
         self.orchestrator
             .lock()
             .unwrap()
             .as_ref()
-            .map(|o| o.store_arc())
+            .map(|o| o.storage_arc())
     }
 }
 
@@ -117,18 +119,20 @@ struct TauriEventSink {
     app: AppHandle,
     status: Arc<Mutex<StatusWire>>,
     /// Filled once the orchestrator has booted; until then status notifications are not
-    /// persisted (the store does not exist yet).
-    store: Arc<Mutex<Option<Arc<dyn Store>>>>,
+    /// persisted (storage does not exist yet).
+    storage: Arc<Mutex<Option<Arc<Storage>>>>,
     /// Previous health snapshot for diffing; seeded from the first post-boot read.
     prev_health: Arc<Mutex<Option<Vec<ServiceHealthWire>>>>,
+    /// Boot-thread runtime handle, used to drive the async notification writes synchronously.
+    handle: tokio::runtime::Handle,
 }
 
 impl TauriEventSink {
     /// Persist service-up/down (health diff) and ready/failed notifications for a status change.
-    /// No-op until the store is available; the in-boot `Ready` is recorded by `spawn_boot` instead.
+    /// No-op until storage is available; the in-boot `Ready` is recorded by `spawn_boot` instead.
     fn record_status_notifications(&self, event: &Status) {
-        let store = self.store.lock().unwrap().clone();
-        let Some(store) = store else {
+        let storage = self.storage.lock().unwrap().clone();
+        let Some(storage) = storage else {
             return;
         };
         let ts = notification_host::now_ms();
@@ -136,21 +140,25 @@ impl TauriEventSink {
         let prev = self.prev_health.lock().unwrap().clone();
         if let Some(prev) = prev {
             for n in notification_host::health_change_notifications(&prev, &current, ts) {
-                notification_host::record(&self.app, store.as_ref(), n);
+                self.handle.block_on(notification_host::record(
+                    &self.app,
+                    &storage.notifications,
+                    n,
+                ));
             }
         }
         *self.prev_health.lock().unwrap() = Some(current);
         match event {
-            Status::Ready => notification_host::record(
+            Status::Ready => self.handle.block_on(notification_host::record(
                 &self.app,
-                store.as_ref(),
+                &storage.notifications,
                 notification_host::orchestrator_status(true, None, ts),
-            ),
-            Status::Failed { reason } => notification_host::record(
+            )),
+            Status::Failed { reason } => self.handle.block_on(notification_host::record(
                 &self.app,
-                store.as_ref(),
+                &storage.notifications,
                 notification_host::orchestrator_status(false, Some(reason), ts),
-            ),
+            )),
             _ => {}
         }
     }
@@ -256,33 +264,42 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let status = state.status.clone();
     let slot = state.orchestrator.clone();
     std::thread::spawn(move || {
+        // Storage is async; the boot thread is not a tokio worker, so it owns a runtime to
+        // drive the post-boot store writes and the in-emit notification recording.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build boot runtime");
+        let handle = runtime.handle().clone();
         let app_for_surface = app.clone();
         let sink = TauriEventSink {
             app,
             status,
-            store: Arc::new(Mutex::new(None)),
+            storage: Arc::new(Mutex::new(None)),
             prev_health: Arc::new(Mutex::new(None)),
+            handle: handle.clone(),
         };
         let mut supervisor = build_supervisor();
         let open_store = || {
-            CompositeStore::open(tillerd_paths::data_root(), tillerd_paths::store())
-                .map(|s| Box::new(s) as Box<dyn Store>)
+            let fs = FsBackend::open(tillerd_paths::data_root())?;
+            let sqlite = SqliteBackend::open(&tillerd_paths::store())?;
+            Ok(Storage::open(fs, sqlite))
         };
         match boot(open_store, &mut supervisor, &sink) {
             Ok(orchestrator) => {
-                let store = orchestrator.store_arc();
-                // The in-boot `Ready` emit ran before the store was shared with the sink; wire it
+                let storage = orchestrator.storage_arc();
+                // The in-boot `Ready` emit ran before storage was shared with the sink; wire it
                 // up now, seed the health baseline, and record the ready notification.
-                *sink.store.lock().unwrap() = Some(store.clone());
+                *sink.storage.lock().unwrap() = Some(storage.clone());
                 *sink.prev_health.lock().unwrap() = Some(service_health_snapshot());
-                notification_host::record(
+                handle.block_on(notification_host::record(
                     &app_for_surface,
-                    store.as_ref(),
+                    &storage.notifications,
                     notification_host::orchestrator_status(true, None, notification_host::now_ms()),
-                );
+                ));
                 // Register the surface layer before stashing the orchestrator so
                 // SurfaceState exists before any IPC command can fire.
-                crate::surface_host::register(&app_for_surface, store);
+                crate::surface_host::register(&app_for_surface, storage);
                 *slot.lock().unwrap() = Some(orchestrator);
             }
             Err(error) => {
