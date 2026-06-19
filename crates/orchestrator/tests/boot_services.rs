@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use orchestrator::persistence::{ProjectId, SqliteStore, Store};
+use orchestrator::persistence::{CompositeStore, ProjectId, Store};
 use orchestrator::supervision::{
     LaunchError, ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming,
 };
@@ -86,10 +86,14 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();
     let store_path = dir.join("tillerd.db");
+    let data_root = dir.join("data");
 
     let mut sup = supervisor(dir, &gate, &daemon);
     let orch = boot(
-        || SqliteStore::open(&store_path).map(|s| Box::new(s) as Box<dyn Store>),
+        || {
+            CompositeStore::open(data_root.clone(), store_path.clone())
+                .map(|s| Box::new(s) as Box<dyn Store>)
+        },
         &mut sup,
         &NullSink,
     )
@@ -118,7 +122,10 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
 
     let mut sup2 = supervisor(dir, &gate, &daemon);
     let orch2 = boot(
-        || SqliteStore::open(&store_path).map(|s| Box::new(s) as Box<dyn Store>),
+        || {
+            CompositeStore::open(data_root.clone(), store_path.clone())
+                .map(|s| Box::new(s) as Box<dyn Store>)
+        },
         &mut sup2,
         &NullSink,
     )

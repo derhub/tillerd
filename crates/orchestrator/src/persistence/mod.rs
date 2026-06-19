@@ -1,7 +1,10 @@
+pub mod composite;
 pub mod memory;
 pub mod schema;
 pub mod sqlite;
+pub mod tree;
 
+pub use composite::CompositeStore;
 pub use schema::current_version as current_schema_version;
 pub use sqlite::SqliteStore;
 
@@ -93,7 +96,6 @@ pub enum SourceKind {
     Blank,
     LocalDir,
     GitRepo,
-    GitWorktree,
 }
 
 impl SourceKind {
@@ -102,7 +104,6 @@ impl SourceKind {
             SourceKind::Blank => "blank",
             SourceKind::LocalDir => "local_dir",
             SourceKind::GitRepo => "git_repo",
-            SourceKind::GitWorktree => "git_worktree",
         }
     }
 }
@@ -211,7 +212,6 @@ pub struct NewSurface {
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
     pub placement: Option<String>,
-    pub worktree_id: Option<WorktreeId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,7 +222,6 @@ pub struct Surface {
     pub cwd: Option<String>,
     pub last_status: Option<String>,
     pub placement: Option<String>,
-    pub worktree_id: Option<WorktreeId>,
 }
 
 impl Surface {
@@ -282,40 +281,6 @@ pub struct NewCommand {
     pub cli: String,
     pub args: Vec<String>,
     pub env: std::collections::HashMap<String, String>,
-}
-
-// ── worktree ──────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct WorktreeId(String);
-
-impl WorktreeId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Worktree {
-    pub id: WorktreeId,
-    pub project_id: ProjectId,
-    pub path: String,
-    pub branch: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewWorktree {
-    pub project_id: ProjectId,
-    pub path: String,
-    pub branch: Option<String>,
 }
 
 // ── launch template ───────────────────────────────────────────────────────────
@@ -535,17 +500,6 @@ pub trait Store: Send + Sync {
     /// Insert prebuilt seed entries if they are absent (idempotent).
     fn seed_commands(&self) -> Result<()>;
 
-    // ── worktree ──────────────────────────────────────────────────────────
-
-    /// Persist a new worktree row and return it.
-    fn create_worktree(&self, draft: NewWorktree) -> Result<Worktree>;
-
-    /// Return non-archived worktrees for the given project.
-    fn list_worktrees(&self, project_id: &ProjectId) -> Result<Vec<Worktree>>;
-
-    /// Soft-delete a worktree row.
-    fn archive_worktree(&self, id: &WorktreeId) -> Result<()>;
-
     // ── launch template ───────────────────────────────────────────────────
 
     /// Persist a new launch template.
@@ -591,5 +545,32 @@ pub trait Store: Send + Sync {
     fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>>;
 
     /// Retain only the most recent `keep` notifications, discarding older ones.
+    fn prune_notifications(&self, keep: u32) -> Result<()>;
+}
+
+/// Operational persistence contract: meta, command, setting, notification, launch_template.
+///
+/// Implemented by `SqliteStore`. `CompositeStore` delegates these methods to it.
+pub trait OperationalStore: Send + Sync {
+    fn schema_version(&self) -> Result<u32>;
+    fn list_commands(&self) -> Result<Vec<Command>>;
+    fn get_command(&self, id: &str) -> Result<Option<Command>>;
+    fn create_command(&self, draft: NewCommand) -> Result<Command>;
+    fn delete_command(&self, id: &str) -> Result<()>;
+    fn seed_commands(&self) -> Result<()>;
+    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate>;
+    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>>;
+    fn set_launch_template_spec(
+        &self,
+        id: &LaunchTemplateId,
+        spec_version: u32,
+        spec_json: &str,
+    ) -> Result<()>;
+    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>>;
+    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()>;
+    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>>;
+    fn resolve_setting(&self, project_id: &ProjectId, key: &str) -> Result<Option<String>>;
+    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()>;
+    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>>;
     fn prune_notifications(&self, keep: u32) -> Result<()>;
 }

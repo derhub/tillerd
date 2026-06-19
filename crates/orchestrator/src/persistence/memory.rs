@@ -5,10 +5,9 @@ use std::sync::Mutex;
 use super::schema::current_version;
 use super::{
     Command, CommandId, CommandOrigin, LaunchTemplate, LaunchTemplateId, NewCommand,
-    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorkspace, NewWorktree,
-    NotificationRecord, Project, ProjectId, Session, SessionId, SettingEntry, SettingScope,
-    SourceKind, Store, Surface, SurfaceId, TitleSource, Workspace, WorkspaceId, Worktree,
-    WorktreeId,
+    NewLaunchTemplate, NewProject, NewSession, NewSurface, NewWorkspace, NotificationRecord,
+    Project, ProjectId, Session, SessionId, SettingEntry, SettingScope, SourceKind, Store, Surface,
+    SurfaceId, TitleSource, Workspace, WorkspaceId,
 };
 use crate::error::{OrchestratorError, Result};
 
@@ -23,7 +22,6 @@ struct Inner {
     sessions: HashMap<String, SessionRecord>,
     surfaces: HashMap<String, SurfaceRecord>,
     commands: HashMap<String, CommandRecord>,
-    worktrees: HashMap<String, Worktree>,
     launch_templates: HashMap<String, LaunchTemplate>,
     /// Keyed by (scope, project_id, key) -> value_json, mirroring the sqlite primary key.
     settings: HashMap<(String, String, String), String>,
@@ -101,7 +99,6 @@ impl InMemoryStore {
                 sessions: HashMap::new(),
                 surfaces: HashMap::new(),
                 commands: HashMap::new(),
-                worktrees: HashMap::new(),
                 launch_templates: HashMap::new(),
                 settings: HashMap::new(),
                 notifications: Vec::new(),
@@ -495,7 +492,6 @@ impl Store for InMemoryStore {
             cwd: draft.cwd,
             last_status: None,
             placement: draft.placement,
-            worktree_id: draft.worktree_id,
         };
         inner.surfaces.insert(
             surface.id.as_str().to_string(),
@@ -700,38 +696,6 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    // ── worktree ──────────────────────────────────────────────────────────
-
-    fn create_worktree(&self, draft: NewWorktree) -> Result<Worktree> {
-        let worktree = Worktree {
-            id: WorktreeId::mint(),
-            project_id: draft.project_id,
-            path: draft.path,
-            branch: draft.branch,
-        };
-        self.inner
-            .lock()
-            .unwrap()
-            .worktrees
-            .insert(worktree.id.as_str().to_string(), worktree.clone());
-        Ok(worktree)
-    }
-
-    fn list_worktrees(&self, project_id: &ProjectId) -> Result<Vec<Worktree>> {
-        let inner = self.inner.lock().unwrap();
-        Ok(inner
-            .worktrees
-            .values()
-            .filter(|w| w.project_id == *project_id)
-            .cloned()
-            .collect())
-    }
-
-    fn archive_worktree(&self, id: &WorktreeId) -> Result<()> {
-        self.inner.lock().unwrap().worktrees.remove(id.as_str());
-        Ok(())
-    }
-
     // ── launch template ───────────────────────────────────────────────────
 
     fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate> {
@@ -867,14 +831,12 @@ fn prebuilt_commands_mem() -> Vec<Command> {
 fn infer_project_name(source: SourceKind, root_path: Option<&str>) -> Option<String> {
     match source {
         SourceKind::Blank => None,
-        SourceKind::LocalDir | SourceKind::GitRepo | SourceKind::GitWorktree => {
-            root_path.and_then(|p| {
-                std::path::Path::new(p)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|s| s.to_string())
-            })
-        }
+        SourceKind::LocalDir | SourceKind::GitRepo => root_path.and_then(|p| {
+            std::path::Path::new(p)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        }),
     }
 }
 
@@ -917,7 +879,6 @@ mod tests {
                 kind: SurfaceKind::Terminal,
                 cwd: None,
                 placement: None,
-                worktree_id: None,
             })
             .unwrap()
     }

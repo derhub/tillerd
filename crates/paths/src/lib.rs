@@ -64,6 +64,20 @@ pub fn store_in(dir: &Path) -> PathBuf {
     dir.join("tillerd.db")
 }
 
+/// The domain snapshot-tree data root under an explicit directory.
+///
+/// `workspaces/` lives directly under this path.
+pub fn data_root_in(dir: &Path) -> PathBuf {
+    dir.join("data")
+}
+
+/// The domain snapshot-tree data root (default location).
+///
+/// Equivalent to `data_root_in(&runtime_dir())`.
+pub fn data_root() -> PathBuf {
+    data_root_in(&runtime_dir())
+}
+
 /// The daemon control socket under the resolved runtime directory.
 pub fn daemon_socket() -> PathBuf {
     daemon_socket_in(&runtime_dir())

@@ -71,7 +71,6 @@ impl SurfaceApi {
             kind: SurfaceKind::Terminal,
             cwd: cwd.clone(),
             placement: Some(placement),
-            worktree_id: None,
         })?;
 
         let token = uuid::Uuid::new_v4().to_string();
@@ -156,7 +155,6 @@ impl SurfaceApi {
                     executable: default_shell(),
                     args: Vec::new(),
                 },
-                worktree: None,
             });
             spec.ensure_unique_placements()
         })?;
@@ -392,7 +390,6 @@ mod tests {
                 kind: SurfaceKind::Terminal,
                 cwd: None,
                 placement: Some("main".into()),
-                worktree_id: None,
             })
             .unwrap();
         let api = SurfaceApi::new(store, Arc::new(NullSink), "/tmp/unused.sock".into());
@@ -437,7 +434,6 @@ mod tests {
                 kind: SurfaceKind::Terminal,
                 cwd: None,
                 placement: Some(placement),
-                worktree_id: None,
             })
             .unwrap();
 

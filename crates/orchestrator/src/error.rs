@@ -50,12 +50,6 @@ pub enum OrchestratorError {
     #[error("launch template not found: {0}")]
     LaunchTemplateNotFound(String),
 
-    #[error("worktree step failed: {0}")]
-    WorktreeStepFailed(String),
-
-    #[error("worktree not found: {0}")]
-    WorktreeNotFound(String),
-
     #[error("unsupported surface kind: {0}")]
     UnsupportedSurfaceKind(String),
 }

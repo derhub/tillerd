@@ -25,7 +25,7 @@ export const WORKSPACE_DELETE = "workspace_delete";
 
 // ── domain types ──────────────────────────────────────────────────────────────
 
-export type SourceKind = "blank" | "local_dir" | "git_repo" | "git_worktree";
+export type SourceKind = "blank" | "local_dir" | "git_repo";
 
 export type TitleSource = "agent-title" | "branch" | "both" | "custom";
 
