@@ -1,401 +1,13 @@
-pub mod memory;
-pub mod schema;
-pub mod sqlite;
+pub mod composite;
 
+pub use crate::infra::{fs, memory, schema, sqlite};
+
+pub use composite::CompositeStore;
 pub use schema::current_version as current_schema_version;
-pub use sqlite::SqliteStore;
+
+pub use crate::entities::*;
 
 use crate::error::Result;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SessionId(String);
-
-impl SessionId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SurfaceId(String);
-
-impl SurfaceId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ProjectId(String);
-
-impl ProjectId {
-    pub const UNFILED: &'static str = "00000000-0000-0000-0000-000000000000";
-
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn unfiled() -> Self {
-        Self(Self::UNFILED.to_string())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn is_unfiled(&self) -> bool {
-        self.0 == Self::UNFILED
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct WorkspaceId(String);
-
-impl WorkspaceId {
-    /// Fixed well-known id of the built-in Default workspace (mirrors `ProjectId::UNFILED`).
-    pub const DEFAULT: &'static str = "00000000-0000-0000-0000-000000000001";
-
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn default_id() -> Self {
-        Self(Self::DEFAULT.to_string())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn is_default(&self) -> bool {
-        self.0 == Self::DEFAULT
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SourceKind {
-    Blank,
-    LocalDir,
-    GitRepo,
-    GitWorktree,
-}
-
-impl SourceKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            SourceKind::Blank => "blank",
-            SourceKind::LocalDir => "local_dir",
-            SourceKind::GitRepo => "git_repo",
-            SourceKind::GitWorktree => "git_worktree",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SurfaceKind {
-    Terminal,
-    Diff,
-}
-
-impl SurfaceKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            SurfaceKind::Terminal => "terminal",
-            SurfaceKind::Diff => "diff",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Project {
-    pub id: ProjectId,
-    pub name: String,
-    pub source_kind: SourceKind,
-    pub root_path: Option<String>,
-    /// Owning workspace; never null at rest after the workspace migration.
-    pub workspace_id: WorkspaceId,
-}
-
-/// A named group of projects (the top of the tree). Strict containment: every project
-/// belongs to exactly one workspace.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Workspace {
-    pub id: WorkspaceId,
-    pub name: String,
-}
-
-/// Parameters for creating a new workspace.
-#[derive(Debug, Clone)]
-pub struct NewWorkspace {
-    pub name: String,
-}
-
-/// How a session's display title is derived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum TitleSource {
-    /// Populated when the agent reports a title on completion.
-    #[default]
-    AgentTitle,
-    /// Set to the git branch of the session root at creation time.
-    Branch,
-    /// Concatenation of branch (at creation) and agent title (when available).
-    Both,
-    /// Caller-supplied verbatim title.
-    Custom,
-}
-
-impl TitleSource {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            TitleSource::AgentTitle => "agent-title",
-            TitleSource::Branch => "branch",
-            TitleSource::Both => "both",
-            TitleSource::Custom => "custom",
-        }
-    }
-}
-
-/// Parameters for creating a new project.
-#[derive(Debug, Clone)]
-pub struct NewProject {
-    pub source_kind: SourceKind,
-    pub root_path: Option<String>,
-    /// Explicit name; overrides inference when supplied.
-    pub name: Option<String>,
-    /// Owning workspace; defaults to the Default workspace when `None`.
-    pub workspace_id: Option<WorkspaceId>,
-}
-
-/// Parameters for creating a new session.
-#[derive(Debug, Clone, Default)]
-pub struct NewSession {
-    pub project_id: Option<ProjectId>,
-    pub title_source: TitleSource,
-    /// Required when `title_source == Custom`; used as branch/agent-title for other strategies.
-    pub title: Option<String>,
-    /// When supplied, the session's spec blob and version are copied atomically from this template.
-    pub template_id: Option<LaunchTemplateId>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Session {
-    pub id: SessionId,
-    pub project_id: ProjectId,
-    pub title: String,
-    pub title_source: TitleSource,
-    pub created_at: String,
-    pub spec_version: Option<u32>,
-    pub spec_json: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewSurface {
-    pub id: Option<SurfaceId>,
-    pub session_id: SessionId,
-    pub kind: SurfaceKind,
-    pub cwd: Option<String>,
-    pub placement: Option<String>,
-    pub worktree_id: Option<WorktreeId>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Surface {
-    pub id: SurfaceId,
-    pub session_id: SessionId,
-    pub kind: SurfaceKind,
-    pub cwd: Option<String>,
-    pub last_status: Option<String>,
-    pub placement: Option<String>,
-    pub worktree_id: Option<WorktreeId>,
-}
-
-impl Surface {
-    pub fn correlation_id(&self) -> &SurfaceId {
-        &self.id
-    }
-}
-
-// ── command library ───────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CommandId(String);
-
-impl CommandId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandOrigin {
-    Prebuilt,
-    Custom,
-}
-
-impl CommandOrigin {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            CommandOrigin::Prebuilt => "prebuilt",
-            CommandOrigin::Custom => "custom",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Command {
-    pub id: CommandId,
-    pub name: String,
-    pub origin: CommandOrigin,
-    pub cli: String,
-    pub args: Vec<String>,
-    pub env: std::collections::HashMap<String, String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewCommand {
-    pub name: String,
-    pub origin: CommandOrigin,
-    pub cli: String,
-    pub args: Vec<String>,
-    pub env: std::collections::HashMap<String, String>,
-}
-
-// ── worktree ──────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct WorktreeId(String);
-
-impl WorktreeId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Worktree {
-    pub id: WorktreeId,
-    pub project_id: ProjectId,
-    pub path: String,
-    pub branch: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewWorktree {
-    pub project_id: ProjectId,
-    pub path: String,
-    pub branch: Option<String>,
-}
-
-// ── launch template ───────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct LaunchTemplateId(String);
-
-impl LaunchTemplateId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
-    pub fn from_string(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LaunchTemplate {
-    pub id: LaunchTemplateId,
-    pub project_id: ProjectId,
-    pub spec_version: u32,
-    pub spec_json: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewLaunchTemplate {
-    pub project_id: ProjectId,
-    pub spec_version: u32,
-    pub spec_json: String,
-}
-
-// ── settings ──────────────────────────────────────────────────────────────────
-
-/// Scope a setting is stored under: app-global, or bound to a specific project.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SettingScope {
-    Global,
-    Project(ProjectId),
-}
-
-impl SettingScope {
-    /// The `(scope, project_id)` column pair for the `setting` table. Global uses an
-    /// empty `project_id` sentinel — never NULL — so the composite primary key
-    /// `(scope, project_id, key)` stays unique and upsert works (SQLite treats NULLs
-    /// as distinct, which would defeat both).
-    pub fn columns(&self) -> (&'static str, &str) {
-        match self {
-            SettingScope::Global => ("global", ""),
-            SettingScope::Project(id) => ("project", id.as_str()),
-        }
-    }
-}
-
-/// A stored setting: its key and JSON-encoded value.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SettingEntry {
-    pub key: String,
-    pub value_json: String,
-}
-
-/// A durably-stored user-facing notification (ADR-0031). `ts` is event time in epoch
-/// milliseconds; `actions_json` is a JSON-encoded action list when present.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NotificationRecord {
-    pub id: String,
-    pub category: String,
-    pub severity: String,
-    pub title: Option<String>,
-    pub message: String,
-    pub detail: Option<String>,
-    pub ts: i64,
-    pub session_id: Option<String>,
-    pub surface_id: Option<String>,
-    pub actions_json: Option<String>,
-}
 
 pub trait Store: Send + Sync {
     fn schema_version(&self) -> Result<u32>;
@@ -535,17 +147,6 @@ pub trait Store: Send + Sync {
     /// Insert prebuilt seed entries if they are absent (idempotent).
     fn seed_commands(&self) -> Result<()>;
 
-    // ── worktree ──────────────────────────────────────────────────────────
-
-    /// Persist a new worktree row and return it.
-    fn create_worktree(&self, draft: NewWorktree) -> Result<Worktree>;
-
-    /// Return non-archived worktrees for the given project.
-    fn list_worktrees(&self, project_id: &ProjectId) -> Result<Vec<Worktree>>;
-
-    /// Soft-delete a worktree row.
-    fn archive_worktree(&self, id: &WorktreeId) -> Result<()>;
-
     // ── launch template ───────────────────────────────────────────────────
 
     /// Persist a new launch template.
@@ -591,5 +192,32 @@ pub trait Store: Send + Sync {
     fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>>;
 
     /// Retain only the most recent `keep` notifications, discarding older ones.
+    fn prune_notifications(&self, keep: u32) -> Result<()>;
+}
+
+/// Operational persistence contract: meta, command, setting, notification, launch_template.
+///
+/// Implemented by `SqliteStore`. `CompositeStore` delegates these methods to it.
+pub trait OperationalStore: Send + Sync {
+    fn schema_version(&self) -> Result<u32>;
+    fn list_commands(&self) -> Result<Vec<Command>>;
+    fn get_command(&self, id: &str) -> Result<Option<Command>>;
+    fn create_command(&self, draft: NewCommand) -> Result<Command>;
+    fn delete_command(&self, id: &str) -> Result<()>;
+    fn seed_commands(&self) -> Result<()>;
+    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate>;
+    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>>;
+    fn set_launch_template_spec(
+        &self,
+        id: &LaunchTemplateId,
+        spec_version: u32,
+        spec_json: &str,
+    ) -> Result<()>;
+    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>>;
+    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()>;
+    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>>;
+    fn resolve_setting(&self, project_id: &ProjectId, key: &str) -> Result<Option<String>>;
+    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()>;
+    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>>;
     fn prune_notifications(&self, keep: u32) -> Result<()>;
 }

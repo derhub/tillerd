@@ -15,7 +15,6 @@ pub struct LaunchItem {
     pub target: String,
     pub placement: Option<String>,
     pub command: CommandRef,
-    pub worktree: Option<WorktreeStep>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -28,12 +27,6 @@ pub enum CommandRef {
         executable: String,
         args: Vec<String>,
     },
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WorktreeStep {
-    pub branch: String,
-    pub path: String,
 }
 
 /// Parse a JSON blob as a `LaunchSpec`, returning a typed error for missing or invalid version.

@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use orchestrator::persistence::{SqliteStore, Store};
+use orchestrator::persistence::{CompositeStore, Store};
 use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
 use orchestrator::{
     boot, read_service_health, EventSink, HealthSpec, Orchestrator, ServiceHealth, ServiceState,
@@ -264,7 +264,10 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
             prev_health: Arc::new(Mutex::new(None)),
         };
         let mut supervisor = build_supervisor();
-        let open_store = || SqliteStore::open_default().map(|s| Box::new(s) as Box<dyn Store>);
+        let open_store = || {
+            CompositeStore::open(tillerd_paths::data_root(), tillerd_paths::store())
+                .map(|s| Box::new(s) as Box<dyn Store>)
+        };
         match boot(open_store, &mut supervisor, &sink) {
             Ok(orchestrator) => {
                 let store = orchestrator.store_arc();
