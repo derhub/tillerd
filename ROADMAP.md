@@ -26,7 +26,7 @@ nothing is shortcut to a `.0` bucket.
 ## 0.0.x — Working app
 
 The Rust inversion, then everything a daily-usable app needs. The line ends with the
-working app shipping at **0.0.15**.
+working app shipping at **0.0.20**.
 
 ### 0.0.1 — Orchestrator boots, services run
 
@@ -169,7 +169,7 @@ Deferred to follow-up changes (each builds on the store shipped here):
   command-list method.
 - Per-project overrides (launch template, project env) — needs a project-scoped settings UI +
   launch-executor env injection.
-- Sidebar expand state — lands with the 0.0.15 project-tree expand/collapse UI; persists via
+- Sidebar expand state — lands with the 0.0.20 project-tree expand/collapse UI; persists via
   this store.
 - Env secrets via the OS keychain (`secret_ref` stores handles only) — no keychain dependency
   in 0.0.x.
@@ -256,7 +256,130 @@ migration under the 0.0.6 data-model freeze.
 
 ---
 
-### 0.0.15 — UX/UI (ships the working app)
+### Foundation — shared design (0.0.15–0.0.17)
+
+> The substrate the working app needs before the 0.0.20 UX/UI ship: a finalized storage
+> model, a standard state model, and the real client engine. Design is **solidified**
+> (decisions locked below); split into three versions, each extracted into its own OpenSpec
+> change. Ordered by dependency: storage + state model (0.0.15) → client engine (0.0.16) →
+> integration (0.0.17). The shared invariants + folder structure below apply across all three.
+
+**Shared design invariants (locked):**
+- **Domain hierarchy = `workspace → project → session`.** Profile is NOT a tier — it is a
+  portable settings bundle (below). Domain (workspace/project/session/panel layout + surface
+  bindings) = readable JSON snapshot tree. Operational (runtime status, notifications, command
+  lib, id→path index, view pointers, baseline snapshots) = `state.db` SQLite, machine-local,
+  regenerable. **Split is per-concern, not per-entity:** a surface's binding lives in domain
+  (`layout.json`), its runtime status in operational (`state.db`); the stable `id` is the
+  cross-plane join. Operational state is keyed by `id`, never by path.
+- **Profile = portable, named settings bundle** (the VS Code model). Owns settings only — no
+  domain, no templates. Switchable, shareable. One **active** profile drives the cascade.
+  **Settings cascade:** `effective(project) = merge(active profile, workspace override?,
+  project override?)` — workspace and project may each carry an optional `settings.jsonc`;
+  session inherits, no override (per-session variability lives in the launch `spec`, not
+  settings). Switching profile only re-resolves effective settings (hot-apply / reload-notify)
+  — it does NOT touch domain or PTYs.
+- **Template = portable launch-spec bundle**, sibling to profiles (`<templates>/<name>/template.jsonc`).
+  A **library** picked from at session-create — `session.spec` is a deep-copy snapshot, then
+  decoupled (editing/deleting a template never breaks a live session). Templates are opt-in and
+  purely additive (pre-spawn surfaces); absence or an invalid template → the existing
+  `DEFAULT_LAYOUT` (sidebar + single empty pane). `prebuilt` (in-code) vs `custom` (file),
+  reusing the command-lib `origin` vocabulary.
+- **Secrets = Stronghold vault** (`vault.stronghold`, machine-local, encrypted), unlocked by a
+  master password held in the OS keychain (silent unlock at boot). `session.spec` env keys are
+  resolved from the vault at launch. No `secret_ref`/`setting` tables.
+- **Storage-agnostic.** Only the **domain tree** must be readable at its path and is
+  relocatable/syncable (git, sync, backup — the user's business). `state.db` + `vault.stronghold`
+  are pinned machine-local and never sync (regenerable / secret). Profiles and templates are
+  portable bundles, shareable.
+- **Zero file watchers.** All files reconcile at **startup + an explicit Re-sync button** —
+  domain and settings alike.
+- **Humans may edit any file.** Lazy conflict detection: at write + Re-sync, compare file hash
+  vs per-entity **baseline snapshot** (base JSON + hash) → `merge3(base, file, ours)`. `ours` is
+  in-memory only (no persisted pending), so startup reconcile is 2-way (file vs base → adopt,
+  advance baseline); a true 3-way conflict only arises at live Re-sync. Flat files (workspace /
+  project / session / settings): disjoint fields auto-merge, overlap → **prompt: Override (ours)
+  / Force-merge (file as base, replay ours)**. `layout.json` is **tree-merged per node** by
+  stable node id (disjoint subtrees auto; reparent / delete-modify / same-field overlap → prompt
+  that node); `Conflicted` is per-node for layout, per-entity for flat. No event sourcing, no
+  continuous watching, no conflict markers.
+- **Malformed-file resilience.** No file blocks boot; app chrome (sidebar) always renders.
+  Per-class fallback + notification: bad `template.jsonc`/`layout.json` → `DEFAULT_LAYOUT`; bad
+  `settings.jsonc` → skip that cascade layer; bad domain entity → skip mounting it; corrupt
+  `state.db` → regenerate.
+- **Clean cutover, no migration** (pre-v1; dev-only data discarded).
+
+```
+<app-data>/tillerd/                         ALWAYS machine-local
+  config.jsonc                              activeProfile, paths (dataRoot/profiles/templates), app prefs
+  state.db                                  operational, regenerable, NEVER synced
+  vault.stronghold                          secrets (encrypted), keychain-unlocked
+<profiles>/<profile-name>/   settings.jsonc portable settings bundle (one active; switchable, shareable)
+<templates>/<template-slug>/ template.jsonc portable launch-spec bundle (library; prebuilt | custom)
+<data-root>/                                RELOCATABLE (default <app-data>/tillerd/data; user may repoint to a synced folder)
+  workspaces/<ws-slug>/   workspace.json    { id, name, sortOrder }   (slug dir, stable id)
+    settings.jsonc                          OPTIONAL workspace settings override
+    projects/<proj-slug>/ project.json      { id, name, sourceKind, rootPath, sortOrder }
+      settings.jsonc                        OPTIONAL project settings override
+      .archive/<…>/                         archived subtrees (atomic move)
+      sessions/<sess-slug>/ session.json    { id, title, titleSource, createdFrom?, spec, sortOrder }
+        layout.json                         panel tree (geometry) + surface bindings
+                                            surface = { id, kind, placement, cwd }
+```
+Containment encodes hierarchy (no `workspace_id`/`project_id` fields); refs use stable `id`;
+ordering via explicit `sortOrder`; archive = move subtree to `.archive/`. **Slug = cosmetic label**
+(re-slugged on rename via atomic subtree move; collisions disambiguated `foo` → `foo-2`); the
+`id` is truth and the id→path index regenerates by scanning. URL intent carries the stable id
+(`?w=<id>`). `cwd` is relative to the project `rootPath` (portable).
+
+### 0.0.15 — Storage & state model
+
+The storage substrate + standardized state model (Features A + B), merged so `state.db` ships
+its final typed schema once (no forward-dependency). Two ADRs.
+
+- [ ] ADR — two-plane storage (snapshot tree + operational `state.db`) + settings-profile cascade + Stronghold secrets.
+- [ ] ADR — state-model-as-contract (lifecycle / sync / guards; authority split).
+- [ ] Drop worktree provisioning + entity — remove `git worktree add` step, `git_worktree` source_kind, `worktree` table; surface = `{ id, kind, placement, cwd }`; CONTEXT.md term removed (task 0; clears persistence before the rewrite).
+- [ ] Snapshot tree store — `workspace → project → session`; slug dirs + stable `id`, containment hierarchy, `sortOrder`, atomic write-temp-rename, re-slug-on-rename subtree move, `.archive/` subtree move; replaces SQLite domain tables.
+- [ ] `state.db` operational store (final typed schema) — id→path index, per-entity baseline snapshots (base JSON + hash), command lib, notifications, `meta`; typed surface status + view pointers (below). Keyed by `id`.
+- [ ] Settings profiles + templates — `<profiles>/<name>/settings.jsonc` (one active) and `<templates>/<slug>/template.jsonc` (library, prebuilt|custom); `config.jsonc` holds active-profile pointer + paths; switch = re-resolve effective settings only; CONTEXT.md terms.
+- [ ] Settings cascade — `merge(active profile, workspace override?, project override?)`; optional `settings.jsonc` at workspace + project; hot-apply where safe, else reload-notify.
+- [ ] Secrets — Stronghold vault + OS-keychain master password; `session.spec` env keys resolved at launch.
+- [ ] Reconcile — startup scan (2-way) + Re-sync command (3-way); `merge3(base, file, ours)`, flat field-merge + `layout.json` per-node tree-merge; malformed-file fallbacks; no watchers.
+- [ ] State-model contract — `contracts/state-model.json` (+ `.schema.json`); single source, loaded both sides (Rust `include_str!`+serde, TS import+zod), no codegen.
+- [ ] Lifecycle FSM — shared CRUD (Creating→Active→Archiving→Archived→Deleting); surface special (Spawning→Attaching→Live→Closing→Closed). Contract marks persistable vs runtime-only states.
+- [ ] Surface status split — runtime `ProxyState` (Spawning/Attaching/Closing, in-memory, rebuilt at boot via `resume_all`) vs persisted typed `last_status` (Live | Exited | Crashed, `state.db`) gating resume-on-boot; replaces the free-form string.
+- [ ] Sync status — `Confirmed | Pending | Rejected | Stale | Conflicted`; optimistic, in-memory pending, rollback; `Conflicted` locks entity (per-node for layout) until resolved.
+- [ ] Guards — `*-ing` states locked; only stable states accept actions; orchestrator enforces, client advisory.
+- [ ] View pointers — minimal global seed in `state.db`: `activeWorkspace` (new-window seed), `sidebar.expanded.<proj>`, `lastSession.<proj>`; resolved against live lifecycle. Per-window context comes from URL intent (in-memory, not persisted; restore-after-quit deferred); `focusedLeaf` in-memory.
+- [ ] Workspace activity — derived runtime read-model (rollup of surface `ProxyState` → working / idle / none), keyed by workspace id, surfaced via Query; NOT a domain field.
+- [ ] Surface reattach on reload — diff `layout.json` placements → `detach` removed / `resume` added.
+- [ ] Contract test — UI and server guards agree (like `command_contract.rs`).
+
+### 0.0.16 — Client engine: TanStack
+
+The real client engine (Feature C). Move to TanStack Router + Query + Store — for ecosystem
+cohesion and typed search-params that fit the `?w=<id>` window-intent model (SPA throughout;
+SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/`serve`,
+`@react-router/node`) for a Vite SPA build.
+
+- [ ] TanStack Router — replace react-router routing (12 files); typed search-params carry window intent.
+- [ ] TanStack Query — server-state cache = the sync axis (pending/error/stale/refetch); kills imperative `refresh()`.
+- [ ] TanStack Store — reactive client store; coherent lists across windows.
+- [ ] Internal multi-window coherence — orchestrator emits `changed{id}` on its own writes → windows invalidate the matching Query key (app-internal, not file-watching).
+- [ ] Wire view pointers + state-model guards + workspace-activity read-model through Query/Store.
+
+### 0.0.17 — Foundation integration
+
+Buffer + integration pass: the three slices proven together end-to-end before the 0.0.20 UX/UI ship.
+
+- [ ] End-to-end — storage + state model + TanStack working as one across create / switch / reload / Re-sync / multi-window.
+- [ ] Re-sync UX — placement + conflict-prompt (Override / Force-merge), per-node for layout.
+- [ ] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.16 lands here.
+
+---
+
+### 0.0.20 — UX/UI (ships the working app)
 
 Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
 0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (project & session

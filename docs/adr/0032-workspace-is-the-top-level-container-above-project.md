@@ -1,6 +1,6 @@
 # 0032. Workspace is the top-level container above project
 
-- Status: proposed
+- Status: proposed (the "launch template stays on project" point is superseded by ADR-0033/0034: templates are portable bundles, sibling to profiles)
 - Date: 2026-06-18
 
 ## Context
