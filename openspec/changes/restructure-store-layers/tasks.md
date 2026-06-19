@@ -6,11 +6,18 @@
 
 ## 2. `infra/` -- backends as concrete structs
 
-- [ ] 2.1 Move the backends out of `persistence/` into `infra/`: rename the tree store -> `fs.rs`
-  (`FsBackend`) and extract its plumbing to sibling helpers (`slug.rs`, `atomic_io.rs`, `index.rs`,
-  `datetime.rs`); `sqlite.rs` (`SqliteBackend`); `memory.rs` (`MemoryBackend` -- one in-memory impl,
-  not a parallel `Store`). Preserve current behavior exactly. Move each module's `#[cfg(test)]` into
-  sibling test files (or `crates/orchestrator/tests/` for contract-level).
+- [x] 2.1 Move the backends out of `persistence/` into `infra/`: rename the tree store -> `fs.rs`
+  (`FsBackend`), `sqlite.rs` (`SqliteBackend`); `memory.rs` relocated (rename to `MemoryBackend`
+  deferred to 3.1, where it becomes a backend rather than a parallel `Store`). Path-preserving
+  re-exports keep call sites green. Behavior preserved exactly.
+- [ ] 2.2 Extract `fs.rs` plumbing to sibling helpers (`slug.rs`, `atomic_io.rs`, `index.rs`,
+  `datetime.rs`); move each module's `#[cfg(test)]` into sibling test files (or
+  `crates/orchestrator/tests/` for contract-level). No module left ~1000 lines.
+
+<!-- PR #41 (R1a-1, layer relocation) ships tasks 1 + 2.1: entities/ + infra/ exist, behavior
+     preserved through the still-present traits/facade. Tasks 2.2 + 3 + 4 + 5 (Backend enum, async
+     per-entity stores, Storage aggregate, coordinator, async conversion, dissolve the facade) ship
+     as the follow-up PR (R1a-2, store core), stacked on #41. -->
 
 ## 3. `store/` -- `Backend` enum + per-entity async stores
 

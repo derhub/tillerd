@@ -38,7 +38,11 @@ consumers receive only the concrete stores they call (least-privilege), not the 
 
 - **R1a -- data layer, structural (this change)**: `entities/`, `infra/` backends, `store/` per-entity
   stores + `Backend` enum (`fs`/`sqlite`/`memory` reworked); dissolve the dual traits; tests moved
-  out. Behavior-preserving.
+  out. Behavior-preserving. Lands in two stacked PRs to stay reviewable:
+  - **R1a-1 (PR #41) -- layer relocation**: `entities/` + `infra/` extracted, backend files moved and
+    renamed (`FsBackend`/`SqliteBackend`); behavior preserved through the still-present traits/facade.
+  - **R1a-2 -- store core**: helper extraction + `Backend` enum + per-entity async stores + `Storage`
+    aggregate + coordinator + async conversion; dissolve `DomainStore`/`OperationalStore`/`CompositeStore`.
 - **R1b -- scale**: the `fs` backend's KV listing cache + lazy-load + `mtime` revalidation (ADR-0035).
 - **R2 -- `app/`**: a use-case layer; relocate `create_session` coordination + archive/soft-delete
   policy into application services.
