@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::error::{OrchestratorError, Result};
-use crate::persistence::Store;
+use crate::store::Storage;
 use crate::supervision::{all_available, ServiceStatus, Supervise};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,7 +19,7 @@ pub trait EventSink {
 
 pub struct Orchestrator {
     status: Status,
-    store: Arc<dyn Store>,
+    storage: Arc<Storage>,
     services: Vec<ServiceStatus>,
 }
 
@@ -32,14 +32,14 @@ impl Orchestrator {
         self.status == Status::Ready
     }
 
-    pub fn store(&self) -> &dyn Store {
-        self.store.as_ref()
+    pub fn storage(&self) -> &Storage {
+        &self.storage
     }
 
-    /// A shared handle to the durable store, for subsystems (e.g. the surface
+    /// A shared handle to durable storage, for subsystems (e.g. the surface
     /// runtime) that outlive a single call.
-    pub fn store_arc(&self) -> Arc<dyn Store> {
-        Arc::clone(&self.store)
+    pub fn storage_arc(&self) -> Arc<Storage> {
+        Arc::clone(&self.storage)
     }
 
     pub fn service_statuses(&self) -> &[ServiceStatus] {
@@ -53,12 +53,12 @@ pub fn boot<F>(
     sink: &impl EventSink,
 ) -> Result<Orchestrator>
 where
-    F: FnOnce() -> Result<Box<dyn Store>>,
+    F: FnOnce() -> Result<Storage>,
 {
     sink.emit(&Status::Booting);
 
     sink.emit(&Status::OpeningStore);
-    let store: Arc<dyn Store> = Arc::from(fail_on(open_store(), sink)?);
+    let storage = Arc::new(fail_on(open_store(), sink)?);
 
     sink.emit(&Status::Supervising);
     let services = fail_on(supervisor.ensure_all(), sink)?;
@@ -80,7 +80,7 @@ where
 
     let orchestrator = Orchestrator {
         status: Status::Ready,
-        store,
+        storage,
         services,
     };
     sink.emit(&Status::Ready);
@@ -101,8 +101,8 @@ fn fail_on<T>(step: Result<T>, sink: &impl EventSink) -> Result<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::current_schema_version;
-    use crate::persistence::memory::InMemoryStore;
+    use crate::infra::memory::MemoryBackend;
+    use crate::infra::schema::current_version;
     use crate::supervision::Liveness;
     use std::sync::Mutex;
 
@@ -158,11 +158,11 @@ mod tests {
         }
     }
 
-    fn open_ok() -> Result<Box<dyn Store>> {
-        Ok(Box::new(InMemoryStore::new()))
+    fn open_ok() -> Result<Storage> {
+        Ok(Storage::in_memory(MemoryBackend::new()))
     }
 
-    fn open_err() -> Result<Box<dyn Store>> {
+    fn open_err() -> Result<Storage> {
         Err(OrchestratorError::StoreVersionTooNew {
             found: 2,
             supported: 1,
@@ -234,16 +234,16 @@ mod tests {
         assert!(matches!(events.last(), Some(Status::Failed { .. })));
     }
 
-    #[test]
-    fn boot_yields_one_instance_that_owns_a_working_store() {
+    #[tokio::test]
+    async fn boot_yields_one_instance_that_owns_a_working_store() {
         let sink = RecordingSink::default();
         let mut supervisor = FakeSupervisor::AllAvailable;
 
         let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
 
         assert_eq!(
-            orch.store().schema_version().unwrap(),
-            current_schema_version()
+            orch.storage().schema_version().await.unwrap(),
+            current_version()
         );
         assert_eq!(orch.service_statuses().len(), 2);
     }

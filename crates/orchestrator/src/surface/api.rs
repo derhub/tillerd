@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::entities::{NewSurface, SessionId, SurfaceId, SurfaceKind};
 use crate::error::{OrchestratorError, Result};
 use crate::launch::executor::{run as run_launch, LaunchItemResult, SurfaceLauncher};
 use crate::launch::spec::{migrate, CommandRef, LaunchItem, LaunchSpec, CURRENT_SPEC_VERSION};
-use crate::persistence::{NewSurface, SessionId, Store, SurfaceId, SurfaceKind};
+use crate::store::{Commands, Sessions, Surfaces};
 use crate::surface::runtime::{ResolvedCommand, SurfaceEventSink, SurfaceRuntime};
 
 /// Terminal dimensions a launched surface starts at; the renderer resizes on attach.
@@ -13,7 +14,9 @@ const DEFAULT_ROWS: u16 = 24;
 
 pub struct SurfaceApi {
     runtime: Arc<SurfaceRuntime>,
-    store: Arc<dyn Store>,
+    surfaces: Surfaces,
+    sessions: Sessions,
+    commands: Commands,
 }
 
 /// Production `SurfaceLauncher`: brings a resolved launch item to life on the surface runtime
@@ -47,9 +50,20 @@ impl SurfaceLauncher for RuntimeLauncher {
 }
 
 impl SurfaceApi {
-    pub fn new(store: Arc<dyn Store>, sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
-        let runtime = Arc::new(SurfaceRuntime::new(store.clone(), sink, socket));
-        Self { runtime, store }
+    pub fn new(
+        surfaces: Surfaces,
+        sessions: Sessions,
+        commands: Commands,
+        sink: Arc<dyn SurfaceEventSink>,
+        socket: PathBuf,
+    ) -> Self {
+        let runtime = Arc::new(SurfaceRuntime::new(surfaces.clone(), sink, socket));
+        Self {
+            runtime,
+            surfaces,
+            sessions,
+            commands,
+        }
     }
 
     /// `correlation_id` (= the surface id) is bound into the span so the orchestrator's records for
@@ -65,13 +79,16 @@ impl SurfaceApi {
         cwd: Option<String>,
     ) -> Result<SurfaceId> {
         tracing::info!(cols, rows, "creating terminal surface");
-        let surface = self.store.create_surface(NewSurface {
-            id: Some(surface_id.clone()),
-            session_id,
-            kind: SurfaceKind::Terminal,
-            cwd: cwd.clone(),
-            placement: Some(placement),
-        })?;
+        let surface = self
+            .surfaces
+            .create(NewSurface {
+                id: Some(surface_id.clone()),
+                session_id,
+                kind: SurfaceKind::Terminal,
+                cwd: cwd.clone(),
+                placement: Some(placement),
+            })
+            .await?;
 
         let token = uuid::Uuid::new_v4().to_string();
         let work_dir = cwd.unwrap_or_else(default_cwd);
@@ -93,11 +110,11 @@ impl SurfaceApi {
     /// best-effort (a failed item is recorded; the rest still run). A session without a stored spec
     /// launches nothing.
     pub async fn launch_session(&self, session_id: &SessionId) -> Result<Vec<LaunchItemResult>> {
-        let spec = self.session_spec(session_id)?;
+        let spec = self.session_spec(session_id).await?;
         let launcher = RuntimeLauncher {
             runtime: self.runtime.clone(),
         };
-        Ok(run_launch(&spec, session_id, &self.store, &launcher).await)
+        Ok(run_launch(&spec, session_id, &self.surfaces, &self.commands, &launcher).await)
     }
 
     #[tracing::instrument(skip_all, fields(correlation_id = %surface.as_str()))]
@@ -116,14 +133,15 @@ impl SurfaceApi {
         self.runtime.resume_all().await
     }
 
-    pub fn find_session_surface_by_placement(
+    pub async fn find_session_surface_by_placement(
         &self,
         session_id: &SessionId,
         placement: &str,
     ) -> Result<Option<SurfaceId>> {
         Ok(self
-            .store
-            .find_session_surface_by_placement(session_id, placement)?
+            .surfaces
+            .find_by_placement(session_id.clone(), placement.to_string())
+            .await?
             .map(|s| s.id))
     }
 
@@ -140,12 +158,12 @@ impl SurfaceApi {
     }
 
     pub async fn remove(&self, surface: &SurfaceId) -> Result<()> {
-        self.store.soft_delete_surface(surface)?;
+        self.surfaces.soft_delete(surface.clone()).await?;
         self.runtime.remove(surface).await
     }
 
     // Returns a placement only; the renderer creates the surface at it (it owns the byte channel).
-    pub fn spawn_surface(&self, session_id: &SessionId) -> Result<String> {
+    pub async fn spawn_surface(&self, session_id: &SessionId) -> Result<String> {
         let placement = uuid::Uuid::new_v4().to_string();
         self.update_spec(session_id, |spec| {
             spec.items.push(LaunchItem {
@@ -157,35 +175,43 @@ impl SurfaceApi {
                 },
             });
             spec.ensure_unique_placements()
-        })?;
+        })
+        .await?;
         Ok(placement)
     }
 
     pub async fn remove_surface(&self, session_id: &SessionId, surface: &SurfaceId) -> Result<()> {
-        if let Some(placement) = self.store.get_surface(surface)?.and_then(|s| s.placement) {
+        if let Some(placement) = self
+            .surfaces
+            .get(surface.clone())
+            .await?
+            .and_then(|s| s.placement)
+        {
             self.update_spec(session_id, |spec| {
                 spec.items
                     .retain(|item| item.placement.as_deref() != Some(placement.as_str()));
                 Ok(())
-            })?;
+            })
+            .await?;
         }
         self.remove(surface).await
     }
 
-    fn update_spec(
+    async fn update_spec(
         &self,
         session_id: &SessionId,
         f: impl FnOnce(&mut LaunchSpec) -> Result<()>,
     ) -> Result<()> {
-        let mut spec = self.session_spec(session_id)?;
+        let mut spec = self.session_spec(session_id).await?;
         f(&mut spec)?;
-        self.store_spec(session_id, &spec)
+        self.store_spec(session_id, &spec).await
     }
 
-    fn session_spec(&self, session_id: &SessionId) -> Result<LaunchSpec> {
+    async fn session_spec(&self, session_id: &SessionId) -> Result<LaunchSpec> {
         let session = self
-            .store
-            .get_session(session_id)?
+            .sessions
+            .get(session_id.clone())
+            .await?
             .ok_or_else(|| OrchestratorError::SessionNotFound(session_id.as_str().to_string()))?;
         match (session.spec_version, session.spec_json) {
             (Some(version), Some(blob)) => Ok(migrate(&blob, version)?.0),
@@ -196,10 +222,12 @@ impl SurfaceApi {
         }
     }
 
-    fn store_spec(&self, session_id: &SessionId, spec: &LaunchSpec) -> Result<()> {
+    async fn store_spec(&self, session_id: &SessionId, spec: &LaunchSpec) -> Result<()> {
         let blob = serde_json::to_string(spec)
             .map_err(|e| OrchestratorError::LaunchSpecInvalid(e.to_string()))?;
-        self.store.set_session_spec(session_id, spec.version, &blob)
+        self.sessions
+            .set_spec(session_id.clone(), spec.version, blob)
+            .await
     }
 }
 
@@ -214,8 +242,9 @@ fn default_shell() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::memory::InMemoryStore;
-    use crate::persistence::{NewLaunchTemplate, NewSession, ProjectId};
+    use crate::entities::{NewLaunchTemplate, NewSession, ProjectId};
+    use crate::infra::memory::MemoryBackend;
+    use crate::store::{create_session, Storage};
     use crate::surface::runtime::SurfaceEventSink;
     use daemon_pty_client::{encode_frame, FrameDecoder};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -278,21 +307,27 @@ mod tests {
         }
     }
 
-    fn session_with_spec(store: &Arc<dyn Store>, spec_json: &str) -> SessionId {
-        let template = store
-            .create_launch_template(NewLaunchTemplate {
+    async fn session_with_spec(storage: &Storage, spec_json: &str) -> SessionId {
+        let template = storage
+            .launch_templates
+            .create(NewLaunchTemplate {
                 project_id: ProjectId::unfiled(),
                 spec_version: 1,
                 spec_json: spec_json.to_string(),
             })
+            .await
             .unwrap();
-        store
-            .create_session(NewSession {
+        create_session(
+            NewSession {
                 template_id: Some(template.id),
                 ..Default::default()
-            })
-            .unwrap()
-            .id
+            },
+            &storage.launch_templates,
+            &storage.sessions,
+        )
+        .await
+        .unwrap()
+        .id
     }
 
     #[tokio::test]
@@ -302,15 +337,22 @@ mod tests {
         let listener = UnixListener::bind(&sock).unwrap();
         let daemon = tokio::spawn(fake_daemon_multi(listener));
 
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+        let storage = Storage::in_memory(MemoryBackend::new());
         let session_id = session_with_spec(
-            &store,
+            &storage,
             r#"{"version":1,"items":[
                 {"target":"terminal","command":{"executable":"/bin/sh","args":[]}},
                 {"target":"terminal","command":{"executable":"/bin/sh","args":[]}}
             ]}"#,
+        )
+        .await;
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            sock,
         );
-        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), sock);
 
         let results = api
             .launch_session(&session_id)
@@ -330,9 +372,19 @@ mod tests {
     async fn launch_session_without_a_spec_launches_nothing() {
         let dir = tempfile::tempdir().unwrap();
         let sock = dir.path().join("daemon.sock");
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
-        let session = store.create_session(NewSession::default()).unwrap();
-        let api = SurfaceApi::new(store, Arc::new(NullSink), sock);
+        let storage = Storage::in_memory(MemoryBackend::new());
+        let session = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap();
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            sock,
+        );
 
         let results = api
             .launch_session(&session.id)
@@ -350,11 +402,19 @@ mod tests {
         let listener = UnixListener::bind(&sock).unwrap();
         let daemon = tokio::spawn(fake_daemon(listener));
 
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
-        let session = store
-            .create_session(crate::persistence::NewSession::default())
+        let storage = Storage::in_memory(MemoryBackend::new());
+        let session = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
             .unwrap();
-        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), sock);
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            sock,
+        );
 
         let id = SurfaceId::from_string("surf-api-1");
         let returned = api
@@ -370,7 +430,12 @@ mod tests {
             .expect("create");
 
         assert_eq!(returned, id);
-        let row = store.get_surface(&id).expect("get").expect("row exists");
+        let row = storage
+            .surfaces
+            .get(id.clone())
+            .await
+            .expect("get")
+            .expect("row exists");
         assert_eq!(row.kind, SurfaceKind::Terminal);
         assert_eq!(row.cwd.as_deref(), Some("/tmp"));
         assert_eq!(row.placement.as_deref(), Some("p"));
@@ -378,43 +443,76 @@ mod tests {
         daemon.abort();
     }
 
-    #[test]
-    fn find_session_surface_by_placement_resolves_to_its_own_surface() {
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
-        let with_surface = store.create_session(NewSession::default()).unwrap();
-        let without_surface = store.create_session(NewSession::default()).unwrap();
-        let surface = store
-            .create_surface(NewSurface {
+    #[tokio::test]
+    async fn find_session_surface_by_placement_resolves_to_its_own_surface() {
+        let storage = Storage::in_memory(MemoryBackend::new());
+        let with_surface = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap();
+        let without_surface = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap();
+        let surface = storage
+            .surfaces
+            .create(NewSurface {
                 id: Some(SurfaceId::from_string("revisit-surf")),
                 session_id: with_surface.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
                 placement: Some("main".into()),
             })
+            .await
             .unwrap();
-        let api = SurfaceApi::new(store, Arc::new(NullSink), "/tmp/unused.sock".into());
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            "/tmp/unused.sock".into(),
+        );
 
         // The revisit path resolves (session, placement) to its own surface, and to None otherwise.
         assert_eq!(
             api.find_session_surface_by_placement(&with_surface.id, "main")
+                .await
                 .unwrap(),
             Some(surface.id),
         );
         assert_eq!(
             api.find_session_surface_by_placement(&without_surface.id, "main")
+                .await
                 .unwrap(),
             None,
         );
     }
 
-    #[test]
-    fn spawn_surface_appends_a_launch_item_at_a_minted_placement() {
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
-        let session = store.create_session(NewSession::default()).unwrap();
-        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), "/tmp/unused.sock".into());
+    #[tokio::test]
+    async fn spawn_surface_appends_a_launch_item_at_a_minted_placement() {
+        let storage = Storage::in_memory(MemoryBackend::new());
+        let session = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap();
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            "/tmp/unused.sock".into(),
+        );
 
-        let placement = api.spawn_surface(&session.id).unwrap();
-        let stored = store.get_session(&session.id).unwrap().unwrap();
+        let placement = api.spawn_surface(&session.id).await.unwrap();
+        let stored = storage
+            .sessions
+            .get(session.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
         let spec = crate::launch::spec::parse_spec(&stored.spec_json.unwrap()).unwrap();
         assert_eq!(spec.items.len(), 1);
         assert_eq!(spec.items[0].placement.as_deref(), Some(placement.as_str()));
@@ -422,26 +520,48 @@ mod tests {
 
     #[tokio::test]
     async fn remove_surface_drops_its_launch_item() {
-        let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
-        let session = store.create_session(NewSession::default()).unwrap();
-        let api = SurfaceApi::new(store.clone(), Arc::new(NullSink), "/tmp/unused.sock".into());
+        let storage = Storage::in_memory(MemoryBackend::new());
+        let session = storage
+            .sessions
+            .create(NewSession::default(), None)
+            .await
+            .unwrap();
+        let api = SurfaceApi::new(
+            storage.surfaces.clone(),
+            storage.sessions.clone(),
+            storage.commands.clone(),
+            Arc::new(NullSink),
+            "/tmp/unused.sock".into(),
+        );
 
-        let placement = api.spawn_surface(&session.id).unwrap();
-        let surface = store
-            .create_surface(NewSurface {
+        let placement = api.spawn_surface(&session.id).await.unwrap();
+        let surface = storage
+            .surfaces
+            .create(NewSurface {
                 id: Some(SurfaceId::from_string("close-surf")),
                 session_id: session.id.clone(),
                 kind: SurfaceKind::Terminal,
                 cwd: None,
                 placement: Some(placement),
             })
+            .await
             .unwrap();
 
         api.remove_surface(&session.id, &surface.id).await.unwrap();
 
-        let stored = store.get_session(&session.id).unwrap().unwrap();
+        let stored = storage
+            .sessions
+            .get(session.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
         let spec = crate::launch::spec::parse_spec(&stored.spec_json.unwrap()).unwrap();
         assert!(spec.items.is_empty());
-        assert!(store.get_surface(&surface.id).unwrap().is_none());
+        assert!(storage
+            .surfaces
+            .get(surface.id.clone())
+            .await
+            .unwrap()
+            .is_none());
     }
 }

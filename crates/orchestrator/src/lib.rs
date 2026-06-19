@@ -6,7 +6,7 @@ pub mod error;
 pub mod health;
 pub mod infra;
 pub mod launch;
-pub mod persistence;
+pub mod store;
 pub mod supervision;
 pub mod surface;
 

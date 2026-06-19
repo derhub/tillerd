@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use orchestrator::persistence::{SessionId, Store, SurfaceId};
+use orchestrator::entities::{SessionId, SurfaceId};
+use orchestrator::store::{Notifications, Storage, Surfaces};
 use orchestrator::surface::transport::default_daemon_socket;
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -13,18 +14,18 @@ pub type SurfaceChannels = Arc<Mutex<HashMap<String, tauri::ipc::Channel<Vec<u8>
 pub struct TauriSurfaceSink {
     channels: SurfaceChannels,
     app: AppHandle,
-    store: Arc<dyn Store>,
+    surfaces: Surfaces,
+    notifications: Notifications,
 }
 
-impl TauriSurfaceSink {
-    /// The session a surface belongs to, for click-through context. `None` if the row is gone.
-    fn session_of(&self, surface: &SurfaceId) -> Option<String> {
-        self.store
-            .get_surface(surface)
-            .ok()
-            .flatten()
-            .map(|s| s.session_id.as_str().to_string())
-    }
+/// The session a surface belongs to, for click-through context. `None` if the row is gone.
+async fn session_of(surfaces: &Surfaces, surface: &SurfaceId) -> Option<String> {
+    surfaces
+        .get(surface.clone())
+        .await
+        .ok()
+        .flatten()
+        .map(|s| s.session_id.as_str().to_string())
 }
 
 impl SurfaceEventSink for TauriSurfaceSink {
@@ -47,16 +48,25 @@ impl SurfaceEventSink for TauriSurfaceSink {
             "surface://exit",
             serde_json::json!({ "surfaceId": surface.as_str(), "qualifier": qualifier }),
         );
-        notification_host::record(
-            &self.app,
-            self.store.as_ref(),
-            notification_host::surface_stopped(
-                surface.as_str(),
-                self.session_of(surface),
-                qualifier,
-                notification_host::now_ms(),
-            ),
-        );
+        let app = self.app.clone();
+        let surfaces = self.surfaces.clone();
+        let notifications = self.notifications.clone();
+        let surface_id = surface.clone();
+        let qualifier = qualifier.to_string();
+        tauri::async_runtime::spawn(async move {
+            let session = session_of(&surfaces, &surface_id).await;
+            notification_host::record(
+                &app,
+                &notifications,
+                notification_host::surface_stopped(
+                    surface_id.as_str(),
+                    session,
+                    &qualifier,
+                    notification_host::now_ms(),
+                ),
+            )
+            .await;
+        });
         let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         channels.remove(surface.as_str());
     }
@@ -66,34 +76,46 @@ impl SurfaceEventSink for TauriSurfaceSink {
             "surface:error",
             serde_json::json!({ "surfaceId": surface.as_str(), "reason": reason }),
         );
-        notification_host::record(
-            &self.app,
-            self.store.as_ref(),
-            notification_host::surface_error(
-                surface.as_str(),
-                self.session_of(surface),
-                reason,
-                notification_host::now_ms(),
-            ),
-        );
+        let app = self.app.clone();
+        let surfaces = self.surfaces.clone();
+        let notifications = self.notifications.clone();
+        let surface_id = surface.clone();
+        let reason = reason.to_string();
+        tauri::async_runtime::spawn(async move {
+            let session = session_of(&surfaces, &surface_id).await;
+            notification_host::record(
+                &app,
+                &notifications,
+                notification_host::surface_error(
+                    surface_id.as_str(),
+                    session,
+                    &reason,
+                    notification_host::now_ms(),
+                ),
+            )
+            .await;
+        });
     }
 }
 
 pub struct SurfaceState {
     pub api: Arc<SurfaceApi>,
     pub channels: SurfaceChannels,
-    pub store: Arc<dyn Store>,
+    pub notifications: Notifications,
 }
 
-pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store>) {
+pub fn register(app: &AppHandle, storage: Arc<Storage>) {
     let channels: SurfaceChannels = Arc::new(Mutex::new(HashMap::new()));
     let sink = Arc::new(TauriSurfaceSink {
         channels: channels.clone(),
         app: app.clone(),
-        store: store.clone(),
+        surfaces: storage.surfaces.clone(),
+        notifications: storage.notifications.clone(),
     });
     let api = Arc::new(SurfaceApi::new(
-        store.clone(),
+        storage.surfaces.clone(),
+        storage.sessions.clone(),
+        storage.commands.clone(),
         sink,
         default_daemon_socket(),
     ));
@@ -108,7 +130,7 @@ pub fn register(app: &AppHandle, store: Arc<dyn orchestrator::persistence::Store
     app.manage(SurfaceState {
         api,
         channels,
-        store,
+        notifications: storage.notifications.clone(),
     });
 }
 
@@ -133,6 +155,7 @@ pub async fn surface_create<R: tauri::Runtime>(
     if let Some(existing) = state
         .api
         .find_session_surface_by_placement(&session, &placement)
+        .await
         .map_err(|e| e.to_string())?
     {
         // Register the channel before resume so no replayed output is lost.
@@ -179,9 +202,10 @@ pub async fn surface_create<R: tauri::Runtime>(
         .map_err(|e| e.to_string())?;
     notification_host::record(
         &app,
-        state.store.as_ref(),
+        &state.notifications,
         notification_host::surface_started(&id, &session_str, notification_host::now_ms()),
-    );
+    )
+    .await;
     Ok(id)
 }
 
@@ -193,6 +217,7 @@ pub async fn surface_spawn(
     state
         .api
         .spawn_surface(&SessionId::from_string(session_id))
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -207,6 +232,7 @@ pub async fn surface_close(
     let Some(surface) = state
         .api
         .find_session_surface_by_placement(&session, &placement)
+        .await
         .map_err(|e| e.to_string())?
     else {
         return Ok(());

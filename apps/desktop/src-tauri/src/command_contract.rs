@@ -17,8 +17,9 @@ use crate::{
     bridge, diag, files, settings_host, store, supervisor, surface_host, window_host,
     workspace_host,
 };
-use orchestrator::persistence::memory::InMemoryStore;
-use orchestrator::persistence::{Store, SurfaceId};
+use orchestrator::entities::SurfaceId;
+use orchestrator::infra::memory::MemoryBackend;
+use orchestrator::store::Storage;
 use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
 use serial_test::serial;
 use std::sync::Arc;
@@ -36,9 +37,11 @@ impl SurfaceEventSink for NullSink {
 /// The app with the full handler set and every managed state the commands resolve, on the real
 /// context so the live IPC path runs.
 fn contract_app() -> tauri::App<MockRuntime> {
-    let store: Arc<dyn Store> = Arc::new(InMemoryStore::new());
+    let storage = Arc::new(Storage::in_memory(MemoryBackend::new()));
     let api = Arc::new(SurfaceApi::new(
-        store.clone(),
+        storage.surfaces.clone(),
+        storage.sessions.clone(),
+        storage.commands.clone(),
         Arc::new(NullSink),
         "/tmp/tillerd-contract.sock".into(),
     ));
@@ -111,7 +114,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
     app.manage(SurfaceState {
         api,
         channels: Default::default(),
-        store,
+        notifications: storage.notifications.clone(),
     });
     app
 }

@@ -39,13 +39,23 @@ sqlite backend, not a store.
 
 ### D2 -- `Backend` enum (closed, enum dispatch)
 
-`enum Backend { Fs(FsBackend), Sqlite(SqliteBackend), Memory(MemoryBackend) }` in `store/backend.rs`.
-Each variant is a concrete `infra` backend struct. The enum exposes the low-level storage primitive
-the per-entity stores call (read/write/list a record by kind + key + filter); each method `match`es
-the variant. Async fns are native on the concrete enum/structs -- **no `async-trait`, no `dyn`, no
-object safety**. *Alternative considered:* a generic `Repository<T>` trait (ADR-0035 rejected it --
-associated-type + `async-trait` + object-safety machinery for a closed backend set is the
-over-abstraction rust-best-practices warns against).
+`enum Backend { Fs(Arc<FsBackend>), Sqlite(Arc<SqliteBackend>), Memory(Arc<MemoryBackend>) }` in
+`store/backend.rs`. Each variant wraps a concrete `infra` backend struct (behind `Arc` so a `Backend`
+clones cheaply and a `spawn_blocking` closure can own it). The enum exposes one **async forwarding
+method per persisted operation**; each method `match`es the variant and calls the concrete backend's
+existing (sync, behavior-preserving) method. `Fs`/`Sqlite` run the blocking call via
+`tokio::task::spawn_blocking`; `Memory` runs inline (in-memory, trivially async). Domain operations are
+served by `Fs`/`Memory` and operational operations by `Sqlite`/`Memory`; the impossible variant pair
+returns a `Persistence` error (never reached given composition-root wiring, see D6). Async fns are
+native on the enum -- **no `async-trait`, no `dyn`, no object safety**.
+
+*Why forwarding, not a generic KV primitive:* a `get/put/list(kind,key,filter)` primitive would force
+rewriting `FsBackend`'s tree logic (slug/collision, id->path index, `.archive` cascade, layout.json)
+into the stores -- a behavior change R1a forbids (Non-Goals; spec "Storage behavior preserved"). The
+forwarding enum keeps every backend byte-for-byte (D4) and confines the change to signatures + `.await`.
+*Alternative considered:* a generic `Repository<T>` trait (ADR-0035 rejected it -- associated-type +
+`async-trait` + object-safety machinery for a closed backend set is the over-abstraction
+rust-best-practices warns against).
 
 ### D3 -- Per-entity async store structs
 

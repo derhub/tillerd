@@ -10,9 +10,8 @@ use crate::entities::{
     SurfaceId, TitleSource, Workspace, WorkspaceId,
 };
 use crate::error::{OrchestratorError, Result};
-use crate::persistence::Store;
 
-pub struct InMemoryStore {
+pub struct MemoryBackend {
     inner: Mutex<Inner>,
 }
 
@@ -63,7 +62,7 @@ struct SurfaceRecord {
     deleted: bool,
 }
 
-impl InMemoryStore {
+impl MemoryBackend {
     pub fn new() -> Self {
         let mut workspaces = HashMap::new();
         workspaces.insert(
@@ -109,22 +108,54 @@ impl InMemoryStore {
         let _ = store.seed_commands();
         store
     }
+
+    /// Materialize a session from a draft and a pre-resolved launch spec, with no
+    /// template lookup. The backend primitive; template->spec resolution lives in the
+    /// `create_session` coordinator.
+    pub(crate) fn create_session_inner(
+        &self,
+        draft: NewSession,
+        spec: Option<(u32, String)>,
+    ) -> Result<Session> {
+        let (spec_version, spec_json) = match spec {
+            Some((version, json)) => (Some(version), Some(json)),
+            None => (None, None),
+        };
+        let session = Session {
+            id: SessionId::mint(),
+            project_id: draft.project_id.unwrap_or_else(ProjectId::unfiled),
+            title: draft.title.unwrap_or_default(),
+            title_source: draft.title_source,
+            created_at: chrono_now(),
+            spec_version,
+            spec_json,
+        };
+        self.inner.lock().unwrap().sessions.insert(
+            session.id.as_str().to_string(),
+            SessionRecord {
+                session: session.clone(),
+                deleted: false,
+                layout_json: None,
+            },
+        );
+        Ok(session)
+    }
 }
 
-impl Default for InMemoryStore {
+impl Default for MemoryBackend {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Store for InMemoryStore {
-    fn schema_version(&self) -> Result<u32> {
+impl MemoryBackend {
+    pub(crate) fn schema_version(&self) -> Result<u32> {
         Ok(self.inner.lock().unwrap().version)
     }
 
     // ── project ───────────────────────────────────────────────────────────
 
-    fn get_project(&self, id: &ProjectId) -> Result<Option<Project>> {
+    pub(crate) fn get_project(&self, id: &ProjectId) -> Result<Option<Project>> {
         Ok(self
             .inner
             .lock()
@@ -135,7 +166,7 @@ impl Store for InMemoryStore {
             .map(|r| r.project.clone()))
     }
 
-    fn create_project(&self, draft: NewProject) -> Result<Project> {
+    pub(crate) fn create_project(&self, draft: NewProject) -> Result<Project> {
         let mut inner = self.inner.lock().unwrap();
         let seq = inner.projects.len() as u64;
         let id = ProjectId::new(uuid::Uuid::new_v4().to_string());
@@ -161,7 +192,7 @@ impl Store for InMemoryStore {
         Ok(project)
     }
 
-    fn rename_project(&self, id: &ProjectId, name: &str) -> Result<()> {
+    pub(crate) fn rename_project(&self, id: &ProjectId, name: &str) -> Result<()> {
         if id.is_unfiled() {
             return Err(OrchestratorError::ProjectIsUnfiled);
         }
@@ -175,7 +206,7 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>> {
+    pub(crate) fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>> {
         let inner = self.inner.lock().unwrap();
         let mut records: Vec<&ProjectRecord> = inner
             .projects
@@ -187,7 +218,7 @@ impl Store for InMemoryStore {
         Ok(records.into_iter().map(|r| r.project.clone()).collect())
     }
 
-    fn archive_project(&self, id: &ProjectId) -> Result<()> {
+    pub(crate) fn archive_project(&self, id: &ProjectId) -> Result<()> {
         if id.is_unfiled() {
             return Err(OrchestratorError::ProjectIsUnfiled);
         }
@@ -218,7 +249,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn hard_delete_project(&self, id: &ProjectId) -> Result<()> {
+    pub(crate) fn hard_delete_project(&self, id: &ProjectId) -> Result<()> {
         if id.is_unfiled() {
             return Err(OrchestratorError::ProjectIsUnfiled);
         }
@@ -246,7 +277,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn reorder_project(&self, id: &ProjectId, _sort_order: u32) -> Result<()> {
+    pub(crate) fn reorder_project(&self, id: &ProjectId, _sort_order: u32) -> Result<()> {
         let inner = self.inner.lock().unwrap();
         if !inner.projects.contains_key(id.as_str()) {
             return Err(OrchestratorError::ProjectNotFound(id.as_str().to_string()));
@@ -254,7 +285,11 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn move_project(&self, project_id: &ProjectId, workspace_id: &WorkspaceId) -> Result<()> {
+    pub(crate) fn move_project(
+        &self,
+        project_id: &ProjectId,
+        workspace_id: &WorkspaceId,
+    ) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         if !inner.workspaces.contains_key(workspace_id.as_str()) {
             return Err(OrchestratorError::WorkspaceNotFound(
@@ -274,7 +309,7 @@ impl Store for InMemoryStore {
 
     // ── workspace ─────────────────────────────────────────────────────────
 
-    fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
+    pub(crate) fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
         let mut inner = self.inner.lock().unwrap();
         let seq = inner.workspaces.len() as u64;
         let sort_order = inner
@@ -300,7 +335,7 @@ impl Store for InMemoryStore {
         Ok(workspace)
     }
 
-    fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()> {
+    pub(crate) fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.workspaces.get_mut(id.as_str()) {
             Some(r) => {
@@ -313,14 +348,14 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn list_workspaces(&self) -> Result<Vec<Workspace>> {
+    pub(crate) fn list_workspaces(&self) -> Result<Vec<Workspace>> {
         let inner = self.inner.lock().unwrap();
         let mut records: Vec<&WorkspaceRecord> = inner.workspaces.values().collect();
         records.sort_by_key(|r| (r.sort_order, r.created_seq));
         Ok(records.into_iter().map(|r| r.workspace.clone()).collect())
     }
 
-    fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()> {
+    pub(crate) fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.workspaces.get_mut(id.as_str()) {
             Some(r) => {
@@ -333,7 +368,7 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn delete_workspace(&self, id: &WorkspaceId) -> Result<()> {
+    pub(crate) fn delete_workspace(&self, id: &WorkspaceId) -> Result<()> {
         if id.is_default() {
             return Err(OrchestratorError::WorkspaceIsDefault);
         }
@@ -354,46 +389,7 @@ impl Store for InMemoryStore {
 
     // ── session ───────────────────────────────────────────────────────────
 
-    fn create_session(&self, draft: NewSession) -> Result<Session> {
-        // Resolve template spec if provided.
-        let (spec_version, spec_json) = if let Some(ref tid) = draft.template_id {
-            let inner = self.inner.lock().unwrap();
-            match inner.launch_templates.get(tid.as_str()) {
-                Some(t) => (
-                    Some(t.spec_version),
-                    Some(crate::launch::spec::instantiate_for_session(&t.spec_json)?),
-                ),
-                None => {
-                    return Err(OrchestratorError::LaunchTemplateNotFound(
-                        tid.as_str().to_string(),
-                    ))
-                }
-            }
-        } else {
-            (None, None)
-        };
-
-        let session = Session {
-            id: SessionId::mint(),
-            project_id: draft.project_id.unwrap_or_else(ProjectId::unfiled),
-            title: draft.title.unwrap_or_default(),
-            title_source: draft.title_source,
-            created_at: chrono_now(),
-            spec_version,
-            spec_json,
-        };
-        self.inner.lock().unwrap().sessions.insert(
-            session.id.as_str().to_string(),
-            SessionRecord {
-                session: session.clone(),
-                deleted: false,
-                layout_json: None,
-            },
-        );
-        Ok(session)
-    }
-
-    fn rename_session(&self, id: &SessionId, title: &str) -> Result<()> {
+    pub(crate) fn rename_session(&self, id: &SessionId, title: &str) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.sessions.get_mut(id.as_str()) {
             Some(r) if !r.deleted => {
@@ -405,7 +401,7 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn list_sessions(&self, project_id: Option<&ProjectId>) -> Result<Vec<Session>> {
+    pub(crate) fn list_sessions(&self, project_id: Option<&ProjectId>) -> Result<Vec<Session>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .sessions
@@ -420,7 +416,7 @@ impl Store for InMemoryStore {
             .collect())
     }
 
-    fn get_session(&self, id: &SessionId) -> Result<Option<Session>> {
+    pub(crate) fn get_session(&self, id: &SessionId) -> Result<Option<Session>> {
         Ok(self
             .inner
             .lock()
@@ -431,7 +427,7 @@ impl Store for InMemoryStore {
             .map(|r| r.session.clone()))
     }
 
-    fn archive_session(&self, id: &SessionId) -> Result<()> {
+    pub(crate) fn archive_session(&self, id: &SessionId) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.sessions.get_mut(id.as_str()) {
             Some(r) if !r.deleted => {
@@ -448,7 +444,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn hard_delete_session(&self, id: &SessionId) -> Result<()> {
+    pub(crate) fn hard_delete_session(&self, id: &SessionId) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         let rec = inner.sessions.get(id.as_str());
         match rec {
@@ -464,7 +460,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn reorder_session(&self, id: &SessionId, _sort_order: u32) -> Result<()> {
+    pub(crate) fn reorder_session(&self, id: &SessionId, _sort_order: u32) -> Result<()> {
         let inner = self.inner.lock().unwrap();
         if !inner.sessions.contains_key(id.as_str()) {
             return Err(OrchestratorError::SessionNotFound(id.as_str().to_string()));
@@ -474,7 +470,7 @@ impl Store for InMemoryStore {
 
     // ── surface ───────────────────────────────────────────────────────────
 
-    fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
+    pub(crate) fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(placement) = &draft.placement {
             let clash = inner.surfaces.values().any(|r| {
@@ -504,7 +500,7 @@ impl Store for InMemoryStore {
         Ok(surface)
     }
 
-    fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>> {
+    pub(crate) fn get_surface(&self, id: &SurfaceId) -> Result<Option<Surface>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .surfaces
@@ -513,7 +509,7 @@ impl Store for InMemoryStore {
             .map(|r| r.surface.clone()))
     }
 
-    fn find_session_surface_by_placement(
+    pub(crate) fn find_session_surface_by_placement(
         &self,
         session_id: &SessionId,
         placement: &str,
@@ -531,7 +527,7 @@ impl Store for InMemoryStore {
             .next())
     }
 
-    fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
+    pub(crate) fn list_resumable_surfaces(&self) -> Result<Vec<Surface>> {
         let mut inner = self.inner.lock().unwrap();
         let ids: Vec<String> = inner
             .surfaces
@@ -559,7 +555,7 @@ impl Store for InMemoryStore {
         Ok(out)
     }
 
-    fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()> {
+    pub(crate) fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(r) = inner.surfaces.get_mut(id.as_str()) {
             r.surface.last_status = Some(status.to_string());
@@ -567,7 +563,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()> {
+    pub(crate) fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(r) = inner.surfaces.get_mut(id.as_str()) {
             r.deleted = true;
@@ -575,7 +571,11 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn add_surface_to_session(&self, session_id: &SessionId, surface_id: &SurfaceId) -> Result<()> {
+    pub(crate) fn add_surface_to_session(
+        &self,
+        session_id: &SessionId,
+        surface_id: &SurfaceId,
+    ) -> Result<()> {
         let inner = self.inner.lock().unwrap();
         let surf = inner.surfaces.get(surface_id.as_str());
         match surf {
@@ -591,7 +591,7 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn remove_surface_from_session(
+    pub(crate) fn remove_surface_from_session(
         &self,
         _session_id: &SessionId,
         surface_id: &SurfaceId,
@@ -599,7 +599,12 @@ impl Store for InMemoryStore {
         self.soft_delete_surface(surface_id)
     }
 
-    fn set_session_spec(&self, id: &SessionId, spec_version: u32, spec_json: &str) -> Result<()> {
+    pub(crate) fn set_session_spec(
+        &self,
+        id: &SessionId,
+        spec_version: u32,
+        spec_json: &str,
+    ) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.sessions.get_mut(id.as_str()) {
             Some(r) if !r.deleted => {
@@ -613,7 +618,7 @@ impl Store for InMemoryStore {
 
     // ── layout ────────────────────────────────────────────────────────────
 
-    fn set_session_layout(&self, id: &SessionId, layout_json: &str) -> Result<()> {
+    pub(crate) fn set_session_layout(&self, id: &SessionId, layout_json: &str) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         match inner.sessions.get_mut(id.as_str()) {
             Some(r) if !r.deleted => {
@@ -624,7 +629,7 @@ impl Store for InMemoryStore {
         }
     }
 
-    fn get_session_layout(&self, id: &SessionId) -> Result<Option<String>> {
+    pub(crate) fn get_session_layout(&self, id: &SessionId) -> Result<Option<String>> {
         let inner = self.inner.lock().unwrap();
         match inner.sessions.get(id.as_str()) {
             Some(r) if !r.deleted => Ok(r.layout_json.clone()),
@@ -634,7 +639,7 @@ impl Store for InMemoryStore {
 
     // ── command library ───────────────────────────────────────────────────
 
-    fn list_commands(&self) -> Result<Vec<Command>> {
+    pub(crate) fn list_commands(&self) -> Result<Vec<Command>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .commands
@@ -644,7 +649,7 @@ impl Store for InMemoryStore {
             .collect())
     }
 
-    fn get_command(&self, id: &str) -> Result<Option<Command>> {
+    pub(crate) fn get_command(&self, id: &str) -> Result<Option<Command>> {
         Ok(self
             .inner
             .lock()
@@ -655,7 +660,7 @@ impl Store for InMemoryStore {
             .map(|r| r.command.clone()))
     }
 
-    fn create_command(&self, draft: NewCommand) -> Result<Command> {
+    pub(crate) fn create_command(&self, draft: NewCommand) -> Result<Command> {
         let command = Command {
             id: CommandId::mint(),
             name: draft.name,
@@ -674,7 +679,7 @@ impl Store for InMemoryStore {
         Ok(command)
     }
 
-    fn delete_command(&self, id: &str) -> Result<()> {
+    pub(crate) fn delete_command(&self, id: &str) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         if let Some(r) = inner.commands.get_mut(id) {
             r.deleted = true;
@@ -682,7 +687,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn seed_commands(&self) -> Result<()> {
+    pub(crate) fn seed_commands(&self) -> Result<()> {
         let seeds = prebuilt_commands_mem();
         let mut inner = self.inner.lock().unwrap();
         for cmd in seeds {
@@ -699,7 +704,10 @@ impl Store for InMemoryStore {
 
     // ── launch template ───────────────────────────────────────────────────
 
-    fn create_launch_template(&self, draft: NewLaunchTemplate) -> Result<LaunchTemplate> {
+    pub(crate) fn create_launch_template(
+        &self,
+        draft: NewLaunchTemplate,
+    ) -> Result<LaunchTemplate> {
         let template = LaunchTemplate {
             id: LaunchTemplateId::mint(),
             project_id: draft.project_id,
@@ -714,7 +722,10 @@ impl Store for InMemoryStore {
         Ok(template)
     }
 
-    fn get_launch_template(&self, id: &LaunchTemplateId) -> Result<Option<LaunchTemplate>> {
+    pub(crate) fn get_launch_template(
+        &self,
+        id: &LaunchTemplateId,
+    ) -> Result<Option<LaunchTemplate>> {
         Ok(self
             .inner
             .lock()
@@ -724,7 +735,7 @@ impl Store for InMemoryStore {
             .cloned())
     }
 
-    fn set_launch_template_spec(
+    pub(crate) fn set_launch_template_spec(
         &self,
         id: &LaunchTemplateId,
         spec_version: u32,
@@ -745,7 +756,7 @@ impl Store for InMemoryStore {
 
     // ── settings ──────────────────────────────────────────────────────────
 
-    fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
+    pub(crate) fn get_setting(&self, scope: &SettingScope, key: &str) -> Result<Option<String>> {
         let (scope_col, project_col) = scope.columns();
         Ok(self
             .inner
@@ -760,7 +771,24 @@ impl Store for InMemoryStore {
             .cloned())
     }
 
-    fn set_setting(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()> {
+    /// Resolve a key for a project: the project-scoped value if present, else the global value.
+    pub(crate) fn resolve_setting(
+        &self,
+        project_id: &ProjectId,
+        key: &str,
+    ) -> Result<Option<String>> {
+        if let Some(v) = self.get_setting(&SettingScope::Project(project_id.clone()), key)? {
+            return Ok(Some(v));
+        }
+        self.get_setting(&SettingScope::Global, key)
+    }
+
+    pub(crate) fn set_setting(
+        &self,
+        scope: &SettingScope,
+        key: &str,
+        value_json: &str,
+    ) -> Result<()> {
         let (scope_col, project_col) = scope.columns();
         self.inner.lock().unwrap().settings.insert(
             (
@@ -773,7 +801,7 @@ impl Store for InMemoryStore {
         Ok(())
     }
 
-    fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
+    pub(crate) fn list_settings(&self, scope: &SettingScope) -> Result<Vec<SettingEntry>> {
         let (scope_col, project_col) = scope.columns();
         let inner = self.inner.lock().unwrap();
         let mut entries: Vec<SettingEntry> = inner
@@ -791,12 +819,12 @@ impl Store for InMemoryStore {
 
     // ── notifications (ADR-0031) ──────────────────────────────────────────
 
-    fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
+    pub(crate) fn insert_notification(&self, rec: &NotificationRecord) -> Result<()> {
         self.inner.lock().unwrap().notifications.push(rec.clone());
         Ok(())
     }
 
-    fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
+    pub(crate) fn list_notifications(&self, limit: u32) -> Result<Vec<NotificationRecord>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner
             .notifications
@@ -807,7 +835,7 @@ impl Store for InMemoryStore {
             .collect())
     }
 
-    fn prune_notifications(&self, keep: u32) -> Result<()> {
+    pub(crate) fn prune_notifications(&self, keep: u32) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
         let len = inner.notifications.len();
         let keep = keep as usize;
@@ -858,21 +886,25 @@ mod tests {
 
     #[test]
     fn fake_reports_current_schema_version() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         assert_eq!(store.schema_version().unwrap(), current_version());
     }
 
     #[test]
     fn fake_seeds_unfiled_and_resolves_sessions_to_it() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         assert!(store.get_project(&ProjectId::unfiled()).unwrap().is_some());
 
-        let session = store.create_session(NewSession::default()).unwrap();
+        let session = store
+            .create_session_inner(NewSession::default(), None)
+            .unwrap();
         assert_eq!(session.project_id, ProjectId::unfiled());
     }
 
-    fn make_surface(store: &InMemoryStore) -> Surface {
-        let session = store.create_session(NewSession::default()).unwrap();
+    fn make_surface(store: &MemoryBackend) -> Surface {
+        let session = store
+            .create_session_inner(NewSession::default(), None)
+            .unwrap();
         store
             .create_surface(NewSurface {
                 id: None,
@@ -886,7 +918,7 @@ mod tests {
 
     #[test]
     fn create_then_get_surface_round_trips_including_last_status_none() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
 
         let created = make_surface(&store);
         let fetched = store.get_surface(&created.id).unwrap().unwrap();
@@ -897,7 +929,7 @@ mod tests {
 
     #[test]
     fn list_resumable_surfaces_includes_a_created_surface() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
 
         let created = make_surface(&store);
         let list = store.list_resumable_surfaces().unwrap();
@@ -907,7 +939,7 @@ mod tests {
 
     #[test]
     fn soft_delete_excludes_surface_from_list_and_get() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
 
         let surface = make_surface(&store);
         store.soft_delete_surface(&surface.id).unwrap();
@@ -919,7 +951,7 @@ mod tests {
 
     #[test]
     fn update_surface_status_is_reflected_by_get_surface() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
 
         let surface = make_surface(&store);
         store.update_surface_status(&surface.id, "running").unwrap();
@@ -930,7 +962,7 @@ mod tests {
 
     #[test]
     fn set_launch_template_spec_on_absent_template_is_not_found() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let err = store
             .set_launch_template_spec(
                 &LaunchTemplateId::from_string("no-such-template"),
@@ -945,7 +977,7 @@ mod tests {
 
     #[test]
     fn global_setting_round_trips() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         store
             .set_setting(&SettingScope::Global, "theme", r#""dark""#)
             .unwrap();
@@ -955,7 +987,7 @@ mod tests {
 
     #[test]
     fn project_scoped_setting_round_trips() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let scope = SettingScope::Project(ProjectId::unfiled());
         store
             .set_setting(&scope, "env", r#"{"FOO":"bar"}"#)
@@ -971,7 +1003,7 @@ mod tests {
 
     #[test]
     fn overwriting_a_setting_replaces_the_value() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         store
             .set_setting(&SettingScope::Global, "k", r#"1"#)
             .unwrap();
@@ -992,7 +1024,7 @@ mod tests {
 
     #[test]
     fn project_value_takes_precedence_over_global() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let pid = ProjectId::unfiled();
         store
             .set_setting(&SettingScope::Global, "template", r#""g""#)
@@ -1006,7 +1038,7 @@ mod tests {
 
     #[test]
     fn resolve_falls_back_to_global_on_project_miss() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let pid = ProjectId::unfiled();
         store
             .set_setting(&SettingScope::Global, "template", r#""g""#)
@@ -1017,7 +1049,7 @@ mod tests {
 
     #[test]
     fn unknown_key_resolves_to_absent() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let resolved = store
             .resolve_setting(&ProjectId::unfiled(), "never-set")
             .unwrap();
@@ -1026,7 +1058,7 @@ mod tests {
 
     #[test]
     fn list_returns_written_entries() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         store.set_setting(&SettingScope::Global, "a", "1").unwrap();
         store.set_setting(&SettingScope::Global, "b", "2").unwrap();
         let listed = store.list_settings(&SettingScope::Global).unwrap();
@@ -1047,7 +1079,7 @@ mod tests {
 
     #[test]
     fn suppression_choice_is_recorded_and_read() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         store
             .set_setting(&SettingScope::Global, "confirm.close-surface", "true")
             .unwrap();
@@ -1059,7 +1091,7 @@ mod tests {
 
     #[test]
     fn unset_confirmation_reads_as_absent() {
-        let store = InMemoryStore::new();
+        let store = MemoryBackend::new();
         let got = store
             .get_setting(&SettingScope::Global, "confirm.never-shown")
             .unwrap();

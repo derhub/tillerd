@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use orchestrator::persistence::{CompositeStore, ProjectId, Store};
+use orchestrator::entities::ProjectId;
+use orchestrator::infra::fs::FsBackend;
+use orchestrator::infra::sqlite::SqliteBackend;
+use orchestrator::store::Storage;
 use orchestrator::supervision::{
     LaunchError, ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming,
 };
@@ -72,9 +75,9 @@ fn kill(pid: u32) {
     let _ = Command::new("kill").arg(pid.to_string()).status();
 }
 
-#[test]
+#[tokio::test]
 #[ignore = "spawns the real gate and daemon; run with --ignored after building both binaries"]
-fn cold_boot_spawns_services_then_reboot_adopts_them() {
+async fn cold_boot_spawns_services_then_reboot_adopts_them() {
     let Some((gate, daemon)) = binaries() else {
         eprintln!(
             "skip: tillerd-gate / tillerd-daemon not found in {:?}",
@@ -91,8 +94,9 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     let mut sup = supervisor(dir, &gate, &daemon);
     let orch = boot(
         || {
-            CompositeStore::open(data_root.clone(), store_path.clone())
-                .map(|s| Box::new(s) as Box<dyn Store>)
+            let fs = FsBackend::open(data_root.clone())?;
+            let sqlite = SqliteBackend::open(&store_path)?;
+            Ok(Storage::open(fs, sqlite))
         },
         &mut sup,
         &NullSink,
@@ -102,8 +106,10 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     assert!(orch.is_ready());
     assert!(store_path.exists(), "a fresh tillerd.db is created on boot");
     assert!(
-        orch.store()
-            .get_project(&ProjectId::unfiled())
+        orch.storage()
+            .projects
+            .get(ProjectId::unfiled())
+            .await
             .unwrap()
             .is_some(),
         "the Unfiled project is seeded"
@@ -123,8 +129,9 @@ fn cold_boot_spawns_services_then_reboot_adopts_them() {
     let mut sup2 = supervisor(dir, &gate, &daemon);
     let orch2 = boot(
         || {
-            CompositeStore::open(data_root.clone(), store_path.clone())
-                .map(|s| Box::new(s) as Box<dyn Store>)
+            let fs = FsBackend::open(data_root.clone())?;
+            let sqlite = SqliteBackend::open(&store_path)?;
+            Ok(Storage::open(fs, sqlite))
         },
         &mut sup2,
         &NullSink,

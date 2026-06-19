@@ -1,11 +1,10 @@
 //! Tauri bridge for the orchestrator settings store. Delegates to the host-agnostic
-//! `Store` settings API; the renderer reaches it through the `@tillerd/sdk` settings
-//! client. Values cross the IPC boundary as JSON values and are persisted as JSON
-//! strings (`value_json`) by the store.
+//! `Settings` store; the renderer reaches it through the `@tillerd/sdk` settings client.
+//! Values cross the IPC boundary as JSON values and are persisted as JSON strings
+//! (`value_json`) by the store.
 
-use std::sync::Arc;
-
-use orchestrator::persistence::{ProjectId, SettingScope, Store};
+use orchestrator::entities::{ProjectId, SettingScope};
+use orchestrator::store::Settings;
 use serde::Serialize;
 use serde_json::Value;
 use tauri::State;
@@ -19,12 +18,6 @@ pub struct SettingEntryResponse {
     pub value: Value,
 }
 
-fn store_or_err(state: &OrchestratorState) -> Result<Arc<dyn Store>, String> {
-    state
-        .store_arc()
-        .ok_or_else(|| "orchestrator not ready".to_string())
-}
-
 /// Map the wire scope (`"global"` / `"project"` + optional project id) to a `SettingScope`.
 fn parse_scope(scope: &str, project_id: Option<String>) -> Result<SettingScope, String> {
     match scope {
@@ -36,13 +29,14 @@ fn parse_scope(scope: &str, project_id: Option<String>) -> Result<SettingScope, 
     }
 }
 
-pub fn do_setting_get(
-    store: &Arc<dyn Store>,
+pub async fn do_setting_get(
+    settings: &Settings,
     scope: SettingScope,
     key: String,
 ) -> Result<Option<Value>, String> {
-    match store
-        .get_setting(&scope, &key)
+    match settings
+        .get(scope, key)
+        .await
         .map_err(|e| format!("{e:?}"))?
     {
         Some(s) => serde_json::from_str(&s)
@@ -52,24 +46,26 @@ pub fn do_setting_get(
     }
 }
 
-pub fn do_setting_set(
-    store: &Arc<dyn Store>,
+pub async fn do_setting_set(
+    settings: &Settings,
     scope: SettingScope,
     key: String,
     value: Value,
 ) -> Result<(), String> {
     let value_json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
-    store
-        .set_setting(&scope, &key, &value_json)
+    settings
+        .set(scope, key, value_json)
+        .await
         .map_err(|e| format!("{e:?}"))
 }
 
-pub fn do_setting_list(
-    store: &Arc<dyn Store>,
+pub async fn do_setting_list(
+    settings: &Settings,
     scope: SettingScope,
 ) -> Result<Vec<SettingEntryResponse>, String> {
-    store
-        .list_settings(&scope)
+    settings
+        .list(scope)
+        .await
         .map_err(|e| format!("{e:?}"))?
         .into_iter()
         .map(|e| {
@@ -81,82 +77,97 @@ pub fn do_setting_list(
 }
 
 #[tauri::command]
-pub fn setting_get(
+pub async fn setting_get(
     scope: String,
     project_id: Option<String>,
     key: String,
     state: State<'_, OrchestratorState>,
 ) -> Result<Option<Value>, String> {
-    let store = store_or_err(&state)?;
+    let storage = state
+        .storage()
+        .ok_or_else(|| "orchestrator not ready".to_string())?;
     let scope = parse_scope(&scope, project_id)?;
-    do_setting_get(&store, scope, key)
+    do_setting_get(&storage.settings, scope, key).await
 }
 
 #[tauri::command]
-pub fn setting_set(
+pub async fn setting_set(
     scope: String,
     project_id: Option<String>,
     key: String,
     value: Value,
     state: State<'_, OrchestratorState>,
 ) -> Result<(), String> {
-    let store = store_or_err(&state)?;
+    let storage = state
+        .storage()
+        .ok_or_else(|| "orchestrator not ready".to_string())?;
     let scope = parse_scope(&scope, project_id)?;
-    do_setting_set(&store, scope, key, value)
+    do_setting_set(&storage.settings, scope, key, value).await
 }
 
 #[tauri::command]
-pub fn setting_list(
+pub async fn setting_list(
     scope: String,
     project_id: Option<String>,
     state: State<'_, OrchestratorState>,
 ) -> Result<Vec<SettingEntryResponse>, String> {
-    let store = store_or_err(&state)?;
+    let storage = state
+        .storage()
+        .ok_or_else(|| "orchestrator not ready".to_string())?;
     let scope = parse_scope(&scope, project_id)?;
-    do_setting_list(&store, scope)
+    do_setting_list(&storage.settings, scope).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orchestrator::persistence::memory::InMemoryStore;
+    use orchestrator::infra::memory::MemoryBackend;
+    use orchestrator::store::Storage;
 
-    fn fake_store() -> Arc<dyn Store> {
-        Arc::new(InMemoryStore::new())
+    fn fake_settings() -> Settings {
+        Storage::in_memory(MemoryBackend::new()).settings
     }
 
-    #[test]
-    fn setting_round_trips_a_json_value() {
-        let store = fake_store();
+    #[tokio::test]
+    async fn setting_round_trips_a_json_value() {
+        let settings = fake_settings();
         do_setting_set(
-            &store,
+            &settings,
             SettingScope::Global,
             "theme".to_string(),
             serde_json::json!("dark"),
         )
+        .await
         .unwrap();
-        let got = do_setting_get(&store, SettingScope::Global, "theme".to_string()).unwrap();
+        let got = do_setting_get(&settings, SettingScope::Global, "theme".to_string())
+            .await
+            .unwrap();
         assert_eq!(got, Some(serde_json::json!("dark")));
     }
 
-    #[test]
-    fn unset_key_resolves_to_none() {
-        let store = fake_store();
-        let got = do_setting_get(&store, SettingScope::Global, "missing".to_string()).unwrap();
+    #[tokio::test]
+    async fn unset_key_resolves_to_none() {
+        let settings = fake_settings();
+        let got = do_setting_get(&settings, SettingScope::Global, "missing".to_string())
+            .await
+            .unwrap();
         assert_eq!(got, None);
     }
 
-    #[test]
-    fn list_returns_decoded_entries() {
-        let store = fake_store();
+    #[tokio::test]
+    async fn list_returns_decoded_entries() {
+        let settings = fake_settings();
         do_setting_set(
-            &store,
+            &settings,
             SettingScope::Global,
             "a".to_string(),
             serde_json::json!(1),
         )
+        .await
         .unwrap();
-        let listed = do_setting_list(&store, SettingScope::Global).unwrap();
+        let listed = do_setting_list(&settings, SettingScope::Global)
+            .await
+            .unwrap();
         assert_eq!(
             listed,
             vec![SettingEntryResponse {
