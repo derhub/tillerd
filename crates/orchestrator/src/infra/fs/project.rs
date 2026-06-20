@@ -2,6 +2,7 @@ use super::*;
 
 impl FsBackend {
     pub(crate) fn create_project(&self, draft: NewProject) -> Result<Project> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
 
         let ws_id = draft
@@ -47,7 +48,7 @@ impl FsBackend {
             root_path: draft.root_path.clone(),
             sort_order,
         };
-        atomic_write(&proj_dir.join("project.json"), &to_json(&pf)?)?;
+        self.write_file(&proj_dir.join("project.json"), &to_json(&pf)?)?;
         state.insert(proj_id.as_str(), proj_dir);
 
         Ok(Project {
@@ -63,13 +64,16 @@ impl FsBackend {
         if id.is_unfiled() {
             return Err(OrchestratorError::ProjectIsUnfiled);
         }
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let proj_dir = state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::ProjectNotFound(id.as_str().to_owned()))?;
 
-        let mut pf = read_json::<ProjectFile>(&proj_dir.join("project.json"))?;
+        let mut pf = self
+            .cache
+            .read::<ProjectFile>(&proj_dir.join("project.json"))?;
         pf.name = name.to_owned();
 
         let slug_base = slugify(name, id.as_str());
@@ -85,7 +89,7 @@ impl FsBackend {
             .to_owned();
 
         // Update name in file first (at current location).
-        atomic_write(&proj_dir.join("project.json"), &to_json(&pf)?)?;
+        self.write_file(&proj_dir.join("project.json"), &to_json(&pf)?)?;
 
         if slug_base != current_slug {
             let new_slug = unique_slug(&proj_root, &slug_base);
@@ -97,6 +101,7 @@ impl FsBackend {
     }
 
     pub(crate) fn list_projects(&self, workspace_id: Option<&WorkspaceId>) -> Result<Vec<Project>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
 
         // Collect workspace dirs to search.
@@ -117,7 +122,8 @@ impl FsBackend {
             let proj_root = ws_dir.join("projects");
             let mut proj_dirs = list_live_dirs(&proj_root)?;
             proj_dirs.sort_by_key(|d| {
-                read_json::<ProjectFile>(&d.join("project.json"))
+                self.cache
+                    .read::<ProjectFile>(&d.join("project.json"))
                     .map(|pf| pf.sort_order)
                     .unwrap_or(u32::MAX)
             });
@@ -135,6 +141,7 @@ impl FsBackend {
         project_id: &ProjectId,
         workspace_id: &WorkspaceId,
     ) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let proj_dir = state
             .get(project_id.as_str())
@@ -165,6 +172,7 @@ impl FsBackend {
         if id.is_unfiled() {
             return Err(OrchestratorError::ProjectIsUnfiled);
         }
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let proj_dir = state
             .get(id.as_str())
@@ -195,6 +203,7 @@ impl FsBackend {
     }
 
     pub(crate) fn hard_delete_project(&self, id: &ProjectId) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let proj_dir = state
             .get(id.as_str())
@@ -215,13 +224,16 @@ impl FsBackend {
     }
 
     pub(crate) fn reorder_project(&self, id: &ProjectId, sort_order: u32) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let proj_dir = _state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::ProjectNotFound(id.as_str().to_owned()))?;
-        let mut pf = read_json::<ProjectFile>(&proj_dir.join("project.json"))?;
+        let mut pf = self
+            .cache
+            .read::<ProjectFile>(&proj_dir.join("project.json"))?;
         pf.sort_order = sort_order;
-        atomic_write(&proj_dir.join("project.json"), &to_json(&pf)?)
+        self.write_file(&proj_dir.join("project.json"), &to_json(&pf)?)
     }
 }
