@@ -123,15 +123,6 @@ has been removed.
 
 ## REMOVED Requirements
 
-### Requirement: Worktree operations are available through the store trait
-
-**Reason**: The worktree entity has been dropped in ADR-0033. The domain plane migrated to the
-`snapshot-tree-store` capability; worktrees are not represented as any entity in the new storage
-model.
-
-**Migration**: Remove worktree CRUD from the store trait. Any code referencing worktree store
-operations SHALL be deleted without replacement.
-
 ### Requirement: Seeded default project
 
 **Reason**: The "Unfiled" project and all domain entities (projects, sessions) are now seeded and

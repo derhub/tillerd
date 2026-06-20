@@ -61,13 +61,3 @@ The orchestrator SHALL permanently remove an already-archived project and all of
 
 - **WHEN** a hard-delete-project request targets a project that is not archived
 - **THEN** the orchestrator returns a typed error and no files are removed
-
----
-
-## REMOVED Requirements
-
-### Requirement: (Scenario) Worktree directory kept
-
-**Reason**: The `git-worktree` source kind is dropped (ADR-0033). The worktree entity no longer exists; working directory is just `cwd` on the session. The scenario guarding that the worktree directory is not removed on archive is therefore obsolete.
-
-**Migration**: N/A — no filesystem cleanup logic was tied to this scenario.
