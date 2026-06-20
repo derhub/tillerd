@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod app;
 pub mod boot;
 pub mod entities;
 pub mod error;

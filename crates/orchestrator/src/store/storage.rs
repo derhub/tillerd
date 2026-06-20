@@ -1,9 +1,8 @@
-//! `Storage` aggregate and the cross-aggregate session-creation coordinator.
+//! `Storage` aggregate: the per-entity stores bundled at the composition root.
 
 use std::sync::Arc;
 
-use crate::entities::{NewSession, Session};
-use crate::error::{OrchestratorError, Result};
+use crate::error::Result;
 use crate::infra::fs::FsBackend;
 use crate::infra::memory::MemoryBackend;
 use crate::infra::sqlite::SqliteBackend;
@@ -58,27 +57,4 @@ impl Storage {
     pub async fn schema_version(&self) -> Result<u32> {
         self.operational.schema_version().await
     }
-}
-
-/// Resolve a draft's launch template into a concrete spec, then materialize the session.
-///
-/// Spans two aggregates (`LaunchTemplates` -> `Sessions`). By DDD layering this is application
-/// work, not repository work: it is not a `Sessions` method (which must not depend on
-/// `LaunchTemplates`) and not duplicated in the hosts. The composition root owns it.
-pub async fn create_session(
-    draft: NewSession,
-    launch_templates: &LaunchTemplates,
-    sessions: &Sessions,
-) -> Result<Session> {
-    let spec = match draft.template_id {
-        Some(ref tid) => {
-            let tmpl = launch_templates.get(tid.clone()).await?.ok_or_else(|| {
-                OrchestratorError::LaunchTemplateNotFound(tid.as_str().to_string())
-            })?;
-            let instantiated = crate::launch::spec::instantiate_for_session(&tmpl.spec_json)?;
-            Some((tmpl.spec_version, instantiated))
-        }
-        None => None,
-    };
-    sessions.create(draft, spec).await
 }

@@ -1,13 +1,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[cfg(test)]
+use orchestrator::app::create_session;
+use orchestrator::app::open_session;
 use orchestrator::entities::{
     Command, CommandOrigin, LaunchTemplateId, NewCommand, NewProject, NewSession, NewWorkspace,
     Project, ProjectId, Session, SessionId, SourceKind, TitleSource, Workspace, WorkspaceId,
 };
+#[cfg(test)]
+use orchestrator::store::LaunchTemplates;
 use orchestrator::store::{
-    create_session, Commands, LaunchTemplates, ProjectFilter, Projects, SessionFilter, Sessions,
-    Storage, Workspaces,
+    Commands, ProjectFilter, Projects, SessionFilter, Sessions, Storage, Workspaces,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -510,23 +514,24 @@ fn parse_title_source(s: Option<&str>) -> TitleSource {
     }
 }
 
+fn new_session_draft(req: SessionCreateRequest) -> NewSession {
+    NewSession {
+        project_id: req.project_id.map(ProjectId::new),
+        title_source: parse_title_source(req.title_source.as_deref()),
+        title: req.title,
+        template_id: req.template_id.map(LaunchTemplateId::from_string),
+    }
+}
+
+#[cfg(test)]
 pub async fn do_session_create(
     launch_templates: &LaunchTemplates,
     sessions: &Sessions,
     req: SessionCreateRequest,
 ) -> Result<Session, WorkspaceError> {
-    create_session(
-        NewSession {
-            project_id: req.project_id.map(ProjectId::new),
-            title_source: parse_title_source(req.title_source.as_deref()),
-            title: req.title,
-            template_id: req.template_id.map(LaunchTemplateId::from_string),
-        },
-        launch_templates,
-        sessions,
-    )
-    .await
-    .map_err(map_store_err)
+    create_session(new_session_draft(req), launch_templates, sessions)
+        .await
+        .map_err(map_store_err)
 }
 
 #[tauri::command]
@@ -539,26 +544,20 @@ pub async fn session_create(
     surfaces: State<'_, SurfaceState>,
 ) -> Result<SessionResponse, String> {
     let storage = storage_or_err(&orchestrator).map_err(|e| format!("{e:?}"))?;
-    let session = do_session_create(
+    let draft = new_session_draft(SessionCreateRequest {
+        project_id,
+        title,
+        title_source,
+        template_id,
+    });
+    let session = open_session(
+        draft,
         &storage.launch_templates,
         &storage.sessions,
-        SessionCreateRequest {
-            project_id,
-            title,
-            title_source,
-            template_id,
-        },
+        surfaces.api.as_ref(),
     )
     .await
     .map_err(|e| format!("{e:?}"))?;
-    // Best-effort: instantiate the session's launch spec onto the runtime. A launch failure does
-    // not undo the created session; per-item failures are recorded inside the executor's results.
-    if let Err(e) = surfaces.api.launch_session(&session.id).await {
-        eprintln!(
-            "launch_session failed for {} (non-fatal): {e}",
-            session.id.as_str()
-        );
-    }
     Ok(session_response(session))
 }
 
