@@ -183,7 +183,7 @@ mod tests {
     #[test]
     fn worker_embeds_pending_chunks_then_recall_finds_them() {
         let (_d, memorya) = shared();
-        ingest_doc(&memorya, "/p/db.md", "the project stores data in postgres");
+        ingest_doc(&memorya, "/p/db.md", "the project stores data in redis");
         let stop = Arc::new(AtomicBool::new(false));
         let handle =
             EmbeddingWorker::spawn(memorya.clone(), Duration::from_millis(5), stop.clone());
@@ -196,7 +196,7 @@ mod tests {
         let result = memorya
             .lock()
             .unwrap()
-            .recall("postgres data store", 10)
+            .recall("redis data store", 10)
             .unwrap();
         assert!(matches!(result, RecallResult::Found { .. }));
     }

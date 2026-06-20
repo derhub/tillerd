@@ -259,7 +259,7 @@ artifacts:
 
 
       Filename convention: NNNN-kebab-title.md (e.g.,
-      0042-use-postgres-for-catalog.md). Sequence is monotonic across the
+      0042-use-redis-for-catalog.md). Sequence is monotonic across the
       whole repo and never reused.
     requires:
       - design

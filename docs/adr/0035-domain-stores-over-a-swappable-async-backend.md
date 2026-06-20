@@ -6,16 +6,13 @@
 ## Context
 
 ADR-0033 made the domain plane a readable JSON snapshot tree as the source of truth, with a
-3-way `merge3` reconcile for git-style versioning and per-entity baselines. Two facts break that
+3-way `merge3` reconcile for git-style versioning and per-entity baselines. One fact breaks that
 model:
 
 - **Scale.** Even on the desktop, sessions reach the thousands. Listing or filtering a file tree
   is O(N) -- every list reads and parses every file, and boot re-scans the whole tree. There are
   no indexes. The slice-2 id->path index fixes id-lookup and boot but not listing/filtering.
   Indexes are the fix, and indexes mean a database.
-- **Direction.** A server/SaaS host is expected pre-v1; its backends (Postgres, cloud KV) are
-  networked, hence async. The desktop backends (fs, sqlite) are synchronous. A sync port cannot
-  host an async adapter without blocking, and sync->async is a viral, near-irreversible retrofit.
 
 The readability motivation also narrows: **hand-editable** is wanted; **git-versioned/mergeable**
 is not. Dropping git removes the reason for `merge3`/reconcile/baselines -- a single occasional
@@ -29,7 +26,7 @@ Access domain entities through **per-entity async store structs over a swappable
 backend**, and replace file-scan listing with an indexed cache.
 
 - **Per-entity stores over an enum backend -- no trait objects.** A closed `enum Backend { Fs,
-  Sqlite, Memory }` (`Postgres` later) wraps the concrete backends; each entity has a concrete
+  Sqlite, Memory }` wraps the concrete backends; each entity has a concrete
   async store struct (`Workspaces`, `Projects`, `Sessions`, `Surfaces`) that holds a `Backend` and
   dispatches by `match`. Async fns work natively on the concrete structs -- no `async-trait`, no
   object-safety, no generic-associated-type gymnastics. Operations take a declarative, typed
@@ -37,8 +34,8 @@ backend**, and replace file-scan listing with an indexed cache.
   pushdown). The closed backend set fits enum dispatch (rust-best-practices for a known set); a
   trait would be introduced only for open/plugin backends.
 - **Swappable, assigned at the composition root.** Which `Backend` serves which entity is wired per
-  host: domain -> `fs` (hand-editable files), operational -> `sqlite`, tests -> `memory`, server ->
-  `postgres` (later). `DomainStore`/`OperationalStore`/`CompositeStore` are dissolved. Sync backends
+  host: domain -> `fs` (hand-editable files), operational -> `sqlite`, tests -> `memory`.
+  `DomainStore`/`OperationalStore`/`CompositeStore` are dissolved. Sync backends
   wrap via `spawn_blocking`.
 - **Files are hand-editable, not a versioning artifact.** Drop `merge3`, 3-way reconcile, and
   per-entity baselines. Hand-edits are detected by `mtime`: a boot-time O(N) `stat` pass (stats
@@ -54,7 +51,7 @@ backend**, and replace file-scan listing with an indexed cache.
   disposable -- rebuilt from the files and validated by `mtime`. `state.db` (ADR-0034) keeps its
   operational runtime-state role and is **not** the cache.
 - **fs-vs-DB-as-truth is a backend detail behind the per-entity stores.** Desktop may keep
-  files-as-truth + cache, or move to sqlite-as-truth; the server uses Postgres. The store API is
+  files-as-truth + cache, or move to sqlite-as-truth. The store API is
   stable across all of these, so the choice is deferrable and reversible.
 
 ## Consequences
@@ -65,7 +62,6 @@ backend**, and replace file-scan listing with an indexed cache.
   0.0.15 loses the reconcile slice. Per-entity baselines are gone.
 - Hand-edits to listing fields reflect after the next boot `stat` pass or an explicit refresh --
   bounded staleness, the trade for running no watcher.
-- The server/SaaS path is additive: a `Postgres` `Backend` variant, no domain-code change.
 - The orchestrator and its hosts are already async (tokio -- the Tauri commands, the gate/daemon
   bridge, the surface runtime); only the persistence layer (rusqlite/std::fs) is synchronous. An
   async port aligns the data layer with the rest of the crate rather than introducing a runtime;

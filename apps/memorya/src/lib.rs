@@ -530,7 +530,7 @@ mod tests {
     fn recall_finds_ingested_content_after_embedding() {
         let dir = tempfile::tempdir().unwrap();
         let e = Engram::open(dir.path().join("memorya.db")).unwrap();
-        e.ingest(doc("the project uses postgres for the main datastore"))
+        e.ingest(doc("the project uses redis for the main datastore"))
             .unwrap();
         e.ingest(doc("the renderer draws shadow volumes")).unwrap();
         e.embed_pending(100).unwrap();
@@ -538,7 +538,7 @@ mod tests {
         match e.recall("which database does the project use", 10).unwrap() {
             RecallResult::Found { hits } => {
                 assert!(!hits.is_empty());
-                assert!(hits[0].snippet.contains("postgres"));
+                assert!(hits[0].snippet.contains("redis"));
             }
             RecallResult::Uncertain { .. } => panic!("expected a confident hit"),
         }
@@ -549,16 +549,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let e = Engram::open(dir.path().join("memorya.db")).unwrap();
         e.ingest(doc(
-            "the project uses postgres as the main datastore for everything",
+            "the project uses redis as the main datastore for everything",
         ))
         .unwrap();
         e.embed_pending(100).unwrap();
 
-        let results = e.search("postgres datastore", 10, 5).unwrap();
+        let results = e.search("redis datastore", 10, 5).unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0]
             .content
-            .contains("postgres as the main datastore"));
+            .contains("redis as the main datastore"));
     }
 
     #[test]
