@@ -2,13 +2,14 @@
 //! `Backend` enum, behavior identical across backends, composition-root selection, and the
 //! cross-aggregate `create_session` coordinator.
 
+use orchestrator::app::create_session;
 use orchestrator::entities::{
     NewLaunchTemplate, NewProject, NewSession, NewWorkspace, ProjectId, SettingScope, SourceKind,
 };
 use orchestrator::infra::fs::FsBackend;
 use orchestrator::infra::memory::MemoryBackend;
 use orchestrator::infra::sqlite::SqliteBackend;
-use orchestrator::store::{create_session, ProjectFilter, Storage};
+use orchestrator::store::{ProjectFilter, Storage};
 use tempfile::TempDir;
 
 fn fs_storage() -> (TempDir, Storage) {

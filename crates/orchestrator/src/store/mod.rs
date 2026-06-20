@@ -21,6 +21,6 @@ pub use notifications::Notifications;
 pub use projects::{ProjectFilter, Projects};
 pub use sessions::{SessionFilter, Sessions};
 pub use settings::Settings;
-pub use storage::{create_session, Storage};
+pub use storage::Storage;
 pub use surfaces::Surfaces;
 pub use workspaces::Workspaces;

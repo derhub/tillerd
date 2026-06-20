@@ -231,6 +231,14 @@ impl SurfaceApi {
     }
 }
 
+impl crate::app::SessionActivator for SurfaceApi {
+    /// Activate a session by launching its stored spec onto the runtime, discarding the per-item
+    /// results (the use case only needs success/failure of the activation as a whole).
+    async fn activate(&self, session_id: &SessionId) -> Result<()> {
+        self.launch_session(session_id).await.map(|_| ())
+    }
+}
+
 fn default_cwd() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
 }
@@ -242,9 +250,10 @@ fn default_shell() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::create_session;
     use crate::entities::{NewLaunchTemplate, NewSession, ProjectId};
     use crate::infra::memory::MemoryBackend;
-    use crate::store::{create_session, Storage};
+    use crate::store::Storage;
     use crate::surface::runtime::SurfaceEventSink;
     use daemon_pty_client::{encode_frame, FrameDecoder};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
