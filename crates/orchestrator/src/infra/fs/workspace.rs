@@ -4,6 +4,7 @@ impl FsBackend {
     // ── workspace ─────────────────────────────────────────────────────────
 
     pub(crate) fn create_workspace(&self, draft: NewWorkspace) -> Result<Workspace> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let id = WorkspaceId::new(uuid::Uuid::new_v4().to_string());
         let ws_root = self.ws_root();
@@ -30,7 +31,7 @@ impl FsBackend {
             name: draft.name.clone(),
             sort_order,
         };
-        atomic_write(&ws_dir.join("workspace.json"), &to_json(&wf)?)?;
+        self.write_file(&ws_dir.join("workspace.json"), &to_json(&wf)?)?;
         state.insert(id.as_str(), ws_dir);
         Ok(Workspace {
             id,
@@ -39,13 +40,16 @@ impl FsBackend {
     }
 
     pub(crate) fn rename_workspace(&self, id: &WorkspaceId, name: &str) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let ws_dir = state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::WorkspaceNotFound(id.as_str().to_owned()))?;
 
-        let mut wf = read_json::<WorkspaceFile>(&ws_dir.join("workspace.json"))?;
+        let mut wf = self
+            .cache
+            .read::<WorkspaceFile>(&ws_dir.join("workspace.json"))?;
         wf.name = name.to_owned();
 
         let slug_base = slugify(name, id.as_str());
@@ -63,7 +67,7 @@ impl FsBackend {
         };
 
         // Write updated file first (into the current location).
-        atomic_write(&ws_dir.join("workspace.json"), &to_json(&wf)?)?;
+        self.write_file(&ws_dir.join("workspace.json"), &to_json(&wf)?)?;
 
         if new_slug != current_slug {
             let new_ws_dir = ws_root.join(&new_slug);
@@ -79,13 +83,16 @@ impl FsBackend {
         let mut dirs = list_live_dirs(&ws_root)?;
         // Sort by sortOrder ascending.
         dirs.sort_by_key(|d| {
-            read_json::<WorkspaceFile>(&d.join("workspace.json"))
+            self.cache
+                .read::<WorkspaceFile>(&d.join("workspace.json"))
                 .map(|wf| wf.sort_order)
                 .unwrap_or(u32::MAX)
         });
         let mut result = Vec::new();
         for d in dirs {
-            let wf = read_json::<WorkspaceFile>(&d.join("workspace.json"))?;
+            let wf = self
+                .cache
+                .read::<WorkspaceFile>(&d.join("workspace.json"))?;
             result.push(Workspace {
                 id: WorkspaceId::new(wf.id),
                 name: wf.name,
@@ -95,20 +102,24 @@ impl FsBackend {
     }
 
     pub(crate) fn reorder_workspace(&self, id: &WorkspaceId, sort_order: u32) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let ws_dir = _state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::WorkspaceNotFound(id.as_str().to_owned()))?;
-        let mut wf = read_json::<WorkspaceFile>(&ws_dir.join("workspace.json"))?;
+        let mut wf = self
+            .cache
+            .read::<WorkspaceFile>(&ws_dir.join("workspace.json"))?;
         wf.sort_order = sort_order;
-        atomic_write(&ws_dir.join("workspace.json"), &to_json(&wf)?)
+        self.write_file(&ws_dir.join("workspace.json"), &to_json(&wf)?)
     }
 
     pub(crate) fn delete_workspace(&self, id: &WorkspaceId) -> Result<()> {
         if id.as_str() == WorkspaceId::DEFAULT {
             return Err(OrchestratorError::WorkspaceIsDefault);
         }
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let ws_dir = state
             .get(id.as_str())
@@ -165,6 +176,7 @@ impl FsBackend {
     // ── project ───────────────────────────────────────────────────────────
 
     pub(crate) fn get_project(&self, id: &ProjectId) -> Result<Option<Project>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
         let proj_dir = match state.get(id.as_str()) {
             Some(p) => p.to_path_buf(),

@@ -773,3 +773,108 @@ fn domain_tree_resolves_under_data_root_directory() {
     let ws_dir = store.ws_dir_for(&ws.id).unwrap();
     assert!(ws_dir.starts_with(&data_root));
 }
+
+// ── R1b: listing cache, mtime revalidation, lazy index ──────────────────────
+
+use std::time::{Duration, SystemTime};
+
+/// Create a project in the Default workspace with an explicit name.
+fn make_named_project(store: &FsBackend, name: &str) -> Project {
+    store
+        .create_project(NewProject {
+            source_kind: SourceKind::Blank,
+            root_path: None,
+            name: Some(name.to_owned()),
+            workspace_id: None,
+        })
+        .unwrap()
+}
+
+fn id_name_pairs(projects: &[Project]) -> Vec<(ProjectId, String)> {
+    projects
+        .iter()
+        .map(|p| (p.id.clone(), p.name.clone()))
+        .collect()
+}
+
+#[test]
+fn repeated_reads_return_identical_results() {
+    let (_tmp, store) = open_store();
+    make_named_project(&store, "Alpha");
+
+    let first = store.list_projects(None).unwrap();
+    let second = store.list_projects(None).unwrap();
+
+    assert_eq!(id_name_pairs(&first), id_name_pairs(&second));
+}
+
+#[test]
+fn externally_changed_file_is_reread() {
+    let (_tmp, store) = open_store();
+    let p = make_named_project(&store, "Before");
+    assert_eq!(store.get_project(&p.id).unwrap().unwrap().name, "Before");
+
+    // Rewrite project.json on disk with a new name and a strictly later mtime.
+    let pj = store.proj_dir_for(&p.id).unwrap().join("project.json");
+    let mut v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&pj).unwrap()).unwrap();
+    v["name"] = serde_json::json!("After");
+    std::fs::write(&pj, serde_json::to_string(&v).unwrap()).unwrap();
+    let f = std::fs::File::options().write(true).open(&pj).unwrap();
+    f.set_modified(SystemTime::now() + Duration::from_secs(5))
+        .unwrap();
+    drop(f);
+
+    assert_eq!(store.get_project(&p.id).unwrap().unwrap().name, "After");
+}
+
+#[test]
+fn unchanged_file_reads_equal_to_disk() {
+    let (_tmp, store) = open_store();
+    let p = make_named_project(&store, "Stable");
+
+    let a = store.get_project(&p.id).unwrap().unwrap();
+    let b = store.get_project(&p.id).unwrap().unwrap();
+
+    assert_eq!((a.id, a.name), (b.id, b.name));
+}
+
+#[test]
+fn read_after_backend_write_reflects_the_write() {
+    let (_tmp, store) = open_store();
+    let p = make_named_project(&store, "Old");
+    let _ = store.list_projects(None).unwrap(); // populate the cache
+
+    store.rename_project(&p.id, "New").unwrap();
+
+    assert_eq!(store.get_project(&p.id).unwrap().unwrap().name, "New");
+    assert!(store
+        .list_projects(None)
+        .unwrap()
+        .iter()
+        .any(|x| x.name == "New"));
+}
+
+#[test]
+fn entity_resolves_by_id_after_open_without_prior_listing() {
+    let tmp = TempDir::new().unwrap();
+    let pid = {
+        let store = FsBackend::open(tmp.path().to_path_buf()).unwrap();
+        make_named_project(&store, "Deep").id
+    };
+
+    // Fresh open, then resolve by id before any listing call.
+    let store = FsBackend::open(tmp.path().to_path_buf()).unwrap();
+    assert!(store.get_project(&pid).unwrap().is_some());
+}
+
+#[test]
+fn empty_tree_is_seeded_eagerly_at_open() {
+    let (_tmp, store) = open_store();
+
+    assert!(store.get_project(&ProjectId::unfiled()).unwrap().is_some());
+    let workspaces = store.list_workspaces().unwrap();
+    assert!(workspaces
+        .iter()
+        .any(|w| w.id.as_str() == WorkspaceId::DEFAULT));
+}

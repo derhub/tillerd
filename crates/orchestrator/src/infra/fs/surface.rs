@@ -4,6 +4,7 @@ impl FsBackend {
     // ── surface ───────────────────────────────────────────────────────────
 
     pub(crate) fn create_surface(&self, draft: NewSurface) -> Result<Surface> {
+        self.ensure_index()?;
         let state = self.state.write().unwrap();
         let sess_id = draft.session_id.clone();
         let sess_dir = state
@@ -39,7 +40,7 @@ impl FsBackend {
 
         let mut lf = self.read_layout_file(&sess_dir)?;
         lf.surfaces.push(binding);
-        atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?)?;
+        self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?)?;
         drop(state);
 
         Ok(Surface {
@@ -61,8 +62,9 @@ impl FsBackend {
                     let lf = self.read_layout_file(&sess_dir)?;
                     for b in &lf.surfaces {
                         if b.id == id.as_str() && !b.deleted {
-                            let sess_file =
-                                read_json::<SessionFile>(&sess_dir.join("session.json"))?;
+                            let sess_file = self
+                                .cache
+                                .read::<SessionFile>(&sess_dir.join("session.json"))?;
                             let kind = surface_kind_from_str(&b.kind)?;
                             return Ok(Some(Surface {
                                 id: SurfaceId::from_string(b.id.clone()),
@@ -85,6 +87,7 @@ impl FsBackend {
         session_id: &SessionId,
         placement: &str,
     ) -> Result<Option<Surface>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
         let sess_dir = match state.get(session_id.as_str()) {
             Some(p) => p.to_path_buf(),
@@ -114,7 +117,9 @@ impl FsBackend {
         for ws_dir in list_live_dirs(&ws_root)? {
             for proj_dir in list_live_dirs(&ws_dir.join("projects"))? {
                 for sess_dir in list_live_dirs(&proj_dir.join("sessions"))? {
-                    let sf = read_json::<SessionFile>(&sess_dir.join("session.json"))?;
+                    let sf = self
+                        .cache
+                        .read::<SessionFile>(&sess_dir.join("session.json"))?;
                     let lf = self.read_layout_file(&sess_dir)?;
                     for b in &lf.surfaces {
                         if !b.deleted {
@@ -137,6 +142,7 @@ impl FsBackend {
     }
 
     pub(crate) fn update_surface_status(&self, id: &SurfaceId, status: &str) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let ws_root = self.ws_root();
         for ws_dir in list_live_dirs(&ws_root)? {
@@ -151,7 +157,7 @@ impl FsBackend {
                         }
                     }
                     if changed {
-                        return atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?);
+                        return self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?);
                     }
                 }
             }
@@ -160,6 +166,7 @@ impl FsBackend {
     }
 
     pub(crate) fn soft_delete_surface(&self, id: &SurfaceId) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let ws_root = self.ws_root();
         for ws_dir in list_live_dirs(&ws_root)? {
@@ -174,7 +181,7 @@ impl FsBackend {
                         }
                     }
                     if changed {
-                        return atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?);
+                        return self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?);
                     }
                 }
             }
@@ -187,6 +194,7 @@ impl FsBackend {
         session_id: &SessionId,
         surface_id: &SurfaceId,
     ) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let sess_dir = _state
             .get(session_id.as_str())
@@ -205,7 +213,7 @@ impl FsBackend {
                     for b in &other_lf.surfaces {
                         if b.id == surface_id.as_str() && !b.deleted {
                             // Check whether it belongs to THIS session.
-                            let sf = read_json::<SessionFile>(&sd.join("session.json"))?;
+                            let sf = self.cache.read::<SessionFile>(&sd.join("session.json"))?;
                             if sf.id != session_id.as_str() {
                                 return Err(OrchestratorError::SurfaceConflict(
                                     surface_id.as_str().to_owned(),
@@ -232,7 +240,7 @@ impl FsBackend {
             deleted: false,
         };
         lf.surfaces.push(binding);
-        atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?)
+        self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?)
     }
 
     pub(crate) fn remove_surface_from_session(
@@ -240,6 +248,7 @@ impl FsBackend {
         session_id: &SessionId,
         surface_id: &SurfaceId,
     ) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let sess_dir = _state
             .get(session_id.as_str())
@@ -251,6 +260,6 @@ impl FsBackend {
                 b.deleted = true;
             }
         }
-        atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?)
+        self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?)
     }
 }

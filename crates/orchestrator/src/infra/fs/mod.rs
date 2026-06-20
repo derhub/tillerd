@@ -51,6 +51,7 @@ pub(crate) use crate::{
 };
 
 mod atomic_io;
+mod cache;
 mod datetime;
 mod index;
 mod project;
@@ -60,6 +61,7 @@ mod surface;
 mod workspace;
 
 pub(crate) use atomic_io::{atomic_write, create_dir_secure, persist, read_json, to_json};
+pub(crate) use cache::FileCache;
 pub(crate) use datetime::now_iso8601;
 pub(crate) use index::{all_dirs_including_archive, build_index, is_archived, list_live_dirs};
 pub(crate) use slug::{slugify, unique_slug};
@@ -135,6 +137,8 @@ struct LayoutFile {
 struct TreeState {
     /// id → dir path (workspace dirs, project dirs, session dirs).
     index: HashMap<String, PathBuf>,
+    /// Whether the index has been built from disk yet; built lazily on first access.
+    indexed: bool,
 }
 
 impl TreeState {
@@ -217,13 +221,15 @@ fn surface_kind_from_str(s: &str) -> Result<SurfaceKind> {
 pub struct FsBackend {
     root: PathBuf,
     state: RwLock<TreeState>,
+    cache: FileCache,
 }
 
 impl FsBackend {
     /// Open (or create) a `FsBackend` rooted at `root`.
     ///
     /// On first open (empty tree) the Default workspace and Unfiled project are seeded (D9).
-    /// On subsequent opens the in-memory index is rebuilt by scanning the tree.
+    /// The id→path index builds lazily on first access (see [`ensure_index`]); `open`
+    /// does not scan the tree.
     pub fn open(root: PathBuf) -> Result<Self> {
         create_dir_secure(&root).map_err(persist)?;
 
@@ -234,19 +240,14 @@ impl FsBackend {
         };
 
         let store = FsBackend {
-            root: root.clone(),
+            root,
             state: RwLock::new(TreeState::default()),
+            cache: FileCache::default(),
         };
 
         if is_empty {
             store.seed_defaults()?;
         }
-
-        // Rebuild index from disk.
-        let index = build_index(&root)?;
-        let mut state = store.state.write().unwrap();
-        state.index = index;
-        drop(state);
 
         Ok(store)
     }
@@ -256,20 +257,41 @@ impl FsBackend {
         self.root.join("workspaces")
     }
 
+    /// Build the id→path index from disk on first access; a no-op once built.
+    fn ensure_index(&self) -> Result<()> {
+        if self.state.read().unwrap().indexed {
+            return Ok(());
+        }
+        let index = build_index(&self.root)?;
+        let mut state = self.state.write().unwrap();
+        if !state.indexed {
+            state.index = index;
+            state.indexed = true;
+        }
+        Ok(())
+    }
+
+    /// Write `content` to `path` atomically and drop any cached parse for it.
+    fn write_file(&self, path: &Path, content: &str) -> Result<()> {
+        atomic_write(path, content)?;
+        self.cache.invalidate(path);
+        Ok(())
+    }
+
     /// Read layout file from disk; returns default if file does not exist.
     fn read_layout_file(&self, sess_dir: &Path) -> Result<LayoutFile> {
         let path = sess_dir.join("layout.json");
         if !path.exists() {
             return Ok(LayoutFile::default());
         }
-        read_json(&path)
+        self.cache.read(&path)
     }
 
     /// Convert a `ProjectFile` at a given dir into the public `Project` struct.
     /// The workspace id is derived from the directory path.
     fn proj_from_file(&self, proj_dir: &Path) -> Result<(ProjectFile, Project)> {
-        let pf: ProjectFile = read_json(&proj_dir.join("project.json"))?;
-        let ws_id = ws_id_from_proj_dir(proj_dir)?;
+        let pf: ProjectFile = self.cache.read(&proj_dir.join("project.json"))?;
+        let ws_id = ws_id_from_proj_dir(&self.cache, proj_dir)?;
         let project = Project {
             id: ProjectId::new(pf.id.clone()),
             name: pf.name.clone(),
@@ -281,8 +303,8 @@ impl FsBackend {
     }
 
     fn sess_from_file(&self, sess_dir: &Path) -> Result<(SessionFile, Session)> {
-        let sf: SessionFile = read_json(&sess_dir.join("session.json"))?;
-        let project_id = proj_id_from_sess_dir(sess_dir)?;
+        let sf: SessionFile = self.cache.read(&sess_dir.join("session.json"))?;
+        let project_id = proj_id_from_sess_dir(&self.cache, sess_dir)?;
         let session = Session {
             id: SessionId::from_string(sf.id.clone()),
             project_id,
@@ -328,13 +350,16 @@ impl FsBackend {
     }
 
     fn dir_sort_order(&self, dir: &Path) -> Option<u32> {
-        if let Ok(wf) = read_json::<WorkspaceFile>(&dir.join("workspace.json")) {
+        if let Ok(wf) = self
+            .cache
+            .read::<WorkspaceFile>(&dir.join("workspace.json"))
+        {
             return Some(wf.sort_order);
         }
-        if let Ok(pf) = read_json::<ProjectFile>(&dir.join("project.json")) {
+        if let Ok(pf) = self.cache.read::<ProjectFile>(&dir.join("project.json")) {
             return Some(pf.sort_order);
         }
-        if let Ok(sf) = read_json::<SessionFile>(&dir.join("session.json")) {
+        if let Ok(sf) = self.cache.read::<SessionFile>(&dir.join("session.json")) {
             return Some(sf.sort_order);
         }
         None
@@ -364,12 +389,12 @@ impl FsBackend {
 // ── path-based hierarchy helpers ─────────────────────────────────────────────
 
 /// Derive workspace id from a project dir path by walking up until `workspace.json` is found.
-fn ws_id_from_proj_dir(proj_dir: &Path) -> Result<WorkspaceId> {
+fn ws_id_from_proj_dir(cache: &FileCache, proj_dir: &Path) -> Result<WorkspaceId> {
     let mut cur = proj_dir.parent();
     while let Some(p) = cur {
         let ws_file = p.join("workspace.json");
         if ws_file.exists() {
-            let wf: WorkspaceFile = read_json(&ws_file)?;
+            let wf: WorkspaceFile = cache.read(&ws_file)?;
             return Ok(WorkspaceId::new(wf.id));
         }
         cur = p.parent();
@@ -380,12 +405,12 @@ fn ws_id_from_proj_dir(proj_dir: &Path) -> Result<WorkspaceId> {
 }
 
 /// Derive project id from a session dir path by walking up until `project.json` is found.
-fn proj_id_from_sess_dir(sess_dir: &Path) -> Result<ProjectId> {
+fn proj_id_from_sess_dir(cache: &FileCache, sess_dir: &Path) -> Result<ProjectId> {
     let mut cur = sess_dir.parent();
     while let Some(p) = cur {
         let pf_path = p.join("project.json");
         if pf_path.exists() {
-            let pf: ProjectFile = read_json(&pf_path)?;
+            let pf: ProjectFile = cache.read(&pf_path)?;
             return Ok(ProjectId::new(pf.id));
         }
         cur = p.parent();

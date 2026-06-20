@@ -8,6 +8,7 @@ impl FsBackend {
         draft: NewSession,
         spec: Option<(u32, String)>,
     ) -> Result<Session> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let proj_id = draft.project_id.clone().unwrap_or_else(ProjectId::unfiled);
         let proj_dir = state
@@ -54,7 +55,7 @@ impl FsBackend {
             spec_version,
             spec_json: spec_json.clone(),
         };
-        atomic_write(&sess_dir.join("session.json"), &to_json(&sf)?)?;
+        self.write_file(&sess_dir.join("session.json"), &to_json(&sf)?)?;
         state.insert(sess_id.as_str(), sess_dir);
 
         Ok(Session {
@@ -69,13 +70,16 @@ impl FsBackend {
     }
 
     pub(crate) fn rename_session(&self, id: &SessionId, title: &str) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let sess_dir = state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::SessionNotFound(id.as_str().to_owned()))?;
 
-        let mut sf = read_json::<SessionFile>(&sess_dir.join("session.json"))?;
+        let mut sf = self
+            .cache
+            .read::<SessionFile>(&sess_dir.join("session.json"))?;
         sf.title = title.to_owned();
         sf.title_source = title_source_str(TitleSource::Custom).to_owned();
 
@@ -90,7 +94,7 @@ impl FsBackend {
             .unwrap_or("")
             .to_owned();
 
-        atomic_write(&sess_dir.join("session.json"), &to_json(&sf)?)?;
+        self.write_file(&sess_dir.join("session.json"), &to_json(&sf)?)?;
 
         if slug_base != current_slug {
             let new_slug = unique_slug(&sess_root, &slug_base);
@@ -102,6 +106,7 @@ impl FsBackend {
     }
 
     pub(crate) fn list_sessions(&self, project_id: Option<&ProjectId>) -> Result<Vec<Session>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
 
         // Collect project dirs to search.
@@ -132,7 +137,8 @@ impl FsBackend {
             let sess_root = proj_dir.join("sessions");
             let mut sess_dirs = list_live_dirs(&sess_root)?;
             sess_dirs.sort_by_key(|d| {
-                read_json::<SessionFile>(&d.join("session.json"))
+                self.cache
+                    .read::<SessionFile>(&d.join("session.json"))
                     .map(|sf| sf.sort_order)
                     .unwrap_or(u32::MAX)
             });
@@ -146,6 +152,7 @@ impl FsBackend {
     }
 
     pub(crate) fn get_session(&self, id: &SessionId) -> Result<Option<Session>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
         let sess_dir = match state.get(id.as_str()) {
             Some(p) => p.to_path_buf(),
@@ -160,6 +167,7 @@ impl FsBackend {
     }
 
     pub(crate) fn archive_session(&self, id: &SessionId) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let sess_dir = state
             .get(id.as_str())
@@ -189,6 +197,7 @@ impl FsBackend {
     }
 
     pub(crate) fn hard_delete_session(&self, id: &SessionId) -> Result<()> {
+        self.ensure_index()?;
         let mut state = self.state.write().unwrap();
         let sess_dir = state
             .get(id.as_str())
@@ -205,14 +214,17 @@ impl FsBackend {
     }
 
     pub(crate) fn reorder_session(&self, id: &SessionId, sort_order: u32) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let sess_dir = _state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::SessionNotFound(id.as_str().to_owned()))?;
-        let mut sf = read_json::<SessionFile>(&sess_dir.join("session.json"))?;
+        let mut sf = self
+            .cache
+            .read::<SessionFile>(&sess_dir.join("session.json"))?;
         sf.sort_order = sort_order;
-        atomic_write(&sess_dir.join("session.json"), &to_json(&sf)?)
+        self.write_file(&sess_dir.join("session.json"), &to_json(&sf)?)
     }
 
     pub(crate) fn set_session_spec(
@@ -221,18 +233,22 @@ impl FsBackend {
         spec_version: u32,
         spec_json: &str,
     ) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let sess_dir = _state
             .get(id.as_str())
             .map(Path::to_path_buf)
             .ok_or_else(|| OrchestratorError::SessionNotFound(id.as_str().to_owned()))?;
-        let mut sf = read_json::<SessionFile>(&sess_dir.join("session.json"))?;
+        let mut sf = self
+            .cache
+            .read::<SessionFile>(&sess_dir.join("session.json"))?;
         sf.spec_version = Some(spec_version);
         sf.spec_json = Some(spec_json.to_owned());
-        atomic_write(&sess_dir.join("session.json"), &to_json(&sf)?)
+        self.write_file(&sess_dir.join("session.json"), &to_json(&sf)?)
     }
 
     pub(crate) fn set_session_layout(&self, id: &SessionId, layout_json: &str) -> Result<()> {
+        self.ensure_index()?;
         let _state = self.state.write().unwrap();
         let sess_dir = _state
             .get(id.as_str())
@@ -247,10 +263,11 @@ impl FsBackend {
             panel_tree,
             surfaces: existing.surfaces,
         };
-        atomic_write(&sess_dir.join("layout.json"), &to_json(&lf)?)
+        self.write_file(&sess_dir.join("layout.json"), &to_json(&lf)?)
     }
 
     pub(crate) fn get_session_layout(&self, id: &SessionId) -> Result<Option<String>> {
+        self.ensure_index()?;
         let state = self.state.read().unwrap();
         let sess_dir = match state.get(id.as_str()) {
             Some(p) => p.to_path_buf(),
@@ -261,7 +278,7 @@ impl FsBackend {
         if !layout_path.exists() {
             return Ok(None);
         }
-        let lf = read_json::<LayoutFile>(&layout_path)?;
+        let lf = self.cache.read::<LayoutFile>(&layout_path)?;
         match lf.panel_tree {
             Some(v) => {
                 let s = serde_json::to_string(&v).map_err(persist)?;
