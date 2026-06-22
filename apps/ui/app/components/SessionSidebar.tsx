@@ -39,8 +39,10 @@ const UNFILED_ID = "00000000-0000-0000-0000-000000000000";
 // Fixed id of the built-in Default workspace (mirrors the orchestrator's WorkspaceId::DEFAULT).
 const DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001";
 
-/** Fetch projects and sessions from the orchestrator transport (desktop) or HTTP API (web). */
-function useSidebarData(activeWorkspaceId?: string) {
+/** Fetch projects and sessions from the orchestrator transport (desktop) or HTTP API (web).
+ * `activeWorkspaceId` scopes to one workspace's projects; `activeProjectId` (a project child
+ * window) scopes to a single project and only its sessions. */
+function useSidebarData(activeWorkspaceId?: string, activeProjectId?: string) {
   const host = useDesktopHost();
   const [projects, setProjects] = useState<Project[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -49,18 +51,29 @@ function useSidebarData(activeWorkspaceId?: string) {
     if (host.status === "ready") {
       try {
         const client = host.orchestratorClient;
-        const [ps, ss] = await Promise.all([
-          client.listProjects(activeWorkspaceId ? { workspaceId: activeWorkspaceId } : undefined),
-          client.listSessions(),
-        ]);
-        setProjects(ps);
-        setSessions(ss);
+        if (activeProjectId) {
+          // A project window: fetch that one project by id (project_list is workspace-scoped and
+          // would not return it without its workspace), and only its sessions.
+          const [project, ss] = await Promise.all([
+            client.getProject({ id: activeProjectId }),
+            client.listSessions(),
+          ]);
+          setProjects(project ? [project] : []);
+          setSessions(ss.filter((s) => s.projectId === activeProjectId));
+        } else {
+          const [ps, ss] = await Promise.all([
+            client.listProjects(activeWorkspaceId ? { workspaceId: activeWorkspaceId } : undefined),
+            client.listSessions(),
+          ]);
+          setProjects(ps);
+          setSessions(ss);
+        }
       } catch {
         // non-fatal; keep stale data
       }
     }
     // web path: data comes via loader revalidation; sidebar stays read-only here
-  }, [host, activeWorkspaceId]);
+  }, [host, activeWorkspaceId, activeProjectId]);
 
   useEffect(() => {
     void refresh();
@@ -69,10 +82,13 @@ function useSidebarData(activeWorkspaceId?: string) {
   return { projects, sessions, refresh };
 }
 
-export function SessionSidebar({ activeWorkspaceId }: { activeWorkspaceId?: string } = {}) {
+export function SessionSidebar({
+  activeWorkspaceId,
+  activeProjectId,
+}: { activeWorkspaceId?: string; activeProjectId?: string } = {}) {
   const host = useDesktopHost();
   const navigate = useNavigate();
-  const { projects, sessions, refresh } = useSidebarData(activeWorkspaceId);
+  const { projects, sessions, refresh } = useSidebarData(activeWorkspaceId, activeProjectId);
   const [detachedProjects, setDetachedProjects] = useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -525,6 +541,7 @@ function ProjectGroup({
           <span
             onDoubleClick={isUnfiled ? undefined : onStartEdit}
             data-testid="project-name"
+            data-project-id={project.id}
             className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1 cursor-text"
           >
             {project.name}

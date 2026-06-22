@@ -130,3 +130,13 @@ export async function resetToHome(browser: Browser): Promise<void> {
     { timeout: 10_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
   );
 }
+
+// Brief pause so a local watcher can see transient UI (e.g. a detached child window) before a
+// cleanup step tears it down. Skipped in CI (GitHub Actions sets `CI`), so the suite stays fast
+// there; locally it defaults to a short, watchable pause. Override with `E2E_OBSERVE_MS`
+// (e.g. `E2E_OBSERVE_MS=3000 bun run e2e`, or `0` to disable).
+export async function observePause(browser: Browser): Promise<void> {
+  if (process.env.CI) return;
+  const ms = Number(process.env.E2E_OBSERVE_MS ?? 800);
+  if (Number.isFinite(ms) && ms > 0) await browser.pause(ms);
+}

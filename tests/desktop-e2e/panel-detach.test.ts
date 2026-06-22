@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createProject, openTerminal, uniqueName } from "./helpers";
+import { createProject, observePause, openTerminal, uniqueName } from "./helpers";
 import { getApp } from "./shared-app";
 
 // Panel detach / multi-window (roadmap 0.0.11), parent-webview scenarios. tauri-webdriver drives a
@@ -38,6 +38,14 @@ test("detaching a terminal replaces it with a re-attach placeholder", async () =
   // The live terminal surface no longer renders in the parent window.
   const surfaceEl = await b.$("[data-surface-id]");
   expect(await surfaceEl.isExisting()).toBe(false);
+
+  // Re-attach so the detached child window does not linger into later specs; the parent's
+  // placeholder clearing is the observable proof the re-attach landed.
+  await observePause(b);
+  await reattach.click();
+  await (
+    await b.$('[data-testid="detached-placeholder"]')
+  ).waitForExist({ timeout: 10_000, reverse: true });
 }, 120_000);
 
 // Scenario (open project in new window, parent side): the context-menu action marks the parent
@@ -45,7 +53,20 @@ test("detaching a terminal replaces it with a re-attach placeholder", async () =
 test("opening a project in a new window marks the parent row", async () => {
   const b = getApp();
   const name = uniqueName("Detach");
-  await createProject(b, name);
+  const firstUrl = await createProject(b, name);
+
+  // Give the project a second session so the detached window carries real content (a project with
+  // sessions), not a bare project. createProject already made the first; add one more.
+  const newSession = await b.$(`button[title="New session in ${name}"]`);
+  await newSession.waitForExist({ timeout: 10_000 });
+  await newSession.click();
+  await b.waitUntil(
+    async () => {
+      const url = await b.getUrl();
+      return url.includes("/session/") && url !== firstUrl;
+    },
+    { timeout: 15_000, timeoutMsg: "a second session in the project did not route anew" },
+  );
 
   // Dispatch the context menu on the project heading (native right-click is unreliable under
   // WebDriver), then click "Open in new window".
@@ -67,4 +88,11 @@ test("opening a project in a new window marks the parent row", async () => {
   const indicator = await b.$('[data-testid="project-detached-indicator"]');
   await indicator.waitForExist({ timeout: 10_000 });
   expect(await indicator.isExisting()).toBe(true);
+
+  // Re-attach (close the child window from the parent) so it does not linger into later specs.
+  await observePause(b);
+  await indicator.click();
+  await (
+    await b.$('[data-testid="project-detached-indicator"]')
+  ).waitForExist({ timeout: 10_000, reverse: true });
 }, 120_000);

@@ -27,6 +27,36 @@ bunx turbo run build --filter=@tillerd/ui
 (cd apps/desktop && bunx tauri build --debug --no-bundle --features webdriver)
 DEV_BIN="$REPO_ROOT/target/debug/tillerd-desktop"
 
+# ── preflight: fail fast if the app or its services do not start ───────────────
+# A broken boot (panic, or a service that never comes up) otherwise surfaces as a wall of
+# opaque "connection refused" from every webdriver element query until the suite times out.
+# Launch the binary once in an isolated runtime dir and require the orchestrator to bring its
+# gate service to Ready; abort early with the boot log if it does not.
+preflight_boot() {
+  local dir pid ok=""
+  dir="$(mktemp -d)"
+  TILLERD_DIR="$dir/.tillerd" "$DEV_BIN" >"$dir/app.out" 2>&1 &
+  pid=$!
+  for _ in $(seq 1 180); do                                   # up to ~90s (matches launchReadyApp)
+    kill -0 "$pid" 2>/dev/null || break                       # app exited early -> stop waiting
+    if grep -qs '"service":"gate"[^}]*"status":"Ready"' "$dir/.tillerd"/logs/*.log; then ok=1; break; fi
+    sleep 0.5
+  done
+  kill "$pid" 2>/dev/null || true
+  pkill -f "bin/tillerd-daemon" 2>/dev/null || true
+  pkill -f "bin/tillerd-gate" 2>/dev/null || true
+  if [[ -z "$ok" ]]; then
+    echo "e2e PREFLIGHT FAILED: app/services did not reach ready (gate not Ready within 90s)." >&2
+    echo "--- app stdout/stderr (tail) ---" >&2; tail -40 "$dir/app.out" 2>/dev/null >&2 || true
+    echo "--- orchestrator log (tail) ---" >&2; tail -40 "$dir/.tillerd"/logs/*.log 2>/dev/null >&2 || true
+    rm -rf "$dir" "$WORK"
+    exit 1
+  fi
+  rm -rf "$dir"
+  echo "✓ Preflight: app boots, gate service Ready"
+}
+preflight_boot
+
 # Bundled mode: the release binary with production-embedded assets. Built and boot-checked only when
 # E2E_BUNDLED is set (CI does) so a local run stays on one build; isolated to the boot spec so a
 # release-only packaging failure does not mask the rest of the suite (design D9).
