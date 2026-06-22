@@ -1,5 +1,5 @@
 id: message-dto-deserialize
-message: Message DTO (Command/Query/Io) must derive Deserialize so the tauri
+message: Message DTO (Command/Query) must derive Deserialize so the tauri
   transport can bind the invoke payload straight into it (no per-command arg
   plumbing). Add `#[derive(Deserialize)]` (and `#[serde(rename_all = "camelCase")]`).
 severity: error
@@ -37,4 +37,3 @@ rule:
           any:
             - pattern: impl Command<Ctx> for $STRUCT { $$$ }
             - pattern: impl Query<Ctx> for $STRUCT { $$$ }
-            - pattern: impl Io<Ctx> for $STRUCT { $$$ }

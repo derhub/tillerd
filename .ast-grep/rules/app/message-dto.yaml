@@ -1,5 +1,5 @@
 id: message-dto
-message: Message DTO (Command/Query/Io) fields must be public and plain built-in
+message: Message DTO (Command/Query) fields must be public and plain built-in
   types (String, integers, bool, char, &str, or Option/Vec of those). Convert
   domain newtypes inside the handler.
 severity: error
@@ -48,4 +48,3 @@ rule:
           any:
             - pattern: impl Command<Ctx> for $STRUCT { $$$ }
             - pattern: impl Query<Ctx> for $STRUCT { $$$ }
-            - pattern: impl Io<Ctx> for $STRUCT { $$$ }

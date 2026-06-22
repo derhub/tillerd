@@ -1,7 +1,7 @@
 id: entities-no-export
 valid:
     - "pub(crate) use crate::entities::SurfaceId;"
-    - "pub(crate) mod entities;"
+    - "mod entities;"
     - "use crate::entities::SurfaceId;"
     - "pub use crate::app::surface::SurfaceView;"
     - "pub mod app;"
@@ -11,3 +11,4 @@ invalid:
     - "pub use crate::entities::*;"
     - "pub use crate::entities::SurfaceId as Sid;"
     - "pub mod entities;"
+    - "pub(crate) mod entities;"

@@ -15,6 +15,7 @@
 //! converges the runtime to match on boot -- without attaching any stream.
 
 mod common;
+mod events;
 mod view;
 
 pub mod close_surface;
@@ -45,9 +46,8 @@ pub use view::SurfaceView;
 pub use common::{attach_surface, resize_surface, send_surface_input};
 
 // -- app-owned boundary edges ------------------------------------------------
-// The host's tauri transport implements the runtime output port (`SurfaceEventSink`)
-// and drives the off-bus I/O channel, which speak the surface-id newtype. Re-export
-// them here so the host reaches these contracts through `app/` rather than `infra` --
-// the adapter stays internal.
-pub use crate::entities::SurfaceId;
-pub use crate::infra::runtime::SurfaceEventSink;
+// The host's tauri transport implements the surface output port (`SurfaceEvents`)
+// and drives the off-bus I/O channel. Both speak primitive surface ids, so the
+// host never reaches the domain newtype or the infra adapter; `boot` bridges this
+// port to the internal runtime sink.
+pub use events::SurfaceEvents;

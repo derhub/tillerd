@@ -1,0 +1,27 @@
+id: infra-only-in-app
+language: Rust
+severity: warning
+message: >-
+  infra/ may be referenced only from app/ and the bootstrap (boot.rs, context.rs). Repositories,
+  the surface runtime, and other adapters are invoked from app/ use cases and wired by the
+  bootstrap (`Ctx` holds the resource handles); the rest of the crate (shared, events, …) must
+  not name `crate::infra`. Inject infra through app and hand results outward as primitives.
+note: |
+  app/ invokes infra; the bootstrap (boot.rs, context.rs) wires it (`Ctx` holds the handles).
+  Everywhere else, depend on an app-owned edge instead of naming `crate::infra`.
+
+  severity: warning until every reference outside app/ and the bootstrap is removed; then flip
+  to error. Tracked by ADR-0038.
+ignores:
+  - "crates/orchestrator/src/app/**"
+  - "crates/orchestrator/src/infra/**"
+  - "crates/orchestrator/src/boot.rs"
+  - "crates/orchestrator/src/context.rs"
+rule:
+  any:
+    - kind: use_declaration
+      regex: '\bcrate::infra\b'
+    - kind: scoped_identifier
+      regex: '^crate::infra\b'
+    - kind: scoped_type_identifier
+      regex: '^crate::infra\b'

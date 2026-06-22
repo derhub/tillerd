@@ -2,22 +2,23 @@ id: infra-no-export
 language: Rust
 severity: error
 message: >-
-  infra/ is internal and must not be exported: no `pub use …infra…` re-export and no
-  `pub mod infra`. A public re-export makes an adapter/port reachable as
-  `orchestrator::app::…::Adapter`, defeating the boundary even if the module is private.
-  Surface what the host needs through an app-owned command, query, or public port.
+  infra/ is fully internal: the module is declared `mod infra;` (no `pub`, no `pub(crate)`)
+  and no `pub use …infra…` re-export exists. Any exposure makes an adapter/port reachable
+  outside the crate, defeating the boundary. The host knows only `app`; surface what it
+  needs through an app-owned command, query, or public port.
 note: |
-  Don't re-export the adapter/port through a public edge — own the edge in app/:
+  Keep `infra` a private module and own the edge in app/:
 
-    // instead of: pub use crate::infra::runtime::SurfaceEventSink;   (now public surface)
+    mod infra;   // crate root: private, not `pub` and not `pub(crate)`
+    // instead of: pub use crate::infra::runtime::SurfaceEventSink;
     use orchestrator::app::session::LaunchSession;   // app owns the public port
 
-  `pub(crate) use crate::infra::X;` and `pub(crate) mod infra;` are allowed — they keep
-  the item crate-private. The tree is green (lib.rs declares `pub(crate) mod infra;` and
-  no `pub use` of an infra item remains), so this is enforced (error).
+  A private `mod infra;` is still reachable crate-wide (descendants see an ancestor's private
+  module), so `pub(crate)` buys nothing and is rejected to force the fully-internal form.
+  `pub(crate) use crate::infra::X;` (a crate-internal re-export) stays allowed.
 rule:
   any:
     - kind: use_declaration
       regex: '^pub use\s+.*\binfra\b'
     - kind: mod_item
-      regex: '^pub mod infra\b'
+      regex: '^pub(\(crate\))? mod infra\b'

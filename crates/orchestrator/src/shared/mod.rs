@@ -12,5 +12,5 @@ pub mod pagination;
 
 pub use bus::Bus;
 pub use errors::{Error, Result};
-pub use message::{Command, Io, Query};
+pub use message::{Command, Query};
 pub use pagination::{Listing, Page};

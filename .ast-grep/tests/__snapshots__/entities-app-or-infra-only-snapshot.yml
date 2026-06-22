@@ -1,0 +1,20 @@
+id: entities-app-or-infra-only
+snapshots:
+  let id = crate::entities::project::ProjectId::mint();:
+    labels:
+    - source: crate::entities::project::ProjectId::mint
+      style: primary
+      start: 9
+      end: 50
+  use crate::entities::SurfaceId;:
+    labels:
+    - source: use crate::entities::SurfaceId;
+      style: primary
+      start: 0
+      end: 31
+  use crate::entities::project::{Project, ProjectId};:
+    labels:
+    - source: use crate::entities::project::{Project, ProjectId};
+      style: primary
+      start: 0
+      end: 51

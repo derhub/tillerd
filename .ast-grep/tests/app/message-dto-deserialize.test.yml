@@ -34,9 +34,3 @@ invalid:
             pub id: String,
         }
         impl Query<Ctx> for GetById {}
-    # Io without Deserialize
-    - |
-        pub struct ReadFile {
-            pub path: String,
-        }
-        impl Io<Ctx> for ReadFile {}

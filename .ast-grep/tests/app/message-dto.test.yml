@@ -16,12 +16,6 @@ valid:
             pub limit: u32,
         }
         impl Query<Ctx> for CountUnread {}
-    # Io message with built-in fields
-    - |
-        pub struct ReadFile {
-            pub path: String,
-        }
-        impl Io<Ctx> for ReadFile {}
 
 invalid:
     # Private field
@@ -39,9 +33,3 @@ invalid:
         impl Command<Ctx> for MoveProject {
             async fn handle(&self, cx: &Ctx) -> Result<()> {}
         }
-    # Io message with a domain-newtype field
-    - |
-        pub struct OpenWorkspace {
-            pub id: WorkspaceId,
-        }
-        impl Io<Ctx> for OpenWorkspace {}

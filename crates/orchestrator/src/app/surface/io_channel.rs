@@ -14,7 +14,9 @@ mod tests {
         let h = harness().await;
         let id = SurfaceId::from_string("io");
 
-        send_surface_input(h.bus.cx(), &id, b"ls\n").await.unwrap();
+        send_surface_input(h.bus.cx(), id.as_str(), b"ls\n")
+            .await
+            .unwrap();
 
         assert_eq!(
             h.runtime.calls(),
@@ -30,7 +32,9 @@ mod tests {
         let h = harness().await;
         let id = SurfaceId::from_string("io");
 
-        resize_surface(h.bus.cx(), &id, 120, 40).await.unwrap();
+        resize_surface(h.bus.cx(), id.as_str(), 120, 40)
+            .await
+            .unwrap();
 
         assert_eq!(
             h.runtime.calls(),
@@ -48,7 +52,7 @@ mod tests {
         let h = harness().await;
         let id = SurfaceId::from_string("io");
 
-        attach_surface(h.bus.cx(), &id).await.unwrap();
+        attach_surface(h.bus.cx(), id.as_str()).await.unwrap();
 
         assert_eq!(h.runtime.calls(), vec![RuntimeCall::Attach(id)]);
     }

@@ -33,18 +33,20 @@ pub(super) async fn all_surfaces(cx: &Ctx) -> Result<Vec<Surface>> {
 
 /// Send raw input bytes to a surface's PTY. Off the bus: no command object, no span,
 /// no telemetry -- the payload must never reach a log.
-pub async fn send_surface_input(cx: &Ctx, id: &SurfaceId, bytes: &[u8]) -> Result<()> {
-    cx.runtime().input(id, bytes).await
+pub async fn send_surface_input(cx: &Ctx, id: &str, bytes: &[u8]) -> Result<()> {
+    cx.runtime().input(&SurfaceId::from_string(id), bytes).await
 }
 
 /// Resize a surface's PTY. Off the bus (high-frequency pass-through).
-pub async fn resize_surface(cx: &Ctx, id: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
-    cx.runtime().resize(id, cols, rows).await
+pub async fn resize_surface(cx: &Ctx, id: &str, cols: u16, rows: u16) -> Result<()> {
+    cx.runtime()
+        .resize(&SurfaceId::from_string(id), cols, rows)
+        .await
 }
 
 /// Connect the proxy stream to an already-running daemon PTY. Lazy, per surface,
 /// driven by the renderer registering its Channel -- there is no eager boot
 /// attach-all. Off the bus.
-pub async fn attach_surface(cx: &Ctx, id: &SurfaceId) -> Result<()> {
-    cx.runtime().attach(id).await
+pub async fn attach_surface(cx: &Ctx, id: &str) -> Result<()> {
+    cx.runtime().attach(&SurfaceId::from_string(id)).await
 }

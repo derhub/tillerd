@@ -30,3 +30,9 @@ snapshots:
       style: primary
       start: 0
       end: 44
+  pub(crate) mod entities;:
+    labels:
+    - source: pub(crate) mod entities;
+      style: primary
+      start: 0
+      end: 24

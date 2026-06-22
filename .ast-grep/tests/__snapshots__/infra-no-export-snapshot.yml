@@ -30,3 +30,9 @@ snapshots:
       style: primary
       start: 0
       end: 48
+  pub(crate) mod infra;:
+    labels:
+    - source: pub(crate) mod infra;
+      style: primary
+      start: 0
+      end: 21

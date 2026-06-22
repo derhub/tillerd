@@ -11,11 +11,12 @@ use std::error::Error as _;
 
 use tracing::Instrument;
 
-use crate::shared::message::{Command, Io, Query};
+use crate::shared::message::{Command, Query};
 use crate::shared::{Error, Result};
 
 /// Dispatches commands and queries over a shared context, carrying only the
-/// cross-cutting telemetry. I/O effects go through `io`, off the telemetry path.
+/// cross-cutting telemetry. External I/O lives off the bus (the runtime port and
+/// its sink), so raw payloads are never captured on the telemetry path.
 pub struct Bus<Cx> {
     cx: Cx,
 }
@@ -48,13 +49,6 @@ impl<Cx> Bus<Cx> {
             .instrument(span)
             .await
             .inspect_err(record)
-    }
-
-    /// Run an external I/O effect -- a runtime proxy op (input, resize, attach, ...).
-    /// Deliberately OFF the telemetry path: no span and no error event, so raw
-    /// payloads (keystrokes, bytes) are never captured here. Returns its `Out`.
-    pub async fn io<I: Io<Cx>>(&self, i: I) -> Result<I::Out> {
-        i.handle(&self.cx).await
     }
 }
 

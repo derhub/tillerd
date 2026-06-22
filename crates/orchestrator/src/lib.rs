@@ -3,9 +3,9 @@
 pub mod app;
 pub mod boot;
 pub mod context;
-pub mod entities;
+mod entities;
 pub mod health;
-pub mod infra;
+mod infra;
 pub mod shared;
 pub mod supervision;
 
