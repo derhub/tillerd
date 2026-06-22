@@ -20,7 +20,7 @@ impl Command<Ctx> for LaunchSession {
         use crate::entities::launch_spec;
         use crate::entities::surface::SurfaceStatus;
         use crate::entities::SurfaceKind;
-        use crate::infra::runtime::{Geometry, SpawnRequest};
+        use crate::infra::daemon_pty_api::{Geometry, SpawnRequest};
 
         let id = SessionId::from_string(&self.id);
         let s = SessionRepo::get(cx.db(), &id)
@@ -48,12 +48,12 @@ impl Command<Ctx> for LaunchSession {
                 SurfaceKind::Terminal,
                 None,
                 item.placement.as_deref(),
+                SurfaceStatus::Pending,
             )
             .await?;
 
             let request = SpawnRequest {
                 surface: surface.id.clone(),
-                kind: surface.kind,
                 command: None,
                 token: String::new(),
                 geometry: Geometry {

@@ -6,9 +6,9 @@ use std::sync::Arc;
 use crate::context::Ctx;
 use crate::entities::project::{Project, ProjectId, SourceKind};
 use crate::entities::workspace::WorkspaceId;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
 use crate::infra::project::ProjectRepo;
-use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
 
 pub(crate) async fn ctx() -> (Ctx, crate::shared::Bus<Ctx>) {
@@ -18,7 +18,7 @@ pub(crate) async fn ctx() -> (Ctx, crate::shared::Bus<Ctx>) {
         pool,
         kv,
         PathBuf::from("/tmp/tillerd-test"),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     );
     let bus = crate::shared::Bus::new(ctx.clone());
     (ctx, bus)

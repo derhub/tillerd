@@ -1,6 +1,6 @@
-//! Daemon-socket implementation of [`SurfaceRuntime`]: owns the per-surface PTY
-//! proxies and the unix-socket transport. No persistence -- status flows out
-//! through the [`SurfaceEventSink`]; the app layer records it.
+//! Daemon-socket implementation: owns the per-surface PTY proxies and the
+//! unix-socket transport. No persistence -- status flows out through the
+//! [`SurfaceEventSink`]; the app layer records it.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -12,8 +12,8 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 use super::transport::DaemonConnection;
-use super::{BoxFut, SpawnRequest, SurfaceEventSink, SurfaceRuntime};
-use crate::entities::{SurfaceId, SurfaceKind};
+use super::{SpawnRequest, SurfaceEventSink};
+use crate::entities::SurfaceId;
 use crate::shared::{Error, Result};
 
 /// A fully resolved launch command: a concrete executable, its arguments, and
@@ -46,13 +46,13 @@ struct ProxyCtx {
 }
 
 /// Drives PTYs in the daemon over a unix socket and proxies their output to a sink.
-pub struct DaemonRuntime {
+pub struct DaemonPtyApi {
     sink: Arc<dyn SurfaceEventSink>,
     socket: PathBuf,
     proxies: Mutex<HashMap<SurfaceId, TerminalProxy>>,
 }
 
-impl DaemonRuntime {
+impl DaemonPtyApi {
     pub fn new(sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
         Self {
             sink,
@@ -65,10 +65,41 @@ impl DaemonRuntime {
         self.proxies.lock().await.len()
     }
 
+    pub async fn spawn(&self, request: SpawnRequest) -> Result<()> {
+        self.launch(request).await
+    }
+
+    pub async fn stop(&self, surface: &SurfaceId) -> Result<()> {
+        self.stop_surface(surface).await
+    }
+
+    pub async fn close(&self, surface: &SurfaceId) -> Result<()> {
+        self.close_surface(surface).await
+    }
+
+    pub async fn list(&self) -> Result<Vec<SurfaceId>> {
+        self.list_running().await
+    }
+
+    pub async fn input(&self, surface: &SurfaceId, bytes: &[u8]) -> Result<()> {
+        self.send_input(surface, bytes).await
+    }
+
+    pub async fn resize(&self, surface: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
+        self.send_resize(surface, cols, rows).await
+    }
+
+    pub async fn attach(&self, surface: &SurfaceId) -> Result<()> {
+        self.attach_proxy(surface).await
+    }
+
+    pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
+        self.drop_proxy(surface).await
+    }
+
     async fn launch(&self, request: SpawnRequest) -> Result<()> {
         let SpawnRequest {
             surface,
-            kind,
             command,
             token,
             geometry,
@@ -76,12 +107,6 @@ impl DaemonRuntime {
         } = request;
         if self.proxies.lock().await.contains_key(&surface) {
             return Err(surface_err(&surface, "surface already has a proxy"));
-        }
-        if kind != SurfaceKind::Terminal {
-            return Err(surface_err(
-                &surface,
-                format!("unsupported surface kind for launch: {}", kind.as_str()),
-            ));
         }
 
         let wire = wire_id(&surface);
@@ -284,40 +309,6 @@ impl DaemonRuntime {
     }
 }
 
-impl SurfaceRuntime for DaemonRuntime {
-    fn spawn<'a>(&'a self, request: SpawnRequest) -> BoxFut<'a, ()> {
-        Box::pin(self.launch(request))
-    }
-
-    fn stop<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(self.stop_surface(surface))
-    }
-
-    fn close<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(self.close_surface(surface))
-    }
-
-    fn list<'a>(&'a self) -> BoxFut<'a, Vec<SurfaceId>> {
-        Box::pin(self.list_running())
-    }
-
-    fn input<'a>(&'a self, surface: &'a SurfaceId, bytes: &'a [u8]) -> BoxFut<'a, ()> {
-        Box::pin(self.send_input(surface, bytes))
-    }
-
-    fn resize<'a>(&'a self, surface: &'a SurfaceId, cols: u16, rows: u16) -> BoxFut<'a, ()> {
-        Box::pin(self.send_resize(surface, cols, rows))
-    }
-
-    fn attach<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(self.attach_proxy(surface))
-    }
-
-    fn detach<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(self.drop_proxy(surface))
-    }
-}
-
 fn wire_id(surface: &SurfaceId) -> WireSessionId {
     WireSessionId(surface.as_str().to_string())
 }
@@ -395,7 +386,7 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::{UnixListener, UnixStream};
 
-    use crate::infra::runtime::Geometry;
+    use crate::infra::daemon_pty_api::Geometry;
 
     #[derive(Default)]
     struct CollectingSink {
@@ -423,7 +414,6 @@ mod tests {
     fn spawn_request(surface: &str) -> SpawnRequest {
         SpawnRequest {
             surface: SurfaceId::from_string(surface),
-            kind: SurfaceKind::Terminal,
             command: None,
             token: "tok".into(),
             geometry: Geometry { cols: 80, rows: 24 },
@@ -458,9 +448,9 @@ mod tests {
         stream
     }
 
-    fn plain_runtime(sock: PathBuf) -> (DaemonRuntime, Arc<CollectingSink>) {
+    fn plain_runtime(sock: PathBuf) -> (DaemonPtyApi, Arc<CollectingSink>) {
         let sink = Arc::new(CollectingSink::default());
-        (DaemonRuntime::new(sink.clone(), sock), sink)
+        (DaemonPtyApi::new(sink.clone(), sock), sink)
     }
 
     #[tokio::test]
@@ -559,10 +549,10 @@ mod tests {
         false
     }
 
-    fn recording_runtime(sock: PathBuf) -> (DaemonRuntime, Arc<StdMutex<Vec<String>>>) {
+    fn recording_runtime(sock: PathBuf) -> (DaemonPtyApi, Arc<StdMutex<Vec<String>>>) {
         let sink = Arc::new(CollectingSink::default());
         (
-            DaemonRuntime::new(sink, sock),
+            DaemonPtyApi::new(sink, sock),
             Arc::new(StdMutex::new(Vec::new())),
         )
     }
@@ -570,7 +560,7 @@ mod tests {
     async fn launched_runtime(
         sock: PathBuf,
         surface: &str,
-    ) -> (DaemonRuntime, Arc<StdMutex<Vec<String>>>, SurfaceId) {
+    ) -> (DaemonPtyApi, Arc<StdMutex<Vec<String>>>, SurfaceId) {
         let listener = UnixListener::bind(&sock).unwrap();
         let (runtime, rec) = recording_runtime(sock);
         tokio::spawn(recording_daemon(listener, rec.clone()));
@@ -710,15 +700,5 @@ mod tests {
                 SurfaceId::from_string("surf-y"),
             ]
         );
-    }
-
-    #[tokio::test]
-    async fn spawn_rejects_unsupported_kind() {
-        let dir = tempfile::tempdir().unwrap();
-        let (runtime, _sink) = plain_runtime(dir.path().join("daemon.sock"));
-        let mut request = spawn_request("d-1");
-        request.kind = SurfaceKind::Diff;
-        let result = runtime.spawn(request).await;
-        assert!(result.is_err(), "diff has no adapter; spawn must error");
     }
 }

@@ -33,7 +33,7 @@ struct CursorRow {
 pub struct SurfaceRepo;
 
 impl SurfaceRepo {
-    /// Insert a new surface row at status `pending`. Returns the created `Surface`.
+    /// Insert a new surface row at the given `initial_status`. Returns the created `Surface`.
     /// Pass `id = None` to mint a fresh UUID.
     pub async fn create<'e>(
         exec: impl SqliteExecutor<'e>,
@@ -42,6 +42,7 @@ impl SurfaceRepo {
         kind: SurfaceKind,
         cwd: Option<&str>,
         placement: Option<&str>,
+        initial_status: SurfaceStatus,
     ) -> Result<Surface> {
         let surface_id = id
             .map(SurfaceId::from_string)
@@ -56,7 +57,7 @@ impl SurfaceRepo {
         .bind(kind.as_str())
         .bind(cwd)
         .bind(placement)
-        .bind(SurfaceStatus::Pending.as_str())
+        .bind(initial_status.as_str())
         .execute(exec)
         .await?;
 
@@ -66,7 +67,7 @@ impl SurfaceRepo {
             kind,
             cwd: cwd.map(str::to_owned),
             placement: placement.map(str::to_owned),
-            status: SurfaceStatus::Pending,
+            status: initial_status,
         })
     }
 
@@ -82,12 +83,12 @@ impl SurfaceRepo {
         .await?)
     }
 
-    /// List surfaces in a session ordered live-first then by `created_at`, with
+    /// List surfaces in a session ordered by `id` (stable insertion order), with
     /// optional pagination. Consumed by the `session`/`project`/`workspace`
     /// commands (cross-domain), so it returns the entity, not a read `*View`.
     ///
-    /// Surfaces have no `pinned` column; the pinned-first contract is fulfilled by
-    /// ordering `live` status first (live surfaces are the "active" / promoted ones).
+    /// Semantic ordering (live-first) is the caller's responsibility; this raw
+    /// method returns rows in a stable, predictable order only.
     pub async fn list<'e>(
         exec: impl SqliteExecutor<'e>,
         session_id: &SessionId,
@@ -99,7 +100,7 @@ impl SurfaceRepo {
                     "SELECT id, session_id, kind, cwd, status, placement
                      FROM surface
                      WHERE session_id = ?
-                     ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC",
+                     ORDER BY id ASC",
                 )
                 .bind(session_id.as_str())
                 .fetch_all(exec)
@@ -113,7 +114,7 @@ impl SurfaceRepo {
                     "SELECT id, session_id, kind, cwd, status, placement
                      FROM surface
                      WHERE session_id = ?
-                     ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
+                     ORDER BY id ASC
                      LIMIT ? OFFSET ?",
                 )
                 .bind(session_id.as_str())
@@ -129,17 +130,13 @@ impl SurfaceRepo {
             }
 
             Page::Cursor { after, limit } => {
-                // Cursor is the `created_at` of the last row on the previous page.
-                // Because live surfaces sort first, cursor-based paging within a
-                // mixed-status set may skip some non-live rows; callers that need
-                // strict stability should use offset pagination or Page::All.
                 let fetch = (limit as i64) + 1;
                 let rows: Vec<CursorRow> = if let Some(cursor) = after {
                     sqlx::query_as::<_, CursorRow>(
                         "SELECT id, session_id, kind, cwd, status, placement, created_at
                          FROM surface
                          WHERE session_id = ? AND created_at > ?
-                         ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
+                         ORDER BY id ASC
                          LIMIT ?",
                     )
                     .bind(session_id.as_str())
@@ -152,7 +149,7 @@ impl SurfaceRepo {
                         "SELECT id, session_id, kind, cwd, status, placement, created_at
                          FROM surface
                          WHERE session_id = ?
-                         ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
+                         ORDER BY id ASC
                          LIMIT ?",
                     )
                     .bind(session_id.as_str())
@@ -173,17 +170,6 @@ impl SurfaceRepo {
                 Ok(Listing::new(items, next_cursor))
             }
         }
-    }
-
-    /// Update mutable fields of a surface (cwd and placement).
-    pub async fn update<'e>(exec: impl SqliteExecutor<'e>, surface: &Surface) -> Result<()> {
-        sqlx::query("UPDATE surface SET cwd = ?, placement = ? WHERE id = ?")
-            .bind(surface.cwd.as_deref())
-            .bind(surface.placement.as_deref())
-            .bind(surface.id.as_str())
-            .execute(exec)
-            .await?;
-        Ok(())
     }
 
     /// Transition a surface to a new status (D9: persist intent -> record outcome).
@@ -239,6 +225,7 @@ mod tests {
             SurfaceKind::Terminal,
             Some("/work"),
             None,
+            SurfaceStatus::Pending,
         )
         .await
         .expect("new_terminal")
@@ -257,6 +244,7 @@ mod tests {
             SurfaceKind::Terminal,
             Some("/work"),
             Some("main"),
+            SurfaceStatus::Pending,
         )
         .await
         .unwrap();
@@ -335,24 +323,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_persists_cwd_and_placement() {
-        let pool = migrate::open_memory().await.unwrap();
-        let sess = seed_session(&pool, "s-upd").await;
-        let created = new_terminal(&pool, &sess).await;
-
-        let updated = Surface {
-            cwd: Some("/updated".to_owned()),
-            placement: Some("slot-1".to_owned()),
-            ..created.clone()
-        };
-        SurfaceRepo::update(&pool, &updated).await.unwrap();
-
-        let fetched = SurfaceRepo::get(&pool, &created.id).await.unwrap().unwrap();
-        assert_eq!(fetched.cwd.as_deref(), Some("/updated"));
-        assert_eq!(fetched.placement.as_deref(), Some("slot-1"));
-    }
-
-    #[tokio::test]
     async fn delete_removes_the_row() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-del").await;
@@ -411,29 +381,41 @@ mod tests {
         assert_eq!(fetched.status, SurfaceStatus::Failed);
     }
 
-    // Scenario: A pinned item sorts ahead -- surfaces use live-first ordering
+    // Scenario: Raw list returns a stable, predictable order regardless of status.
+    // Live-first ordering is the app layer's responsibility (via SURFACE_ORDER constant).
     #[tokio::test]
-    async fn list_returns_live_surfaces_first() {
+    async fn list_returns_rows_in_stable_id_order() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-ord").await;
 
-        let first = new_terminal(&pool, &sess).await;
-        let second = new_terminal(&pool, &sess).await;
-
-        // Make the second one live; the first stays idle.
-        SurfaceRepo::update_status(&pool, &first.id, SurfaceStatus::Idle)
-            .await
-            .unwrap();
-        SurfaceRepo::update_status(&pool, &second.id, SurfaceStatus::Live)
-            .await
-            .unwrap();
+        // Insert with explicit ids so insertion and id order are the same.
+        SurfaceRepo::create(
+            &pool,
+            Some("aaa"),
+            &sess,
+            SurfaceKind::Terminal,
+            None,
+            None,
+            SurfaceStatus::Idle,
+        )
+        .await
+        .unwrap();
+        SurfaceRepo::create(
+            &pool,
+            Some("bbb"),
+            &sess,
+            SurfaceKind::Terminal,
+            None,
+            None,
+            SurfaceStatus::Live,
+        )
+        .await
+        .unwrap();
 
         let result = SurfaceRepo::list(&pool, &sess, Page::All).await.unwrap();
-        assert_eq!(
-            result.items[0].id, second.id,
-            "live surface must sort first"
-        );
-        assert_eq!(result.items[1].id, first.id);
+        // Raw repo returns id-ascending; the live "bbb" does NOT float to front.
+        assert_eq!(result.items[0].id.as_str(), "aaa");
+        assert_eq!(result.items[1].id.as_str(), "bbb");
     }
 
     // Scenario: multi-repo call on one tx is atomic
@@ -451,6 +433,7 @@ mod tests {
                 SurfaceKind::Terminal,
                 Some("/work"),
                 None,
+                SurfaceStatus::Pending,
             )
             .await
             .unwrap();
@@ -461,6 +444,7 @@ mod tests {
                 SurfaceKind::Terminal,
                 Some("/work"),
                 None,
+                SurfaceStatus::Pending,
             )
             .await
             .unwrap();
@@ -488,6 +472,7 @@ mod tests {
                 SurfaceKind::Terminal,
                 Some("/work"),
                 None,
+                SurfaceStatus::Pending,
             )
             .await
             .unwrap();

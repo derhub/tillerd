@@ -79,6 +79,27 @@ pub struct Project {
 }
 
 impl Project {
+    /// Construct a new active project with a normalized (trimmed) name.
+    pub fn new(
+        id: ProjectId,
+        workspace_id: WorkspaceId,
+        name: &str,
+        source_kind: SourceKind,
+        root_path: Option<String>,
+        sort_order: u32,
+    ) -> Self {
+        Self {
+            id,
+            workspace_id,
+            name: name.trim().to_owned(),
+            source_kind,
+            root_path,
+            sort_order,
+            pinned: false,
+            status: ProjectStatus::Active,
+        }
+    }
+
     /// Rename the project. Trims whitespace.
     pub fn rename(&mut self, name: &str) {
         self.name = name.trim().to_owned();
@@ -140,6 +161,19 @@ mod tests {
             pinned: false,
             status: ProjectStatus::Active,
         }
+    }
+
+    #[test]
+    fn new_trims_whitespace_from_name() {
+        let p = Project::new(
+            ProjectId::new("p-new"),
+            WorkspaceId::new("ws-1"),
+            "  trimmed  ",
+            SourceKind::Blank,
+            None,
+            0,
+        );
+        assert_eq!(p.name, "trimmed");
     }
 
     #[test]

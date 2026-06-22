@@ -1,14 +1,12 @@
 //! Fs-backed theme store. File layout under `<fs_root>/config/themes/`:
 //!   active.json               -- `{ "active": "<theme_id>" }`
 //!   <theme_id>.json           -- `{ "id": "...", "name": "...", "origin": "prebuilt"|"custom", ... }`
-//!
-//! Prebuilt themes are immutable; only custom themes can be discarded.
 
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{errors::Error, fs, Result};
+use crate::shared::{fs, Result};
 
 /// Theme origin: prebuilt (immutable) or custom (user-added).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,13 +95,8 @@ impl ThemeStore {
         Ok(themes)
     }
 
-    /// Discard a custom theme. Prebuilt themes are rejected.
-    pub async fn discard(&self, id: &str) -> Result<()> {
-        if let Some(theme) = self.get(id).await? {
-            if theme.origin == ThemeOrigin::Prebuilt {
-                return Err(Error::PrebuiltImmutable { kind: "theme" });
-            }
-        }
+    /// Delete a theme file by id. No origin check; callers enforce invariants.
+    pub async fn delete(&self, id: &str) -> Result<()> {
         let path = self.theme_path(id);
         fs::delete(&path).await
     }
@@ -217,42 +210,25 @@ mod tests {
         assert_eq!(ids, vec!["a-custom", "z-builtin"]);
     }
 
-    // Scenario: discard removes a custom theme
+    // Scenario: delete removes a theme by id
     #[tokio::test]
-    async fn discard_removes_custom_theme() {
+    async fn delete_removes_theme() {
         let dir = TempDir::new().unwrap();
         let s = store(&dir);
 
         s.import(&custom_theme("my-theme")).await.unwrap();
-        s.discard("my-theme").await.unwrap();
+        s.delete("my-theme").await.unwrap();
 
         assert_eq!(s.get("my-theme").await.unwrap(), None);
     }
 
-    // Scenario: discard a prebuilt theme is rejected
+    // Scenario: delete absent theme is ok
     #[tokio::test]
-    async fn discard_prebuilt_theme_is_rejected() {
+    async fn delete_absent_theme_is_ok() {
         let dir = TempDir::new().unwrap();
         let s = store(&dir);
 
-        s.import(&prebuilt_theme("default")).await.unwrap();
-        let result = s.discard("default").await;
-
-        assert!(
-            matches!(result, Err(Error::PrebuiltImmutable { kind: "theme" })),
-            "expected PrebuiltImmutable, got {result:?}"
-        );
-        // Theme must still exist.
-        assert!(s.get("default").await.unwrap().is_some());
-    }
-
-    // Scenario: discard absent custom theme is ok
-    #[tokio::test]
-    async fn discard_absent_theme_is_ok() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        assert!(s.discard("never-existed").await.is_ok());
+        assert!(s.delete("never-existed").await.is_ok());
     }
 
     // Scenario: set_active / get_active / active_id round-trip

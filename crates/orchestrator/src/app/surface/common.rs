@@ -1,6 +1,6 @@
 use crate::context::Ctx;
 use crate::entities::{Surface, SurfaceId};
-use crate::infra::runtime::Geometry;
+use crate::infra::daemon_pty_api::Geometry;
 use crate::infra::SurfaceRepo;
 use crate::shared::{Error, Result};
 

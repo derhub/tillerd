@@ -6,6 +6,7 @@ use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Retention cap: keep only the most recent `keep` records.
+/// The app layer owns the retention count; infra runs the raw DELETE.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PruneNotifications {
     pub keep: u32,
@@ -13,7 +14,7 @@ pub struct PruneNotifications {
 
 impl Command<Ctx> for PruneNotifications {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        NotificationRepo::prune(cx.db(), self.keep).await
+        NotificationRepo::prune(cx.db(), self.keep as i64).await
     }
 }
 
@@ -44,5 +45,19 @@ mod tests {
         assert_eq!(listing.items.len(), 3);
         let ids: Vec<&str> = listing.items.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, ["p5", "p4", "p3"]);
+    }
+
+    // -- Scenario: keep larger than count deletes nothing ----------------------
+
+    #[tokio::test]
+    async fn prune_with_keep_larger_than_count_deletes_nothing() {
+        let bus = Bus::new(test_ctx().await);
+        bus.execute(record_cmd("only")).await.unwrap();
+
+        bus.execute(PruneNotifications { keep: 100 }).await.unwrap();
+
+        let listing = bus.query(list_all()).await.unwrap();
+        assert_eq!(listing.items.len(), 1);
+        assert_eq!(listing.items[0].id, "only");
     }
 }

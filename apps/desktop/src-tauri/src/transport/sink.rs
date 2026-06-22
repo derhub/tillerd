@@ -1,5 +1,5 @@
-//! The tauri implementation of the runtime's output port. `SurfaceRuntime` pushes
-//! PTY bytes, status, and lifecycle to a `SurfaceEventSink`; here that sink writes
+//! The tauri implementation of the surface output port. The runtime pushes
+//! PTY bytes, status, and lifecycle to a `SurfaceEvents`; here that sink writes
 //! each surface's bytes to a per-surface `tauri::ipc::Channel<Vec<u8>>` the renderer
 //! registers, and forwards status/exit/error as tauri events. A future web transport
 //! implements the same port with SSE/WebSocket.
@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use orchestrator::app::surface::{SurfaceEventSink, SurfaceId};
+use orchestrator::app::surface::SurfaceEvents;
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The per-surface output channels, keyed by surface id. The renderer creates a
@@ -41,33 +41,33 @@ impl<R: Runtime> ChannelSink<R> {
     }
 }
 
-impl<R: Runtime> SurfaceEventSink for ChannelSink<R> {
-    fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]) {
-        deliver(&self.channels, surface.as_str(), bytes);
+impl<R: Runtime> SurfaceEvents for ChannelSink<R> {
+    fn on_bytes(&self, surface: &str, bytes: &[u8]) {
+        deliver(&self.channels, surface, bytes);
     }
 
-    fn on_status(&self, surface: &SurfaceId, status: &str) {
+    fn on_status(&self, surface: &str, status: &str) {
         let _ = self.app.emit(
             STATUS_EVENT,
-            serde_json::json!({ "surfaceId": surface.as_str(), "status": status }),
+            serde_json::json!({ "surfaceId": surface, "status": status }),
         );
     }
 
-    fn on_exit(&self, surface: &SurfaceId, qualifier: &str) {
+    fn on_exit(&self, surface: &str, qualifier: &str) {
         let _ = self.app.emit(
             EXIT_EVENT,
-            serde_json::json!({ "surfaceId": surface.as_str(), "qualifier": qualifier }),
+            serde_json::json!({ "surfaceId": surface, "qualifier": qualifier }),
         );
         self.channels
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .remove(surface.as_str());
+            .remove(surface);
     }
 
-    fn on_error(&self, surface: &SurfaceId, reason: &str) {
+    fn on_error(&self, surface: &str, reason: &str) {
         let _ = self.app.emit(
             ERROR_EVENT,
-            serde_json::json!({ "surfaceId": surface.as_str(), "reason": reason }),
+            serde_json::json!({ "surfaceId": surface, "reason": reason }),
         );
     }
 }

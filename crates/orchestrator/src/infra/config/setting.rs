@@ -96,44 +96,6 @@ impl SettingStore {
         entries.sort_by(|a, b| a.key.cmp(&b.key));
         Ok(entries)
     }
-
-    /// Effective value for a project: project-scoped override if present, else global, else `None`.
-    pub async fn resolve(
-        &self,
-        project_id: &crate::entities::project::ProjectId,
-        key: &str,
-    ) -> Result<Option<String>> {
-        if let Some(v) = self
-            .get(&SettingScope::Project(project_id.clone()), key)
-            .await?
-        {
-            return Ok(Some(v));
-        }
-        self.get(&SettingScope::Global, key).await
-    }
-
-    /// Effective settings map for a project: global defaults overridden by project-scoped values.
-    pub async fn resolve_all(
-        &self,
-        project_id: &crate::entities::project::ProjectId,
-    ) -> Result<Vec<SettingEntry>> {
-        let global_path = self.global_path();
-        let project_path = self.project_path(project_id.as_str());
-
-        let mut map = Self::read_map(&global_path).await?;
-        let project_map = Self::read_map(&project_path).await?;
-
-        for (k, v) in project_map {
-            map.insert(k, v);
-        }
-
-        let mut entries: Vec<SettingEntry> = map
-            .into_iter()
-            .map(|(key, value_json)| SettingEntry { key, value_json })
-            .collect();
-        entries.sort_by(|a, b| a.key.cmp(&b.key));
-        Ok(entries)
-    }
 }
 
 #[cfg(test)]
@@ -246,77 +208,6 @@ mod tests {
 
         let keys: Vec<&str> = entries.iter().map(|e| e.key.as_str()).collect();
         assert_eq!(keys, vec!["a-key", "m-key", "z-key"]);
-    }
-
-    // Scenario: resolve returns project-scoped value when present
-    #[tokio::test]
-    async fn resolve_returns_project_override_over_global() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        s.apply(&SettingScope::Global, "env", r#""global""#)
-            .await
-            .unwrap();
-        s.apply(&SettingScope::Project(pid()), "env", r#""project""#)
-            .await
-            .unwrap();
-        let v = s.resolve(&pid(), "env").await.unwrap();
-
-        assert_eq!(v.as_deref(), Some(r#""project""#));
-    }
-
-    // Scenario: resolve falls back to global when no project override
-    #[tokio::test]
-    async fn resolve_falls_back_to_global() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        s.apply(&SettingScope::Global, "env", r#""global""#)
-            .await
-            .unwrap();
-        let v = s.resolve(&pid(), "env").await.unwrap();
-
-        assert_eq!(v.as_deref(), Some(r#""global""#));
-    }
-
-    // Scenario: resolve returns None when absent everywhere
-    #[tokio::test]
-    async fn resolve_returns_none_when_absent_everywhere() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        let v = s.resolve(&pid(), "nope").await.unwrap();
-
-        assert_eq!(v, None);
-    }
-
-    // Scenario: resolve_all merges global and project, project wins on overlap
-    #[tokio::test]
-    async fn resolve_all_merges_global_and_project() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        s.apply(&SettingScope::Global, "a", r#""ga""#)
-            .await
-            .unwrap();
-        s.apply(&SettingScope::Global, "b", r#""gb""#)
-            .await
-            .unwrap();
-        s.apply(&SettingScope::Project(pid()), "b", r#""pb""#)
-            .await
-            .unwrap();
-        s.apply(&SettingScope::Project(pid()), "c", r#""pc""#)
-            .await
-            .unwrap();
-        let entries = s.resolve_all(&pid()).await.unwrap();
-
-        let map: HashMap<_, _> = entries
-            .iter()
-            .map(|e| (e.key.as_str(), e.value_json.as_str()))
-            .collect();
-        assert_eq!(map["a"], r#""ga""#);
-        assert_eq!(map["b"], r#""pb""#); // project overrides global
-        assert_eq!(map["c"], r#""pc""#);
     }
 
     // Scenario: external config edit is picked up (no caching -- reads from disk each call)

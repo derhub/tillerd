@@ -27,7 +27,8 @@ impl Query<Ctx> for ListResumableSurfaces {
 mod tests {
     use super::*;
     use crate::app::surface::test_util::{harness, one_surface, seed_session, spawn};
-    use crate::entities::{SessionId, SurfaceId, SurfaceKind, SurfaceStatus};
+    use crate::entities::session::SessionId;
+    use crate::entities::{SurfaceId, SurfaceKind, SurfaceStatus};
     use crate::infra::SurfaceRepo;
 
     // ListResumableSurfaces excludes live surfaces, includes stopped/idle ones
@@ -46,6 +47,7 @@ mod tests {
             SurfaceKind::Terminal,
             None,
             Some("slot-2"),
+            SurfaceStatus::Pending,
         )
         .await
         .unwrap();

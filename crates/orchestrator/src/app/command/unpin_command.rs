@@ -31,8 +31,8 @@ mod tests {
     use crate::app::command::new_command::NewCommand;
     use crate::app::command::pin_command::PinCommand;
     use crate::context::Ctx;
+    use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
     use crate::infra::migrate;
-    use crate::infra::runtime::FakeRuntime;
     use crate::shared::kv::SqliteKv;
     use crate::shared::Bus;
 
@@ -44,7 +44,7 @@ mod tests {
             pool.clone(),
             kv,
             PathBuf::from("/tmp"),
-            Arc::new(FakeRuntime::new()),
+            Runtime::Fake(Arc::new(FakeRuntime::new())),
         );
         let bus = Bus::new(cx);
         bus.execute(NewCommand {

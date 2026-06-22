@@ -62,12 +62,15 @@ impl SessionRepo {
     /// List sessions for a project as typed entities. A command-path helper for the
     /// project aggregate (archive/duplicate/stop cascade over their child sessions);
     /// read endpoints project straight to `SessionView` in the app layer instead.
+    ///
+    /// Rows are returned in stable `id ASC` order. Semantic ordering (pinned-float)
+    /// is the caller's responsibility; app list handlers apply it via `PINNED_FIRST`.
     pub async fn list<'e>(
         exec: impl SqliteExecutor<'e>,
         project_id: &ProjectId,
         page: Page,
     ) -> Result<Listing<Session>> {
-        let order = "ORDER BY pinned DESC, sort_order ASC, id ASC";
+        let order = "ORDER BY id ASC";
         let where_parent = "WHERE project_id = ?";
 
         match page {
@@ -94,20 +97,8 @@ impl SessionRepo {
                 let fetch_n = limit as i64 + 1;
                 let rows: Vec<Session> = if let Some(cursor) = after {
                     sqlx::query_as(AssertSqlSafe(format!(
-                        "WITH anchor AS (
-                             SELECT pinned, sort_order FROM session WHERE id = ?
-                         )
-                         {SELECT} {where_parent}
-                           AND (pinned < (SELECT pinned FROM anchor)
-                                OR (pinned = (SELECT pinned FROM anchor)
-                                    AND sort_order > (SELECT sort_order FROM anchor))
-                                OR (pinned = (SELECT pinned FROM anchor)
-                                    AND sort_order = (SELECT sort_order FROM anchor)
-                                    AND id > ?))
-                         {order}
-                         LIMIT ?"
+                        "{SELECT} {where_parent} AND id > ? {order} LIMIT ?"
                     )))
-                    .bind(&cursor)
                     .bind(project_id.as_str())
                     .bind(&cursor)
                     .bind(fetch_n)
@@ -348,6 +339,29 @@ mod tests {
 
         let got = SessionRepo::get(&pool, &s.id).await.unwrap().unwrap();
         assert_eq!(got.status, SessionStatus::Active);
+    }
+
+    // Scenario: list returns rows in id order regardless of pinned flag
+    // (semantic ordering is the app layer's responsibility)
+    #[tokio::test]
+    async fn list_returns_rows_in_id_order_not_pinned_first() {
+        let pool = migrate::open_memory().await.unwrap();
+        let pid = unfiled();
+
+        // "b-sess" has a lower sort_order and pinned=true, but "a-sess" sorts first by id.
+        let a = make_session("a-sess", &pid, 10);
+        let b = Session {
+            pinned: true,
+            sort_order: 0,
+            ..make_session("b-sess", &pid, 0)
+        };
+
+        SessionRepo::create(&pool, &a).await.unwrap();
+        SessionRepo::create(&pool, &b).await.unwrap();
+
+        let listing = SessionRepo::list(&pool, &pid, Page::All).await.unwrap();
+        assert_eq!(listing.items[0].id.as_str(), "a-sess");
+        assert_eq!(listing.items[1].id.as_str(), "b-sess");
     }
 
     // Scenario: multi-repo call on one tx is atomic

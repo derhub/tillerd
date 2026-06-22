@@ -41,6 +41,8 @@ impl Query<Ctx> for ListSurfacesBySession {
 
         match page {
             Page::All => {
+                // Live-first, then by insertion order. Ordering applied by app; infra repo
+                // returns stable id order only.
                 let items = sqlx::query_as::<_, SurfaceView>(
                     "SELECT id, session_id, kind, cwd, status, placement
                      FROM surface

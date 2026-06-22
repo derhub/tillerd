@@ -93,4 +93,30 @@ mod tests {
         // Command::handle returns Result<()>, not data.
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn new_project_trims_name_whitespace() {
+        let (_ctx, bus) = ctx().await;
+        bus.execute(NewProjectCmd {
+            source_kind: "blank".to_owned(),
+            root_path: None,
+            name: Some("  Gamma  ".to_owned()),
+            workspace_id: Some(default_ws().as_str().to_owned()),
+        })
+        .await
+        .unwrap();
+
+        let listing = bus
+            .query(ListProjectsByWorkspace {
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
+            })
+            .await
+            .unwrap();
+
+        let found = listing.items.iter().any(|p| p.name == "Gamma");
+        assert!(found, "create must store and return the trimmed name");
+    }
 }

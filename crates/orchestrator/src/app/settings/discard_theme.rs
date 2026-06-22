@@ -1,7 +1,9 @@
 use serde::Deserialize;
 
 use crate::context::Ctx;
+use crate::infra::config::theme::ThemeOrigin;
 use crate::infra::config::ThemeStore;
+use crate::shared::errors::Error;
 use crate::shared::message::Command;
 use crate::shared::Result;
 
@@ -14,7 +16,13 @@ pub struct DiscardTheme {
 
 impl Command<Ctx> for DiscardTheme {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        ThemeStore::new(cx.fs_root()).discard(&self.id).await
+        let store = ThemeStore::new(cx.fs_root());
+        if let Some(theme) = store.get(&self.id).await? {
+            if theme.origin == ThemeOrigin::Prebuilt {
+                return Err(Error::PrebuiltImmutable { kind: "theme" });
+            }
+        }
+        store.delete(&self.id).await
     }
 }
 

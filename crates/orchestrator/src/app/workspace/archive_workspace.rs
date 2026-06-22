@@ -90,7 +90,8 @@ mod tests {
     async fn archive_workspace_is_rejected_when_a_session_has_live_surfaces() {
         use crate::entities::session::SessionId;
         use crate::entities::surface::{SurfaceKind, SurfaceStatus};
-        use crate::infra::{SessionRepo, SurfaceRepo};
+        use crate::infra::session::SessionRepo;
+        use crate::infra::SurfaceRepo;
 
         let cx = ctx().await;
         insert_workspace(&cx, "ws-arch-busy", "Busy").await;
@@ -127,6 +128,7 @@ mod tests {
             SurfaceKind::Terminal,
             None,
             None,
+            crate::entities::surface::SurfaceStatus::Pending,
         )
         .await
         .unwrap();

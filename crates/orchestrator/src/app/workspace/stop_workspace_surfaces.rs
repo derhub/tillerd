@@ -48,8 +48,8 @@ mod tests {
     use super::*;
     use crate::app::workspace::test_util::*;
     use crate::context::Ctx;
+    use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
     use crate::infra::migrate;
-    use crate::infra::runtime::FakeRuntime;
     use crate::shared::kv::SqliteKv;
 
     // Scenario: Stopping a scope makes it idle.
@@ -57,12 +57,18 @@ mod tests {
     async fn stop_workspace_surfaces_stops_all_live_surfaces() {
         use crate::entities::session::SessionId;
         use crate::entities::surface::{SurfaceKind, SurfaceStatus};
-        use crate::infra::{SessionRepo, SurfaceRepo};
+        use crate::infra::session::SessionRepo;
+        use crate::infra::SurfaceRepo;
 
         let rt = Arc::new(FakeRuntime::new());
         let pool = migrate::open_memory().await.unwrap();
         let kv = SqliteKv::in_memory().await.unwrap();
-        let cx = Ctx::new(pool, kv, PathBuf::from("/tmp/test"), rt.clone());
+        let cx = Ctx::new(
+            pool,
+            kv,
+            PathBuf::from("/tmp/test"),
+            Runtime::Fake(rt.clone()),
+        );
 
         insert_workspace(&cx, "ws-stop-1", "Stopme").await;
         sqlx::query("INSERT INTO project (id, workspace_id, name) VALUES (?, ?, ?)")
@@ -96,6 +102,7 @@ mod tests {
                 SurfaceKind::Terminal,
                 None,
                 None,
+                SurfaceStatus::Pending,
             )
             .await
             .unwrap();

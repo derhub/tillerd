@@ -1,6 +1,6 @@
 //! The orchestrator context: the real resources every operation runs against --
-//! the `SqlitePool`, the `SqliteKv`, the user-config root, and the surface runtime
-//! port. `Ctx` is cheap to clone and `Send + Sync`, so it survives `.await` and
+//! the `SqlitePool`, the `SqliteKv`, the user-config root, and the surface runtime.
+//! `Ctx` is cheap to clone and `Send + Sync`, so it survives `.await` and
 //! Tauri's `manage`. It holds no pre-built repo aggregate: repos take whatever
 //! executor they are handed (`cx.db()` or `&mut *tx`), so nothing is bound to a
 //! single connection.
@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
-use crate::infra::runtime::SurfaceRuntime;
+use crate::infra::daemon_pty_api::Runtime;
 use crate::shared::kv::SqliteKv;
 use crate::shared::Result;
 
@@ -31,22 +31,17 @@ pub struct Ctx {
     db: SqlitePool,
     kv: Arc<SqliteKv>,
     fs_root: PathBuf,
-    runtime: Arc<dyn SurfaceRuntime>,
+    runtime: Arc<Runtime>,
 }
 
 impl Ctx {
     /// Build a context over its resources.
-    pub fn new(
-        db: SqlitePool,
-        kv: SqliteKv,
-        fs_root: PathBuf,
-        runtime: Arc<dyn SurfaceRuntime>,
-    ) -> Self {
+    pub fn new(db: SqlitePool, kv: SqliteKv, fs_root: PathBuf, runtime: Runtime) -> Self {
         Ctx {
             db,
             kv: Arc::new(kv),
             fs_root,
-            runtime,
+            runtime: Arc::new(runtime),
         }
     }
 
@@ -65,9 +60,9 @@ impl Ctx {
         &self.fs_root
     }
 
-    /// The surface runtime port.
-    pub fn runtime(&self) -> &dyn SurfaceRuntime {
-        &*self.runtime
+    /// The surface runtime.
+    pub fn runtime(&self) -> &Runtime {
+        &self.runtime
     }
 
     /// Opt-in unit of work for a command that spans multiple writes. Begins a
@@ -97,7 +92,7 @@ impl Ctx {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::runtime::FakeRuntime;
+    use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
     use crate::shared::Error;
 
     async fn pool() -> SqlitePool {
@@ -126,7 +121,7 @@ mod tests {
             pool,
             kv,
             PathBuf::from("/tmp/tillerd-test"),
-            Arc::new(FakeRuntime::new()),
+            Runtime::Fake(Arc::new(FakeRuntime::new())),
         )
     }
 

@@ -6,7 +6,7 @@ use std::str::FromStr;
 pub use tempfile::TempDir;
 
 use crate::context::Ctx;
-use crate::infra::runtime::FakeRuntime;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::shared::kv::SqliteKv;
 
 pub async fn make_ctx(dir: &TempDir) -> Ctx {
@@ -23,7 +23,7 @@ pub async fn make_ctx(dir: &TempDir) -> Ctx {
         pool,
         kv,
         dir.path().to_path_buf(),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     )
 }
 

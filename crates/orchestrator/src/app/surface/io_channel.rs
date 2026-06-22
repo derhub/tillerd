@@ -6,7 +6,7 @@ mod tests {
     use crate::app::surface::common::{attach_surface, resize_surface, send_surface_input};
     use crate::app::surface::test_util::harness;
     use crate::entities::SurfaceId;
-    use crate::infra::runtime::RuntimeCall;
+    use crate::infra::daemon_pty_api::RuntimeCall;
 
     // Scenario: Surface input is an I/O channel -- off the bus, no command object
     #[tokio::test]

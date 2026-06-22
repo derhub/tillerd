@@ -6,7 +6,7 @@
 
 use orchestrator::app::surface::{
     attach_surface, resize_surface, send_surface_input, CloseSurface, DetachSurface,
-    FindSurfaceByPlacement, SpawnSurface, SurfaceId,
+    FindSurfaceByPlacement, SpawnSurface,
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
@@ -48,7 +48,7 @@ pub async fn surface_create<R: tauri::Runtime>(
                 id: existing.id.clone(),
             })
             .await;
-        match attach_surface(bus.cx(), &SurfaceId::from_string(existing.id.clone())).await {
+        match attach_surface(bus.cx(), &existing.id).await {
             Ok(()) => return Ok(existing.id),
             Err(_) => {
                 unregister_channel(&channels, &existing.id);
@@ -80,7 +80,7 @@ pub async fn surface_create<R: tauri::Runtime>(
 
     let id = surface.id;
     register_channel(&channels, &id, channel);
-    let _ = attach_surface(bus.cx(), &SurfaceId::from_string(id.clone())).await;
+    let _ = attach_surface(bus.cx(), &id).await;
 
     notification_host::record(
         &app,
@@ -148,7 +148,7 @@ pub async fn surface_input(
     surface_id: String,
     bytes: Vec<u8>,
 ) -> Result<(), String> {
-    send_surface_input(bus.cx(), &SurfaceId::from_string(surface_id), &bytes)
+    send_surface_input(bus.cx(), &surface_id, &bytes)
         .await
         .map_err(|e| e.to_string())
 }
@@ -161,7 +161,7 @@ pub async fn surface_resize(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    resize_surface(bus.cx(), &SurfaceId::from_string(surface_id), cols, rows)
+    resize_surface(bus.cx(), &surface_id, cols, rows)
         .await
         .map_err(|e| e.to_string())
 }

@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use sqlx::AssertSqlSafe;
 
+use crate::app::session::common::PINNED_FIRST;
 use crate::app::session::SessionView;
 use crate::context::Ctx;
 use crate::shared::errors::Result;
@@ -40,7 +41,7 @@ impl Query<Ctx> for ListSessionsByProject {
             Page::All
         };
 
-        let order = "ORDER BY pinned DESC, sort_order ASC, id ASC";
+        let order = PINNED_FIRST;
         let where_parent = "WHERE project_id = ?";
 
         match page {

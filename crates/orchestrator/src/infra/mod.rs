@@ -4,11 +4,11 @@
 
 pub mod command;
 pub mod config;
+pub mod daemon_pty_api;
 pub mod launch_template;
 pub mod migrate;
 pub mod notification;
 pub mod project;
-pub mod runtime;
 pub mod session;
 pub mod surface_repo;
 pub mod workspace;

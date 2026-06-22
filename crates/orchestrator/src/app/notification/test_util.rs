@@ -7,7 +7,7 @@ use sqlx::SqlitePool;
 use crate::app::notification::list_notifications::ListNotifications;
 use crate::app::notification::record_notification::RecordNotification;
 use crate::context::Ctx;
-use crate::infra::runtime::FakeRuntime;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::shared::kv::SqliteKv;
 
 pub(crate) async fn test_pool() -> SqlitePool {
@@ -31,7 +31,7 @@ pub(crate) async fn test_ctx() -> Ctx {
         pool,
         kv,
         PathBuf::from("/tmp/test"),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     )
 }
 

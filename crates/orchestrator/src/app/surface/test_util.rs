@@ -4,8 +4,8 @@ use sqlx::SqlitePool;
 
 use crate::app::surface::SurfaceView;
 use crate::context::Ctx;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
-use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
 use crate::shared::Bus;
 
@@ -27,7 +27,7 @@ pub(crate) async fn harness() -> Harness {
         pool.clone(),
         kv,
         std::path::PathBuf::from("/tmp/tillerd-test"),
-        runtime.clone(),
+        Runtime::Fake(runtime.clone()),
     );
     Harness {
         bus: Bus::new(cx),

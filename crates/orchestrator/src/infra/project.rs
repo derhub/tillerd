@@ -5,7 +5,7 @@
 
 use sqlx::sqlite::SqliteExecutor;
 
-use crate::entities::project::{Project, ProjectId, ProjectStatus, SourceKind};
+use crate::entities::project::{Project, ProjectId, SourceKind};
 use crate::entities::workspace::WorkspaceId;
 use crate::shared::{Error, Result};
 
@@ -27,31 +27,30 @@ impl ProjectRepo {
         root_path: Option<&str>,
         sort_order: u32,
     ) -> Result<Project> {
-        let sk = source_kind.as_str();
-        let so = sort_order as i64;
+        let entity = Project::new(
+            ProjectId::new(id),
+            workspace_id.clone(),
+            name,
+            source_kind,
+            root_path.map(ToOwned::to_owned),
+            sort_order,
+        );
+        let sk = entity.source_kind.as_str();
+        let so = entity.sort_order as i64;
         sqlx::query(
             "INSERT INTO project (id, workspace_id, name, source_kind, root_path, sort_order)
              VALUES (?, ?, ?, ?, ?, ?)",
         )
-        .bind(id)
-        .bind(workspace_id.as_str())
-        .bind(name)
+        .bind(entity.id.as_str())
+        .bind(entity.workspace_id.as_str())
+        .bind(&entity.name)
         .bind(sk)
-        .bind(root_path)
+        .bind(entity.root_path.as_deref())
         .bind(so)
         .execute(exec)
         .await?;
 
-        Ok(Project {
-            id: ProjectId::new(id),
-            workspace_id: workspace_id.clone(),
-            name: name.trim().to_owned(),
-            source_kind,
-            root_path: root_path.map(ToOwned::to_owned),
-            sort_order,
-            pinned: false,
-            status: ProjectStatus::Active,
-        })
+        Ok(entity)
     }
 
     /// Fetch a single project by id. Returns `None` when absent.
@@ -164,6 +163,7 @@ impl ProjectRepo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::project::ProjectStatus;
     use crate::infra::migrate;
 
     const DEFAULT_WS: &str = "00000000-0000-0000-0000-000000000001";
@@ -187,6 +187,39 @@ mod tests {
             .execute(pool)
             .await
             .unwrap();
+    }
+
+    // -- Scenario: name normalization happens before persist --------------------
+
+    #[tokio::test]
+    async fn create_trims_name_and_stored_equals_returned() {
+        let pool = pool().await;
+        let created = ProjectRepo::create(
+            &pool,
+            "p-trim",
+            &ws(),
+            "  padded name  ",
+            SourceKind::Blank,
+            None,
+            0,
+        )
+        .await
+        .expect("create must succeed");
+
+        assert_eq!(
+            created.name, "padded name",
+            "returned entity must be trimmed"
+        );
+
+        let fetched = ProjectRepo::get(&pool, &created.id)
+            .await
+            .expect("get must succeed")
+            .expect("project must be present");
+
+        assert_eq!(
+            fetched.name, "padded name",
+            "stored value must equal returned value"
+        );
     }
 
     // -- Scenario: A repository persists and reads a typed entity -------------

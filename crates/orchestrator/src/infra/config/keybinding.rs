@@ -2,7 +2,7 @@
 //!   overrides.json            -- `{ "<action>": "<chord>" }` (user overrides only)
 //!
 //! The default keymap is static (compiled-in). The store only persists overrides.
-//! `list` merges defaults with overrides (overrides win). `reset` removes an override.
+//! `reset` removes a single override; `reset_all` clears all overrides.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -82,47 +82,14 @@ impl KeybindingStore {
         self.write_overrides(&HashMap::new()).await
     }
 
-    /// Effective keymap: defaults merged with overrides (overrides win), sorted by action.
-    pub async fn list(&self) -> Result<Vec<KeybindingEntry>> {
-        let overrides = self.read_overrides().await?;
-        let mut merged = self.defaults.clone();
-        for (action, chord) in overrides {
-            merged.insert(action, chord);
-        }
-        let mut entries: Vec<KeybindingEntry> = merged
-            .into_iter()
-            .map(|(action, chord)| KeybindingEntry { action, chord })
-            .collect();
-        entries.sort_by(|a, b| a.action.cmp(&b.action));
-        Ok(entries)
+    /// The compiled-in default keymap.
+    pub fn defaults(&self) -> &HashMap<String, String> {
+        &self.defaults
     }
 
-    /// Resolve the chord(s) for a given action. Returns `None` if unbound.
-    pub async fn resolve(&self, action: &str) -> Result<Option<String>> {
-        let overrides = self.read_overrides().await?;
-        if let Some(chord) = overrides.get(action) {
-            return Ok(Some(chord.clone()));
-        }
-        Ok(self.defaults.get(action).cloned())
-    }
-
-    /// Resolve the action bound to a given chord (inverse lookup). Returns `None` if not bound.
-    pub async fn resolve_action(&self, chord: &str) -> Result<Option<String>> {
-        let overrides = self.read_overrides().await?;
-        // Overrides take priority.
-        for (action, c) in &overrides {
-            if c == chord {
-                return Ok(Some(action.clone()));
-            }
-        }
-        // Fall back to defaults not shadowed by an override.
-        let override_actions: std::collections::HashSet<_> = overrides.keys().cloned().collect();
-        for (action, c) in &self.defaults {
-            if c == chord && !override_actions.contains(action) {
-                return Ok(Some(action.clone()));
-            }
-        }
-        Ok(None)
+    /// The persisted user overrides (action -> chord).
+    pub async fn overrides(&self) -> Result<HashMap<String, String>> {
+        self.read_overrides().await
     }
 }
 
@@ -143,51 +110,44 @@ mod tests {
         KeybindingStore::new(dir.path(), defaults())
     }
 
-    // Scenario: rebind sets an override; resolve returns the new chord
+    // Scenario: rebind persists an override; overrides() returns it
     #[tokio::test]
-    async fn rebind_sets_override_and_resolve_returns_it() {
+    async fn rebind_persists_override() {
         let dir = TempDir::new().unwrap();
         let s = store(&dir);
 
         s.rebind("new-session", "ctrl+t").await.unwrap();
-        let chord = s.resolve("new-session").await.unwrap();
+        let overrides = s.overrides().await.unwrap();
 
-        assert_eq!(chord.as_deref(), Some("ctrl+t"));
+        assert_eq!(
+            overrides.get("new-session").map(String::as_str),
+            Some("ctrl+t")
+        );
     }
 
-    // Scenario: resolve returns default when no override is set
-    #[tokio::test]
-    async fn resolve_returns_default_when_no_override() {
+    // Scenario: defaults() returns the compiled-in keymap
+    #[test]
+    fn defaults_returns_static_keymap() {
         let dir = TempDir::new().unwrap();
         let s = store(&dir);
 
-        let chord = s.resolve("rename").await.unwrap();
-
-        assert_eq!(chord.as_deref(), Some("F2"));
+        assert_eq!(s.defaults().get("rename").map(String::as_str), Some("F2"));
+        assert_eq!(
+            s.defaults().get("new-session").map(String::as_str),
+            Some("ctrl+n")
+        );
     }
 
-    // Scenario: resolve returns None for an unbound action
+    // Scenario: reset removes an override; overrides() no longer contains it
     #[tokio::test]
-    async fn resolve_returns_none_for_unbound_action() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        let chord = s.resolve("not-a-real-action").await.unwrap();
-
-        assert_eq!(chord, None);
-    }
-
-    // Scenario: reset removes an override, reverting to default
-    #[tokio::test]
-    async fn reset_reverts_to_default() {
+    async fn reset_removes_override() {
         let dir = TempDir::new().unwrap();
         let s = store(&dir);
 
         s.rebind("rename", "ctrl+r").await.unwrap();
         s.reset("rename").await.unwrap();
-        let chord = s.resolve("rename").await.unwrap();
 
-        assert_eq!(chord.as_deref(), Some("F2"));
+        assert!(!s.overrides().await.unwrap().contains_key("rename"));
     }
 
     // Scenario: reset on absent override is ok
@@ -209,80 +169,10 @@ mod tests {
         s.rebind("new-session", "ctrl+t").await.unwrap();
         s.reset_all().await.unwrap();
 
-        assert_eq!(s.resolve("rename").await.unwrap().as_deref(), Some("F2"));
-        assert_eq!(
-            s.resolve("new-session").await.unwrap().as_deref(),
-            Some("ctrl+n")
-        );
+        assert!(s.overrides().await.unwrap().is_empty());
     }
 
-    // Scenario: list returns merged keymap sorted by action
-    #[tokio::test]
-    async fn list_returns_merged_sorted_keymap() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        s.rebind("rename", "ctrl+r").await.unwrap();
-        let entries = s.list().await.unwrap();
-
-        let actions: Vec<&str> = entries.iter().map(|e| e.action.as_str()).collect();
-        // Should be sorted
-        let mut sorted = actions.clone();
-        sorted.sort();
-        assert_eq!(actions, sorted);
-
-        // Overridden rename must appear with the new chord
-        let rename = entries.iter().find(|e| e.action == "rename").unwrap();
-        assert_eq!(rename.chord, "ctrl+r");
-
-        // Default close-surface must appear
-        let close = entries
-            .iter()
-            .find(|e| e.action == "close-surface")
-            .unwrap();
-        assert_eq!(close.chord, "ctrl+w");
-    }
-
-    // Scenario: list returns defaults when no overrides exist
-    #[tokio::test]
-    async fn list_returns_defaults_with_no_overrides() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        let entries = s.list().await.unwrap();
-
-        assert_eq!(entries.len(), 3);
-        let new_sess = entries.iter().find(|e| e.action == "new-session").unwrap();
-        assert_eq!(new_sess.chord, "ctrl+n");
-    }
-
-    // Scenario: resolve_action inverse lookup returns the action for a chord
-    #[tokio::test]
-    async fn resolve_action_returns_action_for_chord() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        let action = s.resolve_action("ctrl+n").await.unwrap();
-
-        assert_eq!(action.as_deref(), Some("new-session"));
-    }
-
-    // Scenario: resolve_action returns override's action when chord is rebound
-    #[tokio::test]
-    async fn resolve_action_returns_overridden_action() {
-        let dir = TempDir::new().unwrap();
-        let s = store(&dir);
-
-        // Rebind new-session to ctrl+t; ctrl+n is now unbound.
-        s.rebind("new-session", "ctrl+t").await.unwrap();
-        let by_old = s.resolve_action("ctrl+n").await.unwrap();
-        let by_new = s.resolve_action("ctrl+t").await.unwrap();
-
-        assert_eq!(by_old, None);
-        assert_eq!(by_new.as_deref(), Some("new-session"));
-    }
-
-    // Scenario: external edit is reflected on next read (no caching)
+    // Scenario: external edit is reflected on next overrides() call (no caching)
     #[tokio::test]
     async fn external_edit_is_reflected_on_next_read() {
         let dir = TempDir::new().unwrap();
@@ -301,7 +191,10 @@ mod tests {
         overrides.insert("rename".to_owned(), "ctrl+shift+r".to_owned());
         std::fs::write(&path, serde_json::to_string_pretty(&overrides).unwrap()).unwrap();
 
-        let chord = s.resolve("rename").await.unwrap();
-        assert_eq!(chord.as_deref(), Some("ctrl+shift+r"));
+        let loaded = s.overrides().await.unwrap();
+        assert_eq!(
+            loaded.get("rename").map(String::as_str),
+            Some("ctrl+shift+r")
+        );
     }
 }

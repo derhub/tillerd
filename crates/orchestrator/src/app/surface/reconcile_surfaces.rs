@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::SurfaceStatus;
-use crate::infra::runtime::SpawnRequest;
+use crate::infra::daemon_pty_api::SpawnRequest;
 use crate::infra::SurfaceRepo;
 use crate::shared::errors::Result;
 use crate::shared::message::Command;
@@ -37,7 +37,6 @@ impl Command<Ctx> for ReconcileSurfaces {
             }
             let request = SpawnRequest {
                 surface: surface.id.clone(),
-                kind: surface.kind,
                 command: None,
                 token: uuid::Uuid::new_v4().to_string(),
                 geometry: DEFAULT_GEOMETRY,
@@ -61,8 +60,9 @@ mod tests {
     use super::*;
     use crate::app::surface::get_surface_by_id::GetSurfaceById;
     use crate::app::surface::test_util::{harness, seed_session};
-    use crate::entities::{SessionId, SurfaceId, SurfaceKind};
-    use crate::infra::runtime::RuntimeCall;
+    use crate::entities::session::SessionId;
+    use crate::entities::{SurfaceId, SurfaceKind};
+    use crate::infra::daemon_pty_api::RuntimeCall;
     use crate::infra::SurfaceRepo;
 
     // Scenario: Boot reconcile kills an orphan PTY (running-but-no-row)
@@ -91,6 +91,7 @@ mod tests {
             SurfaceKind::Terminal,
             None,
             None,
+            crate::entities::SurfaceStatus::Pending,
         )
         .await
         .unwrap();

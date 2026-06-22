@@ -25,7 +25,7 @@ impl Command<Ctx> for DetachSurface {
 mod tests {
     use super::*;
     use crate::app::surface::test_util::{harness, one_surface, seed_session, spawn};
-    use crate::infra::runtime::RuntimeCall;
+    use crate::infra::daemon_pty_api::RuntimeCall;
 
     // Detach drops the proxy but the PTY keeps running
     #[tokio::test]

@@ -2,7 +2,7 @@
 //! Owns the wire handshake and the per-frame encode/decode; the runtime adapter
 //! layers proxy bookkeeping on top.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use contracts::SessionId;
@@ -143,10 +143,6 @@ impl DaemonConnection {
     }
 }
 
-pub fn default_daemon_socket() -> PathBuf {
-    tillerd_paths::daemon_socket()
-}
-
 async fn read_first_frame(
     read_half: &mut tokio::net::unix::OwnedReadHalf,
     decoder: &mut FrameDecoder,
@@ -191,6 +187,8 @@ async fn read_loop(
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use daemon_pty_client::encode_frame;
     use tokio::net::UnixListener;

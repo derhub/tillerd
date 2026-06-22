@@ -1,3 +1,8 @@
+/// Pinned-float ordering: pinned sessions sort first, then by sort_order, then
+/// by id for a stable tiebreak. Applied by app list handlers; infra returns rows
+/// without semantic ordering.
+pub(super) const PINNED_FIRST: &str = "ORDER BY pinned DESC, sort_order ASC, id ASC";
+
 pub(super) fn now_iso() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()

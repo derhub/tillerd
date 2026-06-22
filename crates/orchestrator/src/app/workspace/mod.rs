@@ -41,5 +41,7 @@ pub use view::WorkspaceView;
 /// The default workspace id as a primitive, for hosts that default a missing id
 /// without reaching the domain newtype.
 pub fn default_workspace_id() -> String {
-    crate::entities::WorkspaceId::default_id().as_str().to_string()
+    crate::entities::WorkspaceId::default_id()
+        .as_str()
+        .to_string()
 }

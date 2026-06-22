@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
-use crate::infra::runtime::FakeRuntime;
 use crate::shared::bus::Bus;
 use crate::shared::kv::SqliteKv;
 
@@ -18,7 +18,7 @@ pub(crate) async fn ctx() -> (Bus<Ctx>, sqlx::SqlitePool) {
         pool.clone(),
         kv,
         PathBuf::from("/tmp/session-ops-test"),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     );
     (Bus::new(cx), pool)
 }

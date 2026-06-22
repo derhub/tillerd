@@ -1,14 +1,14 @@
-//! In-memory [`SurfaceRuntime`] for tests: no socket, no daemon. Tracks which
-//! surfaces it considers running and records the calls made against it so app-layer
-//! tests can assert the side-effect shape (persist intent -> effect -> record ->
-//! reconcile) without a live daemon.
+//! In-memory runtime for tests: no socket, no daemon. Tracks which surfaces it
+//! considers running and records the calls made against it so app-layer tests can
+//! assert the side-effect shape (persist intent -> effect -> record -> reconcile)
+//! without a live daemon.
 
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-use super::{BoxFut, SpawnRequest, SurfaceRuntime};
+use super::SpawnRequest;
 use crate::entities::SurfaceId;
-use crate::shared::Error;
+use crate::shared::{Error, Result};
 
 /// A recorded runtime interaction, in call order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,95 +72,74 @@ impl FakeRuntime {
     fn record(&self, call: RuntimeCall) {
         self.state.lock().unwrap().calls.push(call);
     }
-}
 
-impl SurfaceRuntime for FakeRuntime {
-    fn spawn<'a>(&'a self, request: SpawnRequest) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Spawn(request.surface.clone()));
-            if std::mem::replace(&mut *self.fail_spawn.lock().unwrap(), false) {
-                return Err(Error::SurfaceRuntime {
-                    surface: request.surface.as_str().to_string(),
-                    reason: "fake spawn failure".to_string(),
-                });
-            }
-            self.state.lock().unwrap().running.insert(request.surface);
-            Ok(())
-        })
-    }
-
-    fn stop<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Stop(surface.clone()));
-            self.state.lock().unwrap().running.remove(surface);
-            Ok(())
-        })
-    }
-
-    fn close<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Close(surface.clone()));
-            self.state.lock().unwrap().running.remove(surface);
-            Ok(())
-        })
-    }
-
-    fn list<'a>(&'a self) -> BoxFut<'a, Vec<SurfaceId>> {
-        Box::pin(async move {
-            self.record(RuntimeCall::List);
-            let mut ids: Vec<SurfaceId> =
-                self.state.lock().unwrap().running.iter().cloned().collect();
-            ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-            Ok(ids)
-        })
-    }
-
-    fn input<'a>(&'a self, surface: &'a SurfaceId, bytes: &'a [u8]) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Input {
-                surface: surface.clone(),
-                bytes: bytes.to_vec(),
+    pub async fn spawn(&self, request: SpawnRequest) -> Result<()> {
+        self.record(RuntimeCall::Spawn(request.surface.clone()));
+        if std::mem::replace(&mut *self.fail_spawn.lock().unwrap(), false) {
+            return Err(Error::SurfaceRuntime {
+                surface: request.surface.as_str().to_string(),
+                reason: "fake spawn failure".to_string(),
             });
-            Ok(())
-        })
+        }
+        self.state.lock().unwrap().running.insert(request.surface);
+        Ok(())
     }
 
-    fn resize<'a>(&'a self, surface: &'a SurfaceId, cols: u16, rows: u16) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Resize {
-                surface: surface.clone(),
-                cols,
-                rows,
-            });
-            Ok(())
-        })
+    pub async fn stop(&self, surface: &SurfaceId) -> Result<()> {
+        self.record(RuntimeCall::Stop(surface.clone()));
+        self.state.lock().unwrap().running.remove(surface);
+        Ok(())
     }
 
-    fn attach<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Attach(surface.clone()));
-            Ok(())
-        })
+    pub async fn close(&self, surface: &SurfaceId) -> Result<()> {
+        self.record(RuntimeCall::Close(surface.clone()));
+        self.state.lock().unwrap().running.remove(surface);
+        Ok(())
     }
 
-    fn detach<'a>(&'a self, surface: &'a SurfaceId) -> BoxFut<'a, ()> {
-        Box::pin(async move {
-            self.record(RuntimeCall::Detach(surface.clone()));
-            Ok(())
-        })
+    pub async fn list(&self) -> Result<Vec<SurfaceId>> {
+        self.record(RuntimeCall::List);
+        let mut ids: Vec<SurfaceId> = self.state.lock().unwrap().running.iter().cloned().collect();
+        ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        Ok(ids)
+    }
+
+    pub async fn input(&self, surface: &SurfaceId, bytes: &[u8]) -> Result<()> {
+        self.record(RuntimeCall::Input {
+            surface: surface.clone(),
+            bytes: bytes.to_vec(),
+        });
+        Ok(())
+    }
+
+    pub async fn resize(&self, surface: &SurfaceId, cols: u16, rows: u16) -> Result<()> {
+        self.record(RuntimeCall::Resize {
+            surface: surface.clone(),
+            cols,
+            rows,
+        });
+        Ok(())
+    }
+
+    pub async fn attach(&self, surface: &SurfaceId) -> Result<()> {
+        self.record(RuntimeCall::Attach(surface.clone()));
+        Ok(())
+    }
+
+    pub async fn detach(&self, surface: &SurfaceId) -> Result<()> {
+        self.record(RuntimeCall::Detach(surface.clone()));
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::SurfaceKind;
-    use crate::infra::runtime::{Geometry, SpawnRequest};
+    use crate::infra::daemon_pty_api::{Geometry, SpawnRequest};
 
     fn request(surface: &str) -> SpawnRequest {
         SpawnRequest {
             surface: SurfaceId::from_string(surface),
-            kind: SurfaceKind::Terminal,
             command: None,
             token: "t".into(),
             geometry: Geometry { cols: 80, rows: 24 },

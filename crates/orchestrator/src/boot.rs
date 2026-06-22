@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::context::Ctx;
+use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime};
 use crate::infra::migrate;
-use crate::infra::runtime::DaemonRuntime;
 use crate::shared;
 use crate::shared::bus::Bus;
 use crate::shared::kv::SqliteKv;
@@ -32,7 +32,7 @@ pub struct Config {
 /// the infra adapter off the host's import surface.
 struct SinkAdapter(Arc<dyn crate::app::surface::SurfaceEvents>);
 
-impl crate::infra::runtime::SurfaceEventSink for SinkAdapter {
+impl crate::infra::daemon_pty_api::SurfaceEventSink for SinkAdapter {
     fn on_bytes(&self, surface: &crate::entities::SurfaceId, bytes: &[u8]) {
         self.0.on_bytes(surface.as_str(), bytes);
     }
@@ -72,7 +72,7 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
     let pool = migrate::open_file(&cfg.db_path).await?;
     let kv = SqliteKv::new(pool.clone());
     let sink = Arc::new(SinkAdapter(cfg.sink.clone()));
-    let runtime = Arc::new(DaemonRuntime::new(sink, cfg.socket.clone()));
+    let runtime = Runtime::Daemon(DaemonPtyApi::new(sink, cfg.socket.clone()));
     let ctx = Ctx::new(pool, kv, cfg.fs_root.clone(), runtime);
     Ok(Bus::new(ctx))
 }
@@ -83,13 +83,11 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
 /// applied, wire a [`SqliteKv`] over it, and inject a `FakeRuntime` (no daemon, no
 /// PTY). This is the app-owned test edge the desktop host's IPC contract test drives
 /// every command over -- so the host never reaches into `infra::migrate` /
-/// `infra::runtime` itself.
+/// `infra::daemon_pty_api` itself.
 pub async fn test_ctx() -> shared::Result<Ctx> {
-    use crate::infra::runtime::FakeRuntime;
-
     let pool = migrate::open_memory().await?;
     let kv = SqliteKv::new(pool.clone());
-    let runtime = Arc::new(FakeRuntime::new());
+    let runtime = Runtime::Fake(Arc::new(FakeRuntime::new()));
     Ok(Ctx::new(
         pool,
         kv,
@@ -109,16 +107,13 @@ mod tests {
     // in build_bus is trivially thin; each piece is tested independently.
 
     async fn memory_ctx() -> Ctx {
-        use crate::infra::migrate;
-        use crate::infra::runtime::FakeRuntime;
-
         let pool = migrate::open_memory().await.unwrap();
         let kv = SqliteKv::new(pool.clone());
         Ctx::new(
             pool,
             kv,
             PathBuf::from("/tmp/tillerd-boot-test"),
-            Arc::new(FakeRuntime::new()),
+            Runtime::Fake(Arc::new(FakeRuntime::new())),
         )
     }
 

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::context::Ctx;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
-use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
 
 pub(crate) async fn ctx() -> Ctx {
@@ -13,6 +13,6 @@ pub(crate) async fn ctx() -> Ctx {
         pool,
         kv,
         PathBuf::from("/tmp"),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     )
 }
