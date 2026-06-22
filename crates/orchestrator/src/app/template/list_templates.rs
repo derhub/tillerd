@@ -18,7 +18,7 @@ impl Query<Ctx> for ListTemplates {
         let index = TemplateIndex::load(cx.fs_root()).await?;
         let mut entries = index.entries.clone();
         // stable sort: pinned DESC, then original insertion order
-        entries.sort_by(|a, b| b.pinned.cmp(&a.pinned));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.pinned));
         let mut templates = Vec::with_capacity(entries.len());
         for entry in &entries {
             templates.push(load_template_view(cx.fs_root(), entry).await?);

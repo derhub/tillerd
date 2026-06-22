@@ -34,7 +34,7 @@ mod tests {
     async fn pin_command_sets_pinned_true_and_list_returns_it_first() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
-            id: crate::entities::command::CommandId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             name: "unpinned".to_owned(),
             cli: "/a".to_owned(),
             args: vec![],
@@ -43,7 +43,7 @@ mod tests {
         .await
         .unwrap();
         bus.execute(NewCommand {
-            id: crate::entities::command::CommandId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             name: "to-pin".to_owned(),
             cli: "/b".to_owned(),
             args: vec![],

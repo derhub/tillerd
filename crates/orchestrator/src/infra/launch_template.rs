@@ -116,7 +116,7 @@ mod tests {
 
     fn new_tmpl(project_id: &str) -> LaunchTemplate {
         LaunchTemplate {
-            id: LaunchTemplateId::mint(),
+            id: LaunchTemplateId::from_string(uuid::Uuid::new_v4().to_string()),
             project_id: ProjectId::new(project_id),
             spec_version: 1,
             spec_json: r#"{"items":[]}"#.to_owned(),
@@ -181,7 +181,7 @@ mod tests {
     async fn update_nonexistent_returns_not_found_error() {
         let pool = memory_pool().await;
         let fake = LaunchTemplate {
-            id: LaunchTemplateId::mint(),
+            id: LaunchTemplateId::from_string(uuid::Uuid::new_v4().to_string()),
             project_id: ProjectId::new(UNFILED),
             spec_version: 1,
             spec_json: "{}".to_owned(),
@@ -209,7 +209,7 @@ mod tests {
     #[tokio::test]
     async fn delete_nonexistent_returns_not_found_error() {
         let pool = memory_pool().await;
-        let id = LaunchTemplateId::mint();
+        let id = LaunchTemplateId::from_string(uuid::Uuid::new_v4().to_string());
         let err = LaunchTemplateRepo::delete(&pool, &id).await.unwrap_err();
         assert_eq!(err.code(), "launch_template.not_found");
     }

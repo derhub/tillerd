@@ -9,19 +9,6 @@ pub enum SettingScope {
     Project(ProjectId),
 }
 
-impl SettingScope {
-    /// The `(scope, project_id)` column pair for the `setting` table. Global uses an
-    /// empty `project_id` sentinel -- never NULL -- so the composite primary key
-    /// `(scope, project_id, key)` stays unique and upsert works (SQLite treats NULLs
-    /// as distinct, which would defeat both).
-    pub fn columns(&self) -> (&'static str, &str) {
-        match self {
-            SettingScope::Global => ("global", ""),
-            SettingScope::Project(id) => ("project", id.as_str()),
-        }
-    }
-}
-
 /// A stored setting: its key and JSON-encoded value.
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct SettingEntry {

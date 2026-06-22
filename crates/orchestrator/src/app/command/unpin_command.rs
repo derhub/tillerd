@@ -48,7 +48,7 @@ mod tests {
         );
         let bus = Bus::new(cx);
         bus.execute(NewCommand {
-            id: crate::entities::command::CommandId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             name: "pinned".to_owned(),
             cli: "/x".to_owned(),
             args: vec![],

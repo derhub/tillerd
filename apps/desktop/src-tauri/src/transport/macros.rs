@@ -34,6 +34,7 @@ macro_rules! transport_command {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -53,6 +54,7 @@ macro_rules! transport_query {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -80,6 +82,7 @@ macro_rules! transport_create {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -156,11 +159,30 @@ macro_rules! collect_transport {
             $crate::transport::domain::project_delete,
             $crate::transport::domain::project_reorder,
             $crate::transport::domain::project_move,
+            $crate::transport::domain::project_get,
+            $crate::transport::domain::project_search,
+            $crate::transport::domain::project_restore,
+            $crate::transport::domain::project_duplicate,
+            $crate::transport::domain::project_pin,
+            $crate::transport::domain::project_unpin,
+            $crate::transport::domain::project_stop_surfaces,
             $crate::transport::domain::workspace_create,
             $crate::transport::domain::workspace_list,
             $crate::transport::domain::workspace_rename,
             $crate::transport::domain::workspace_reorder,
             $crate::transport::domain::workspace_delete,
+            $crate::transport::domain::workspace_get,
+            $crate::transport::domain::workspace_archive,
+            $crate::transport::domain::workspace_restore,
+            $crate::transport::domain::workspace_pin,
+            $crate::transport::domain::workspace_unpin,
+            $crate::transport::domain::workspace_stop_surfaces,
+            $crate::transport::domain::surface_get,
+            $crate::transport::domain::surface_list_by_session,
+            $crate::transport::domain::surface_list_resumable,
+            $crate::transport::domain::surface_find_by_placement,
+            $crate::transport::domain::surface_stop,
+            $crate::transport::domain::surface_reconcile,
             $crate::transport::domain::session_list,
             $crate::transport::domain::session_create,
             $crate::transport::domain::session_rename,
@@ -169,16 +191,85 @@ macro_rules! collect_transport {
             $crate::transport::domain::session_reorder,
             $crate::transport::domain::session_layout_set,
             $crate::transport::domain::session_layout_get,
+            $crate::transport::domain::session_get,
+            $crate::transport::domain::session_list_all,
+            $crate::transport::domain::session_get_launch_spec,
+            $crate::transport::domain::session_search,
+            $crate::transport::domain::session_launch,
+            $crate::transport::domain::session_apply_launch_spec,
+            $crate::transport::domain::session_move,
+            $crate::transport::domain::session_duplicate,
+            $crate::transport::domain::session_pin,
+            $crate::transport::domain::session_unpin,
+            $crate::transport::domain::session_restore,
+            $crate::transport::domain::session_stop_surfaces,
             $crate::transport::domain::command_list,
             $crate::transport::domain::command_create,
             $crate::transport::domain::command_get,
             $crate::transport::domain::command_delete,
-            // -- settings (non-mechanical: scope parse + JSON value<->string) --
+            $crate::transport::domain::command_rename,
+            $crate::transport::domain::command_edit,
+            $crate::transport::domain::command_pin,
+            $crate::transport::domain::command_unpin,
+            $crate::transport::domain::command_duplicate,
+            $crate::transport::domain::command_seed,
+            // -- settings: scope-sensitive (scope+projectId parse, value<->string) --
             $crate::settings_host::setting_get,
             $crate::settings_host::setting_set,
             $crate::settings_host::setting_list,
+            $crate::settings_host::setting_reset,
+            $crate::settings_host::setting_resolve,
+            $crate::settings_host::settings_resolve,
+            // -- settings: profiles --
+            $crate::transport::domain::profile_get_active,
+            $crate::transport::domain::profile_list,
+            $crate::transport::domain::profile_create,
+            $crate::transport::domain::profile_activate,
+            $crate::transport::domain::profile_rename,
+            $crate::transport::domain::profile_duplicate,
+            $crate::transport::domain::profile_discard,
+            $crate::transport::domain::profile_export,
+            $crate::transport::domain::profile_import,
+            // -- settings: themes --
+            $crate::transport::domain::theme_get_active,
+            $crate::transport::domain::theme_list,
+            $crate::transport::domain::theme_activate,
+            $crate::transport::domain::theme_discard,
+            $crate::transport::domain::theme_export,
+            $crate::transport::domain::theme_import,
+            // -- settings: keybindings --
+            $crate::transport::domain::keybinding_list,
+            $crate::transport::domain::keybinding_rebind,
+            $crate::transport::domain::keybinding_reset,
+            $crate::transport::domain::keybinding_reset_all,
+            $crate::transport::domain::keybinding_resolve,
+            // -- settings: config --
+            $crate::transport::domain::config_reload,
             // -- notifications (fixed-page query beside the notification sink) --
             $crate::notification_host::notifications_list,
+            $crate::transport::domain::notification_list_unread,
+            $crate::transport::domain::notification_count_unread,
+            $crate::transport::domain::notification_mark_read,
+            $crate::transport::domain::notification_mark_all_read,
+            $crate::transport::domain::notification_disregard,
+            $crate::transport::domain::notification_disregard_all,
+            $crate::transport::domain::notification_snooze,
+            $crate::transport::domain::notification_prune,
+            $crate::transport::domain::notification_record,
+            // -- template: launch templates (project-bound) --
+            $crate::transport::domain::launch_template_create,
+            $crate::transport::domain::launch_template_list,
+            $crate::transport::domain::launch_template_get,
+            $crate::transport::domain::launch_template_discard,
+            $crate::transport::domain::launch_template_apply_spec,
+            // -- template: portable library --
+            $crate::transport::domain::template_list,
+            $crate::transport::domain::template_get,
+            $crate::transport::domain::template_import,
+            $crate::transport::domain::template_export,
+            $crate::transport::domain::template_discard,
+            $crate::transport::domain::template_pin,
+            $crate::transport::domain::template_unpin,
         ]
     };
 }

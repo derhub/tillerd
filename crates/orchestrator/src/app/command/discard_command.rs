@@ -68,7 +68,7 @@ mod tests {
     async fn discard_command_removes_it_from_list() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
-            id: crate::entities::command::CommandId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             name: "to-discard".to_owned(),
             cli: "/bin/gone".to_owned(),
             args: vec![],

@@ -43,4 +43,4 @@ Builds on task 4 (kind already dropped from `SpawnRequest`). Mechanical + type-d
 
 ## 10. Verify gate
 
-- [~] 10.1 Fix-all: orchestrator crate green (`cargo test -p tillerd-orchestrator` 432 passed; format + types pass). Full-workspace `bun run verify` is blocked by pre-existing `standardize-event-dispatch` WIP (desktop host `transport/sink.rs` references the un-migrated `SurfaceEventSink`/`SurfaceId` port — red at branch HEAD before this change). Branch-wide clippy (37 pre-existing WIP errors) and `bun run e2e` deferred to the desktop-migration follow-up. `entities-app-or-infra-only`/`infra-only-in-app` ast-grep counts: confirm + flip-to-`error` decision deferred to that follow-up.
+- [x] 10.1 Fix-all: `bun run verify` green (format, types, clippy, orchestrator 437 + desktop 55 + all crates); `sg scan`/`sg test` green (0 `entities-app-or-infra-only`/`infra-only-in-app` violations). The desktop-host `SurfaceEventSink`→`SurfaceEvents` migration landed alongside. `bun run e2e` deferred to CI (needs bundle). Flip of the `*-only-in-app` rules to `error` left as a follow-up.

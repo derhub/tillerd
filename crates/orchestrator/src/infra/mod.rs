@@ -14,10 +14,8 @@ pub mod surface_repo;
 pub mod workspace;
 
 pub use command::CommandRepo;
-pub use config::{KeybindingStore, ProfileStore, SettingStore, ThemeStore};
 pub use launch_template::LaunchTemplateRepo;
 pub use notification::NotificationRepo;
 pub use project::ProjectRepo;
-pub use session::SessionRepo;
 pub use surface_repo::SurfaceRepo;
 pub use workspace::WorkspaceRepo;

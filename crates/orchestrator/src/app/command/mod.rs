@@ -25,7 +25,6 @@ pub mod unpin_command;
 #[cfg(test)]
 pub(crate) mod test_util;
 
-pub use crate::entities::command::CommandId;
 pub use discard_command::DiscardCommand;
 pub use duplicate_command::DuplicateCommand;
 pub use edit_command::EditCommand;

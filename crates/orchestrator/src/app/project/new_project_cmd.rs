@@ -12,7 +12,7 @@ use super::common::infer_name;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewProjectCmd {
-    pub id: ProjectId,
+    pub id: String,
     pub source_kind: String,
     pub root_path: Option<String>,
     pub name: Option<String>,
@@ -33,7 +33,7 @@ impl Command<Ctx> for NewProjectCmd {
         };
         let name = infer_name(self.name.as_deref(), self.root_path.as_deref());
         let project = Project::new(
-            self.id.clone(),
+            ProjectId::new(&self.id),
             workspace_id,
             &name,
             source_kind,
@@ -55,7 +55,7 @@ mod tests {
     async fn new_project_creates_project_in_workspace() {
         let (_ctx, bus) = ctx().await;
         bus.execute(NewProjectCmd {
-            id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
+            id: uuid::Uuid::new_v4().to_string(),
             source_kind: "blank".to_owned(),
             root_path: None,
             name: Some("Alpha".to_owned()),
@@ -83,7 +83,7 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .execute(NewProjectCmd {
-                id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
+                id: uuid::Uuid::new_v4().to_string(),
                 source_kind: "blank".to_owned(),
                 root_path: None,
                 name: Some("Beta".to_owned()),
@@ -98,7 +98,7 @@ mod tests {
     async fn new_project_trims_name_whitespace() {
         let (_ctx, bus) = ctx().await;
         bus.execute(NewProjectCmd {
-            id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
+            id: uuid::Uuid::new_v4().to_string(),
             source_kind: "blank".to_owned(),
             root_path: None,
             name: Some("  Gamma  ".to_owned()),

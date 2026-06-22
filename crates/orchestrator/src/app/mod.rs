@@ -9,4 +9,5 @@ pub mod project;
 pub mod session;
 pub mod settings;
 pub mod surface;
+pub mod template;
 pub mod workspace;

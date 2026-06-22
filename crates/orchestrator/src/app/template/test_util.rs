@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 use crate::context::Ctx;
+use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
-use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
 use crate::shared::Bus;
 
@@ -16,7 +16,7 @@ pub(crate) async fn ctx(dir: &TempDir) -> (Ctx, Bus<Ctx>) {
         pool,
         kv,
         dir.path().to_path_buf(),
-        Arc::new(FakeRuntime::new()),
+        Runtime::Fake(Arc::new(FakeRuntime::new())),
     );
     let bus = Bus::new(cx.clone());
     (cx, bus)

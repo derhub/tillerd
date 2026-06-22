@@ -49,12 +49,7 @@ mod tests {
         .unwrap();
 
         let before = bus.query(ListTemplates).await.unwrap();
-        let beta_id = before
-            .iter()
-            .find(|t| t.name == "beta")
-            .unwrap()
-            .id
-            .clone();
+        let beta_id = before.iter().find(|t| t.name == "beta").unwrap().id.clone();
 
         bus.execute(PinTemplate { id: beta_id }).await.unwrap();
 

@@ -53,7 +53,7 @@ mod tests {
     async fn edit_command_updates_cli_args_env_and_returns_nothing() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
-            id: crate::entities::command::CommandId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             name: "editable".to_owned(),
             cli: "/old".to_owned(),
             args: vec![],

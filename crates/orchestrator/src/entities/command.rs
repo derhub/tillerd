@@ -4,8 +4,6 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::shared::{Error, Result};
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
 pub struct CommandId(String);
@@ -54,15 +52,6 @@ pub struct Command {
 }
 
 impl Command {
-    /// Guard: reject rename, edit, or discard on a Prebuilt command.
-    pub fn guard_not_prebuilt(&self) -> Result<()> {
-        if self.origin == CommandOrigin::Prebuilt {
-            Err(Error::PrebuiltImmutable { kind: "command" })
-        } else {
-            Ok(())
-        }
-    }
-
     /// Rename the command. Trims whitespace.
     pub fn rename(&mut self, name: &str) {
         self.name = name.trim().to_owned();
@@ -83,25 +72,6 @@ mod tests {
             env: HashMap::new(),
             pinned: false,
         }
-    }
-
-    fn prebuilt_command(id: &str) -> Command {
-        Command {
-            origin: CommandOrigin::Prebuilt,
-            ..custom_command(id)
-        }
-    }
-
-    #[test]
-    fn guard_not_prebuilt_allows_custom_command() {
-        let cmd = custom_command("cmd-1");
-        assert!(cmd.guard_not_prebuilt().is_ok());
-    }
-
-    #[test]
-    fn guard_not_prebuilt_rejects_prebuilt_command() {
-        let cmd = prebuilt_command("cmd-1");
-        assert!(cmd.guard_not_prebuilt().is_err());
     }
 
     #[test]

@@ -9,10 +9,6 @@ use super::project::ProjectId;
 pub struct LaunchTemplateId(String);
 
 impl LaunchTemplateId {
-    pub fn mint() -> Self {
-        Self(uuid::Uuid::new_v4().to_string())
-    }
-
     pub fn from_string(id: impl Into<String>) -> Self {
         Self(id.into())
     }

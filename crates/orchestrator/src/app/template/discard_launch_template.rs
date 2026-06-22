@@ -35,7 +35,7 @@ mod tests {
         let (_cx, bus) = ctx(&dir).await;
 
         bus.execute(NewLaunchTemplateCmd {
-            id: crate::entities::LaunchTemplateId::mint(),
+            id: uuid::Uuid::new_v4().to_string(),
             project_id: UNFILED.to_owned(),
             spec_version: 1,
             spec_json: "{}".to_owned(),
@@ -58,10 +58,7 @@ mod tests {
             .await
             .unwrap();
 
-        let got = bus
-            .query(GetLaunchTemplateById { id })
-            .await
-            .unwrap();
+        let got = bus.query(GetLaunchTemplateById { id }).await.unwrap();
         assert!(got.is_none());
     }
 
@@ -72,7 +69,7 @@ mod tests {
 
         let err = bus
             .execute(DiscardLaunchTemplate {
-                id: LaunchTemplateId::mint().as_str().to_owned(),
+                id: uuid::Uuid::new_v4().to_string(),
             })
             .await
             .unwrap_err();

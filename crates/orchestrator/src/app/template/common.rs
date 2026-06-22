@@ -5,7 +5,9 @@ use crate::entities::template::TemplateId;
 use crate::shared::{self, Error, Result};
 
 pub(super) fn template_bundle_path(fs_root: &std::path::Path, id: &TemplateId) -> PathBuf {
-    fs_root.join("templates").join(format!("{}.json", id.as_str()))
+    fs_root
+        .join("templates")
+        .join(format!("{}.json", id.as_str()))
 }
 
 pub(super) fn index_path(fs_root: &std::path::Path) -> PathBuf {
@@ -71,7 +73,11 @@ pub(super) async fn load_template_view(
     })
 }
 
-pub(super) async fn set_pinned(cx: &crate::context::Ctx, id: &TemplateId, pinned: bool) -> Result<()> {
+pub(super) async fn set_pinned(
+    cx: &crate::context::Ctx,
+    id: &TemplateId,
+    pinned: bool,
+) -> Result<()> {
     let mut index = TemplateIndex::load(cx.fs_root()).await?;
     let entry = index
         .entries

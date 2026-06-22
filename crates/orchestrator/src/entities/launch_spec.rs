@@ -114,13 +114,6 @@ impl LaunchSpec {
     }
 }
 
-pub fn instantiate_for_session(blob: &str) -> Result<String> {
-    let mut spec = parse_spec(blob)?;
-    spec.mint_placements();
-    spec.ensure_unique_placements()?;
-    serde_json::to_string(&spec).map_err(|e| Error::LaunchSpecInvalid(e.to_string()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,12 +217,5 @@ mod tests {
         let blob = r#"{"version":1,"items":[{"target":"terminal","placement":"a","command":{"library_ref":"s"}},{"target":"terminal","placement":"b","command":{"library_ref":"s"}}]}"#;
         let spec = parse_spec(blob).unwrap();
         assert!(spec.ensure_unique_placements().is_ok());
-    }
-
-    #[test]
-    fn instantiate_for_session_mints_a_placement_per_item() {
-        let minted = instantiate_for_session(v1_blob_with_items()).unwrap();
-        let spec = parse_spec(&minted).unwrap();
-        assert!(spec.items.iter().all(|i| i.placement.is_some()));
     }
 }

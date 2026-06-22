@@ -12,16 +12,7 @@ pub mod surface;
 pub mod template;
 pub mod workspace;
 
-pub use command::{Command, CommandId, CommandOrigin};
-pub use launch_spec::{
-    instantiate_for_session, migrate, parse_spec, CommandRef, LaunchItem, LaunchSpec,
-    CURRENT_SPEC_VERSION,
-};
 pub use launch_template::{LaunchTemplate, LaunchTemplateId};
-pub use notification::NotificationRecord;
-pub use project::{Project, ProjectId, ProjectStatus, SourceKind};
-pub use session::{Session, SessionId, SessionStatus, TitleSource};
-pub use setting::{SettingEntry, SettingScope};
+pub use project::ProjectId;
 pub use surface::{Surface, SurfaceId, SurfaceKind, SurfaceStatus};
-pub use template::{Template, TemplateId, TemplateOrigin};
-pub use workspace::{Workspace, WorkspaceId, WorkspaceStatus};
+pub use workspace::WorkspaceId;

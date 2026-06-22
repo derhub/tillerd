@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::project::ProjectId;
-use crate::shared::{Error, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(transparent)]
@@ -58,15 +57,6 @@ pub enum SessionStatus {
     Archived,
 }
 
-impl SessionStatus {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            SessionStatus::Active => "active",
-            SessionStatus::Archived => "archived",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Session {
     pub id: SessionId,
@@ -87,37 +77,6 @@ impl Session {
     pub fn rename(&mut self, title: &str) {
         self.title = title.trim().to_owned();
         self.title_source = TitleSource::Custom;
-    }
-
-    /// Guard: session must be Archived before hard-delete.
-    pub fn guard_archived(&self) -> Result<()> {
-        if self.status != SessionStatus::Archived {
-            Err(Error::SessionNotArchived)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Guard: session must be Active to archive.
-    pub fn guard_active(&self) -> Result<()> {
-        if self.status == SessionStatus::Archived {
-            Err(Error::SessionAlreadyArchived)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Archive-requires-idle guard. `live_surface_count` is the number of surfaces
-    /// in `SurfaceStatus::Live` for this session, supplied by the caller (no I/O here).
-    pub fn guard_idle(&self, live_surface_count: usize) -> Result<()> {
-        if live_surface_count > 0 {
-            Err(Error::SessionNotIdle(format!(
-                "session {} has {live_surface_count} live surface(s)",
-                self.id.as_str()
-            )))
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -161,47 +120,5 @@ mod tests {
         assert_eq!(s.title_source, TitleSource::Branch);
         s.rename("override");
         assert_eq!(s.title_source, TitleSource::Custom);
-    }
-
-    #[test]
-    fn guard_idle_allows_session_with_no_live_surfaces() {
-        let s = active_session("s-1");
-        assert!(s.guard_idle(0).is_ok());
-    }
-
-    #[test]
-    fn guard_idle_rejects_session_with_live_surfaces() {
-        let s = active_session("s-1");
-        assert!(s.guard_idle(2).is_err());
-    }
-
-    #[test]
-    fn guard_archived_allows_archived_session() {
-        let s = Session {
-            status: SessionStatus::Archived,
-            ..active_session("s-1")
-        };
-        assert!(s.guard_archived().is_ok());
-    }
-
-    #[test]
-    fn guard_archived_rejects_active_session() {
-        let s = active_session("s-1");
-        assert!(s.guard_archived().is_err());
-    }
-
-    #[test]
-    fn guard_active_allows_active_session() {
-        let s = active_session("s-1");
-        assert!(s.guard_active().is_ok());
-    }
-
-    #[test]
-    fn guard_active_rejects_already_archived_session() {
-        let s = Session {
-            status: SessionStatus::Archived,
-            ..active_session("s-1")
-        };
-        assert!(s.guard_active().is_err());
     }
 }

@@ -194,6 +194,22 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "project_move",
             serde_json::json!({ "id": "contract", "workspaceId": "contract" }),
         ),
+        ("project_get", serde_json::json!({ "id": "contract" })),
+        (
+            "project_search",
+            serde_json::json!({ "workspaceId": "contract", "query": "x", "limit": 10 }),
+        ),
+        ("project_restore", serde_json::json!({ "id": "contract" })),
+        (
+            "project_duplicate",
+            serde_json::json!({ "sourceId": "contract", "name": "copy" }),
+        ),
+        ("project_pin", serde_json::json!({ "id": "contract" })),
+        ("project_unpin", serde_json::json!({ "id": "contract" })),
+        (
+            "project_stop_surfaces",
+            serde_json::json!({ "id": "contract" }),
+        ),
         (
             "workspace_create",
             serde_json::json!({ "name": "contract" }),
@@ -208,6 +224,27 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "id": "contract", "sortOrder": 0 }),
         ),
         ("workspace_delete", serde_json::json!({ "id": "contract" })),
+        ("workspace_get", serde_json::json!({ "id": "contract" })),
+        ("workspace_archive", serde_json::json!({ "id": "contract" })),
+        ("workspace_restore", serde_json::json!({ "id": "contract" })),
+        ("workspace_pin", serde_json::json!({ "id": "contract" })),
+        ("workspace_unpin", serde_json::json!({ "id": "contract" })),
+        (
+            "workspace_stop_surfaces",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        ("surface_get", serde_json::json!({ "id": "contract" })),
+        (
+            "surface_list_by_session",
+            serde_json::json!({ "session": "contract", "limit": null, "offset": null, "after": null }),
+        ),
+        ("surface_list_resumable", serde_json::json!({})),
+        (
+            "surface_find_by_placement",
+            serde_json::json!({ "session": "contract", "placement": "main" }),
+        ),
+        ("surface_stop", serde_json::json!({ "id": "contract" })),
+        ("surface_reconcile", serde_json::json!({})),
         ("session_list", serde_json::json!({ "projectId": null })),
         (
             "session_create",
@@ -231,6 +268,33 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "session_layout_get",
             serde_json::json!({ "id": "contract" }),
         ),
+        ("session_get", serde_json::json!({ "id": "contract" })),
+        (
+            "session_list_all",
+            serde_json::json!({ "limit": null, "offset": null, "after": null }),
+        ),
+        (
+            "session_get_launch_spec",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        ("session_search", serde_json::json!({ "query": "contract" })),
+        ("session_launch", serde_json::json!({ "id": "contract" })),
+        (
+            "session_apply_launch_spec",
+            serde_json::json!({ "id": "contract", "specVersion": 1, "specJson": "{\"version\":1,\"items\":[]}" }),
+        ),
+        (
+            "session_move",
+            serde_json::json!({ "id": "contract", "targetProjectId": "contract" }),
+        ),
+        ("session_duplicate", serde_json::json!({ "id": "contract" })),
+        ("session_pin", serde_json::json!({ "id": "contract" })),
+        ("session_unpin", serde_json::json!({ "id": "contract" })),
+        ("session_restore", serde_json::json!({ "id": "contract" })),
+        (
+            "session_stop_surfaces",
+            serde_json::json!({ "id": "contract" }),
+        ),
         ("command_list", serde_json::json!({})),
         (
             "command_create",
@@ -238,6 +302,58 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         ("command_get", serde_json::json!({ "id": "contract" })),
         ("command_delete", serde_json::json!({ "id": "contract" })),
+        (
+            "command_rename",
+            serde_json::json!({ "id": "contract", "name": "x" }),
+        ),
+        (
+            "command_edit",
+            serde_json::json!({ "id": "contract", "cli": "/x", "args": [], "env": {} }),
+        ),
+        ("command_pin", serde_json::json!({ "id": "contract" })),
+        ("command_unpin", serde_json::json!({ "id": "contract" })),
+        (
+            "command_duplicate",
+            serde_json::json!({ "id": "contract", "name": "copy" }),
+        ),
+        ("command_seed", serde_json::json!({})),
+        (
+            "notification_list_unread",
+            serde_json::json!({ "limit": null, "offset": null, "after": null }),
+        ),
+        ("notification_count_unread", serde_json::json!({})),
+        (
+            "notification_mark_read",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        ("notification_mark_all_read", serde_json::json!({})),
+        (
+            "notification_disregard",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        ("notification_disregard_all", serde_json::json!({})),
+        (
+            "notification_snooze",
+            serde_json::json!({ "id": "contract", "snoozeUntil": null }),
+        ),
+        ("notification_prune", serde_json::json!({ "keep": 100 })),
+        (
+            "notification_record",
+            serde_json::json!({
+                "id": "contract",
+                "category": "test",
+                "severity": "info",
+                "title": null,
+                "message": "msg",
+                "detail": null,
+                "ts": 0,
+                "sessionId": null,
+                "surfaceId": null,
+                "actionsJson": null,
+                "read": false,
+                "snoozeUntil": null
+            }),
+        ),
         (
             "setting_get",
             serde_json::json!({ "scope": "global", "projectId": null, "key": "contract" }),
@@ -250,11 +366,109 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "setting_list",
             serde_json::json!({ "scope": "global", "projectId": null }),
         ),
+        (
+            "setting_reset",
+            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract" }),
+        ),
+        (
+            "setting_resolve",
+            serde_json::json!({ "projectId": "contract", "key": "contract" }),
+        ),
+        (
+            "settings_resolve",
+            serde_json::json!({ "projectId": "contract" }),
+        ),
+        ("profile_get_active", serde_json::json!({})),
+        ("profile_list", serde_json::json!({})),
+        (
+            "profile_create",
+            serde_json::json!({ "id": "contract", "name": "Contract" }),
+        ),
+        ("profile_activate", serde_json::json!({ "id": "contract" })),
+        (
+            "profile_rename",
+            serde_json::json!({ "id": "contract", "newName": "Renamed" }),
+        ),
+        (
+            "profile_duplicate",
+            serde_json::json!({ "sourceId": "contract", "newId": "contract-copy", "newName": "Copy" }),
+        ),
+        ("profile_discard", serde_json::json!({ "id": "contract" })),
+        ("profile_export", serde_json::json!({ "id": "contract" })),
+        (
+            "profile_import",
+            serde_json::json!({ "profileJson": "{\"id\":\"x\",\"name\":\"X\",\"settings\":{}}" }),
+        ),
+        ("theme_get_active", serde_json::json!({})),
+        ("theme_list", serde_json::json!({})),
+        ("theme_activate", serde_json::json!({ "id": "contract" })),
+        ("theme_discard", serde_json::json!({ "id": "contract" })),
+        ("theme_export", serde_json::json!({ "id": "contract" })),
+        (
+            "theme_import",
+            serde_json::json!({ "id": "contract", "name": "Contract", "origin": "custom", "dataJson": null }),
+        ),
+        (
+            "keybinding_list",
+            serde_json::json!({ "defaultsJson": "{}" }),
+        ),
+        (
+            "keybinding_rebind",
+            serde_json::json!({ "action": "rename", "chord": "ctrl+r", "defaultsJson": "{}" }),
+        ),
+        (
+            "keybinding_reset",
+            serde_json::json!({ "action": "rename", "defaultsJson": "{}" }),
+        ),
+        (
+            "keybinding_reset_all",
+            serde_json::json!({ "defaultsJson": "{}" }),
+        ),
+        (
+            "keybinding_resolve",
+            serde_json::json!({ "action": "rename", "defaultsJson": "{}" }),
+        ),
+        ("config_reload", serde_json::json!({})),
         ("notifications_list", serde_json::json!({})),
         (
             "command_center_set_leader",
             serde_json::json!({ "accelerator": "CmdOrCtrl+K" }),
         ),
+        // -- template: launch templates --
+        (
+            "launch_template_create",
+            serde_json::json!({ "projectId": "contract", "specVersion": 1, "specJson": "{}" }),
+        ),
+        (
+            "launch_template_list",
+            serde_json::json!({ "projectId": "contract" }),
+        ),
+        (
+            "launch_template_get",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        (
+            "launch_template_discard",
+            serde_json::json!({ "id": "contract" }),
+        ),
+        (
+            "launch_template_apply_spec",
+            serde_json::json!({ "id": "contract", "specVersion": 1, "specJson": "{}" }),
+        ),
+        // -- template: portable library --
+        ("template_list", serde_json::json!({})),
+        ("template_get", serde_json::json!({ "id": "contract" })),
+        (
+            "template_import",
+            serde_json::json!({ "name": "contract", "specVersion": 1, "specJson": "{}" }),
+        ),
+        (
+            "template_export",
+            serde_json::json!({ "id": "contract", "destPath": "/tmp/contract.json" }),
+        ),
+        ("template_discard", serde_json::json!({ "id": "contract" })),
+        ("template_pin", serde_json::json!({ "id": "contract" })),
+        ("template_unpin", serde_json::json!({ "id": "contract" })),
     ];
 
     for (cmd, body) in cases {
