@@ -58,9 +58,10 @@ where required). Cross-entity cascades SHALL live in the parent's command.
 A generic `Bus<Cx>` SHALL be the single dispatch point, exposing `execute<C: Command<Cx>>` and
 `query<Q: Query<Cx>>` (static dispatch); it carries cross-cutting telemetry but SHALL NOT own a
 transaction. The context `Ctx` SHALL hold only real resources (the `SqlitePool`, the `SqliteKv`, the
-config root, and the runtime port), expose the pool (`db()`), the runtime port, and an opt-in
-`transaction(|tx| …)` helper, and SHALL NOT hold a pre-built repository aggregate. The composition root
-(`boot`) SHALL build `Ctx` and `Bus<Ctx>` and inject the bus.
+config root, and a `Runtime` enum `{ Daemon(DaemonPtyApi), Fake(FakeRuntime) }`), expose the pool
+(`db()`), the runtime (`runtime()`), and an opt-in `transaction(|tx| …)` helper, and SHALL NOT hold a
+pre-built repository aggregate. The composition root (`boot`) SHALL build `Ctx` and `Bus<Ctx>` and inject
+the bus.
 
 #### Scenario: An operation is dispatched through the bus
 
@@ -79,7 +80,7 @@ A command SHALL open a transaction **only when it spans multiple writes**, via `
 which SHALL commit on `Ok` and **explicitly, awaited-roll-back on `Err`** (not left to the transaction's
 `Drop`); a failed rollback SHALL be logged while the original error propagates. A single-statement
 command SHALL use the pool directly (one statement is atomic). A runtime-only or side-effecting command
-(e.g. surface input/resize, or a spawn that drives the runtime port) SHALL NOT be wrapped in a database
+(e.g. surface input/resize, or a spawn that drives the runtime) SHALL NOT be wrapped in a database
 transaction. Repository methods SHALL take a sqlx executor (a pool reference or a transaction reference),
 so the same method serves both a direct call and a transactional one. A command SHALL NOT re-dispatch
 through the bus (which would nest transactions). A query SHALL be read-only and use no transaction.
@@ -105,15 +106,15 @@ through the bus (which would nest transactions). A query SHALL be read-only and 
 #### Scenario: Surface input/resize/attach are an I/O channel, not commands
 
 - **WHEN** input, resize, or attach (connect the proxy stream) is sent to a surface
-- **THEN** it goes host -> an `app` direct function -> the `SurfaceRuntime` port, skipping the **bus** (no
-  command object, no telemetry) but still through `app` (the host never calls infra directly); and no
-  span, event, or metric captures the input payload. (`detach` is a regular bus command.)
+- **THEN** it goes host -> an `app` direct function -> `Runtime`/`DaemonPtyApi` methods, skipping the
+  **bus** (no command object, no telemetry) but still through `app` (the host never calls infra directly);
+  and no span, event, or metric captures the input payload. (`detach` is a regular bus command.)
 
 ### Requirement: Side effects run outside the transaction; intent is persisted and reconciled
 
 A command with an external side effect (spawn a PTY, launch a process, a network call) SHALL NOT run that
 effect inside a database transaction. It SHALL: (1) persist the desired state in a short, committed write
-(e.g. a surface at status `pending`); (2) run the effect lock-free via the runtime port; (3) record the
+(e.g. a surface at status `pending`); (2) run the effect lock-free via the runtime; (3) record the
 outcome in a second short write (`live`/`failed`); and (4) rely on a boot reconciler (`ReconcileSurfaces`)
 to converge actual runtime state to the persisted desired state on boot and after failures. The reconciler
 SHALL enumerate live daemon PTYs (via the daemon `List` frame) and converge -- desired-but-not-running ->

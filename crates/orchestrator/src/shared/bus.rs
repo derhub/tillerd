@@ -6,13 +6,57 @@
 //!
 //! Surface input/resize/attach never pass through the bus, so no keystroke
 //! payload is ever captured by a span or event here.
+//!
+//! `Broadcast<S: ?Sized>` is the companion fan-out primitive used by the event
+//! dispatch layer (`events/`). It is separate from `Bus`: it carries no context,
+//! no telemetry, and no CQS contract -- it is only a thread-safe subscriber list
+//! with synchronous, borrow-and-forward iteration.
 
 use std::error::Error as _;
+use std::sync::{Arc, RwLock};
 
 use tracing::Instrument;
 
 use crate::shared::message::{Command, Query};
 use crate::shared::{Error, Result};
+
+// -- fan-out primitive -------------------------------------------------------
+
+/// Thread-safe, synchronous 1:N event fan-out.
+///
+/// Each domain in `events/` pairs a borrowed-enum event type with a sink trait
+/// and a `Broadcast<dyn SinkTrait>` instance that fans out to every subscriber.
+/// `subscribe` registers an `Arc<S>` sink; `dispatch` iterates the list and
+/// calls a closure over each, forwarding the borrowed event payload zero-copy.
+pub struct Broadcast<S: ?Sized> {
+    subs: RwLock<Vec<Arc<S>>>,
+}
+
+impl<S: ?Sized> Default for Broadcast<S> {
+    fn default() -> Self {
+        Self {
+            subs: RwLock::new(Vec::new()),
+        }
+    }
+}
+
+impl<S: ?Sized> Broadcast<S> {
+    /// Register a subscriber. Subscribers are called in registration order.
+    pub fn subscribe(&self, sink: Arc<S>) {
+        self.subs
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(sink);
+    }
+
+    /// Synchronously call `f` for every registered subscriber. No-op when the
+    /// list is empty; the read lock is held for the full iteration.
+    pub fn dispatch(&self, f: impl Fn(&S)) {
+        for s in self.subs.read().unwrap_or_else(|e| e.into_inner()).iter() {
+            f(&**s);
+        }
+    }
+}
 
 /// Dispatches commands and queries over a shared context, carrying only the
 /// cross-cutting telemetry. External I/O lives off the bus (the runtime port and
@@ -73,6 +117,49 @@ mod tests {
     use tracing_subscriber::Layer;
 
     use super::*;
+
+    // -- Broadcast tests -----------------------------------------------------
+
+    trait Counter: Send + Sync {
+        fn increment(&self);
+    }
+
+    #[test]
+    fn broadcast_dispatch_calls_all_subscribers_in_subscribe_order() {
+        let bc: Broadcast<dyn Counter> = Broadcast::default();
+        let order: Arc<Mutex<Vec<u32>>> = Arc::new(Mutex::new(Vec::new()));
+
+        for id in 0u32..3 {
+            let order = Arc::clone(&order);
+            // Use a concrete struct that captures `id` and records it.
+            struct Rec {
+                id: u32,
+                order: Arc<Mutex<Vec<u32>>>,
+            }
+            impl Counter for Rec {
+                fn increment(&self) {
+                    self.order.lock().unwrap().push(self.id);
+                }
+            }
+            bc.subscribe(Arc::new(Rec {
+                id,
+                order: Arc::clone(&order),
+            }));
+        }
+
+        bc.dispatch(|s| s.increment());
+
+        assert_eq!(*order.lock().unwrap(), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn broadcast_dispatch_with_no_subscribers_is_a_noop() {
+        let bc: Broadcast<dyn Counter> = Broadcast::default();
+        // Must not panic and must not call anything (nothing to call).
+        bc.dispatch(|s| s.increment());
+    }
+
+    // -- Bus tests -----------------------------------------------------------
 
     struct Out;
     impl Command<()> for Out {

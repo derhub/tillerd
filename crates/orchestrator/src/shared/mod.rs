@@ -10,7 +10,7 @@ pub mod kv;
 pub mod message;
 pub mod pagination;
 
-pub use bus::Bus;
+pub use bus::{Broadcast, Bus};
 pub use errors::{Error, Result};
 pub use message::{Command, Query};
 pub use pagination::{Listing, Page};

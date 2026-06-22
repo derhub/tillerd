@@ -65,6 +65,12 @@ impl Ctx {
         &self.runtime
     }
 
+    /// The `Arc` wrapping the surface runtime, for callers that need a cloneable
+    /// handle (e.g. the output pump spawned at boot).
+    pub fn runtime_arc(&self) -> &Arc<Runtime> {
+        &self.runtime
+    }
+
     /// Opt-in unit of work for a command that spans multiple writes. Begins a
     /// transaction, runs `f`, then commits on `Ok` or explicitly awaits a rollback
     /// on `Err` -- the caller's error is returned unchanged; a rollback failure is

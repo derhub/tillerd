@@ -8,8 +8,9 @@ directories, hardcodes guards/cascades), added one-line `store/` wrappers and a 
 and kept a 1119-line `MemoryBackend` test double duplicating the domain rules. The slug-tree turns a
 rename into a directory move + collision scan + subtree reindex.
 
-ADR-0023 (workspace data model) is honored at the model level; its slug-tree representation is revised. A
-new ADR supersedes ADR-0035.
+ADR-0023 (workspace data model) is honored at the model level; its slug-tree representation is revised.
+ADR-0035 is superseded by ADR-0036 (de-abstracted storage), ADR-0038 (infra raw API / app owns domain),
+and ADR-0037 (zero-copy event dispatch).
 
 ## Goals
 
@@ -138,21 +139,21 @@ entity logic directly.
 
 ### D5 -- `Ctx` is lazy; `boot/` wires everything
 
-`Ctx` holds only real resources -- the `SqlitePool`, the `SqliteKv`, the config root, and the runtime
-port (`Arc<dyn SurfaceRuntime>`). It exposes the pool (`cx.db()`) for queries/single-statement commands,
-the runtime port (`cx.runtime()`), and an opt-in `cx.transaction(|tx| …)` helper (commit on `Ok`,
-explicit awaited rollback on `Err`) for commands that span multiple writes. Repos are unit structs whose
-methods take whatever executor they are handed (`cx.db()` or `&mut *tx`), so `Ctx` keeps no pre-built
-repo aggregate and nothing is bound to a single connection. `Ctx` is cheap to clone and `Send + Sync`, so it survives
-`.await` and Tauri's `manage`. `boot/` (the composition root) opens the pool, constructs `Ctx` and the
-`Bus<Ctx>`, and injects the bus into hosts and internals.
+`Ctx` holds only real resources -- the `SqlitePool`, the `SqliteKv`, the config root, and a `Runtime`
+enum `{ Daemon(DaemonPtyApi), Fake(FakeRuntime) }` (static dispatch; no trait). It exposes the pool
+(`cx.db()`) for queries/single-statement commands, the runtime (`cx.runtime()`), and an opt-in
+`cx.transaction(|tx| …)` helper (commit on `Ok`, explicit awaited rollback on `Err`) for commands that
+span multiple writes. Repos are unit structs whose methods take whatever executor they are handed
+(`cx.db()` or `&mut *tx`), so `Ctx` keeps no pre-built repo aggregate and nothing is bound to a single
+connection. `Ctx` is cheap to clone and `Send + Sync`, so it survives `.await` and Tauri's `manage`.
+`boot/` (the composition root) opens the pool, constructs `Ctx` and the `Bus<Ctx>`, and injects the bus
+into hosts and internals.
 
 Dependency injection is plain constructor injection from this single composition root -- no globals, no
-service locator, no DI framework. Storage and config stay **concrete** because their real
-implementations are cheap to stand up in tests (`:memory:` `SqlitePool`, a tempdir for `fs`), so they
-need no trait purely for mocking. Traits-and-`dyn` are reserved for genuine side-effecting **ports**
-(process launcher, session activator, clock) that cannot be cheaply instantiated -- those are injected as
-`Arc<dyn Port>` with a test double.
+service locator, no DI framework. Storage, config, and the runtime all stay **concrete**: real impls are
+cheap to stand up in tests (`:memory:` `SqlitePool`, a tempdir for `fs`, `FakeRuntime`), so no trait is
+needed purely for mocking. The `Runtime` enum replaces the former `Arc<dyn SurfaceRuntime>` port;
+`FakeRuntime` is the test double variant.
 
 ### D6 -- User-config is file-based; callers migrate; IPC frozen
 
@@ -251,20 +252,21 @@ crates/orchestrator/src/
     workspace.rs project.rs session.rs surface.rs        per-entity async sqlx repos
     command.rs launch_template.rs notification.rs
     migrations/             sqlx schema for the domain tables
-    runtime/                surface runtime adapter behind a SurfaceRuntime port — PTY proxies +
-                            daemon socket transport (moved from surface/runtime.rs + surface/transport.rs);
-                            exposes the daemon `List` frame (for ReconcileSurfaces) and `Stop` (StopSurface,
-                            keep record) vs `Kill` (CloseSurface, delete record) — both already in the daemon
-                            protocol but not yet in the client; pushes output to a SurfaceEventSink port
-                            (tauri impl = per-surface ipc::Channel)
-  context.rs                Ctx { db, kv, fs_root, runtime } — exposes db() / runtime() / transaction(|tx|…)
+    daemon_pty_api/         concrete `DaemonPtyApi` — PTY proxies + daemon socket transport (moved from
+                            surface/runtime.rs + surface/transport.rs); exposes the daemon `List` frame
+                            (for ReconcileSurfaces) and `Stop` (StopSurface, keep record) vs `Kill`
+                            (CloseSurface, delete record); raw source exposing `recv() -> Option<SurfaceOutput>`
+                            (owned primitive frames, no sink held); `FakeRuntime` is the test-double variant
+  context.rs                Ctx { db, kv, fs_root, runtime: Runtime } — exposes db() / runtime() /
+                            transaction(|tx|…); Runtime enum { Daemon(DaemonPtyApi), Fake(FakeRuntime) }
+                            (static dispatch, no trait)
                             (top-level: app references it, boot builds it — avoids an app↔boot cycle)
   app/                      CQS command/query objects — PURE, transport-agnostic (no transport derive)
     workspace.rs project.rs session.rs surface.rs settings.rs
                             surface.rs: SpawnSurface/CloseSurface (persist via repo + drive SurfaceRuntime port)
   boot.rs                   build_bus(cfg) -> Bus<Ctx>  (builds the core; NO tauri wiring here)
   ── surface/ and launch/ dirs are REMOVED, contents redistributed:
-       surface/api.rs → app surface commands · surface/runtime.rs + surface/transport.rs → infra/runtime
+       surface/api.rs → app surface commands · surface/runtime.rs + surface/transport.rs → infra/daemon_pty_api
        launch/executor.rs → app command (over the port) · launch/spec.rs → entities/launch_spec.rs
   ── DELETED: store/ (whole dir), infra Backend enum, infra/memory backend,
        infra/fs/ (whole dir — the slug-tree machinery: slug/index/cache/atomic_io + per-entity fs stores),
@@ -333,10 +335,11 @@ impl WorkspaceRepo {
 ```
 ```rust
 // context.rs — holds resources; exposes the pool + an opt-in transaction helper
-pub struct Ctx { db: SqlitePool, kv: SqliteKv, fs_root: PathBuf, runtime: Arc<dyn SurfaceRuntime> }
+pub struct Ctx { db: SqlitePool, kv: SqliteKv, fs_root: PathBuf, runtime: Runtime }
+// Runtime enum { Daemon(DaemonPtyApi), Fake(FakeRuntime) } — static dispatch, no trait
 impl Ctx {
     pub fn db(&self) -> &SqlitePool { &self.db }
-    pub fn runtime(&self) -> &dyn SurfaceRuntime { &*self.runtime }
+    pub fn runtime(&self) -> &Runtime { &self.runtime }
     // opt-in unit of work: commit on Ok, explicit awaited rollback on Err
     pub async fn transaction<T>(&self, f: impl AsyncFnOnce(&mut SqliteTx<'_>) -> Result<T>) -> Result<T> {
         let mut tx = self.db.begin().await?;
@@ -403,7 +406,7 @@ impl Query<Ctx> for GetWorkspaceById {
 // orchestrator/boot.rs — builds the transport-agnostic core; NO tauri here
 pub async fn build_bus(cfg: &Config) -> Result<Bus<Ctx>> {
     let pool = SqlitePool::connect(&cfg.db_url).await?;
-    let runtime = Arc::new(DaemonRuntime::connect(&cfg.socket).await?);   // infra runtime adapter
+    let runtime = Runtime::Daemon(DaemonPtyApi::connect(&cfg.socket).await?);  // infra runtime
     Ok(Bus::new(Ctx { db: pool.clone(), kv: SqliteKv::new(pool), fs_root: cfg.fs_root.clone(), runtime }))
 }
 ```
@@ -596,8 +599,9 @@ implementation, added for completeness.
 The word "attach/detach" names three different things; keep them separate:
 - **process** (running vs killed): `SpawnSurface` / `StopSurface` -- domain + runtime.
 - **proxy stream** (orchestrator bridging the daemon PTY vs not): `attach` connects the stream -- an
-  `app` direct fn -> infra port, skipping the bus (no command object); `DetachSurface` drops it and is a
-  regular bus command. Either way the PTY keeps running; this is the proxy, not the process.
+  `app` direct fn that calls `Runtime`/`DaemonPtyApi` methods, skipping the bus (no command object);
+  `DetachSurface` drops it and is a regular bus command. Either way the PTY keeps running; this is the
+  proxy, not the process.
 - **window placement** (surface popped into its own OS window vs the parent's panel tree): **UI/chrome**,
   persisted in the frontend-local store (`pref`/`StoreState`), **not** an orchestrator command. The
   session's logical panel tree (splits/tabs) stays domain (`ArrangePanels`); which OS window renders it
@@ -609,14 +613,14 @@ Every surface op still goes through `app/` (the host never reaches `infra` direc
 whether it goes through the **bus**:
 - **bus -> `app` command -> infra** (persist + coordinate, CQS command objects): `SpawnSurface`,
   `StopSurface`, `CloseSurface`, `Stop{Session,Project,Workspace}Surfaces`, `ResumeAllSurfaces`.
-- **`app` direct function -> infra `SurfaceRuntime` port, skipping the bus** (pure pass-through, no
+- **`app` direct function -> `Runtime`/`DaemonPtyApi` methods, skipping the bus** (pure pass-through, no
   persistence, no rule): `input`, `resize`, `attach` (connect proxy stream). These are plain `app`
   functions the host calls directly -- **not** CQS command objects, so no `bus.execute`, no command
-  object, no per-keystroke span/telemetry -- that forward to the runtime port. (`detach` is a regular bus
+  object, no per-keystroke span/telemetry -- that forward to the runtime. (`detach` is a regular bus
   command -- it's a deliberate, infrequent op, fine to dispatch and log.)
 
 So `input`/`resize`/`attach` are **not** CQS commands and do not go through the bus, but they stay inside
-`app/` for layering. They are the `SurfaceRuntime` **I/O channel**: a thin, high-frequency pass-through
+`app/` for layering. They are the runtime **I/O channel**: a thin, high-frequency pass-through
 (renderer -> `app` -> orchestrator proxy -> daemon -> PTY). Reasons:
 - **Performance** -- a tracing span + command object per keystroke is absurd overhead.
 - **Security/privacy** -- the bus logs every operation; **keystrokes must never be logged** (a typed
@@ -628,24 +632,25 @@ So `input`/`resize`/`attach` are **not** CQS commands and do not go through the 
 
 Input cannot be UI-only (the PTY lives in the daemon), but it is a runtime stream, not a domain command.
 
-**The client never holds `SurfaceRuntime`; it holds a stream handle.** Two seams:
-- **Output (PTY -> renderer):** the runtime pushes frames to a `SurfaceEventSink` port (defined in
-  `infra`, pushed by the runtime adapter). The **tauri layer implements the sink** by writing to a
-  per-surface `tauri::ipc::Channel<Vec<u8>>` -- the renderer creates the Channel and registers it
-  (a thin tauri command at spawn/attach, keyed by `surface_id`); status/exit go out as tauri events.
-  Channels are Tauri's ordered, low-overhead Rust->JS stream. A future web transport implements the same
-  `SurfaceEventSink` with SSE/WebSocket -- same seam.
-- **Input/resize (renderer -> PTY):** thin tauri commands that write straight to the `SurfaceRuntime`
-  port, **bypassing the CQS bus** (no command object, no telemetry, never logged).
+**The client never holds a runtime handle; it holds a stream handle.** Two axes:
+- **Output (PTY -> renderer):** the runtime is a raw source; `app/surface::SurfaceStream` pulls each
+  frame via `recv() -> Option<SurfaceOutput>`, borrows its payload into a `SurfaceEvent<'_>` (defined in
+  `pub(crate) mod events`, re-exported by `app`), and fans out 1:N through
+  `shared::bus::Broadcast<dyn SurfaceSink>`. The **tauri layer subscribes a `SurfaceSink` closure** that
+  writes to a per-surface `tauri::ipc::Channel<Vec<u8>>` -- the renderer creates the Channel and
+  registers it (keyed by `surface_id`); status/exit go out as tauri events. A future web transport
+  subscribes its own `SurfaceSink` (SSE/WebSocket) without changing the pump or the event contract.
+- **Input/resize (renderer -> PTY):** thin tauri commands that call `Runtime`/`DaemonPtyApi` methods,
+  **bypassing the CQS bus** (no command object, no telemetry, never logged).
 
-So `SurfaceRuntime` and the daemon socket stay server-side; the renderer's only handles are a `Channel`
-(output) plus the input/resize endpoints.
+The daemon socket stays server-side; the renderer's only handles are a `Channel` (output) plus the
+input/resize endpoints.
 
 **Starting the stream = register a `Channel` + `AttachSurface`.** The renderer registers a per-surface
-`Channel`, then `AttachSurface` (io) subscribes the proxy to the daemon PTY and binds it to that Channel;
-the call returns fast and output frames then flow asynchronously through the Channel (via the
-`SurfaceEventSink`). Without a registered Channel there is nowhere to stream. `DetachSurface` (bus
-command) tears the proxy down -- the Channel goes quiet while the PTY keeps running.
+`Channel`, then `AttachSurface` (io) starts the `SurfaceStream` pump for that surface, which begins
+pulling frames and fanning them to the registered sink. The call returns fast; frames flow asynchronously.
+Without a registered sink there is nowhere to stream. `DetachSurface` (bus command) tears the proxy down
+-- the Channel goes quiet while the PTY keeps running.
 
 ### Out of CQS scope (host/shell, not orchestrator domain)
 

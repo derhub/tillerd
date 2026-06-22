@@ -6,6 +6,15 @@
 //!
 //! External I/O (process, fs, network streams) is not a message kind -- it lives off
 //! the bus as the runtime port plus its sink, addressed by primitive id.
+//!
+//! # Borrowed-event sink convention
+//!
+//! Per-domain event streams follow a parallel, complementary contract: each domain
+//! in `events/` defines a `borrowed enum Event<'a>` (plain built-in payload types
+//! only) and a `trait Sink { fn emit(&self, id: &str, event: &Event<'_>) }`.
+//! `Broadcast<dyn Sink>` (in `shared::bus`) fans the call out to every subscriber
+//! synchronously, forwarding the borrowed payload zero-copy. Subscribers may
+//! borrow, copy, or clone -- the choice is theirs alone.
 
 use crate::shared::Result;
 

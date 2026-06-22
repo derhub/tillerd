@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::app::surface::{SurfaceSink, SurfaceStream};
 use crate::context::Ctx;
 use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime};
 use crate::infra::migrate;
 use crate::shared;
-use crate::shared::bus::Bus;
+use crate::shared::bus::{Broadcast, Bus};
 use crate::shared::kv::SqliteKv;
 
 // -- build_bus -----------------------------------------------------------------
@@ -22,29 +23,9 @@ pub struct Config {
     /// Directory where rolling `*.log` files are written. Sub-directory `logs/`
     /// is created automatically by the tracing initializer.
     pub log_dir: PathBuf,
-    /// Output port that receives PTY bytes, status, and exit frames from the
-    /// daemon. The tauri transport implements this with a per-surface `ipc::Channel`.
-    pub sink: Arc<dyn crate::app::surface::SurfaceEvents>,
-}
-
-/// Bridges the host-facing [`SurfaceEvents`](crate::app::surface::SurfaceEvents)
-/// port (primitive ids) to the internal runtime sink (surface-id newtype), keeping
-/// the infra adapter off the host's import surface.
-struct SinkAdapter(Arc<dyn crate::app::surface::SurfaceEvents>);
-
-impl crate::infra::daemon_pty_api::SurfaceEventSink for SinkAdapter {
-    fn on_bytes(&self, surface: &crate::entities::SurfaceId, bytes: &[u8]) {
-        self.0.on_bytes(surface.as_str(), bytes);
-    }
-    fn on_status(&self, surface: &crate::entities::SurfaceId, status: &str) {
-        self.0.on_status(surface.as_str(), status);
-    }
-    fn on_exit(&self, surface: &crate::entities::SurfaceId, qualifier: &str) {
-        self.0.on_exit(surface.as_str(), qualifier);
-    }
-    fn on_error(&self, surface: &crate::entities::SurfaceId, reason: &str) {
-        self.0.on_error(surface.as_str(), reason);
-    }
+    /// Surface output sink. The tauri transport implements this with a per-surface
+    /// `ipc::Channel` registry. Receives PTY bytes, status, and exit frames.
+    pub sink: Arc<dyn SurfaceSink>,
 }
 
 // Keeps the non-blocking log writer's worker thread alive for the process lifetime.
@@ -71,9 +52,24 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
 
     let pool = migrate::open_file(&cfg.db_path).await?;
     let kv = SqliteKv::new(pool.clone());
-    let sink = Arc::new(SinkAdapter(cfg.sink.clone()));
-    let runtime = Runtime::Daemon(DaemonPtyApi::new(sink, cfg.socket.clone()));
+
+    let fanout: Arc<Broadcast<dyn SurfaceSink>> = Arc::default();
+    fanout.subscribe(cfg.sink.clone());
+
+    let runtime = Runtime::Daemon(DaemonPtyApi::new(cfg.socket.clone()));
     let ctx = Ctx::new(pool, kv, cfg.fs_root.clone(), runtime);
+    // `Ctx` wraps the runtime in `Arc` internally; clone out the same `Arc` so
+    // the pump shares the same instance without an extra allocation.
+    let runtime_arc = Arc::clone(ctx.runtime_arc());
+
+    tokio::spawn(
+        SurfaceStream {
+            runtime: runtime_arc,
+            fanout,
+        }
+        .run(),
+    );
+
     Ok(Bus::new(ctx))
 }
 
@@ -137,10 +133,8 @@ mod tests {
     }
 
     struct NoopSink;
-    impl crate::app::surface::SurfaceEvents for NoopSink {
-        fn on_bytes(&self, _: &str, _: &[u8]) {}
-        fn on_status(&self, _: &str, _: &str) {}
-        fn on_exit(&self, _: &str, _: &str) {}
+    impl crate::app::surface::SurfaceSink for NoopSink {
+        fn emit(&self, _surface: &str, _event: &crate::app::surface::SurfaceEvent<'_>) {}
     }
 
     #[tokio::test]

@@ -15,7 +15,7 @@
 //! converges the runtime to match on boot -- without attaching any stream.
 
 mod common;
-mod events;
+pub(crate) mod stream;
 mod view;
 
 pub mod close_surface;
@@ -46,8 +46,8 @@ pub use view::SurfaceView;
 pub use common::{attach_surface, resize_surface, send_surface_input};
 
 // -- app-owned boundary edges ------------------------------------------------
-// The host's tauri transport implements the surface output port (`SurfaceEvents`)
-// and drives the off-bus I/O channel. Both speak primitive surface ids, so the
-// host never reaches the domain newtype or the infra adapter; `boot` bridges this
-// port to the internal runtime sink.
-pub use events::SurfaceEvents;
+// The host's tauri transport implements `SurfaceSink` and registers it via
+// `boot::Config.sink`. Both speak primitive surface ids, so the host never
+// reaches the domain newtype or the infra layer.
+pub use crate::events::surface::{SurfaceEvent, SurfaceSink};
+pub use stream::SurfaceStream;

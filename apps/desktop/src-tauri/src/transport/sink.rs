@@ -1,8 +1,7 @@
-//! The tauri implementation of the surface output port. The runtime pushes
-//! PTY bytes, status, and lifecycle to a `SurfaceEvents`; here that sink writes
-//! each surface's bytes to a per-surface `tauri::ipc::Channel<Vec<u8>>` the renderer
-//! registers, and forwards status/exit/error as tauri events. A future web transport
-//! implements the same port with SSE/WebSocket.
+//! The tauri implementation of the surface output sink. Bytes for each surface are
+//! written to a per-surface `tauri::ipc::Channel<Vec<u8>>` the renderer registers;
+//! status/exit/error are forwarded as tauri events. A future web transport
+//! implements the same `SurfaceSink` port with SSE/WebSocket.
 //!
 //! Keystroke input never flows through this sink -- it carries daemon -> renderer
 //! output only (see the off-bus input endpoints), so no payload is ever logged here.
@@ -10,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use orchestrator::app::surface::SurfaceEvents;
+use orchestrator::app::surface::{SurfaceEvent, SurfaceSink};
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The per-surface output channels, keyed by surface id. The renderer creates a
@@ -41,34 +40,35 @@ impl<R: Runtime> ChannelSink<R> {
     }
 }
 
-impl<R: Runtime> SurfaceEvents for ChannelSink<R> {
-    fn on_bytes(&self, surface: &str, bytes: &[u8]) {
-        deliver(&self.channels, surface, bytes);
-    }
-
-    fn on_status(&self, surface: &str, status: &str) {
-        let _ = self.app.emit(
-            STATUS_EVENT,
-            serde_json::json!({ "surfaceId": surface, "status": status }),
-        );
-    }
-
-    fn on_exit(&self, surface: &str, qualifier: &str) {
-        let _ = self.app.emit(
-            EXIT_EVENT,
-            serde_json::json!({ "surfaceId": surface, "qualifier": qualifier }),
-        );
-        self.channels
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .remove(surface);
-    }
-
-    fn on_error(&self, surface: &str, reason: &str) {
-        let _ = self.app.emit(
-            ERROR_EVENT,
-            serde_json::json!({ "surfaceId": surface, "reason": reason }),
-        );
+impl<R: Runtime> SurfaceSink for ChannelSink<R> {
+    fn emit(&self, surface: &str, event: &SurfaceEvent<'_>) {
+        match event {
+            SurfaceEvent::Bytes(bytes) => {
+                deliver(&self.channels, surface, bytes);
+            }
+            SurfaceEvent::Status(status) => {
+                let _ = self.app.emit(
+                    STATUS_EVENT,
+                    serde_json::json!({ "surfaceId": surface, "status": status }),
+                );
+            }
+            SurfaceEvent::Exit(qualifier) => {
+                let _ = self.app.emit(
+                    EXIT_EVENT,
+                    serde_json::json!({ "surfaceId": surface, "qualifier": qualifier }),
+                );
+                self.channels
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(surface);
+            }
+            SurfaceEvent::Error(reason) => {
+                let _ = self.app.emit(
+                    ERROR_EVENT,
+                    serde_json::json!({ "surfaceId": surface, "reason": reason }),
+                );
+            }
+        }
     }
 }
 

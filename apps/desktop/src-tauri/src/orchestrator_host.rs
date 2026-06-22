@@ -180,7 +180,7 @@ fn boot_config(sink: Arc<ChannelSink<tauri::Wry>>) -> Config {
         socket: daemon_socket(),
         fs_root: data_root().join("config"),
         log_dir: runtime_dir(),
-        sink,
+        sink: sink as Arc<dyn orchestrator::app::surface::SurfaceSink>,
     }
 }
 

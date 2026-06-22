@@ -45,20 +45,21 @@ Daemon-to-host streams use a synchronous, zero-copy, borrow-and-forward dispatch
   call site. An observing/forwarding layer preserves the borrow and adds no copy. Cross-domain middleware
   operates on the key/envelope; payload-aware middleware is per-domain.
 
-- **Generic in `shared`, typed event in `app`.** The domain-free pieces live next to their CQS
-  siblings: `Broadcast<S>` (fan-out transport) in `shared/bus.rs`, the borrowed-event sink
-  contract/convention in `shared/message.rs`. The typed `SurfaceEvent<'a>` + `SurfaceSink` are a
-  host-facing read DTO like `SurfaceView`, so they live in `app/surface/events.rs`. Because `app` may
-  import `infra`, the bridge that constructs the typed event lives in `app`/`boot`; the infra daemon
-  never names `SurfaceEvent` — it keeps calling its primitive output port, and the bridge wraps the
-  borrowed slice into the event (same borrow, zero-copy) before fanning out. Placing the event in
-  `shared` is unnecessary (the bridge constructs it in `app`); placing it in `infra` would hide it from
-  the host (`infra` is `pub(crate)`).
+- **Generic in `shared`, typed event in `events/`.** The domain-free pieces live next to their CQS
+  siblings: `Broadcast<S>` (fan-out transport) in `shared/bus.rs`, the borrowed-event sink convention in
+  `shared/message.rs`. The typed `SurfaceEvent<'a>` + `SurfaceSink` are the host-facing transport
+  contract (plain built-ins), so they live in a `pub(crate) mod events` (`events/surface.rs`), re-exported
+  by `app` exactly as `SurfaceView` is. `events/` is internal like `entities/`/`infra/` but holds only
+  primitives, enforced by the `**/events/**` rule. The host imports `orchestrator::app::…` only.
 
-- **Surface output is the first instance.** The host-facing port becomes a `SurfaceSink` consuming a
-  borrowed `SurfaceEvent<'_>` (`Bytes`/`Status`/`Exit`/`Error`) with an `app`-side `Broadcast` fan-out;
-  the infra `SurfaceEventSink` primitive port and the daemon read loop are unchanged, and the existing
-  `SinkAdapter` is repurposed as the bridge that builds the event.
+- **Surface output is the first instance — a pull source, app owns the dispatch.** The infra runtime is a
+  dumb raw source: its proxy read loop puts each decoded frame (owned `SurfaceOutput`, primitives) on an
+  internal queue, exposed by `recv()`. It holds no sink and names no `events/` type. `app/surface::SurfaceStream`
+  is the pump: it pulls each frame, borrows the payload into a `SurfaceEvent<'_>`, and fans out through
+  `Broadcast<dyn SurfaceSink>`. The old infra `SurfaceEventSink` push port and `boot`'s `SinkAdapter` are
+  deleted; the host subscribes a `SurfaceSink` closure over primitives. Pull (not a push port) keeps the
+  loop and the translation in `app`, matching ADR-0038; zero-copy holds because the owned frame lives on
+  the pump's stack and the event borrows it for the synchronous fan-out, with no channel between infra and `app`.
 
 - **Backpressure is implicit.** Synchronous delivery means a slow subscriber slows the read loop, which
   slows draining the PTY socket — bounded by construction, no unbounded buffer, consistent with ADR-0007.

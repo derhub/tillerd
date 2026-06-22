@@ -4,9 +4,8 @@
 //!
 //! The `SurfaceRuntime` trait and its `Arc<dyn>` / boxed-future machinery are
 //! gone. The runtime owns the PTY proxies and the daemon transport; it does
-//! **no** persistence. Output and status flow out through [`SurfaceEventSink`];
-//! the app layer records status and reconciles desired rows against
-//! [`Runtime::list`].
+//! **no** persistence. Output is pulled via [`Runtime::recv`]; the app layer
+//! records status and reconciles desired rows against [`Runtime::list`].
 
 mod daemon;
 mod fake;
@@ -22,17 +21,22 @@ use std::sync::Arc;
 use crate::entities::SurfaceId;
 use crate::shared::Result;
 
-/// Destination for a surface's output stream. The runtime pushes PTY bytes,
-/// status transitions, and exit frames here; an implementor bridges them to a
-/// renderer (tauri `ipc::Channel`) or another transport. Sync, so it stays
-/// object-safe and adds no per-frame async overhead. Keystroke input never
-/// flows through here -- the sink carries daemon -> renderer output only.
-pub trait SurfaceEventSink: Send + Sync + 'static {
-    fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]);
-    fn on_status(&self, surface: &SurfaceId, status: &str);
-    fn on_exit(&self, surface: &SurfaceId, qualifier: &str);
-    /// A non-recoverable surface-level error after open.
-    fn on_error(&self, _surface: &SurfaceId, _reason: &str) {}
+// -- raw output types --------------------------------------------------------
+
+/// One decoded output frame from a surface PTY proxy. All payloads are owned
+/// so they can cross the mpsc channel boundary without a lifetime.
+pub enum Output {
+    Bytes(Vec<u8>),
+    Status(String),
+    Exit(String),
+    Error(String),
+}
+
+/// A decoded frame addressed to a specific surface.
+pub struct SurfaceOutput {
+    /// Primitive surface id (no entity newtype here -- infra stays plain).
+    pub surface: String,
+    pub output: Output,
 }
 
 /// A fully resolved launch command: a concrete executable, its arguments, and
@@ -122,6 +126,16 @@ impl Runtime {
         match self {
             Self::Daemon(r) => r.detach(surface).await,
             Self::Fake(r) => r.detach(surface).await,
+        }
+    }
+
+    /// Pull the next decoded output frame from any surface. Returns `None` when
+    /// the internal channel is closed (daemon variant: channel dropped; fake
+    /// variant: nothing enqueued).
+    pub async fn recv(&self) -> Option<SurfaceOutput> {
+        match self {
+            Self::Daemon(r) => r.recv().await,
+            Self::Fake(r) => r.recv().await,
         }
     }
 }

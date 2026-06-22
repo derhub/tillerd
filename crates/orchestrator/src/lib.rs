@@ -4,6 +4,7 @@ pub mod app;
 pub mod boot;
 pub mod context;
 mod entities;
+pub(crate) mod events;
 pub mod health;
 mod infra;
 pub mod shared;

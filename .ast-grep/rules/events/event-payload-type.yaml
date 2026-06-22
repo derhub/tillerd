@@ -1,0 +1,34 @@
+id: event-payload-type
+message: Event enum variant payloads must be plain built-in types (&str, &[u8],
+  String, integers, bool, char, or Option/Vec of those). Domain types in event
+  variants couple transport to the domain layer -- hold primitives here and let
+  the subscriber convert.
+severity: error
+language: Rust
+note: |
+  Keep event payloads as plain built-ins:
+
+    pub enum SurfaceEvent<'a> {
+        Bytes(&'a [u8]),      // ok -- plain slice reference
+        Status(&'a str),      // ok -- plain str borrow
+        Exit(&'a str),        // ok
+        Error(&'a str),       // ok
+    }
+
+  Not:
+
+    pub enum SurfaceEvent {
+        Open(SurfaceId),      // error -- domain newtype
+        Data(SurfaceOutput),  // error -- domain struct
+    }
+files:
+  - "**/events/**"
+rule:
+  kind: enum_variant
+  has:
+    kind: ordered_field_declaration_list
+    has:
+      kind: type_identifier
+      not:
+        regex: "^(String|Vec|Option|HashMap)$"
+      stopBy: end

@@ -1,6 +1,6 @@
 //! Daemon-socket implementation: owns the per-surface PTY proxies and the
-//! unix-socket transport. No persistence -- status flows out through the
-//! [`SurfaceEventSink`]; the app layer records it.
+//! unix-socket transport. No persistence -- decoded output frames are pushed
+//! onto an internal mpsc; the app layer pulls them via `recv()`.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -8,11 +8,11 @@ use std::sync::Arc;
 
 use contracts::SessionId as WireSessionId;
 use daemon_pty_client::{SessionFrame, SpawnParams};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tokio::task::JoinHandle;
 
 use super::transport::DaemonConnection;
-use super::{SpawnRequest, SurfaceEventSink};
+use super::{Output, SpawnRequest, SurfaceOutput};
 use crate::entities::SurfaceId;
 use crate::shared::{Error, Result};
 
@@ -41,24 +41,34 @@ struct ProxyCtx {
     surface: SurfaceId,
     wire: WireSessionId,
     conn: Arc<DaemonConnection>,
-    sink: Arc<dyn SurfaceEventSink>,
+    tx: mpsc::UnboundedSender<SurfaceOutput>,
     state: Arc<Mutex<ProxyState>>,
 }
 
-/// Drives PTYs in the daemon over a unix socket and proxies their output to a sink.
+/// Drives PTYs in the daemon over a unix socket and proxies their output as a
+/// raw pull source. Callers pull decoded frames via [`DaemonPtyApi::recv`].
 pub struct DaemonPtyApi {
-    sink: Arc<dyn SurfaceEventSink>,
+    tx: mpsc::UnboundedSender<SurfaceOutput>,
+    rx: Mutex<mpsc::UnboundedReceiver<SurfaceOutput>>,
     socket: PathBuf,
     proxies: Mutex<HashMap<SurfaceId, TerminalProxy>>,
 }
 
 impl DaemonPtyApi {
-    pub fn new(sink: Arc<dyn SurfaceEventSink>, socket: PathBuf) -> Self {
+    pub fn new(socket: PathBuf) -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
         Self {
-            sink,
+            tx,
+            rx: Mutex::new(rx),
             socket,
             proxies: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Pull the next decoded output frame. Returns `None` when all senders are
+    /// dropped (i.e. all proxy tasks have exited).
+    pub async fn recv(&self) -> Option<SurfaceOutput> {
+        self.rx.lock().await.recv().await
     }
 
     pub async fn proxy_count(&self) -> usize {
@@ -287,7 +297,7 @@ impl DaemonPtyApi {
             surface,
             wire,
             conn,
-            sink: self.sink.clone(),
+            tx: self.tx.clone(),
             state,
         }
     }
@@ -328,6 +338,15 @@ async fn read_loop(ctx: ProxyCtx, mut rx: tokio::sync::mpsc::Receiver<SessionFra
     }
 }
 
+fn send(ctx: &ProxyCtx, output: Output) {
+    // A send error means the receiver (app pump) has dropped; ignore silently --
+    // the proxy task will exit on the next frame when the channel is closed.
+    let _ = ctx.tx.send(SurfaceOutput {
+        surface: ctx.surface.as_str().to_owned(),
+        output,
+    });
+}
+
 async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
     match frame {
         SessionFrame::SpawnAck { .. } => {
@@ -348,21 +367,21 @@ async fn handle_frame(ctx: &ProxyCtx, frame: SessionFrame) -> bool {
             true
         }
         SessionFrame::Data { bytes, .. } => {
-            ctx.sink.on_bytes(&ctx.surface, &bytes);
+            send(ctx, Output::Bytes(bytes.clone()));
             let _ = ctx.conn.ack(&ctx.wire, bytes.len() as i64).await;
             true
         }
         SessionFrame::Status { status, .. } => {
-            ctx.sink.on_status(&ctx.surface, &status);
+            send(ctx, Output::Status(status));
             true
         }
         SessionFrame::Exit { qualifier, .. } => {
-            ctx.sink.on_exit(&ctx.surface, &qualifier);
+            send(ctx, Output::Exit(qualifier));
             *ctx.state.lock().await = ProxyState::Closed;
             false
         }
         SessionFrame::Error { message, .. } => {
-            ctx.sink.on_error(&ctx.surface, &message);
+            send(ctx, Output::Error(message));
             true
         }
         SessionFrame::ListAck { .. }
@@ -387,29 +406,6 @@ mod tests {
     use tokio::net::{UnixListener, UnixStream};
 
     use crate::infra::daemon_pty_api::Geometry;
-
-    #[derive(Default)]
-    struct CollectingSink {
-        bytes: StdMutex<Vec<u8>>,
-        statuses: StdMutex<Vec<String>>,
-        exits: StdMutex<Vec<String>>,
-        errors: StdMutex<Vec<String>>,
-    }
-
-    impl SurfaceEventSink for CollectingSink {
-        fn on_bytes(&self, _surface: &SurfaceId, bytes: &[u8]) {
-            self.bytes.lock().unwrap().extend_from_slice(bytes);
-        }
-        fn on_status(&self, _surface: &SurfaceId, status: &str) {
-            self.statuses.lock().unwrap().push(status.to_string());
-        }
-        fn on_exit(&self, _surface: &SurfaceId, qualifier: &str) {
-            self.exits.lock().unwrap().push(qualifier.to_string());
-        }
-        fn on_error(&self, _surface: &SurfaceId, reason: &str) {
-            self.errors.lock().unwrap().push(reason.to_string());
-        }
-    }
 
     fn spawn_request(surface: &str) -> SpawnRequest {
         SpawnRequest {
@@ -448,9 +444,8 @@ mod tests {
         stream
     }
 
-    fn plain_runtime(sock: PathBuf) -> (DaemonPtyApi, Arc<CollectingSink>) {
-        let sink = Arc::new(CollectingSink::default());
-        (DaemonPtyApi::new(sink.clone(), sock), sink)
+    fn plain_runtime(sock: PathBuf) -> DaemonPtyApi {
+        DaemonPtyApi::new(sock)
     }
 
     #[tokio::test]
@@ -488,13 +483,24 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         });
 
-        let (runtime, sink) = plain_runtime(sock);
+        let runtime = plain_runtime(sock);
         runtime.spawn(spawn_request("surf-1")).await.expect("spawn");
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         assert_eq!(runtime.proxy_count().await, 1);
-        assert_eq!(&*sink.bytes.lock().unwrap(), b"hi");
-        assert_eq!(&*sink.statuses.lock().unwrap(), &["WORKING".to_string()]);
+
+        // Drain the channel to verify what was received.
+        let mut bytes_collected: Vec<u8> = Vec::new();
+        let mut statuses: Vec<String> = Vec::new();
+        while let Ok(frame) = runtime.rx.lock().await.try_recv() {
+            match frame.output {
+                Output::Bytes(b) => bytes_collected.extend(b),
+                Output::Status(s) => statuses.push(s),
+                _ => {}
+            }
+        }
+        assert_eq!(bytes_collected, b"hi");
+        assert_eq!(statuses, ["WORKING"]);
         daemon.abort();
     }
 
@@ -550,11 +556,7 @@ mod tests {
     }
 
     fn recording_runtime(sock: PathBuf) -> (DaemonPtyApi, Arc<StdMutex<Vec<String>>>) {
-        let sink = Arc::new(CollectingSink::default());
-        (
-            DaemonPtyApi::new(sink, sock),
-            Arc::new(StdMutex::new(Vec::new())),
-        )
+        (DaemonPtyApi::new(sock), Arc::new(StdMutex::new(Vec::new())))
     }
 
     async fn launched_runtime(
@@ -593,7 +595,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(30)).await;
         });
 
-        let (runtime, _sink) = plain_runtime(sock);
+        let runtime = plain_runtime(sock);
         let surface = SurfaceId::from_string("s");
         runtime.spawn(spawn_request("s")).await.expect("spawn");
         runtime
@@ -691,7 +693,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         });
 
-        let (runtime, _sink) = plain_runtime(sock);
+        let runtime = plain_runtime(sock);
         let ids = runtime.list().await.expect("list");
         assert_eq!(
             ids,

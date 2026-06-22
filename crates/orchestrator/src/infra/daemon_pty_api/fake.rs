@@ -6,7 +6,9 @@
 use std::collections::HashSet;
 use std::sync::Mutex;
 
-use super::SpawnRequest;
+use tokio::sync::mpsc;
+
+use super::{Output, SpawnRequest, SurfaceOutput};
 use crate::entities::SurfaceId;
 use crate::shared::{Error, Result};
 
@@ -39,15 +41,50 @@ struct State {
 /// An in-memory runtime fake. `spawn` marks a surface running; `stop`/`close` mark
 /// it not running; `list` returns the running set. `fail_spawn` makes the next
 /// `spawn` error (to drive the failed-spawn / reconcile path).
-#[derive(Default)]
+///
+/// `recv` pulls from an internal mpsc; tests enqueue frames via `enqueue_output`.
+/// When nothing is enqueued `recv` returns `None` immediately (the channel stays
+/// open, so the pump stops cleanly without spinning).
 pub struct FakeRuntime {
     state: Mutex<State>,
     fail_spawn: Mutex<bool>,
+    tx: mpsc::UnboundedSender<SurfaceOutput>,
+    // std::sync::Mutex because try_recv is sync.
+    rx: Mutex<mpsc::UnboundedReceiver<SurfaceOutput>>,
+}
+
+impl Default for FakeRuntime {
+    fn default() -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
+        Self {
+            state: Mutex::default(),
+            fail_spawn: Mutex::new(false),
+            tx,
+            rx: Mutex::new(rx),
+        }
+    }
 }
 
 impl FakeRuntime {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Enqueue a `SurfaceOutput` so a test can drive the pump without a daemon.
+    pub fn enqueue_output(&self, surface: impl Into<String>, output: Output) {
+        let _ = self.tx.send(SurfaceOutput {
+            surface: surface.into(),
+            output,
+        });
+    }
+
+    /// Pull the next enqueued frame, or `None` if nothing is pending.
+    pub async fn recv(&self) -> Option<SurfaceOutput> {
+        self.rx
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .try_recv()
+            .ok()
     }
 
     /// Make the next `spawn` fail (to exercise the failed-effect path).

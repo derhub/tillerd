@@ -6,25 +6,25 @@ TDD per package (spec scenario -> red -> green); the final fix-all verify gate i
 
 ## Phase 0 -- Foundation (unblocks everything; 0a first, then 0b+0c parallel)
 
-- [ ] **0a errors + macro** -- add the `tillerd-custom-macro` crate with the `ErrorCode` derive
+- [x] **0a errors + macro** -- add the `tillerd-custom-macro` crate with the `ErrorCode` derive
   (`#[error_code("…")]` -> `code()`, missing attr = compile error); `shared::Error` enum (`#[from]
   sqlx/io/serde`, `ERROR`-only, no level/category) + `Result` alias. *(blocks all)*
-- [ ] **0b schema** -- sqlx sqlite schema + migrations for every domain table (workspace/project/session/
+- [x] **0b schema** -- sqlx sqlite schema + migrations for every domain table (workspace/project/session/
   surface/command/launch_template/notification) with `parent_id`, `sort_order`, `pinned`, surface
   `status`, notification `read`/`snooze_until`, archive `status`; add `sqlx` 0.9 dep, drop `rusqlite`.
   *(blocks Phase 2)*
-- [ ] **0c entities** -- entity rules: guards (`is_default`/`is_unfiled`, **prebuilt-immutable**),
+- [x] **0c entities** -- entity rules: guards (`is_default`/`is_unfiled`, **prebuilt-immutable**),
   rename->`title_source`, cascade policy, **archive-requires-idle** predicate, `pinned`; move
   `launch/spec.rs` -> `entities/launch_spec.rs`. Pure unit tests. *(blocks Phase 3)*
 
 ## Phase 1 -- shared/ building blocks (parallel; after 0a)
 
-- [ ] **1a pagination** -- `Page { All, Offset, Cursor }` + `Listing<T>` + cursor tests
-- [ ] **1b kv** -- `Kv` trait + `SqliteKv` (sqlx) + `MemoryKv`; round-trip/TTL contract tests on both
-- [ ] **1c fs** -- atomic read/write/list/delete file utils + tests
-- [ ] **1d cqs + bus** -- `Command<Cx>`/`Query<Cx>` traits + `Bus<Cx>` (thin `execute<C>`/`query<Q>`,
+- [x] **1a pagination** -- `Page { All, Offset, Cursor }` + `Listing<T>` + cursor tests
+- [x] **1b kv** -- `Kv` trait + `SqliteKv` (sqlx) + `MemoryKv`; round-trip/TTL contract tests on both
+- [x] **1c fs** -- atomic read/write/list/delete file utils + tests
+- [x] **1d cqs + bus** -- `Command<Cx>`/`Query<Cx>` traits + `Bus<Cx>` (thin `execute<C>`/`query<Q>`,
   telemetry span/error event only, NO tx) + tests
-- [ ] **1e datetime** -- time helpers
+- [x] **1e datetime** -- time helpers
 
 ## Phase 2 -- infra/ per-entity repos + runtime (parallel; after 0b, 0c, 1a)
 
@@ -32,30 +32,31 @@ Each repo: typed async sqlx CRUD, **executor-passing** (`impl SqliteExecutor`), 
 pinned-first, owns `Row -> Entity`; `:memory:` tests (round-trip, parent filter, pagination, update,
 delete; a multi-repo call on one tx is atomic).
 
-- [ ] **2a** WorkspaceRepo   - [ ] **2b** ProjectRepo   - [ ] **2c** SessionRepo   - [ ] **2d** SurfaceRepo (+ status)
-- [ ] **2e** CommandRepo   - [ ] **2f** LaunchTemplateRepo   - [ ] **2g** NotificationRepo (read/snooze)
-- [ ] **2h runtime** -- `SurfaceRuntime` port + daemon adapter + `SurfaceEventSink` (from
-  `surface/runtime.rs` + `surface/transport.rs`) + an in-memory fake for tests; wire the daemon `List`
-  frame (for `ReconcileSurfaces`) and `Stop` (StopSurface, keep record) vs `Kill` (CloseSurface) into the
-  client -- both exist in the daemon protocol but not the current client
-- [ ] **2i config stores** -- `shared::fs`-backed settings/profile/theme/keybinding loaders
+- [x] **2a** WorkspaceRepo   - [x] **2b** ProjectRepo   - [x] **2c** SessionRepo   - [x] **2d** SurfaceRepo (+ status)
+- [x] **2e** CommandRepo   - [x] **2f** LaunchTemplateRepo   - [x] **2g** NotificationRepo (read/snooze)
+- [x] **2h runtime** -- concrete `DaemonPtyApi` in `infra/daemon_pty_api/` (from `surface/runtime.rs` +
+  `surface/transport.rs`) + `FakeRuntime` test double + `Runtime` enum `{ Daemon(DaemonPtyApi), Fake(FakeRuntime) }`;
+  raw source exposing `recv() -> Option<SurfaceOutput>` (pull dispatch; no sink held); wire the daemon
+  `List` frame (for `ReconcileSurfaces`) and `Stop` (StopSurface, keep record) vs `Kill` (CloseSurface)
+  into the client -- both exist in the daemon protocol but not the current client
+- [x] **2i config stores** -- `shared::fs`-backed settings/profile/theme/keybinding loaders
 
 ## Phase 3 -- app/ commands + queries (parallel per entity; after Phase 2, 1d, 0c)
 
-- [ ] **3a context** -- `src/context.rs`: `Ctx { pool, kv, fs_root, runtime }` + `db()`/`runtime()`/
+- [x] **3a context** -- `src/context.rs`: `Ctx { pool, kv, fs_root, runtime: Runtime }` + `db()`/`runtime()`/
   `transaction(|tx| …)` (commit / awaited rollback). *(do FIRST -- blocks 3b+)*
-- [ ] **3b** workspace ops (New/Rename/Reorder/Archive/Restore/StopWorkspaceSurfaces/Discard/Pin/Unpin; GetById/List)
-- [ ] **3c** project ops (New/Rename/Reorder/Move/Archive/Restore/StopProjectSurfaces/Duplicate/Discard/Pin/Unpin; GetById/ListByWorkspace/Search; archive cascade)
-- [ ] **3d** session ops (New/Rename/Reorder/Move/Archive/Restore/StopSessionSurfaces/Duplicate/Discard/Pin/Unpin/ApplyLaunchSpec/ArrangePanels/LaunchSession; GetById/ListByProject/Search/GetLaunchSpec/GetPanelTree; archive-requires-idle; rename->title_source=Custom)
-- [ ] **3e** surface ops (Spawn/Stop/Close/Detach/ReconcileSurfaces bus commands; input/resize/attach
+- [x] **3b** workspace ops (New/Rename/Reorder/Archive/Restore/StopWorkspaceSurfaces/Discard/Pin/Unpin; GetById/List)
+- [x] **3c** project ops (New/Rename/Reorder/Move/Archive/Restore/StopProjectSurfaces/Duplicate/Discard/Pin/Unpin; GetById/ListByWorkspace/Search; archive cascade)
+- [x] **3d** session ops (New/Rename/Reorder/Move/Archive/Restore/StopSessionSurfaces/Duplicate/Discard/Pin/Unpin/ApplyLaunchSpec/ArrangePanels/LaunchSession; GetById/ListByProject/Search/GetLaunchSpec/GetPanelTree; archive-requires-idle; rename->title_source=Custom)
+- [x] **3e** surface ops (Spawn/Stop/Close/Detach/ReconcileSurfaces bus commands; input/resize/attach
   off-bus app fns -- attach is lazy per-surface stream bring-up, no eager boot attach-all;
   GetSurfaceById/FindSurfaceByPlacement/ListResumableSurfaces/ListSurfacesBySession queries; D9
   persist-intent -> effect -> record; ReconcileSurfaces converges via daemon `List` (kill orphans, respawn
   missing), no attach; status never logs payloads)
-- [ ] **3f** command-library ops (New/Rename/Edit/Duplicate/Pin/Discard/Seed; prebuilt-immutable guard)
-- [ ] **3g** template ops (project-bound `LaunchTemplate` + portable `Template` library, prebuilt guard)
-- [ ] **3h** notification ops (Record/MarkRead/MarkAllRead/Snooze/Disregard/DisregardAll/Prune; lists/count)
-- [ ] **3i** config ops (Setting Apply/Reset/Get/List/Resolve/ResolveSettings; Profile/Theme/Keybinding mgmt; ReloadConfig)
+- [x] **3f** command-library ops (New/Rename/Edit/Duplicate/Pin/Discard/Seed; prebuilt-immutable guard)
+- [x] **3g** template ops (project-bound `LaunchTemplate` + portable `Template` library, prebuilt guard)
+- [x] **3h** notification ops (Record/MarkRead/MarkAllRead/Snooze/Disregard/DisregardAll/Prune; lists/count)
+- [x] **3i** config ops (Setting Apply/Reset/Get/List/Resolve/ResolveSettings; Profile/Theme/Keybinding mgmt; ReloadConfig)
 
 Tests: via the `Bus`/`Ctx` over a `:memory:` substrate -- command-mutates-returns-nothing,
 query-reads-no-mutation, cascade atomic (Default/Unfiled/prebuilt rejected), archive-idle, side-effect
@@ -63,22 +64,22 @@ rollback + reconcile.
 
 ## Phase 4 -- transport + boot + cutover (parallel where disjoint; after Phase 3)
 
-- [ ] **4a transport macro** -- tauri `transport_command!`/`transport_query!` (`type => action`) ->
-  `#[tauri::command]` shims + `inventory` collect; `SurfaceEventSink` -> per-surface `tauri::ipc::Channel`
-  wiring; off-bus input/resize/attach endpoints
-- [ ] **4b boot** -- `boot::build_bus(cfg) -> Bus<Ctx>`; JSON-lines `tracing-subscriber` + `tracing-appender`
+- [x] **4a transport macro** -- tauri `transport_command!`/`transport_query!` (`type => action`) ->
+  `#[tauri::command]` shims + `inventory` collect; `SurfaceSink` subscriber -> per-surface
+  `tauri::ipc::Channel` wiring (pull dispatch via `SurfaceStream`); off-bus input/resize/attach endpoints
+- [x] **4b boot** -- `boot::build_bus(cfg) -> Bus<Ctx>`; JSON-lines `tracing-subscriber` + `tracing-appender`
   rolling `*.log` (OTel-named fields, no opentelemetry/metrics crates)
-- [ ] **4c cutover** -- migrate hosts (`workspace_host`/`surface_host`/`settings_host`/`notification_host`)
-  to shims; internals (`surface/api`->app, `surface/runtime`->infra, `launch/executor`->app,
-  `launch/spec`->entities); **delete** `store/`, `Backend` enum, `infra/memory`, slug-tree, `surface/` dir,
-  `launch/` dir. `#[tauri::command]` names + ACL + wire unchanged.
-- [ ] **4d contract test** -- `command_contract` over a `:memory:` `Ctx`
+- [x] **4c cutover** -- migrate hosts (`workspace_host`/`surface_host`/`settings_host`/`notification_host`)
+  to shims; internals (`surface/api`->app, `surface/runtime`+`surface/transport`->infra/daemon_pty_api,
+  `launch/executor`->app, `launch/spec`->entities); **delete** `store/`, `Backend` enum, `infra/memory`,
+  slug-tree, `surface/` dir, `launch/` dir. `#[tauri::command]` names + ACL + wire unchanged.
+- [x] **4d contract test** -- `command_contract` over a `:memory:` `Ctx`
 
 ## Phase 5 -- tests + fix-all verify gate (sequential; last barrier)
 
-- [ ] **5a** rewrite implementation-coupled tests to behavior over `:memory:` (drop slug-tree assertions;
+- [x] **5a** rewrite implementation-coupled tests to behavior over `:memory:` (drop slug-tree assertions;
   one real path); retain the pre-de-abstraction behavior assertions
-- [ ] **5b** `bun run verify` (format:check + check-types + lint + test -- unit+integration; e2e excluded)
+- [x] **5b** `bun run verify` (format:check + check-types + lint + test -- unit+integration; e2e excluded)
   green, **then** `bun run e2e` (behavior net) green; confirm no observable IPC/ACL/wire change, no entity
   type in `shared`/`kv`, keystroke payloads never logged
 

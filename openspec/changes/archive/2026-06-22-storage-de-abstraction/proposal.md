@@ -41,17 +41,18 @@ over-abstracted and hard to follow:
   command opens one only when it spans multiple writes via `Ctx::transaction(|tx| …)` (commit on `Ok`,
   explicit awaited rollback on `Err`); single writes and runtime-only ops use none. The `Bus<Ctx>` is a
   thin dispatcher carrying telemetry, no transaction. `Ctx` holds the pool, kv, config root, and the
-  `SurfaceRuntime` port, exposing `db()`/`runtime()`/`transaction()`; repos are executor-passing, so it
+  `Runtime` enum, exposing `db()`/`runtime()`/`transaction()`; repos are executor-passing, so it
   holds no pre-built repo aggregate.
 - **`boot/` (composition root)** opens the pool, builds `Ctx` and the thin `Bus<Ctx>`, and injects it.
 - **`infra/` is all infrastructure, and the `surface/` and `launch/` dirs are removed.** Their contents
   redistribute into the new layers: `surface/runtime.rs` + `surface/transport.rs` (PTY proxies,
-  `daemon_pty_client`, the daemon socket) → `infra/runtime/` behind a `SurfaceRuntime` port (generalizing
-  `SurfaceLauncher`); `surface/api.rs` orchestration → `app/` surface commands
+  `daemon_pty_client`, the daemon socket) → `infra/daemon_pty_api/` as a concrete `DaemonPtyApi` (no
+  trait); `surface/api.rs` orchestration → `app/` surface commands
   (`SpawnSurface`/`CloseSurface`, launch-on-`NewSession`); `launch/executor.rs` → an `app` command over
-  the port; `launch/spec.rs` (`LaunchSpec`/`LaunchItem`/`CommandRef` — domain types) → `entities/`. `Ctx`
-  holds the runtime port as `Arc<dyn SurfaceRuntime>`. Side effects follow D9 (persist intent → effect
-  lock-free → record → reconcile), never inside a transaction.
+  the runtime; `launch/spec.rs` (`LaunchSpec`/`LaunchItem`/`CommandRef` — domain types) → `entities/`.
+  `Ctx` holds a `Runtime` enum `{ Daemon(DaemonPtyApi), Fake(FakeRuntime) }` (static dispatch). Side
+  effects follow D9 (persist intent → effect lock-free → record → reconcile), never inside a
+  transaction.
 - **Operations use the product's ubiquitous language, not generic CRUD** -- `New*` for creation
   (absorbing the entity draft structs), `Rename*`/`Reorder*`/`MoveProject`/`Archive*`/`Discard*` (hard
   delete)/`SpawnSurface`; reads are descriptive `Get`/`List` (`GetWorkspaceById`, `ListWorkspaces`).
@@ -94,8 +95,9 @@ over-abstracted and hard to follow:
 - Behavior: domain on-disk format changes (slug-tree files -> sqlite rows); pre-v1, no released users, so
   the break is accepted with no migration. IPC contract, dynamic ACL, and wire protocol are unchanged.
 - Decisions: supersedes ADR-0035 (the store layer, the `Backend` enum, the fs-as-truth-for-domain
-  rationale, the slug-tree) via a new ADR; commits domain data to sqlite via `sqlx` and the app layer to
-  CQS over a bus.
+  rationale, the slug-tree) via ADR-0036 (de-abstracted storage), ADR-0038 (infra raw API / app owns
+  domain), and ADR-0037 (zero-copy event dispatch); commits domain data to sqlite via `sqlx` and the app
+  layer to CQS over a bus.
 - In scope: the full operation inventory (see design "Operations") across workspace/project/session/
   surface/command/launch-template/template-library/notification + the config plane
   (settings/profile/theme/keybinding incl. the cascade) -- with lifecycle (new/rename/reorder/move/
