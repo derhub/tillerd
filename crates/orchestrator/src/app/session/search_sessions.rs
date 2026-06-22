@@ -33,6 +33,7 @@ mod tests {
     use super::*;
     use crate::app::session::new_session_cmd::NewSessionCmd;
     use crate::app::session::test_util::{ctx, unfiled};
+    use crate::entities::session::SessionId;
 
     // Scenario: Fuzzy search filters in the query
     #[tokio::test]
@@ -40,6 +41,7 @@ mod tests {
         let (bus, _) = ctx().await;
 
         bus.execute(NewSessionCmd {
+            id: SessionId::mint(),
             project_id: Some(unfiled().as_str().to_owned()),
             title_source: "custom".to_owned(),
             title: Some("alpha session".to_owned()),
@@ -49,6 +51,7 @@ mod tests {
         .unwrap();
 
         bus.execute(NewSessionCmd {
+            id: SessionId::mint(),
             project_id: Some(unfiled().as_str().to_owned()),
             title_source: "custom".to_owned(),
             title: Some("beta terminal".to_owned()),

@@ -31,6 +31,7 @@ pub mod unpin_session;
 #[cfg(test)]
 pub(crate) mod test_util;
 
+pub use crate::entities::session::SessionId;
 pub use apply_launch_spec::ApplyLaunchSpec;
 pub use archive_session::ArchiveSession;
 pub use arrange_panels::ArrangePanels;

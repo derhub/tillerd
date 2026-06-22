@@ -10,6 +10,7 @@ use crate::shared::Result;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewLaunchTemplateCmd {
+    pub id: LaunchTemplateId,
     pub project_id: String,
     pub spec_version: u32,
     pub spec_json: String,
@@ -18,7 +19,7 @@ pub struct NewLaunchTemplateCmd {
 impl Command<Ctx> for NewLaunchTemplateCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         let entity = LaunchTemplate {
-            id: LaunchTemplateId::mint(),
+            id: self.id.clone(),
             project_id: ProjectId::new(&self.project_id),
             spec_version: self.spec_version,
             spec_json: self.spec_json.clone(),
@@ -40,6 +41,7 @@ mod tests {
 
         let result = bus
             .execute(NewLaunchTemplateCmd {
+                id: LaunchTemplateId::mint(),
                 project_id: ProjectId::new(UNFILED).as_str().to_owned(),
                 spec_version: 1,
                 spec_json: r#"{"items":[]}"#.to_owned(),

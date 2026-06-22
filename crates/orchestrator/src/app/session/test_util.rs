@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
+use crate::entities::session::SessionId;
 use crate::infra::daemon_pty_api::{FakeRuntime, Runtime};
 use crate::infra::migrate;
 use crate::shared::bus::Bus;
@@ -30,6 +31,7 @@ pub(crate) fn unfiled() -> ProjectId {
 /// Build a `NewSessionCmd` with a custom-titled session in the given project.
 pub(crate) fn draft_cmd(pid: ProjectId) -> NewSessionCmd {
     NewSessionCmd {
+        id: SessionId::mint(),
         project_id: Some(pid.as_str().to_owned()),
         title_source: "custom".to_owned(),
         title: Some("My session".to_owned()),

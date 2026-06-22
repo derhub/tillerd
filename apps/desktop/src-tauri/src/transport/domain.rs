@@ -5,24 +5,23 @@
 //! mapping through the curated wire DTO. The wire (command names, argument shapes,
 //! response JSON, error strings) is byte-identical to the prior hand-written shims.
 //!
-//! A handful of shims stay hand-written below because they are not mechanical: the
-//! list-diff creates that mint server-side (`project_create`, `session_create`,
-//! `command_create`) -- the transport cannot read the entity back by a known id and
-//! `session_create` also fires `LaunchSession` -- and so cannot use `transport_create!`.
+//! `session_create` stays hand-written because it chains a non-fatal `LaunchSession` after
+//! the create -- a tail the `transport_create!` macro does not model.
 
 use std::collections::HashMap;
 
 use orchestrator::app::command::{
-    CommandView, DiscardCommand, GetCommandById, ListCommands, NewCommand as NewCommandCmd,
+    CommandId, CommandView, DiscardCommand, GetCommandById, ListCommands,
+    NewCommand as NewCommandCmd,
 };
 use orchestrator::app::project::{
-    ArchiveProject, DiscardProject, ListProjectsByWorkspace, MoveProject, NewProjectCmd,
-    ProjectView, RenameProject, ReorderProject,
+    ArchiveProject, DiscardProject, GetProjectById, ListProjectsByWorkspace, MoveProject,
+    NewProjectCmd, ProjectId, ProjectView, RenameProject, ReorderProject,
 };
 use orchestrator::app::session::{ArchiveSession, DiscardSession};
 use orchestrator::app::session::{
-    ArrangePanels, GetPanelTree, LaunchSession, ListAllSessions, ListSessionsByProject,
-    NewSessionCmd, RenameSession, ReorderSession, SessionView,
+    ArrangePanels, GetPanelTree, GetSessionById, LaunchSession, ListAllSessions,
+    ListSessionsByProject, NewSessionCmd, RenameSession, ReorderSession, SessionId, SessionView,
 };
 use orchestrator::app::workspace::{
     DiscardWorkspace, GetWorkspaceById, ListWorkspaces, NewWorkspaceCmd, RenameWorkspace,
@@ -69,54 +68,22 @@ transport_command!(project_move(id: String, workspace_id: String) => MoveProject
     workspace_id,
 });
 
-/// Create a project (server-mints the id and infers the name; list-diff finds the new
-/// row). Not a `transport_create!` because the transport never learns the minted id.
-#[tauri::command]
-pub async fn project_create(
-    name: Option<String>,
-    workspace_id: Option<String>,
-    bus: State<'_, Bus>,
-) -> Result<ProjectView, String> {
-    let workspace = workspace_id.unwrap_or_else(orchestrator::app::workspace::default_workspace_id);
-
-    let before: Vec<String> = bus
-        .query(ListProjectsByWorkspace {
-            workspace_id: workspace.clone(),
-            limit: None,
-            offset: None,
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .map(|p| p.id)
-        .collect();
-
-    bus.execute(NewProjectCmd {
-        source_kind: "blank".to_string(),
-        root_path: None,
-        name,
-        workspace_id: Some(workspace.clone()),
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let project = bus
-        .query(ListProjectsByWorkspace {
-            workspace_id: workspace,
-            limit: None,
-            offset: None,
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .find(|p| !before.contains(&p.id))
-        .ok_or_else(|| "project vanished after create".to_string())?;
-    Ok(project)
-}
+transport_create!(
+    project_create(name: Option<String>, workspace_id: Option<String>) -> ProjectView {
+        let id = ProjectId::new(Uuid::new_v4().to_string());
+        execute: NewProjectCmd {
+            id: id.clone(),
+            source_kind: "blank".to_string(),
+            root_path: None,
+            name,
+            workspace_id: workspace_id
+                .or_else(|| Some(orchestrator::app::workspace::default_workspace_id())),
+        },
+        read_back: GetProjectById { id: id.as_str().to_string() },
+        map: |project| project,
+        missing: "project vanished after create",
+    }
+);
 
 // -- workspace -------------------------------------------------------------------
 
@@ -180,9 +147,9 @@ pub async fn session_list(
     Ok(listing.items)
 }
 
-/// Create a session (server-mints the id; list-diff finds the new row) then brings its
-/// launch spec to life. Not a `transport_create!`: the transport never learns the minted
-/// id and the create chains a non-fatal `LaunchSession`.
+/// Create a session, bring its launch spec to life. The `LaunchSession` tail is
+/// non-fatal (a spec-less session is valid), so this stays hand-written rather than
+/// using `transport_create!`.
 #[tauri::command]
 pub async fn session_create(
     project_id: Option<String>,
@@ -191,24 +158,11 @@ pub async fn session_create(
     template_id: Option<String>,
     bus: State<'_, Bus>,
 ) -> Result<SessionView, String> {
-    let pid = project_id.unwrap_or_else(orchestrator::app::project::unfiled_project_id);
-
-    let before: Vec<String> = bus
-        .query(ListSessionsByProject {
-            project_id: pid.clone(),
-            limit: None,
-            offset: None,
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .map(|s| s.id)
-        .collect();
+    let id = SessionId::mint();
 
     bus.execute(NewSessionCmd {
-        project_id: Some(pid.clone()),
+        id: id.clone(),
+        project_id: project_id.or_else(|| Some(orchestrator::app::project::unfiled_project_id())),
         title_source: title_source.unwrap_or_default(),
         title,
         template_id,
@@ -217,17 +171,11 @@ pub async fn session_create(
     .map_err(|e| e.to_string())?;
 
     let created = bus
-        .query(ListSessionsByProject {
-            project_id: pid,
-            limit: None,
-            offset: None,
-            after: None,
+        .query(GetSessionById {
+            id: id.as_str().to_string(),
         })
         .await
         .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .find(|s| !before.contains(&s.id))
         .ok_or_else(|| "session vanished after create".to_string())?;
 
     // Bring the session's launch spec to life (a session with no spec launches
@@ -297,52 +245,21 @@ pub struct CreateCommandRequest {
     pub env: HashMap<String, String>,
 }
 
-/// Create a library command (server-mints the id; list-diff finds the new row). Not a
-/// `transport_create!`: the transport never learns the minted id.
-#[tauri::command]
-pub async fn command_create(
-    req: CreateCommandRequest,
-    bus: State<'_, Bus>,
-) -> Result<CommandView, String> {
-    let existing: Vec<String> = bus
-        .query(ListCommands {
-            origin: Some("custom".to_string()),
-            limit: None,
-            offset: None,
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .map(|c| c.id)
-        .collect();
-
-    bus.execute(NewCommandCmd {
-        name: req.name.clone(),
-        cli: req.cli,
-        args: req.args,
-        env: req.env,
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let created = bus
-        .query(ListCommands {
-            origin: Some("custom".to_string()),
-            limit: None,
-            offset: None,
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?
-        .items
-        .into_iter()
-        .find(|c| !existing.contains(&c.id))
-        .ok_or_else(|| "command vanished after create".to_string())?;
-
-    Ok(created)
-}
+transport_create!(
+    command_create(req: CreateCommandRequest) -> CommandView {
+        let id = CommandId::mint();
+        execute: NewCommandCmd {
+            id: id.clone(),
+            name: req.name,
+            cli: req.cli,
+            args: req.args,
+            env: req.env,
+        },
+        read_back: GetCommandById { id: id.as_str().to_string() },
+        map: |cmd| cmd,
+        missing: "command vanished after create",
+    }
+);
 
 #[cfg(test)]
 mod tests {

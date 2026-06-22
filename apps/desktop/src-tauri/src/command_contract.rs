@@ -19,9 +19,9 @@ use tauri::test::{mock_builder, MockRuntime};
 use tauri::{Manager, WebviewWindow};
 
 use crate::orchestrator_host::OrchestratorState;
-use crate::transport::domain;
+use crate::transport::macros::collect_transport;
 use crate::transport::sink::SurfaceChannels;
-use crate::{bridge, diag, files, settings_host, store, supervisor, surface_host, window_host};
+use crate::{bridge, store, supervisor};
 
 /// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
 /// orchestrator's app-owned test edge. This is the context `Bus<Ctx>` dispatches over;
@@ -52,63 +52,10 @@ fn contract_app() -> tauri::App<MockRuntime> {
         .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
         .manage(crate::menu::LeaderMenuState::default())
-        .invoke_handler(tauri::generate_handler![
-            // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
-            // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
-            // an IPC `Channel`, so there is no plain-data arg shape to drift.
-            bridge::daemon_send,
-            bridge::daemon_disconnect,
-            files::file_size,
-            files::file_read,
-            diag::log_forward,
-            store::pref_get,
-            store::pref_set,
-            store::registry_get,
-            store::registry_set,
-            store::registry_remove,
-            store::registry_list,
-            supervisor::daemon_ensure,
-            crate::orchestrator_host::orchestrator_status,
-            crate::orchestrator_host::service_health,
-            surface_host::surface_create,
-            surface_host::surface_spawn,
-            surface_host::surface_close,
-            surface_host::surface_input,
-            surface_host::surface_resize,
-            surface_host::surface_detach,
-            window_host::window_open,
-            window_host::window_focus,
-            window_host::window_close,
-            domain::project_create,
-            domain::project_list,
-            domain::project_rename,
-            domain::project_archive,
-            domain::project_delete,
-            domain::project_reorder,
-            domain::project_move,
-            domain::workspace_create,
-            domain::workspace_list,
-            domain::workspace_rename,
-            domain::workspace_reorder,
-            domain::workspace_delete,
-            domain::session_list,
-            domain::session_create,
-            domain::session_rename,
-            domain::session_archive,
-            domain::session_delete,
-            domain::session_reorder,
-            domain::session_layout_set,
-            domain::session_layout_get,
-            domain::command_list,
-            domain::command_create,
-            domain::command_get,
-            domain::command_delete,
-            settings_host::setting_get,
-            settings_host::setting_set,
-            settings_host::setting_list,
-            crate::notification_host::notifications_list,
-            crate::menu::command_center_set_leader,
-        ])
+        // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
+        // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
+        // an IPC `Channel`, so there is no plain-data arg shape to drift.
+        .invoke_handler(collect_transport!())
         .build(crate::app_context())
         .expect("app builds with the full command set + managed state")
 }

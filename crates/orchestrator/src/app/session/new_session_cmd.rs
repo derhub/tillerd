@@ -14,6 +14,7 @@ use super::common::now_iso;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewSessionCmd {
+    pub id: SessionId,
     pub project_id: Option<String>,
     pub title_source: String,
     /// Required when `title_source == custom`; used as branch/agent-title otherwise.
@@ -56,7 +57,7 @@ impl Command<Ctx> for NewSessionCmd {
         };
 
         let session = Session {
-            id: SessionId::mint(),
+            id: self.id.clone(),
             project_id,
             title,
             title_source,

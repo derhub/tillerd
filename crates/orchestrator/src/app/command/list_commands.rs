@@ -194,6 +194,7 @@ mod tests {
     async fn list_commands_by_origin_returns_only_matching_origin() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
+            id: crate::entities::command::CommandId::mint(),
             name: "custom-one".to_owned(),
             cli: "/bin/bash".to_owned(),
             args: vec![],

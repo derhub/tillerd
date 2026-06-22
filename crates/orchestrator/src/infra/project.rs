@@ -5,7 +5,7 @@
 
 use sqlx::sqlite::SqliteExecutor;
 
-use crate::entities::project::{Project, ProjectId, SourceKind};
+use crate::entities::project::{Project, ProjectId};
 use crate::entities::workspace::WorkspaceId;
 use crate::shared::{Error, Result};
 
@@ -14,43 +14,25 @@ use crate::shared::{Error, Result};
 pub struct ProjectRepo;
 
 impl ProjectRepo {
-    /// Insert a new project row and return the entity.
-    ///
-    /// The caller provides a fresh UUID `id` so the repo stays pure (no hidden
-    /// side-effects, easy to test with a deterministic id).
-    pub async fn create<'e>(
-        exec: impl SqliteExecutor<'e>,
-        id: &str,
-        workspace_id: &WorkspaceId,
-        name: &str,
-        source_kind: SourceKind,
-        root_path: Option<&str>,
-        sort_order: u32,
-    ) -> Result<Project> {
-        let entity = Project::new(
-            ProjectId::new(id),
-            workspace_id.clone(),
-            name,
-            source_kind,
-            root_path.map(ToOwned::to_owned),
-            sort_order,
-        );
-        let sk = entity.source_kind.as_str();
-        let so = entity.sort_order as i64;
+    /// Persist a fully-formed project entity. Caller builds the entity and
+    /// holds it; repo binds the fields and returns `()`.
+    pub async fn create<'e>(exec: impl SqliteExecutor<'e>, project: &Project) -> Result<()> {
+        let sk = project.source_kind.as_str();
+        let so = project.sort_order as i64;
         sqlx::query(
             "INSERT INTO project (id, workspace_id, name, source_kind, root_path, sort_order)
              VALUES (?, ?, ?, ?, ?, ?)",
         )
-        .bind(entity.id.as_str())
-        .bind(entity.workspace_id.as_str())
-        .bind(&entity.name)
+        .bind(project.id.as_str())
+        .bind(project.workspace_id.as_str())
+        .bind(&project.name)
         .bind(sk)
-        .bind(entity.root_path.as_deref())
+        .bind(project.root_path.as_deref())
         .bind(so)
         .execute(exec)
         .await?;
 
-        Ok(entity)
+        Ok(())
     }
 
     /// Fetch a single project by id. Returns `None` when absent.
@@ -163,7 +145,7 @@ impl ProjectRepo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::project::ProjectStatus;
+    use crate::entities::project::{ProjectStatus, SourceKind};
     use crate::infra::migrate;
 
     const DEFAULT_WS: &str = "00000000-0000-0000-0000-000000000001";
@@ -189,29 +171,32 @@ mod tests {
             .unwrap();
     }
 
+    fn make_project(id: &str, ws: WorkspaceId, name: &str) -> Project {
+        Project::new(ProjectId::new(id), ws, name, SourceKind::Blank, None, 0)
+    }
+
+    fn make_project_ordered(id: &str, ws: WorkspaceId, name: &str, sort_order: u32) -> Project {
+        Project::new(
+            ProjectId::new(id),
+            ws,
+            name,
+            SourceKind::Blank,
+            None,
+            sort_order,
+        )
+    }
+
     // -- Scenario: name normalization happens before persist --------------------
 
     #[tokio::test]
     async fn create_trims_name_and_stored_equals_returned() {
         let pool = pool().await;
-        let created = ProjectRepo::create(
-            &pool,
-            "p-trim",
-            &ws(),
-            "  padded name  ",
-            SourceKind::Blank,
-            None,
-            0,
-        )
-        .await
-        .expect("create must succeed");
+        let project = make_project("p-trim", ws(), "  padded name  ");
+        ProjectRepo::create(&pool, &project)
+            .await
+            .expect("create must succeed");
 
-        assert_eq!(
-            created.name, "padded name",
-            "returned entity must be trimmed"
-        );
-
-        let fetched = ProjectRepo::get(&pool, &created.id)
+        let fetched = ProjectRepo::get(&pool, &project.id)
             .await
             .expect("get must succeed")
             .expect("project must be present");
@@ -227,24 +212,17 @@ mod tests {
     #[tokio::test]
     async fn round_trip_create_and_get() {
         let pool = pool().await;
-        let created = ProjectRepo::create(
-            &pool,
-            "proj-rt-01",
-            &ws(),
-            "My Project",
-            SourceKind::Blank,
-            None,
-            0,
-        )
-        .await
-        .expect("create must succeed");
+        let project = make_project("proj-rt-01", ws(), "My Project");
+        ProjectRepo::create(&pool, &project)
+            .await
+            .expect("create must succeed");
 
-        let fetched = ProjectRepo::get(&pool, &created.id)
+        let fetched = ProjectRepo::get(&pool, &project.id)
             .await
             .expect("get must succeed")
             .expect("project must be present");
 
-        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.id, project.id);
         assert_eq!(fetched.name, "My Project");
         assert_eq!(fetched.workspace_id.as_str(), DEFAULT_WS);
         assert_eq!(fetched.source_kind, SourceKind::Blank);
@@ -268,17 +246,8 @@ mod tests {
     #[tokio::test]
     async fn update_persists_name_change() {
         let pool = pool().await;
-        let mut project = ProjectRepo::create(
-            &pool,
-            "p-update",
-            &ws(),
-            "Old Name",
-            SourceKind::Blank,
-            None,
-            0,
-        )
-        .await
-        .unwrap();
+        let mut project = make_project("p-update", ws(), "Old Name");
+        ProjectRepo::create(&pool, &project).await.unwrap();
 
         project.rename("New Name");
         ProjectRepo::update(&pool, &project).await.unwrap();
@@ -314,17 +283,8 @@ mod tests {
     #[tokio::test]
     async fn delete_removes_project() {
         let pool = pool().await;
-        let project = ProjectRepo::create(
-            &pool,
-            "p-delete",
-            &ws(),
-            "Doomed",
-            SourceKind::Blank,
-            None,
-            0,
-        )
-        .await
-        .unwrap();
+        let project = make_project("p-delete", ws(), "Doomed");
+        ProjectRepo::create(&pool, &project).await.unwrap();
 
         ProjectRepo::delete(&pool, &project.id).await.unwrap();
 
@@ -342,23 +302,13 @@ mod tests {
         // Create projects in the "other" workspace.
         ProjectRepo::create(
             &pool,
-            "p-tx-1",
-            &WorkspaceId::new(other_ws_id()),
-            "TX Project 1",
-            SourceKind::Blank,
-            None,
-            0,
+            &make_project("p-tx-1", WorkspaceId::new(other_ws_id()), "TX Project 1"),
         )
         .await
         .unwrap();
         ProjectRepo::create(
             &pool,
-            "p-tx-2",
-            &WorkspaceId::new(other_ws_id()),
-            "TX Project 2",
-            SourceKind::Blank,
-            None,
-            1,
+            &make_project_ordered("p-tx-2", WorkspaceId::new(other_ws_id()), "TX Project 2", 1),
         )
         .await
         .unwrap();
@@ -412,12 +362,11 @@ mod tests {
 
         ProjectRepo::create(
             &pool,
-            "p-rollback",
-            &WorkspaceId::new(other_ws_id()),
-            "Rollback Project",
-            SourceKind::Blank,
-            None,
-            0,
+            &make_project(
+                "p-rollback",
+                WorkspaceId::new(other_ws_id()),
+                "Rollback Project",
+            ),
         )
         .await
         .unwrap();

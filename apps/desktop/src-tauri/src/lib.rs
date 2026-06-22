@@ -71,7 +71,7 @@ pub fn run() {
             orchestrator_host::spawn_boot(handle, state.inner());
             Ok(())
         })
-        .invoke_handler(collect_transport!())
+        .invoke_handler(collect_transport!(bridge::daemon_connect))
         .build(app_context())
         .expect("error while building tauri application")
         .run(|app_handle, event| {

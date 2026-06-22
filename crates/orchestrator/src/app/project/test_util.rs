@@ -39,9 +39,18 @@ pub(crate) async fn seed_project(
     name: &str,
     ws: &WorkspaceId,
 ) -> Project {
-    ProjectRepo::create(pool, id, ws, name, SourceKind::Blank, None, 0)
+    let project = Project::new(
+        ProjectId::new(id),
+        ws.clone(),
+        name,
+        SourceKind::Blank,
+        None,
+        0,
+    );
+    ProjectRepo::create(pool, &project)
         .await
-        .expect("seed project")
+        .expect("seed project");
+    project
 }
 
 // Create a project with an explicit sort_order (for ordering/pagination tests).
@@ -52,7 +61,16 @@ pub(crate) async fn seed_project_full(
     ws: &WorkspaceId,
     sort_order: u32,
 ) -> Project {
-    ProjectRepo::create(pool, id, ws, name, SourceKind::Blank, None, sort_order)
+    let project = Project::new(
+        ProjectId::new(id),
+        ws.clone(),
+        name,
+        SourceKind::Blank,
+        None,
+        sort_order,
+    );
+    ProjectRepo::create(pool, &project)
         .await
-        .expect("seed project")
+        .expect("seed project");
+    project
 }

@@ -1,17 +1,18 @@
 use serde::Deserialize;
 
 use crate::context::Ctx;
-use crate::entities::project::SourceKind;
+use crate::entities::project::{Project, ProjectId, SourceKind};
 use crate::entities::workspace::WorkspaceId;
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Result};
 
-use super::common::{infer_name, new_id};
+use super::common::infer_name;
 
 /// Create a new project in a workspace (defaulting to the Default workspace).
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewProjectCmd {
+    pub id: ProjectId,
     pub source_kind: String,
     pub root_path: Option<String>,
     pub name: Option<String>,
@@ -20,7 +21,6 @@ pub struct NewProjectCmd {
 
 impl Command<Ctx> for NewProjectCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let id = new_id();
         let workspace_id = self
             .workspace_id
             .clone()
@@ -32,17 +32,15 @@ impl Command<Ctx> for NewProjectCmd {
             _ => SourceKind::Blank,
         };
         let name = infer_name(self.name.as_deref(), self.root_path.as_deref());
-        ProjectRepo::create(
-            cx.db(),
-            &id,
-            &workspace_id,
+        let project = Project::new(
+            self.id.clone(),
+            workspace_id,
             &name,
             source_kind,
-            self.root_path.as_deref(),
+            self.root_path.clone(),
             0,
-        )
-        .await?;
-        Ok(())
+        );
+        ProjectRepo::create(cx.db(), &project).await
     }
 }
 
@@ -57,6 +55,7 @@ mod tests {
     async fn new_project_creates_project_in_workspace() {
         let (_ctx, bus) = ctx().await;
         bus.execute(NewProjectCmd {
+            id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
             source_kind: "blank".to_owned(),
             root_path: None,
             name: Some("Alpha".to_owned()),
@@ -84,6 +83,7 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .execute(NewProjectCmd {
+                id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
                 source_kind: "blank".to_owned(),
                 root_path: None,
                 name: Some("Beta".to_owned()),
@@ -98,6 +98,7 @@ mod tests {
     async fn new_project_trims_name_whitespace() {
         let (_ctx, bus) = ctx().await;
         bus.execute(NewProjectCmd {
+            id: ProjectId::new(uuid::Uuid::new_v4().to_string()),
             source_kind: "blank".to_owned(),
             root_path: None,
             name: Some("  Gamma  ".to_owned()),

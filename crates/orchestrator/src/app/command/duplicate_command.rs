@@ -104,6 +104,7 @@ mod tests {
     async fn duplicate_custom_command_is_independent_of_source() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
+            id: CommandId::mint(),
             name: "src".to_owned(),
             cli: "/bin/src".to_owned(),
             args: vec!["--src".to_owned()],

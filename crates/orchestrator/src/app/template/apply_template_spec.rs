@@ -45,6 +45,7 @@ mod tests {
         let (_cx, bus) = ctx(&dir).await;
 
         bus.execute(NewLaunchTemplateCmd {
+            id: crate::entities::LaunchTemplateId::mint(),
             project_id: UNFILED.to_owned(),
             spec_version: 1,
             spec_json: r#"{"items":[]}"#.to_owned(),

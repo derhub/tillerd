@@ -43,6 +43,7 @@ mod tests {
     async fn rename_command_updates_the_name_and_returns_nothing() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
+            id: crate::entities::command::CommandId::mint(),
             name: "orig".to_owned(),
             cli: "/bin/bash".to_owned(),
             args: vec![],

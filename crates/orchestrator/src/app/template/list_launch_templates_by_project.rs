@@ -160,6 +160,7 @@ mod tests {
         .unwrap();
 
         bus.execute(NewLaunchTemplateCmd {
+            id: crate::entities::LaunchTemplateId::mint(),
             project_id: ProjectId::new(UNFILED).as_str().to_owned(),
             spec_version: 1,
             spec_json: "{}".to_owned(),
@@ -167,6 +168,7 @@ mod tests {
         .await
         .unwrap();
         bus.execute(NewLaunchTemplateCmd {
+            id: crate::entities::LaunchTemplateId::mint(),
             project_id: other_id.clone(),
             spec_version: 1,
             spec_json: "{}".to_owned(),
@@ -191,6 +193,7 @@ mod tests {
     async fn seed_n(bus: &crate::shared::Bus<Ctx>, n: usize) {
         for _ in 0..n {
             bus.execute(NewLaunchTemplateCmd {
+                id: crate::entities::LaunchTemplateId::mint(),
                 project_id: ProjectId::new(UNFILED).as_str().to_owned(),
                 spec_version: 1,
                 spec_json: "{}".to_owned(),

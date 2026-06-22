@@ -12,6 +12,7 @@ use crate::shared::Result;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewCommand {
+    pub id: CommandId,
     pub name: String,
     pub cli: String,
     #[serde(default)]
@@ -23,7 +24,7 @@ pub struct NewCommand {
 impl BusCommand<Ctx> for NewCommand {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         let command = Command {
-            id: CommandId::mint(),
+            id: self.id.clone(),
             name: self.name.clone(),
             origin: CommandOrigin::Custom,
             cli: self.cli.clone(),
@@ -51,6 +52,7 @@ mod tests {
     async fn new_command_creates_a_custom_command_that_get_query_resolves() {
         let bus = Bus::new(ctx().await);
         bus.execute(NewCommand {
+            id: CommandId::mint(),
             name: "my-tool".to_owned(),
             cli: "/usr/bin/my-tool".to_owned(),
             args: vec!["--flag".to_owned()],

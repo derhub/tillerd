@@ -24,6 +24,7 @@ pub mod unpin_project;
 #[cfg(test)]
 pub(crate) mod test_util;
 
+pub use crate::entities::project::ProjectId;
 pub use archive_project::ArchiveProject;
 pub use discard_project::DiscardProject;
 pub use duplicate_project::DuplicateProject;

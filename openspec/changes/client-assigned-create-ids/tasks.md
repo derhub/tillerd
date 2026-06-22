@@ -1,22 +1,22 @@
 ## 1. Core: caller-assigned id + handler-builds-entity
 
-- [ ] 1.1 Add `pub id: ProjectId` to the project create command; build the `Project` entity in `handle` (id + defaults: `sort_order: 0`, `pinned: false`, `status: Active`, `workspace_id` default); `ProjectRepo::create(&Project)`; delete `new_id()` from `app/project/common.rs`.
-- [ ] 1.2 Add `pub id: SessionId` to the session create command; use it in the existing `Session` build instead of `SessionId::mint()` (repo already takes `&Session`).
-- [ ] 1.3 Add `pub id: CommandId` to `NewCommand`; build the `Command` entity in `handle` (origin `Custom`, `pinned: false`); change `CommandRepo::create` to take `&Command`, return `()`, drop the internal `CommandId::mint()`.
-- [ ] 1.4 Add `pub id: LaunchTemplateId` to the launch-template create command; build the `LaunchTemplate` entity in `handle`; change `LaunchTemplateRepo::create` to take `&LaunchTemplate`, return `()`, drop the internal mint.
-- [ ] 1.5 Update internal constructors and tests (`duplicate_project`, `duplicate_session`, `duplicate_command`, create tests in `new_*_cmd.rs` / `search_*.rs` / `test_util.rs`) to mint an id and build the entity.
+- [x] 1.1 Add `pub id: ProjectId` to the project create command; build the `Project` entity in `handle` (id + defaults: `sort_order: 0`, `pinned: false`, `status: Active`, `workspace_id` default); `ProjectRepo::create(&Project)`; delete `new_id()` from `app/project/common.rs`.
+- [x] 1.2 Add `pub id: SessionId` to the session create command; use it in the existing `Session` build instead of `SessionId::mint()` (repo already takes `&Session`).
+- [x] 1.3 Add `pub id: CommandId` to `NewCommand`; build the `Command` entity in `handle` (origin `Custom`, `pinned: false`); change `CommandRepo::create` to take `&Command`, return `()`, drop the internal `CommandId::mint()`.
+- [x] 1.4 Add `pub id: LaunchTemplateId` to the launch-template create command; build the `LaunchTemplate` entity in `handle`; change `LaunchTemplateRepo::create` to take `&LaunchTemplate`, return `()`, drop the internal mint.
+- [x] 1.5 Update internal constructors and tests (`duplicate_project`, `duplicate_session`, `duplicate_command`, create tests in `new_*_cmd.rs` / `search_*.rs` / `test_util.rs`) to mint an id and build the entity.
 
 ## 2. Transport: collapse the list-diff creates
 
-- [ ] 2.1 Rewrite `project_create` as a `transport_create!` listing (mint `ProjectId`, execute `NewProjectCmd`, read back `GetProjectById`).
-- [ ] 2.2 Rewrite `command_create` as a `transport_create!` listing (mint `CommandId`, execute `NewCommandCmd`, read back `GetCommandById`).
-- [ ] 2.3 Trim `session_create` to mint `SessionId` → execute `NewSessionCmd` → `GetSessionById` → fire-and-forget `LaunchSession`; remove the before/after list snapshot.
+- [x] 2.1 Rewrite `project_create` as a `transport_create!` listing (mint `ProjectId`, execute `NewProjectCmd`, read back `GetProjectById`).
+- [x] 2.2 Rewrite `command_create` as a `transport_create!` listing (mint `CommandId`, execute `NewCommandCmd`, read back `GetCommandById`).
+- [x] 2.3 Trim `session_create` to mint `SessionId` → execute `NewSessionCmd` → `GetSessionById` → fire-and-forget `LaunchSession`; remove the before/after list snapshot.
 
 ## 3. Transport: unify the handler list
 
-- [ ] 3.1 Parameterize `collect_transport!` to take the runtime-specific command(s) as macro args, with `daemon_connect` excluded from the base list.
-- [ ] 3.2 Update `lib.rs` to call `collect_transport!($crate::bridge::daemon_connect)`.
-- [ ] 3.3 Replace the hand-copied `generate_handler![...]` list in `command_contract.rs` with `collect_transport!()`; keep the `cases` arg-shape vec.
+- [x] 3.1 Parameterize `collect_transport!` to take the runtime-specific command(s) as macro args, with `daemon_connect` excluded from the base list.
+- [x] 3.2 Update `lib.rs` to call `collect_transport!($crate::bridge::daemon_connect)`.
+- [x] 3.3 Replace the hand-copied `generate_handler![...]` list in `command_contract.rs` with `collect_transport!()`; keep the `cases` arg-shape vec.
 
 ## 4. Delete `New*` input DTOs; repos take entities
 

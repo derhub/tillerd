@@ -1,9 +1,5 @@
 use crate::shared::{Error, Result};
 
-pub(super) fn new_id() -> String {
-    uuid::Uuid::new_v4().to_string()
-}
-
 /// Derive a project name from a path, falling back to a default.
 pub(super) fn infer_name(name: Option<&str>, root_path: Option<&str>) -> String {
     if let Some(name) = name {

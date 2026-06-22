@@ -101,6 +101,11 @@ macro_rules! transport_create {
 /// the macro-generated domain shims (`transport::domain`) alongside the hand-written
 /// host/shell and transport-resident shims.
 ///
+/// Accepts optional runtime-specific commands as arguments -- handlers that cannot be
+/// registered on the test `MockRuntime`. Pass them positionally:
+/// - `collect_transport!($crate::bridge::daemon_connect)` in production (`lib.rs`).
+/// - `collect_transport!()` in the command-contract test (omits `daemon_connect`).
+///
 /// Stays hand-written (NOT macro-generated), listed here:
 /// - host/shell (no domain store): `window_host`, `files`, `diag`, `bridge`, `menu`,
 ///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
@@ -112,10 +117,11 @@ macro_rules! transport_create {
 ///   parse and JSON value <-> string conversion) and `notification_host::notifications_list`
 ///   (fixed-page query that lives with the notification sink/builders).
 macro_rules! collect_transport {
-    () => {
+    ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
+            // -- runtime-specific (e.g. daemon_connect takes AppHandle<Wry>, excluded from test) --
+            $( $runtime_cmd, )*
             // -- host / shell (out of CQS scope) --
-            $crate::bridge::daemon_connect,
             $crate::bridge::daemon_send,
             $crate::bridge::daemon_disconnect,
             $crate::files::file_size,
@@ -142,7 +148,7 @@ macro_rules! collect_transport {
             $crate::surface_host::surface_input,
             $crate::surface_host::surface_resize,
             $crate::surface_host::surface_detach,
-            // -- domain (macro-generated + the hand-written list-diff creates) --
+            // -- domain --
             $crate::transport::domain::project_create,
             $crate::transport::domain::project_list,
             $crate::transport::domain::project_rename,

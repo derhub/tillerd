@@ -1,13 +1,11 @@
 use serde::Deserialize;
 
 use crate::context::Ctx;
-use crate::entities::project::ProjectId;
+use crate::entities::project::{Project, ProjectId};
 use crate::infra::project::ProjectRepo;
 use crate::infra::session::SessionRepo;
 use crate::shared::pagination::Page;
 use crate::shared::{Command, Error, Result};
-
-use super::common::new_id;
 
 /// Clone a project (sessions + launch specs). The copy is independent of the source.
 #[derive(Deserialize)]
@@ -34,26 +32,25 @@ impl Command<Ctx> for DuplicateProject {
             .map(|s| s.trim().to_owned())
             .unwrap_or_else(|| format!("Copy of {}", source.name));
 
-        let new_project_id = new_id();
+        let new_project_id = ProjectId::new(uuid::Uuid::new_v4().to_string());
 
         cx.transaction(async |tx| {
-            ProjectRepo::create(
-                &mut **tx,
-                &new_project_id,
-                &source.workspace_id,
+            let new_project = Project::new(
+                new_project_id.clone(),
+                source.workspace_id.clone(),
                 &new_name,
                 source.source_kind,
-                source.root_path.as_deref(),
+                source.root_path.clone(),
                 source.sort_order,
-            )
-            .await?;
+            );
+            ProjectRepo::create(&mut **tx, &new_project).await?;
 
             // Clone sessions (with their spec blobs).
             let sessions = SessionRepo::list(&mut **tx, &source_id, Page::All).await?;
             for s in sessions.items {
                 let new_session = Session {
                     id: crate::entities::session::SessionId::mint(),
-                    project_id: ProjectId::new(new_project_id.clone()),
+                    project_id: new_project_id.clone(),
                     title: s.title.clone(),
                     title_source: TitleSource::Custom,
                     created_at: crate::shared::datetime::now_iso8601(),
