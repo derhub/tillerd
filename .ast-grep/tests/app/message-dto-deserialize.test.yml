@@ -1,0 +1,36 @@
+id: message-dto-deserialize
+valid:
+    # Command with Deserialize derive
+    - |
+        #[derive(Deserialize)]
+        pub struct MoveProject {
+            pub id: String,
+        }
+        impl Command<Ctx> for MoveProject {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }
+    # Query with derive + serde attribute above the struct
+    - |
+        #[derive(Clone, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        pub struct CountUnread {
+            pub workspace_id: String,
+        }
+        impl Query<Ctx> for CountUnread {}
+
+invalid:
+    # Command without any derive
+    - |
+        pub struct LaunchSession {
+            pub id: String,
+        }
+        impl Command<Ctx> for LaunchSession {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }
+    # Query deriving everything BUT Deserialize
+    - |
+        #[derive(Clone, Debug, Serialize)]
+        pub struct GetById {
+            pub id: String,
+        }
+        impl Query<Ctx> for GetById {}

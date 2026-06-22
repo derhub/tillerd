@@ -17,7 +17,7 @@ test("a project survives an app restart", async () => {
       timeoutMsg: "created project did not appear in the sidebar",
     });
   } finally {
-    await first.deleteSession(); // closing the session closes the app — the next launch is a restart
+    await first.deleteSession(); // closing the session closes the app -- the next launch is a restart
   }
 
   // Second launch (restart): the project must reappear without recreating it.

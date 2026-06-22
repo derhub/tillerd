@@ -1,0 +1,20 @@
+id: infra-only-in-app
+snapshots:
+  'runtime: Arc<dyn crate::infra::runtime::SurfaceRuntime>,':
+    labels:
+    - source: crate::infra::runtime::SurfaceRuntime
+      style: primary
+      start: 17
+      end: 54
+  use crate::infra::runtime::SurfaceRuntime;:
+    labels:
+    - source: use crate::infra::runtime::SurfaceRuntime;
+      style: primary
+      start: 0
+      end: 42
+  use crate::infra::runtime::{DaemonRuntime, SurfaceRuntime};:
+    labels:
+    - source: use crate::infra::runtime::{DaemonRuntime, SurfaceRuntime};
+      style: primary
+      start: 0
+      end: 59

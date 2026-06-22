@@ -1,5 +1,5 @@
 //! First-party tools: orchestrator-supervised, never spawned by gateway.
-//! instance — is configured as an ordinary URL backend, which the gateway connects
+//! instance -- is configured as an ordinary URL backend, which the gateway connects
 //! to rather than spawns, so it is never rejected here.
 
 use crate::config::BackendKind;

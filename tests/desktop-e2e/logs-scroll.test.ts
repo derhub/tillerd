@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { clearLogSeeds, openLogViewer, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
-// Auto-scroll needs real layout (scrollHeight/clientHeight), which happy-dom lacks — so it is
+// Auto-scroll needs real layout (scrollHeight/clientHeight), which happy-dom lacks -- so it is
 // covered here, in a real webview. Seeds an overflowing log file (far-future timestamps so
 // appended lines sort to the bottom) and asserts the view follows new logs to the bottom.
 //

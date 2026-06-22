@@ -1,0 +1,24 @@
+id: infra-no-export
+language: Rust
+severity: error
+message: >-
+  infra/ is fully internal: the module is declared `mod infra;` (no `pub`, no `pub(crate)`)
+  and no `pub use …infra…` re-export exists. Any exposure makes an adapter/port reachable
+  outside the crate, defeating the boundary. The host knows only `app`; surface what it
+  needs through an app-owned command, query, or public port.
+note: |
+  Keep `infra` a private module and own the edge in app/:
+
+    mod infra;   // crate root: private, not `pub` and not `pub(crate)`
+    // instead of: pub use crate::infra::runtime::SurfaceEventSink;
+    use orchestrator::app::session::LaunchSession;   // app owns the public port
+
+  A private `mod infra;` is still reachable crate-wide (descendants see an ancestor's private
+  module), so `pub(crate)` buys nothing and is rejected to force the fully-internal form.
+  `pub(crate) use crate::infra::X;` (a crate-internal re-export) stays allowed.
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^pub use\s+.*\binfra\b'
+    - kind: mod_item
+      regex: '^pub(\(crate\))? mod infra\b'

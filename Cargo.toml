@@ -7,6 +7,7 @@ members = [
   "crates/process-launch",
   "crates/daemon-pty-client",
   "crates/gate-client",
+  "crates/custom-macro",
   "crates/orchestrator",
   "crates/redact",
   "apps/daemon-pty",
@@ -44,6 +45,8 @@ nix = "0.31"
 rmcp = "1.7"
 # testing
 tempfile = "3"
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+tillerd-custom-macro = { path = "crates/custom-macro" }
 # internal
 tillerd-paths = { path = "crates/paths" }
 contracts = { path = "crates/contracts", package = "tillerd-contracts" }
@@ -57,6 +60,7 @@ redact = { path = "crates/redact", package = "tillerd-redact" }
 [workspace.lints.rust]
 future-incompatible = "warn"
 nonstandard_style = "warn"
+unused_unsafe = "warn"
 
 [workspace.lints.clippy]
 all = "warn"

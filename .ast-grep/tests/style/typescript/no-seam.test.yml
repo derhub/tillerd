@@ -1,0 +1,10 @@
+id: no-seam-ts
+valid:
+    - "// boundary between layers"
+    - "// the interface edge"
+    - "/* join the two halves */"
+    - "// seamless is fine, not the banned token"
+invalid:
+    - "// the seam between modules"
+    - "// SEAM here"
+    - "/* a seam joins them */"

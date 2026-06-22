@@ -1,0 +1,46 @@
+id: query-returns-view
+valid:
+    # Read DTO (*View)
+    - |
+        impl Query<Ctx> for GetProjectById {
+            type Out = Option<ProjectView>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+    # Listing of views
+    - |
+        impl Query<Ctx> for ListProjects {
+            type Out = Listing<ProjectView>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+    # Primitive scalar
+    - |
+        impl Query<Ctx> for CountUnread {
+            type Out = i64;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+    # Blob / string scalars
+    - |
+        impl Query<Ctx> for GetBuffer {
+            type Out = Option<Vec<u8>>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+
+invalid:
+    # Returns an entity
+    - |
+        impl Query<Ctx> for GetProjectById {
+            type Out = Option<Project>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+    # Listing of entities
+    - |
+        impl Query<Ctx> for ListSessions {
+            type Out = Listing<Session>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+    # Vec of a non-view record
+    - |
+        impl Query<Ctx> for ListSettings {
+            type Out = Vec<SettingEntry>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }

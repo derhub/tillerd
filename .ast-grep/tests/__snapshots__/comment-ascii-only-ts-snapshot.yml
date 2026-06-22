@@ -1,0 +1,26 @@
+id: comment-ascii-only-ts
+snapshots:
+  /* curly “quote” */:
+    labels:
+    - source: /* curly “quote” */
+      style: primary
+      start: 0
+      end: 23
+  // em dash — here:
+    labels:
+    - source: // em dash — here
+      style: primary
+      start: 0
+      end: 19
+  // emoji 😀:
+    labels:
+    - source: // emoji 😀
+      style: primary
+      start: 0
+      end: 13
+  // section § marker:
+    labels:
+    - source: // section § marker
+      style: primary
+      start: 0
+      end: 20

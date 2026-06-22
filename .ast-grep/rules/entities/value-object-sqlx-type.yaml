@@ -1,0 +1,63 @@
+id: value-object-sqlx-type
+language: Rust
+severity: error
+message: >-
+  A value object (newtype) in entities/ should derive `sqlx::Type` (transparent) so
+  a repository binds and decodes it directly — no manual `Id::new(row.col)` wrapping.
+note: |
+  Goal: query straight into the entity — no `ProjectRow`, no second map.
+
+  1. Make value objects transparent and enums sqlx-typed:
+
+    #[derive(Clone, Debug, sqlx::Type)]
+    #[sqlx(transparent)]                  // ProjectId <-> TEXT
+    pub struct ProjectId(String);
+
+    #[derive(Debug, sqlx::Type)]
+    #[sqlx(rename_all = "snake_case")]    // ProjectStatus <-> 'active' | 'archived'
+    pub enum ProjectStatus { Active, Archived }
+
+  2. Derive FromRow on the entity itself:
+
+    #[derive(sqlx::FromRow)]
+    pub struct Project {
+        pub id: ProjectId,
+        pub name: String,
+        pub status: ProjectStatus,
+        // ...
+    }
+
+  3. Compute derived columns in the SELECT, then decode in one hop:
+
+    let project: Option<Project> = sqlx::query_as::<_, Project>(
+        "SELECT id, name,
+                CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
+         FROM project WHERE id = ?")
+        .bind(&id)
+        .fetch_optional(exec).await?;     // row -> Project directly, no intermediate struct
+
+  Binding works the same way — pass the value object straight in:
+
+    sqlx::query("UPDATE project SET name = ? WHERE id = ?")
+        .bind(&project.name)
+        .bind(&project.id)                // ProjectId -> TEXT transparently
+        .execute(exec).await?;
+
+  Trade-off: a derived field's rule (active unless archived) lives in the SELECT.
+
+  The transparent VO removes the per-field `ProjectId::new(...)` wrapping; the
+  row->entity step stays for the computed fields the repo owns.
+files:
+  - "**/entities/**"
+rule:
+  kind: struct_item
+  all:
+    - has:
+        kind: ordered_field_declaration_list
+    - not:
+        follows:
+          kind: attribute_item
+          regex: '\bType\b'
+          stopBy:
+            not:
+              kind: attribute_item

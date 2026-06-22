@@ -32,7 +32,7 @@ fn prompt_event_at_turn(content: &str, turn: i64) -> HookEvent {
     }
 }
 
-// ── Hook never blocks the agent ───────────────────────────────────────────────
+// -- Hook never blocks the agent -----------------------------------------------
 
 /// Capture is fire-and-forget: dispatching a hook event completes in bounded
 /// time and does not block the calling thread. A thread that simulates an
@@ -54,10 +54,10 @@ fn hook_never_blocks_the_agent() {
     );
 }
 
-// ── Source is swappable for tests ─────────────────────────────────────────────
+// -- Source is swappable for tests ---------------------------------------------
 
 /// In production the hook source is a gate subscription; in tests it is a stub.
-/// The capturer's behavior is identical regardless of the source — this
+/// The capturer's behavior is identical regardless of the source -- this
 /// verifies that `HookSource` is the only coupling point.
 #[test]
 fn source_is_swappable_for_tests_without_changing_capturer() {
@@ -83,7 +83,7 @@ fn source_is_swappable_for_tests_without_changing_capturer() {
     assert_eq!(count, 2);
 }
 
-// ── Queue survives restart (dedicated) ───────────────────────────────────────
+// -- Queue survives restart (dedicated) ---------------------------------------
 
 /// Pending embedding requests survive a process restart (db reopen). This is
 /// the durability guarantee: at-least-once draining requires the queue to
@@ -119,10 +119,10 @@ fn queue_survives_restart_pending_requests_present_after_reopen() {
     );
 }
 
-// ── Worker drains proactively ─────────────────────────────────────────────────
+// -- Worker drains proactively -------------------------------------------------
 
 /// The background worker drains pending requests without waiting for a recall
-/// to be issued. This confirms proactive draining — not lazy on read.
+/// to be issued. This confirms proactive draining -- not lazy on read.
 #[test]
 fn worker_drains_proactively_without_a_recall_being_issued() {
     use memorya::worker::EmbeddingWorker;

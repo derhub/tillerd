@@ -1,0 +1,25 @@
+id: infra-stays-internal
+language: Rust
+severity: error
+message: >-
+  Infra (repos, adapters, the runtime port) must not leak outside the orchestrator
+  crate: no consumer may reach `orchestrator::infra`. Surface what the host needs
+  through a public edge that `app/` owns (a command, query, or public port), not by
+  reaching into the adapter.
+note: |
+  Reach infra only through an app-owned public edge, never the adapter:
+
+    // instead of: use orchestrator::infra::runtime::FakeRuntime;
+    // instead of: orchestrator::infra::runtime::Geometry::default()  (inline path)
+    use orchestrator::app::session::LaunchSession;   // a command/query/public port
+
+    bus.execute(LaunchSession { id }).await?;
+    // the runtime port stays internal; the host drives it via app/.
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^use\s+(orchestrator::infra\b|\S+::infra(::\w+)*::\*)'
+    - kind: scoped_identifier
+      regex: '^orchestrator::infra\b'
+    - kind: scoped_type_identifier
+      regex: '^orchestrator::infra\b'

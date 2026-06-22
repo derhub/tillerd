@@ -3,7 +3,7 @@ import type { ServiceHealth } from "@tillerd/sdk/orchestrator";
 /** The orchestrator's own boot phase, as the host hook reports it. */
 export type OrchestratorPhase = "web" | "booting" | "ready" | "error";
 
-/** The single aggregate indicator's state — the worst across orchestrator + services. */
+/** The single aggregate indicator's state -- the worst across orchestrator + services. */
 export type AggregateState = "ready" | "starting" | "failed";
 
 /**

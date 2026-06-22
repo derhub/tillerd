@@ -200,8 +200,15 @@ pub fn encode_unsubscribe(session: &SessionId) -> Vec<u8> {
     encode_frame(&serde_json::to_vec(&meta).expect("unsubscribe meta"), None)
 }
 
+/// Encode a `list` frame asking the daemon to enumerate its live sessions; the
+/// daemon replies with a [`SessionFrame::ListAck`].
+pub fn encode_list() -> Vec<u8> {
+    let meta = json!({ "type": "list" });
+    encode_frame(&serde_json::to_vec(&meta).expect("list meta"), None)
+}
+
 /// A decoded session-event frame: a handshake ack, raw output bytes, or a
-/// lifecycle event by session id. Consumer-oblivious — no hook plane.
+/// lifecycle event by session id. Consumer-oblivious -- no hook plane.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionFrame {
     /// The daemon's handshake reply.
@@ -212,6 +219,11 @@ pub enum SessionFrame {
         daemon_version: String,
         /// Capabilities the daemon advertises (pty-only: no hook).
         capabilities: Vec<String>,
+    },
+    /// The daemon's reply to a `list`: the ids of every session it currently holds.
+    ListAck {
+        /// The live session ids the daemon is tracking.
+        ids: Vec<String>,
     },
     /// The daemon's acknowledgement that a `spawn` started a session.
     SpawnAck {
@@ -272,6 +284,18 @@ pub fn decode_session_frame(frame: &RawFrame) -> Option<SessionFrame> {
     };
 
     Some(match kind {
+        "list-ack" => SessionFrame::ListAck {
+            ids: meta
+                .get("ids")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default(),
+        },
         "hello-ack" => SessionFrame::HelloAck {
             version: meta.get("version").and_then(Value::as_u64).unwrap_or(0) as u32,
             daemon_version: meta
@@ -455,6 +479,28 @@ mod tests {
             let meta: Value = serde_json::from_slice(&frame.meta).unwrap();
             assert_eq!(meta, json!({ "type": ty, "sessionId": "s" }));
         }
+    }
+
+    #[test]
+    fn list_carries_no_session_id() {
+        let bytes = encode_list();
+        let frame = &FrameDecoder::new().push(&bytes)[0];
+        let meta: Value = serde_json::from_slice(&frame.meta).unwrap();
+        assert_eq!(meta, json!({ "type": "list" }));
+    }
+
+    #[test]
+    fn decodes_a_list_ack_frame() {
+        let raw = RawFrame {
+            meta: br#"{"type":"list-ack","ids":["s1","s2"]}"#.to_vec(),
+            body: None,
+        };
+        assert_eq!(
+            decode_session_frame(&raw),
+            Some(SessionFrame::ListAck {
+                ids: vec!["s1".into(), "s2".into()],
+            })
+        );
     }
 
     #[test]

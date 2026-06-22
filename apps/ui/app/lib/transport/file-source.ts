@@ -11,7 +11,7 @@ export const FILE_READ = "file_read";
 export class TauriFileSource implements FileSource {
   constructor(private readonly core: TauriCore) {}
 
-  /** Byte length, or `null` when the file is absent — distinct from an empty file (0). */
+  /** Byte length, or `null` when the file is absent -- distinct from an empty file (0). */
   size(path: string): Promise<number | null> {
     return this.core.invoke<number | null>(FILE_SIZE, { path });
   }

@@ -1,0 +1,17 @@
+id: entities-stay-internal
+valid:
+    - "use orchestrator::app::project::MoveProject;"
+    - "use orchestrator::shared::pagination::Page;"
+    - "use orchestrator::Bus;"
+    - "use crate::entities::project::ProjectId;"
+    - "fn f() { let id = crate::entities::WorkspaceId::default_id(); }"
+    - "fn f() -> crate::entities::ProjectId { todo!() }"
+invalid:
+    - "use orchestrator::entities::ProjectId;"
+    - "use orchestrator::entities::{SessionId, SurfaceId};"
+    - "use orchestrator::entities::*;"
+    - "use orchestrator::entities as domain;"
+    - "use crate::entities::*;"
+    - "use crate::entities::project::*;"
+    - "fn f() { let id = orchestrator::entities::WorkspaceId::default_id(); }"
+    - "fn f() -> orchestrator::entities::ProjectId { todo!() }"

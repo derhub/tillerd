@@ -1,0 +1,14 @@
+id: infra-no-export
+valid:
+    - "pub(crate) use crate::infra::runtime::SurfaceEventSink;"
+    - "mod infra;"
+    - "use crate::infra::runtime::SurfaceEventSink;"
+    - "pub use crate::app::session::LaunchSession;"
+    - "pub mod app;"
+invalid:
+    - "pub use crate::infra::runtime::SurfaceEventSink;"
+    - "pub use crate::infra::migrate;"
+    - "pub use crate::infra::runtime::*;"
+    - "pub use crate::infra::runtime::SurfaceEventSink as Sink;"
+    - "pub mod infra;"
+    - "pub(crate) mod infra;"

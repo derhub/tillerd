@@ -1,6 +1,6 @@
 import { type Browser, launchReadyApp } from "./helpers";
 
-// Module singleton shared across all spec files — bun runs the suite in one process.
+// Module singleton shared across all spec files -- bun runs the suite in one process.
 let app: Browser | undefined;
 
 export async function launchSharedApp(): Promise<void> {

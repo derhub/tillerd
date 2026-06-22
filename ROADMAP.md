@@ -36,8 +36,9 @@ supervised services. Nothing renders yet.
 - [x] Orchestrator crate — runtime-agnostic Rust library (ADR-0022), embedded in-process
   by the desktop host; transport-agnostic API + `EventSink` bound to Tauri.
 - [x] Supervised startup — orchestrator adopt-or-spawns gate + daemon; per-service health.
-- [x] Persistence — `tillerd.db` (rusqlite) with the schema and lazy migration runner
-  (ADR-0023).
+- [x] Persistence — `tillerd.db` with the schema and lazy migration runner (ADR-0023).
+  (Storage de-abstracted to `sqlx` per-entity repos in 0.0.15 — ADR-0036 supersedes ADR-0035;
+  `rusqlite` dropped.)
 - [x] SDK as API client — the TS `sdk` talks to the orchestrator API; the UI reaches
   `ready` through it (old TS engine path off). Blank UI acceptable.
 
@@ -64,13 +65,13 @@ with its launch command sourced from the command library.
 
 Projects group sessions; sessions group surfaces; both persist and survive restart.
 
-- [x] Projects — create `blank` / `local-dir` / `git-repo` / `git-worktree`; name
-  inference + custom + rename; list / open; Unfiled seeded.
+- [x] Projects — create `blank` / `local-dir` / `git-repo`; name inference + custom + rename;
+  list / open; Unfiled seeded. (`git-worktree` source kind dropped in 0.0.15.)
 - [x] Sessions — container CRUD; title inference (agent title | branch | both) + custom;
   add / remove surfaces; resume after restart.
 - [x] Layout persistence — panel tree (`layout_json`) saved per session; restored on resume.
-- [x] Archive — `deleted_at` soft-delete (cascades to surfaces); hard-delete; worktree
-  directory kept.
+- [x] Archive — `deleted_at` soft-delete (cascades to surfaces); hard-delete. (The
+  worktree-directory-kept clause is moot since 0.0.15 dropped worktrees.)
 
 ### 0.0.5 — Launch system
 
@@ -81,13 +82,15 @@ the **launch-execution** change (PR #12, terminal-only — ADR-0026/0027).
 - [x] Command library — prebuilt (login shell) + user-added. (The agent-CLI seed is dropped
   with the agent surface; it returns in 1.0.0.)
 - [x] Launch items — target (terminal), placement (named regions), command / args / env,
-  worktree step (create -> returns cwd, sets `worktree_id`). No pre/post/auto-spawn scripts:
+  worktree step (create -> returns cwd, sets `worktree_id`; the worktree step + entity were
+  dropped in 0.0.15). No pre/post/auto-spawn scripts:
   an auxiliary runner (e.g. a dev server) is an ordinary terminal item with a placement;
   closing the pane leaves the process running (soft-delete keeps the PTY).
 - [x] Templates -> instances — a project template instantiates a session's surfaces; the
   session may diverge. (Spec-copy on session create, executor wiring, workspace IPC
   handlers, and idempotent seed all done.)
-- [x] Worktrees — owned by a project; created by the worktree step.
+- [x] Worktrees — owned by a project; created by the worktree step. (Removed in 0.0.15:
+  worktree provisioning + entity dropped.)
 
 ### 0.0.6 — Finalize the architecture
 
@@ -95,6 +98,9 @@ The last architecture-changing version of 0.x. Everything frozen here — servic
 contract, wire protocol, data model (ADR-0023), extension seams, runtime layout
 (ADR-0025), the panel-surface binding (ADR-0030), design tokens — holds for the rest
 of 0.x; every later version is additive on these seams, never a change to them.
+(0.0.15 later de-abstracted the storage *implementation* — sqlx per-entity repos,
+ADR-0036 — beneath this frozen data model, wire protocol, and ACL: the seams held, the
+internal layering changed.)
 
 - [x] Desktop E2E suite — first, so every later milestone verifies against it instead
   of manual checks. The rig exists (`tests/desktop-e2e/run.sh`: WebdriverIO +
@@ -256,105 +262,100 @@ migration under the 0.0.6 data-model freeze.
 
 ---
 
-### Foundation — shared design (0.0.15–0.0.17)
+### Foundation — storage + client engine (0.0.15–0.0.17)
 
-> The substrate the working app needs before the 0.0.20 UX/UI ship: a finalized storage
-> model, a standard state model, and the real client engine. Design is **solidified**
-> (decisions locked below); split into three versions, each extracted into its own OpenSpec
-> change. Ordered by dependency: storage + state model (0.0.15) → client engine (0.0.16) →
-> integration (0.0.17). The shared invariants + folder structure below apply across all three.
+> The substrate the working app needs before the 0.0.20 UX/UI ship. The original plan — a
+> snapshot-tree file store + two-plane `state.db` + a state-model contract (ADR-0033/0034) —
+> was **abandoned**: it fused persistence with domain logic and walked relational data as a
+> directory tree. Replaced by **de-abstracted sqlx storage** (ADR-0036, accepted, supersedes
+> ADR-0035). Ordered by dependency: storage de-abstraction (0.0.15) → client engine (0.0.16)
+> → integration (0.0.17). The locked decisions below apply across all three.
 
-**Shared design invariants (locked):**
-- **Domain hierarchy = `workspace → project → session`.** Profile is NOT a tier — it is a
-  portable settings bundle (below). Domain (workspace/project/session/panel layout + surface
-  bindings) = readable JSON snapshot tree. Operational (runtime status, notifications, command
-  lib, id→path index, view pointers, baseline snapshots) = `state.db` SQLite, machine-local,
-  regenerable. **Split is per-concern, not per-entity:** a surface's binding lives in domain
-  (`layout.json`), its runtime status in operational (`state.db`); the stable `id` is the
-  cross-plane join. Operational state is keyed by `id`, never by path.
-- **Profile = portable, named settings bundle** (the VS Code model). Owns settings only — no
-  domain, no templates. Switchable, shareable. One **active** profile drives the cascade.
-  **Settings cascade:** `effective(project) = merge(active profile, workspace override?,
-  project override?)` — workspace and project may each carry an optional `settings.jsonc`;
-  session inherits, no override (per-session variability lives in the launch `spec`, not
-  settings). Switching profile only re-resolves effective settings (hot-apply / reload-notify)
-  — it does NOT touch domain or PTYs.
-- **Template = portable launch-spec bundle**, sibling to profiles (`<templates>/<name>/template.jsonc`).
-  A **library** picked from at session-create — `session.spec` is a deep-copy snapshot, then
-  decoupled (editing/deleting a template never breaks a live session). Templates are opt-in and
-  purely additive (pre-spawn surfaces); absence or an invalid template → the existing
-  `DEFAULT_LAYOUT` (sidebar + single empty pane). `prebuilt` (in-code) vs `custom` (file),
-  reusing the command-lib `origin` vocabulary.
-- **Secrets = Stronghold vault** (`vault.stronghold`, machine-local, encrypted), unlocked by a
-  master password held in the OS keychain (silent unlock at boot). `session.spec` env keys are
-  resolved from the vault at launch. No `secret_ref`/`setting` tables.
-- **Storage-agnostic.** Only the **domain tree** must be readable at its path and is
-  relocatable/syncable (git, sync, backup — the user's business). `state.db` + `vault.stronghold`
-  are pinned machine-local and never sync (regenerable / secret). Profiles and templates are
-  portable bundles, shareable.
-- **Zero file watchers.** All files reconcile at **startup + an explicit Re-sync button** —
-  domain and settings alike.
-- **Humans may edit any file.** Lazy conflict detection: at write + Re-sync, compare file hash
-  vs per-entity **baseline snapshot** (base JSON + hash) → `merge3(base, file, ours)`. `ours` is
-  in-memory only (no persisted pending), so startup reconcile is 2-way (file vs base → adopt,
-  advance baseline); a true 3-way conflict only arises at live Re-sync. Flat files (workspace /
-  project / session / settings): disjoint fields auto-merge, overlap → **prompt: Override (ours)
-  / Force-merge (file as base, replay ours)**. `layout.json` is **tree-merged per node** by
-  stable node id (disjoint subtrees auto; reparent / delete-modify / same-field overlap → prompt
-  that node); `Conflicted` is per-node for layout, per-entity for flat. No event sourcing, no
-  continuous watching, no conflict markers.
-- **Malformed-file resilience.** No file blocks boot; app chrome (sidebar) always renders.
-  Per-class fallback + notification: bad `template.jsonc`/`layout.json` → `DEFAULT_LAYOUT`; bad
-  `settings.jsonc` → skip that cascade layer; bad domain entity → skip mounting it; corrupt
-  `state.db` → regenerate.
-- **Clean cutover, no migration** (pre-v1; dev-only data discarded).
+**Locked decisions (ADR-0036):**
+- **Domain hierarchy = `workspace → project → session → surface`.** Unchanged at the model
+  level (ADR-0023); its slug-tree representation is dropped.
+- **Four layers, one job each.** `entities/` are pure domain (types + rules — guards, the
+  rename-sets-`title_source`-`Custom` rule, the cascade policy — no infra trait, no I/O);
+  `infra/` is all infrastructure (per-entity async `sqlx` repositories + the surface runtime);
+  `shared/` holds reusable primitives (`fs`, `kv`, `page`, `datetime`, `errors`, and the CQS
+  `Command`/`Query` + `Bus`), not a storage abstraction; `app/` is a CQS layer of
+  command/query objects on the bus; `boot/` is the composition root.
+- **Domain data in sqlite via `sqlx` 0.9** (async, compile-time-checked queries; not an ORM).
+  One repo per entity owns its table, columns, and `Row → Entity` mapping, with typed
+  `create`/`get`/`list(parent, page)`/`update`/`delete` over an executor (pool or tx ref).
+  Nesting is a `parent_id` column; rename/move/archive are `UPDATE`s; cascades are
+  `UPDATE`/`DELETE`. `rusqlite`, the `Backend { Fs | Sqlite | Memory }` enum, the `store/`
+  wrappers, the `infra/memory` double, and the slug-tree machinery are deleted.
+- **Operations in ubiquitous language, not generic CRUD** — `New*`/`Rename*`/`Reorder*`/
+  `MoveProject`/`Archive*`/`Discard*`/`SpawnSurface`; reads are descriptive `Get*`/`List*`.
+  Each is a `Command<Ctx>` (mutate → `()`) or `Query<Ctx>` (read → `Out`); **the transaction
+  boundary is per command** (`Ctx::transaction`), not the bus.
+- **Transport is thin over a transport-agnostic core.** The tauri crate's
+  `transport_command!`/`transport_query!` (`type => action`) generate the per-operation
+  `#[tauri::command]` shim + `inventory` registration (wire and dynamic ACL unchanged); the
+  future web host owns its own macro (axum) over the same commands and bus.
+- **User-config stays file-based** through `shared::fs` — settings, theme, keybindings, and the
+  profile store (`config/profiles/<id>.json`, `active.json`). Profiles ship file-based here.
+- **Clean cutover, no migration** (pre-v1; dev-only data discarded). The domain on-disk format
+  breaks (slug-tree → sqlite); the IPC contract, dynamic ACL, and wire protocol are unchanged.
+- **Deferred** (ADR-0036 out-of-scope, land in a later slice): Stronghold secrets vault +
+  OS-keychain master password; the settings-profile cascade (workspace/project overrides,
+  templates); the state-model contract (ADR-0034 — lifecycle FSM, sync status, guards). The
+  snapshot-tree two-plane design (ADR-0033) is superseded, not deferred.
 
 ```
-<app-data>/tillerd/                         ALWAYS machine-local
-  config.jsonc                              activeProfile, paths (dataRoot/profiles/templates), app prefs
-  state.db                                  operational, regenerable, NEVER synced
-  vault.stronghold                          secrets (encrypted), keychain-unlocked
-<profiles>/<profile-name>/   settings.jsonc portable settings bundle (one active; switchable, shareable)
-<templates>/<template-slug>/ template.jsonc portable launch-spec bundle (library; prebuilt | custom)
-<data-root>/                                RELOCATABLE (default <app-data>/tillerd/data; user may repoint to a synced folder)
-  workspaces/<ws-slug>/   workspace.json    { id, name, sortOrder }   (slug dir, stable id)
-    settings.jsonc                          OPTIONAL workspace settings override
-    projects/<proj-slug>/ project.json      { id, name, sourceKind, rootPath, sortOrder }
-      settings.jsonc                        OPTIONAL project settings override
-      .archive/<…>/                         archived subtrees (atomic move)
-      sessions/<sess-slug>/ session.json    { id, title, titleSource, createdFrom?, spec, sortOrder }
-        layout.json                         panel tree (geometry) + surface bindings
-                                            surface = { id, kind, placement, cwd }
+<app-data>/tillerd/        ALWAYS machine-local
+  tillerd.db               domain + operational data (sqlite via sqlx); migrations in-tree
+  config/                  user-config, file-based via shared::fs
+    profiles/<id>.json     settings profiles; active.json names the active profile
+    global.json            global settings scope
+    project/<id>.json      per-project settings scope
 ```
-Containment encodes hierarchy (no `workspace_id`/`project_id` fields); refs use stable `id`;
-ordering via explicit `sortOrder`; archive = move subtree to `.archive/`. **Slug = cosmetic label**
-(re-slugged on rename via atomic subtree move; collisions disambiguated `foo` → `foo-2`); the
-`id` is truth and the id→path index regenerates by scanning. URL intent carries the stable id
-(`?w=<id>`). `cwd` is relative to the project `rootPath` (portable).
+Domain entities (workspace, project, session, surface, command, launch_template, notification)
+are typed sqlite rows. Nesting is a `parent_id` column, not a directory tree; ordering via a
+`sort_order` column; archive via `archived_at` (soft-delete). Refs use the stable `id`, and URL
+window intent carries it (`?w=<id>`); `cwd` is relative to the project `rootPath`. The earlier
+relocatable/syncable domain tree, per-entity baseline snapshots, and id→path index are gone with
+the slug-tree; profiles and settings remain hand-editable JSON.
 
-### 0.0.15 — Storage & state model
+### 0.0.15 — Storage de-abstraction (sqlx)
 
-The storage substrate + standardized state model (Features A + B), merged so `state.db` ships
-its final typed schema once (no forward-dependency). Two ADRs.
+De-abstract the orchestrator data layer (ADR-0036, accepted, supersedes ADR-0035): four layers
+each with one job, domain data in sqlite via `sqlx`, operations as CQS objects on a bus. The
+slug-tree, the `Backend` enum, the `store/` wrappers, and the `infra/memory` double are deleted.
 
-- [ ] ADR — two-plane storage (snapshot tree + operational `state.db`) + settings-profile cascade + Stronghold secrets.
-- [ ] ADR — state-model-as-contract (lifecycle / sync / guards; authority split).
-- [ ] Drop worktree provisioning + entity — remove `git worktree add` step, `git_worktree` source_kind, `worktree` table; surface = `{ id, kind, placement, cwd }`; CONTEXT.md term removed (task 0; clears persistence before the rewrite).
-- [ ] Snapshot tree store — `workspace → project → session`; slug dirs + stable `id`, containment hierarchy, `sortOrder`, atomic write-temp-rename, re-slug-on-rename subtree move, `.archive/` subtree move; replaces SQLite domain tables.
-- [ ] `state.db` operational store (final typed schema) — id→path index, per-entity baseline snapshots (base JSON + hash), command lib, notifications, `meta`; typed surface status + view pointers (below). Keyed by `id`.
-- [ ] Settings profiles + templates — `<profiles>/<name>/settings.jsonc` (one active) and `<templates>/<slug>/template.jsonc` (library, prebuilt|custom); `config.jsonc` holds active-profile pointer + paths; switch = re-resolve effective settings only; CONTEXT.md terms.
-- [ ] Settings cascade — `merge(active profile, workspace override?, project override?)`; optional `settings.jsonc` at workspace + project; hot-apply where safe, else reload-notify.
-- [ ] Secrets — Stronghold vault + OS-keychain master password; `session.spec` env keys resolved at launch.
-- [ ] Reconcile — startup scan (2-way) + Re-sync command (3-way); `merge3(base, file, ours)`, flat field-merge + `layout.json` per-node tree-merge; malformed-file fallbacks; no watchers.
-- [ ] State-model contract — `contracts/state-model.json` (+ `.schema.json`); single source, loaded both sides (Rust `include_str!`+serde, TS import+zod), no codegen.
-- [ ] Lifecycle FSM — shared CRUD (Creating→Active→Archiving→Archived→Deleting); surface special (Spawning→Attaching→Live→Closing→Closed). Contract marks persistable vs runtime-only states.
-- [ ] Surface status split — runtime `ProxyState` (Spawning/Attaching/Closing, in-memory, rebuilt at boot via `resume_all`) vs persisted typed `last_status` (Live | Exited | Crashed, `state.db`) gating resume-on-boot; replaces the free-form string.
-- [ ] Sync status — `Confirmed | Pending | Rejected | Stale | Conflicted`; optimistic, in-memory pending, rollback; `Conflicted` locks entity (per-node for layout) until resolved.
-- [ ] Guards — `*-ing` states locked; only stable states accept actions; orchestrator enforces, client advisory.
-- [ ] View pointers — minimal global seed in `state.db`: `activeWorkspace` (new-window seed), `sidebar.expanded.<proj>`, `lastSession.<proj>`; resolved against live lifecycle. Per-window context comes from URL intent (in-memory, not persisted; restore-after-quit deferred); `focusedLeaf` in-memory.
-- [ ] Workspace activity — derived runtime read-model (rollup of surface `ProxyState` → working / idle / none), keyed by workspace id, surfaced via Query; NOT a domain field.
-- [ ] Surface reattach on reload — diff `layout.json` placements → `detach` removed / `resume` added.
-- [ ] Contract test — UI and server guards agree (like `command_contract.rs`).
+- [x] `entities/` pure domain — types + rules (the `is_default`/`is_unfiled` guards, the
+  rename-sets-`title_source`-`Custom` rule, the cascade policy); no infra trait, no I/O.
+- [x] `infra/` per-entity async `sqlx` repositories — one repo per entity owning its table,
+  columns, and `Row → Entity` mapping, with typed `create`/`get`/`list(parent, page)`/`update`/
+  `delete` over an executor (pool or tx ref). Nesting via `parent_id`; rename/move/archive are
+  `UPDATE`s; cascades `UPDATE`/`DELETE`. sqlx 0.9 compile-time-checked, not an ORM; `rusqlite` dropped.
+- [x] Surface runtime into `infra/` — PTY proxies + daemon client behind a `Runtime` enum
+  `{ Daemon | Fake }` (static dispatch); the `surface/` and `launch/` dirs are removed and their
+  contents redistributed (`launch/spec.rs` → `entities/`; executor/api → `app/` surface commands).
+- [x] `shared/` building blocks — `fs`, `kv` (`SqliteKv` + `MemoryKv`), `page` (`Page`/`Listing`),
+  `datetime`, `errors`, and the CQS machinery (`Command<Cx>`/`Query<Cx>` + `Bus<Cx>`). No generic
+  `Repository` trait.
+- [x] `app/` CQS layer — operations in ubiquitous language; per-command transaction boundary
+  (`Ctx::transaction`), not the bus; `Ctx` holds the pool, kv, config root, and `Runtime`; `boot/`
+  opens the pool and builds `Ctx` + `Bus`.
+- [x] Caller-assigned create ids — creates mint the id at the caller (`transport_create!`),
+  removing the snapshot-then-list-diff read-back; creates are idempotent.
+- [x] Thin transport over a transport-agnostic core — `transport_command!`/`transport_query!`
+  generate the `#[tauri::command]` shims + `inventory` registration; all 82 app-layer commands
+  exposed; wire protocol and dynamic ACL unchanged.
+- [x] Standardized event dispatch — synchronous zero-copy dispatch (pull source + app pump); no
+  per-event clone on the hot path.
+- [x] Layer-boundary enforcement — ast-grep rules gate the entities/infra/app/shared import
+  boundaries (entities + infra stay app-internal); `ast-grep scan` + tests gated in CI.
+- [x] Drop worktree provisioning + entity — no `git worktree add` step, no `git_worktree`
+  source_kind, no `worktree` table; surface = `{ id, kind, placement, cwd }`; CONTEXT.md term removed.
+- [x] Clean cutover — domain on-disk format breaks (slug-tree → sqlite); no migration (pre-v1).
+
+Deferred to a later slice (ADR-0036 out-of-scope): Stronghold secrets vault + OS-keychain master
+password; the settings-profile cascade (workspace/project overrides, templates — profiles ship
+file-based here); the state-model contract (ADR-0034 — lifecycle FSM, sync status, guards). The
+snapshot-tree two-plane storage (ADR-0033) is superseded.
 
 ### 0.0.16 — Client engine: TanStack
 
@@ -362,6 +363,12 @@ The real client engine (Feature C). Move to TanStack Router + Query + Store — 
 cohesion and typed search-params that fit the `?w=<id>` window-intent model (SPA throughout;
 SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/`serve`,
 `@react-router/node`) for a Vite SPA build.
+
+> Re-scope: the bullets below (and 0.0.17's Re-sync / conflict-prompt) reference the
+> state-model contract and the hand-editable file tree that ADR-0036 deferred / superseded.
+> Domain is now sqlite (not hand-edited files), so 3-way file merge / Re-sync is moot as
+> written; view pointers, guards, and workspace-activity ride the deferred state-model.
+> These need re-scoping against ADR-0036 before 0.0.16 starts.
 
 - [ ] TanStack Router — replace react-router routing (12 files); typed search-params carry window intent.
 - [ ] TanStack Query — server-state cache = the sync axis (pending/error/stale/refetch); kills imperative `refresh()`.

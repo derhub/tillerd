@@ -30,6 +30,15 @@ _Avoid_: pane, panel, terminal-as-noun
 **Placement**:
 A per-session-unique slot id, minted by the orchestrator, that binds a launch item's surface to a slot in the panel tree. The boundary between a surface and where it renders. Minted when a surface is added to a session (session creation or a later spawn); a template carries no placement of its own. Unique per session, distinct from surface_id.
 
+**Proxy**:
+The orchestrator's live I/O bridge between a daemon PTY and a renderer, keyed by surface_id. _Attaching_ connects the frame stream; _detaching_ drops it while the PTY keeps running in the daemon. A runtime concern, not persisted.
+_Avoid_: connection-as-process, pty-as-proxy
+
+**Attach / Detach** (overloaded — always say which axis):
+- _proxy_ attach/detach: connect or drop a surface's I/O stream (see Proxy); the process keeps running either way. Backend/runtime, not persisted.
+- _window_ attach/detach: pop a surface into its own OS window, or re-dock it into the parent's panel tree. UI/chrome state in the frontend-local store — **not** orchestrator domain. The session's panel tree (splits/tabs) is domain; which OS window renders it is not.
+- starting/killing the process is **Spawn/Stop**, never "attach".
+
 ### Config
 
 **Profile**:

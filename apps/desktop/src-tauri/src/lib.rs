@@ -12,10 +12,12 @@ mod settings_host;
 mod store;
 mod supervisor;
 mod surface_host;
+mod transport;
 mod window_host;
-mod workspace_host;
 
 use tauri::Manager;
+
+use transport::macros::collect_transport;
 
 use bridge::BridgeState;
 use orchestrator_host::OrchestratorState;
@@ -24,7 +26,7 @@ use supervisor::SupervisorState;
 
 /// The app's real `Context` (config, embedded frontend, resolved ACL). `generate_context!` may
 /// expand only once per binary, so this single call is shared by `run()` and the command-contract
-/// test — the test needs the real ACL (the bundled `default.json`) to drive commands through the
+/// test -- the test needs the real ACL (the bundled `default.json`) to drive commands through the
 /// live IPC path, which a `mock_context` (empty ACL) cannot do.
 fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
@@ -69,67 +71,12 @@ pub fn run() {
             orchestrator_host::spawn_boot(handle, state.inner());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            bridge::daemon_connect,
-            bridge::daemon_send,
-            bridge::daemon_disconnect,
-            files::file_size,
-            files::file_read,
-            files::list_log_files,
-            diag::log_forward,
-            store::pref_get,
-            store::pref_set,
-            store::registry_get,
-            store::registry_set,
-            store::registry_remove,
-            store::registry_list,
-            supervisor::daemon_ensure,
-            orchestrator_host::orchestrator_status,
-            orchestrator_host::service_health,
-            surface_host::surface_create,
-            surface_host::surface_spawn,
-            surface_host::surface_close,
-            surface_host::surface_input,
-            surface_host::surface_resize,
-            surface_host::surface_detach,
-            window_host::window_open,
-            window_host::window_focus,
-            window_host::window_close,
-            workspace_host::project_create,
-            workspace_host::project_list,
-            workspace_host::project_rename,
-            workspace_host::project_archive,
-            workspace_host::project_delete,
-            workspace_host::project_reorder,
-            workspace_host::project_move,
-            workspace_host::workspace_create,
-            workspace_host::workspace_list,
-            workspace_host::workspace_rename,
-            workspace_host::workspace_reorder,
-            workspace_host::workspace_delete,
-            workspace_host::session_list,
-            workspace_host::session_create,
-            workspace_host::session_rename,
-            workspace_host::session_archive,
-            workspace_host::session_delete,
-            workspace_host::session_reorder,
-            workspace_host::session_layout_set,
-            workspace_host::session_layout_get,
-            workspace_host::command_list,
-            workspace_host::command_create,
-            workspace_host::command_get,
-            workspace_host::command_delete,
-            settings_host::setting_get,
-            settings_host::setting_set,
-            settings_host::setting_list,
-            notification_host::notifications_list,
-            menu::command_center_set_leader,
-        ])
+        .invoke_handler(collect_transport!(bridge::daemon_connect))
         .build(app_context())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             // Shutdown is bound to app exit (ExitRequested fires only when the LAST window closes),
-            // never per-window-close — so closing a parent window while a detached child remains
+            // never per-window-close -- so closing a parent window while a detached child remains
             // open leaves the owned daemon running (roadmap 0.0.11, desktop-shell spec).
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 supervisor::shutdown_owned(&app_handle.state::<SupervisorState>());

@@ -63,7 +63,7 @@ test("the level filter shows only the chosen level", async () => {
     timeoutMsg: "seeded logs did not appear",
   });
 
-  // Choose ERROR → only ERROR rows remain (INFO leaves the data, so it never renders).
+  // Choose ERROR -> only ERROR rows remain (INFO leaves the data, so it never renders).
   await setSelectValue(b, LEVEL_SELECT, "ERROR");
   await b.waitUntil(
     async () => {

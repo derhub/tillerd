@@ -1,0 +1,35 @@
+id: message-dto
+valid:
+    # Built-in field types, all pub
+    - |
+        pub struct SnoozeNotification {
+            pub id: String,
+            pub snooze_until: Option<i64>,
+        }
+        impl Command<Ctx> for SnoozeNotification {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }
+    # Query with primitive fields
+    - |
+        pub struct CountUnread {
+            pub workspace_id: String,
+            pub limit: u32,
+        }
+        impl Query<Ctx> for CountUnread {}
+
+invalid:
+    # Private field
+    - |
+        pub struct BadPrivate {
+            id: i32,
+        }
+        impl Query<Ctx> for BadPrivate {}
+    # Domain newtype field (not a built-in)
+    - |
+        pub struct MoveProject {
+            pub id: ProjectId,
+            pub workspace_id: WorkspaceId,
+        }
+        impl Command<Ctx> for MoveProject {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }

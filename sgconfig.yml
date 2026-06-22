@@ -1,0 +1,7 @@
+# sgconfig.yml
+ruleDirs:
+  - .ast-grep/rules
+testConfigs:
+  - testDir: .ast-grep/tests
+utilDirs:
+  - .ast-grep/utils

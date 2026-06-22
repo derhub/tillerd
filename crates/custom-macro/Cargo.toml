@@ -1,0 +1,22 @@
+[package]
+name = "tillerd-custom-macro"
+version.workspace = true
+edition.workspace = true
+description = "Core-owned proc-macros: ErrorCode derive reads #[error_code(\"…\")] into code()"
+license.workspace = true
+
+[lib]
+name = "tillerd_custom_macro"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = "2"
+quote = "1"
+proc-macro2 = "1"
+
+[dev-dependencies]
+trybuild = "1"
+
+[lints]
+workspace = true

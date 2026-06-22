@@ -1,17 +1,18 @@
 //! User-facing notification feed (roadmap 0.0.10). Derives notifications from the lifecycle
 //! signals the desktop host already receives, persists them in the orchestrator store
 //! (ADR-0031), and pushes them to the renderer over [`NOTIFICATION_EVENT`]. Additive: no
-//! orchestrator-core seam changes. The builders are pure so the derivation is unit-tested
+//! orchestrator-core boundary changes. The builders are pure so the derivation is unit-tested
 //! without a running app.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use orchestrator::entities::NotificationRecord;
-use orchestrator::store::Notifications;
+use orchestrator::app::notification::{
+    ListNotifications, NotificationView, PruneNotifications, RecordNotification,
+};
+use orchestrator::shared::Bus;
+use orchestrator::Ctx;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
-
-use crate::orchestrator_host::{OrchestratorState, ServiceHealthWire, ServiceStateWire};
 
 /// Renderer event carrying one notification. Mirrors the SDK `NOTIFICATION_EVENT`.
 pub const NOTIFICATION_EVENT: &str = "notification://event";
@@ -66,8 +67,8 @@ impl NotificationWire {
         self
     }
 
-    fn to_record(&self) -> NotificationRecord {
-        NotificationRecord {
+    fn to_record_cmd(&self) -> RecordNotification {
+        RecordNotification {
             id: self.id.clone(),
             category: self.category.clone(),
             severity: self.severity.clone(),
@@ -78,20 +79,22 @@ impl NotificationWire {
             session_id: self.session_id.clone(),
             surface_id: self.surface_id.clone(),
             actions_json: None,
+            read: false,
+            snooze_until: None,
         }
     }
 
-    fn from_record(rec: NotificationRecord) -> Self {
+    fn from_view(view: NotificationView) -> Self {
         Self {
-            id: rec.id,
-            category: rec.category,
-            severity: rec.severity,
-            title: rec.title,
-            message: rec.message,
-            detail: rec.detail,
-            ts: rec.ts,
-            session_id: rec.session_id,
-            surface_id: rec.surface_id,
+            id: view.id,
+            category: view.category,
+            severity: view.severity,
+            title: view.title,
+            message: view.message,
+            detail: view.detail,
+            ts: view.ts,
+            session_id: view.session_id,
+            surface_id: view.surface_id,
         }
     }
 }
@@ -103,18 +106,7 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-fn short_service(name: &str) -> &str {
-    name.strip_prefix("tillerd-").unwrap_or(name)
-}
-
-fn qualifier_severity(qualifier: &str) -> &'static str {
-    match qualifier {
-        "ok" | "stopped-by-request" => "info",
-        _ => "warning",
-    }
-}
-
-// ── builders (pure) ───────────────────────────────────────────────────────
+// -- builders (pure) -------------------------------------------------------
 
 pub fn surface_started(surface_id: &str, session_id: &str, ts: i64) -> NotificationWire {
     NotificationWire::new(
@@ -126,86 +118,6 @@ pub fn surface_started(surface_id: &str, session_id: &str, ts: i64) -> Notificat
     )
     .with_surface(surface_id)
     .with_session(Some(session_id.to_string()))
-}
-
-pub fn surface_stopped(
-    surface_id: &str,
-    session_id: Option<String>,
-    qualifier: &str,
-    ts: i64,
-) -> NotificationWire {
-    NotificationWire::new(
-        "surface-stopped",
-        qualifier_severity(qualifier),
-        "Terminal stopped",
-        format!("A terminal stopped ({qualifier})"),
-        ts,
-    )
-    .with_surface(surface_id)
-    .with_session(session_id)
-}
-
-pub fn surface_error(
-    surface_id: &str,
-    session_id: Option<String>,
-    reason: &str,
-    ts: i64,
-) -> NotificationWire {
-    NotificationWire::new(
-        "surface-error",
-        "error",
-        "Terminal error",
-        format!("Terminal error: {reason}"),
-        ts,
-    )
-    .with_surface(surface_id)
-    .with_session(session_id)
-}
-
-fn service_down(name: &str, ts: i64) -> NotificationWire {
-    NotificationWire::new(
-        "service-down",
-        "error",
-        "Service down",
-        format!("{} is unavailable", short_service(name)),
-        ts,
-    )
-}
-
-fn service_up(name: &str, ts: i64) -> NotificationWire {
-    NotificationWire::new(
-        "service-up",
-        "info",
-        "Service up",
-        format!("{} is available", short_service(name)),
-        ts,
-    )
-}
-
-fn is_down(state: ServiceStateWire) -> bool {
-    matches!(state, ServiceStateWire::Unavailable)
-}
-
-/// Diff two health snapshots into up/down notifications. Only a service present in BOTH
-/// snapshots that crosses the available/unavailable boundary yields a notification — a
-/// first-seen service (boot) or an unchanged state yields nothing.
-pub fn health_change_notifications(
-    prev: &[ServiceHealthWire],
-    next: &[ServiceHealthWire],
-    ts: i64,
-) -> Vec<NotificationWire> {
-    let mut out = Vec::new();
-    for n in next {
-        let Some(p) = prev.iter().find(|p| p.name == n.name) else {
-            continue;
-        };
-        match (is_down(p.state), is_down(n.state)) {
-            (false, true) => out.push(service_down(&n.name, ts)),
-            (true, false) => out.push(service_up(&n.name, ts)),
-            _ => {}
-        }
-    }
-    out
 }
 
 /// An orchestrator-status notification for the user-relevant terminal states only
@@ -232,17 +144,13 @@ pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> Notifi
     }
 }
 
-// ── sink ──────────────────────────────────────────────────────────────────
+// -- sink ------------------------------------------------------------------
 
 /// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
 /// Best-effort: a store or emit error never blocks the originating lifecycle event.
-pub async fn record<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    notifications: &Notifications,
-    wire: NotificationWire,
-) {
-    let _ = notifications.insert(wire.to_record()).await;
-    let _ = notifications.prune(MAX_HISTORY).await;
+pub async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
+    let _ = bus.execute(wire.to_record_cmd()).await;
+    let _ = bus.execute(PruneNotifications { keep: MAX_HISTORY }).await;
     let _ = app.emit(NOTIFICATION_EVENT, wire);
 }
 
@@ -253,21 +161,20 @@ pub fn emit_only<R: tauri::Runtime>(app: &AppHandle<R>, wire: NotificationWire) 
 }
 
 /// Durable notification history (most recent first) for the renderer to hydrate on boot.
-/// Empty until the orchestrator has booted (the store is unavailable before then).
 #[tauri::command]
-pub async fn notifications_list(
-    state: State<'_, OrchestratorState>,
-) -> Result<Vec<NotificationWire>, String> {
-    let Some(storage) = state.storage() else {
-        return Ok(Vec::new());
-    };
-    Ok(storage
-        .notifications
-        .list(HISTORY_LOAD)
+pub async fn notifications_list(bus: State<'_, Bus<Ctx>>) -> Result<Vec<NotificationWire>, String> {
+    let listing = bus
+        .query(ListNotifications {
+            limit: Some(HISTORY_LOAD),
+            offset: Some(0),
+            after: None,
+        })
         .await
-        .unwrap_or_default()
+        .map_err(|e| e.to_string())?;
+    Ok(listing
+        .items
         .into_iter()
-        .map(NotificationWire::from_record)
+        .map(NotificationWire::from_view)
         .collect())
 }
 
@@ -275,55 +182,27 @@ pub async fn notifications_list(
 mod tests {
     use super::*;
 
-    fn health(name: &str, state: ServiceStateWire) -> ServiceHealthWire {
-        ServiceHealthWire {
-            name: name.to_string(),
-            version: None,
-            state,
-        }
-    }
-
     #[test]
-    fn service_going_unavailable_yields_a_down_notification() {
-        let prev = vec![health("tillerd-gate", ServiceStateWire::Ready)];
-        let next = vec![health("tillerd-gate", ServiceStateWire::Unavailable)];
-        let out = health_change_notifications(&prev, &next, 1);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].category, "service-down");
-        assert_eq!(out[0].severity, "error");
-        assert!(out[0].message.contains("gate"));
-    }
-
-    #[test]
-    fn service_recovering_yields_an_up_notification() {
-        let prev = vec![health("tillerd-daemon", ServiceStateWire::Unavailable)];
-        let next = vec![health("tillerd-daemon", ServiceStateWire::Ready)];
-        let out = health_change_notifications(&prev, &next, 1);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].category, "service-up");
-    }
-
-    #[test]
-    fn unchanged_snapshot_yields_nothing() {
-        let prev = vec![health("tillerd-gate", ServiceStateWire::Ready)];
-        let next = vec![health("tillerd-gate", ServiceStateWire::Ready)];
-        assert!(health_change_notifications(&prev, &next, 1).is_empty());
-    }
-
-    #[test]
-    fn first_seen_service_yields_nothing() {
-        let prev: Vec<ServiceHealthWire> = vec![];
-        let next = vec![health("tillerd-gate", ServiceStateWire::Unavailable)];
-        assert!(health_change_notifications(&prev, &next, 1).is_empty());
-    }
-
-    #[test]
-    fn surface_stopped_carries_session_and_qualifier_severity() {
-        let n = surface_stopped("surf-1", Some("sess-1".to_string()), "faulted", 7);
-        assert_eq!(n.category, "surface-stopped");
-        assert_eq!(n.severity, "warning");
+    fn surface_started_carries_session_and_surface() {
+        let n = surface_started("surf-1", "sess-1", 7);
+        assert_eq!(n.category, "surface-started");
+        assert_eq!(n.severity, "info");
         assert_eq!(n.session_id.as_deref(), Some("sess-1"));
         assert_eq!(n.surface_id.as_deref(), Some("surf-1"));
         assert_eq!(n.ts, 7);
+    }
+
+    #[test]
+    fn orchestrator_status_ready_is_info() {
+        let n = orchestrator_status(true, None, 1);
+        assert_eq!(n.category, "orchestrator-status");
+        assert_eq!(n.severity, "info");
+    }
+
+    #[test]
+    fn orchestrator_status_failure_carries_reason() {
+        let n = orchestrator_status(false, Some("boom"), 1);
+        assert_eq!(n.severity, "error");
+        assert!(n.message.contains("boom"));
     }
 }

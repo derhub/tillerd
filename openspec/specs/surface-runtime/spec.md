@@ -24,19 +24,22 @@ daemon directly.
 
 ### Requirement: Outbound raw-byte streaming
 
-The proxy SHALL stream its pseudo-terminal's output as raw bytes to the host through the event-sink
-abstraction, preserving every byte and escape sequence without stripping, re-encoding, or
-re-decoding. Each outbound chunk SHALL carry the surface identifier so the host can route it.
+The proxy SHALL stream its pseudo-terminal's output as raw bytes to the host through the event-dispatch standard, preserving every byte and escape sequence without stripping, re-encoding, or re-decoding. Each outbound chunk SHALL be delivered as a borrowed byte slice carrying the surface identifier as a primitive, and the proxy SHALL NOT copy the payload to deliver it. Delivery SHALL be synchronous: subscribers run inline and the borrowed bytes remain valid until the emit call returns.
 
 #### Scenario: Output forwarded unchanged
 
 - **WHEN** the pseudo-terminal emits output
-- **THEN** the proxy forwards the exact bytes to the host event-sink tagged with the surface identifier
+- **THEN** the proxy forwards the exact bytes to the host as a borrowed slice tagged with the surface identifier, performing no copy of the payload
 
 #### Scenario: Control sequences preserved
 
 - **WHEN** output contains control or escape sequences
 - **THEN** they are delivered unchanged, with no stripping or re-decoding
+
+#### Scenario: Multiple subscribers receive one chunk
+
+- **WHEN** more than one subscriber is registered for a surface's output and a chunk arrives
+- **THEN** each subscriber is invoked with the same borrowed chunk, in registration order, with no per-subscriber copy
 
 ### Requirement: Input send-queue
 
@@ -79,15 +82,12 @@ attach and reattach.
 
 ### Requirement: Terminal status emission
 
-The runtime SHALL track each surface's terminal status, derive it from the daemon's terminal-status
-signal, and emit status changes to the host through the event-sink tagged with the surface
-identifier, independent of the byte stream. A client subscribing to a surface SHALL receive the
-surface's current status without waiting for the next change.
+The runtime SHALL track each surface's terminal status, derive it from the daemon's terminal-status signal, and emit status changes to the host through the event-dispatch standard tagged with the surface identifier as a primitive, independent of the byte stream. Status SHALL be delivered as a borrowed event over the same sink as the byte stream, distinguished by event kind. A client subscribing to a surface SHALL receive the surface's current status without waiting for the next change.
 
 #### Scenario: Status change emitted
 
 - **WHEN** the daemon reports a terminal-status change for a surface
-- **THEN** the runtime emits the new status to the host tagged with the surface identifier
+- **THEN** the runtime emits the new status to the host tagged with the surface identifier, over the same sink as outbound bytes
 
 #### Scenario: Current status on subscribe
 
@@ -165,20 +165,22 @@ the session container SHALL terminate the pseudo-terminal.
 
 ### Requirement: Surface creation dispatches by kind
 
-The surface runtime SHALL bring a surface to life only through `launch_surface`, which dispatches by
-the surface's kind. In 0.x the only runnable kind is `terminal`; a `terminal` surface SHALL spawn
-its command through the generic spawn and yield the per-surface proxy the runtime owns. A kind with
-no launch adapter (e.g. `diff`) SHALL fail with a typed unsupported-kind error and create no proxy.
+The "which kinds may spawn" capability rule SHALL be enforced in the app surface-spawn use case, before any persistence or runtime effect. In 0.x the only runnable kind is `terminal`; a request for a kind with no launch adapter (e.g. `diff`) SHALL be rejected with a typed validation error and SHALL create neither a surface row nor a runtime proxy. The surface runtime SHALL be kind-agnostic: given a spawn request it spawns a pseudo-terminal and yields the per-surface proxy it owns, without inspecting the surface kind.
 
 #### Scenario: Terminal kind spawns and yields a proxy
 
 - **WHEN** a terminal surface is created
-- **THEN** the generic spawn runs the command and returns the proxy the runtime stores
+- **THEN** the app handler persists the pending row and the runtime spawns the command and returns the proxy it stores
 
-#### Scenario: An unsupported kind fails loudly
+#### Scenario: An unsupported kind is rejected before any effect
 
-- **WHEN** a surface of a kind with no launch adapter (e.g. `diff`) is created
-- **THEN** the runtime returns a typed unsupported-kind error and stores no proxy
+- **WHEN** a surface of a kind with no launch adapter (e.g. `diff`) is requested
+- **THEN** the app handler returns a typed validation error and no surface row and no proxy are created
+
+#### Scenario: The runtime does not inspect kind
+
+- **WHEN** the runtime receives a spawn request
+- **THEN** it spawns a pseudo-terminal for the surface without branching on kind, and rejects only a duplicate proxy for the same surface as raw resource integrity
 
 ### Requirement: Placement hint accepted at surface creation
 

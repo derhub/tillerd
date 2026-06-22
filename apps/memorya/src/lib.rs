@@ -306,7 +306,7 @@ impl Engram {
 
     /// Score active chunks and move those above `threshold` into the archive at
     /// `archive_path`, in batches. Returns the number archived. Nothing is
-    /// permanently deleted — chunks are moved, not dropped.
+    /// permanently deleted -- chunks are moved, not dropped.
     pub fn evict(&self, now_ts: i64, threshold: f32, archive_path: &str) -> anyhow::Result<usize> {
         let mut scored: Vec<(i64, f32)> = self
             .store

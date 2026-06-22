@@ -1,0 +1,29 @@
+id: entities-stay-internal
+language: Rust
+severity: error
+message: >-
+  Domain value objects must not leak outside the orchestrator crate: no consumer
+  may reach `orchestrator::entities`. Cross the boundary with primitives — flat
+  input DTOs (message-dto), `Serialize` read DTOs as `Query::Out`, and ports that
+  speak primitives, not domain newtypes.
+note: |
+  Don't reach the entity — go through app/ and exchange primitives:
+
+    // instead of: use orchestrator::entities::Project;  (then map Project -> wire)
+    // instead of: orchestrator::entities::WorkspaceId::default_id()  (inline path)
+    use orchestrator::app::project::{GetProjectById, ProjectView};
+
+    let project: Option<ProjectView> =      // query returns a flat read DTO
+        bus.query(GetProjectById { id }).await?;
+    // ProjectView is Serialize + plain fields — no entity crosses the boundary.
+
+  The tree is green — no consumer outside the orchestrator crate reaches
+  orchestrator::entities — so this is enforced (error).
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^use\s+(orchestrator::entities\b|\S+::entities(::\w+)*::\*)'
+    - kind: scoped_identifier
+      regex: '^orchestrator::entities\b'
+    - kind: scoped_type_identifier
+      regex: '^orchestrator::entities\b'

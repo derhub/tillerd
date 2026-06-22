@@ -61,7 +61,7 @@ mod tests {
         let mut b = ReplayBuffer::new();
         let chunk = vec![b'x'; 40 * 1024];
         b.push(&chunk);
-        b.push(&chunk); // 80 KB total — first chunk evicted
+        b.push(&chunk); // 80 KB total -- first chunk evicted
         assert!(b.len() <= CAPACITY);
         assert_eq!(b.len(), 40 * 1024);
     }

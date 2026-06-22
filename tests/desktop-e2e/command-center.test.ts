@@ -13,7 +13,7 @@ function openPalette(b: Browser): Promise<void> {
   return b.execute(() => window.dispatchEvent(new CustomEvent("command-center:open")));
 }
 
-// Set a React controlled <select> and fire `change` — webdriverio selectBy* helpers do not reliably
+// Set a React controlled <select> and fire `change` -- webdriverio selectBy* helpers do not reliably
 // trigger React onChange under WKWebView.
 function selectValue(b: Browser, ariaLabel: string, value: string): Promise<void> {
   return b.execute(
@@ -47,7 +47,7 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
   // Lists chrome actions.
   await (await b.$("div*=View logs")).waitForExist({ timeout: 10_000 });
 
-  // Fuzzy filter to the logs action, then invoke it — the same handler View > Logs runs.
+  // Fuzzy filter to the logs action, then invoke it -- the same handler View > Logs runs.
   const input = await b.$('[data-testid="command-center-input"]');
   await input.click();
   await b.keys([..."logs"]);
@@ -86,7 +86,31 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
     timeoutMsg: "preset change did not update the New terminal hint",
   });
 
-  // Persist: reload the webview and confirm the preset still applies after re-hydration.
+  // The renderer persists settings fire-and-forget (`void source.setSetting`), so confirm the
+  // write actually landed in the orchestrator before reloading -- otherwise the reload races
+  // the async persist and the preset is lost (the source of this test's flakiness).
+  await b.waitUntil(
+    async () =>
+      // tauri v2 always injects the IPC bridge (`@tauri-apps/api` calls it under the hood);
+      // bare-specifier imports do not resolve in the raw webview. `executeAsync` resolves the
+      // invoke promise through the done callback (plain `execute` would not await it).
+      (await b.executeAsync((done: (v: unknown) => void) => {
+        (
+          window as unknown as {
+            __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+          }
+        ).__TAURI_INTERNALS__
+          .invoke("setting_get", {
+            scope: "global",
+            key: "keybindings.preset",
+          })
+          .then(done)
+          .catch(() => done(null));
+      })) === "vscode",
+    { timeout: 10_000, timeoutMsg: "preset did not persist to the orchestrator before reload" },
+  );
+
+  // Reload the webview and confirm the preset re-applies after re-hydration.
   await b.execute(() => window.location.reload());
   await b.waitUntil(async () => (await b.$("body").getText()).includes("services: ready"), {
     timeout: 45_000,

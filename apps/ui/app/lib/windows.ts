@@ -76,12 +76,12 @@ export function focusWindow(label: string): Promise<void | null> {
 }
 
 // Close a child window by label from the parent. The child's onCloseRequested handler
-// (armReattachOnClose) runs, emitting the re-attach event — so this is the parent-side re-attach.
+// (armReattachOnClose) runs, emitting the re-attach event -- so this is the parent-side re-attach.
 export function closeWindow(label: string): Promise<void | null> {
   return invoke<void>("window_close", { label });
 }
 
-// ── Cross-window re-attach event contract ────────────────────────────────────
+// -- Cross-window re-attach event contract ------------------------------------
 
 const REATTACH_PANEL = "panel:reattach";
 const REATTACH_PROJECT = "project:reattach";
@@ -119,7 +119,7 @@ export async function focusSelf(): Promise<void> {
 }
 
 // Arm a child window so ANY close path (native button or `closeSelf`) first emits its re-attach
-// event, then destroys the window — the parent restores on that event. Returns an unlisten.
+// event, then destroys the window -- the parent restores on that event. Returns an unlisten.
 export async function armReattachOnClose(emitReattach: () => Promise<void>): Promise<() => void> {
   if (!isDesktopHost()) return () => {};
   const { getCurrentWindow } = await import("@tauri-apps/api/window");

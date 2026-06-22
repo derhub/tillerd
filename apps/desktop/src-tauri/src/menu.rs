@@ -1,6 +1,6 @@
 //! Native menu wiring. The platform-default menu gains a `View` submenu with a Logs entry (routes
 //! the renderer to `/logs`) and a Command Center entry whose accelerator is the rebindable leader
-//! key — pressed, it emits `command-center:open`, which the renderer opens the palette on. The
+//! key -- pressed, it emits `command-center:open`, which the renderer opens the palette on. The
 //! accelerator fires regardless of webview focus, so it reaches the command center even while a
 //! terminal holds keyboard focus. The leader item handle is held in managed state so the renderer
 //! can rebind it through `command_center_set_leader`.
@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{Emitter, Manager, State, Wry};
 
-/// Default leader accelerator — the common palette convention; rebindable from settings.
+/// Default leader accelerator -- the common palette convention; rebindable from settings.
 pub const DEFAULT_LEADER_ACCEL: &str = "CmdOrCtrl+K";
 
 /// Where a menu id routes when its item fires: a renderer event and its payload.

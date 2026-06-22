@@ -1,0 +1,5 @@
+id: EVENT_PAYLOAD_TYPE
+language: Rust
+# Extends BUILTIN_TYPE with &[u8] and &[T] slices -- required by SurfaceEvent::Bytes.
+rule:
+  regex: '^((Option<|Vec<)?(String|i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|&str|&\[u8\])>?|&\[[a-z][a-z0-9]*\]|(Option<)?HashMap<String, ?String>>?)$'

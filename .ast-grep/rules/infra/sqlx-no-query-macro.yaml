@@ -1,0 +1,17 @@
+id: sqlx-no-query-macro
+language: Rust
+severity: error
+message: "Use runtime .bind queries, not compile-time query macros."
+note: |
+  This project uses runtime sqlx with `.bind`, never the compile-time macros
+  (no `.sqlx`/`DATABASE_URL` build dependency):
+
+    sqlx::query_as::<_, ProjectRow>("SELECT … WHERE id = ?")
+        .bind(id.as_str())
+        .fetch_optional(exec)
+        .await?
+files:
+  - "crates/**"
+rule:
+  kind: macro_invocation
+  regex: '^(sqlx::)?(query|query_as)!'

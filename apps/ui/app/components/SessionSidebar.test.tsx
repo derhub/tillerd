@@ -17,18 +17,28 @@ import type { Project } from "@tillerd/sdk/orchestrator";
 // Minimal harness that renders useSidebarData results as data-testid elements.
 function SidebarDataHarness({
   activeWorkspaceId,
+  activeProjectId,
   listProjects,
+  getProject,
 }: {
   activeWorkspaceId?: string;
+  activeProjectId?: string;
   listProjects: (args?: { workspaceId?: string }) => Promise<Project[]>;
+  getProject?: (args: { id: string }) => Promise<Project | null>;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
 
+  // Mirrors useSidebarData: a project window (`activeProjectId`) fetches that one project by id
+  // (project_list is workspace-scoped and would not return it); otherwise it lists the workspace.
   useEffect(() => {
+    if (activeProjectId && getProject) {
+      void getProject({ id: activeProjectId }).then((p) => setProjects(p ? [p] : []));
+      return;
+    }
     void listProjects(activeWorkspaceId ? { workspaceId: activeWorkspaceId } : undefined).then(
       setProjects,
     );
-  }, [activeWorkspaceId, listProjects]);
+  }, [activeWorkspaceId, activeProjectId, listProjects, getProject]);
 
   return (
     <div>
@@ -114,5 +124,31 @@ describe("workspace scoping", () => {
 
     await waitFor(() => expect(screen.queryByText("In WS-A")).not.toBeNull());
     expect(screen.queryByText("In WS-B")).not.toBeNull();
+  });
+});
+
+// ── project scoping (a project child window) ──────────────────────────────────
+describe("project scoping", () => {
+  // Scenario: a project window fetches its one project by id (project_list, being workspace-scoped,
+  // would not return a project outside the unscoped default) and shows only it.
+  test("only the scoped project appears", async () => {
+    const all = [project("p-1", "Scoped Project", "ws-a"), project("p-2", "Other Project", "ws-a")];
+    // listProjects unscoped returns the WRONG set (no p-1) -- proving the project window must not
+    // rely on it; getProject resolves the single project by id.
+    const listProjects = async () => [project("p-2", "Other Project", "ws-a")];
+    const getProject = async ({ id }: { id: string }) => all.find((p) => p.id === id) ?? null;
+
+    render(
+      <MemoryRouter>
+        <SidebarDataHarness
+          activeProjectId="p-1"
+          listProjects={listProjects}
+          getProject={getProject}
+        />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.queryByText("Scoped Project")).not.toBeNull());
+    expect(screen.queryByText("Other Project")).toBeNull();
   });
 });

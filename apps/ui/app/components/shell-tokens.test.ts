@@ -27,7 +27,7 @@ const LITERAL_COLOR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla)\(/;
 const PX_ARBITRARY = /\[[^\]]*\d+px[^\]]*\]/;
 
 describe("shell tokens", () => {
-  // Spec: ui-shell — "Shell components use tokens only".
+  // Spec: ui-shell -- "Shell components use tokens only".
   test("shell components use tokens only", () => {
     const violations: string[] = [];
     for (const file of shellComponents(import.meta.dir)) {

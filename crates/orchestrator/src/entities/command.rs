@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct CommandId(String);
 
 impl CommandId {
@@ -19,7 +22,8 @@ impl CommandId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum CommandOrigin {
     Prebuilt,
     Custom,
@@ -34,21 +38,46 @@ impl CommandOrigin {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Command {
     pub id: CommandId,
     pub name: String,
     pub origin: CommandOrigin,
     pub cli: String,
+    #[sqlx(json)]
     pub args: Vec<String>,
+    #[sqlx(json)]
     pub env: HashMap<String, String>,
+    pub pinned: bool,
 }
 
-#[derive(Debug, Clone)]
-pub struct NewCommand {
-    pub name: String,
-    pub origin: CommandOrigin,
-    pub cli: String,
-    pub args: Vec<String>,
-    pub env: HashMap<String, String>,
+impl Command {
+    /// Rename the command. Trims whitespace.
+    pub fn rename(&mut self, name: &str) {
+        self.name = name.trim().to_owned();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn custom_command(id: &str) -> Command {
+        Command {
+            id: CommandId::from_string(id),
+            name: "my-cmd".to_owned(),
+            origin: CommandOrigin::Custom,
+            cli: "/bin/bash".to_owned(),
+            args: vec![],
+            env: HashMap::new(),
+            pinned: false,
+        }
+    }
+
+    #[test]
+    fn rename_trims_whitespace() {
+        let mut cmd = custom_command("cmd-1");
+        cmd.rename("  new name  ");
+        assert_eq!(cmd.name, "new name");
+    }
 }

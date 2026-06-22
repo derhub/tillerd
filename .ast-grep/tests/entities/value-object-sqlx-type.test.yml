@@ -1,0 +1,21 @@
+id: value-object-sqlx-type
+valid:
+    # Value object with sqlx::Type
+    - |
+        #[derive(Clone, Debug, sqlx::Type)]
+        #[sqlx(transparent)]
+        pub struct ProjectId(String);
+    # sqlx::Type with a serde attribute between derive and struct
+    - |
+        #[derive(sqlx::Type)]
+        #[sqlx(transparent)]
+        pub struct WorkspaceId(String);
+    # Aggregate entity (brace struct) is out of scope
+    - "pub struct Project { pub id: ProjectId, pub name: String }"
+invalid:
+    # Newtype without sqlx::Type
+    - |
+        #[derive(Clone, Debug)]
+        pub struct SessionId(String);
+    # Newtype with no derive at all
+    - "pub struct CommandId(String);"

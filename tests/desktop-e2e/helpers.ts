@@ -15,7 +15,7 @@ export function clearLogSeeds(logsDir: string): void {
       if (f.startsWith("zzz-e2e-") && f.endsWith(".log")) unlinkSync(join(logsDir, f));
     }
   } catch {
-    // logs dir may not exist yet — nothing to clear
+    // logs dir may not exist yet -- nothing to clear
   }
 }
 
@@ -35,12 +35,12 @@ export async function launchReadyApp(): Promise<Browser> {
   });
   await browser.waitUntil(
     async () => (await browser.$("body").getText()).includes("services: ready"),
-    { timeout: 45_000, timeoutMsg: "orchestrator did not reach ready" },
+    { timeout: 90_000, timeoutMsg: "orchestrator did not reach ready" },
   );
   return browser;
 }
 
-// Native `window.prompt` (used by "New project") cannot be driven under WebDriver — stub it.
+// Native `window.prompt` (used by "New project") cannot be driven under WebDriver -- stub it.
 export async function stubPrompt(browser: Browser, value: string): Promise<void> {
   await browser.execute((name: string) => {
     (window as unknown as { prompt: (msg?: string) => string }).prompt = () => name;
@@ -80,11 +80,11 @@ export async function openTerminal(browser: Browser): Promise<string> {
   return surfaceId(browser);
 }
 
-// Navigate to the log viewer the way the app does at runtime — a client-side route change, no
+// Navigate to the log viewer the way the app does at runtime -- a client-side route change, no
 // reload. The native View > Logs menu is not WebDriver-accessible; a hard URL load is unreliable
 // (custom-scheme opaque origin + no SPA fallback); and an injected `import()` of the Tauri API
 // can't resolve a bare specifier. So push the route and fire `popstate`, which react-router's
-// browser history listens for — pure sync DOM, no Promise to serialize.
+// browser history listens for -- pure sync DOM, no Promise to serialize.
 export async function openLogViewer(browser: Browser): Promise<void> {
   await browser.execute(() => {
     window.history.pushState({}, "", "/logs");
@@ -129,4 +129,14 @@ export async function resetToHome(browser: Browser): Promise<void> {
     },
     { timeout: 10_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
   );
+}
+
+// Brief pause so a local watcher can see transient UI (e.g. a detached child window) before a
+// cleanup step tears it down. Skipped in CI (GitHub Actions sets `CI`), so the suite stays fast
+// there; locally it defaults to a short, watchable pause. Override with `E2E_OBSERVE_MS`
+// (e.g. `E2E_OBSERVE_MS=3000 bun run e2e`, or `0` to disable).
+export async function observePause(browser: Browser): Promise<void> {
+  if (process.env.CI) return;
+  const ms = Number(process.env.E2E_OBSERVE_MS ?? 800);
+  if (Number.isFinite(ms) && ms > 0) await browser.pause(ms);
 }

@@ -1,0 +1,24 @@
+id: value-object-sqlx-type
+snapshots:
+  ? |
+    #[derive(Clone, Debug)]
+    pub struct SessionId(String);
+  : labels:
+    - source: pub struct SessionId(String);
+      style: primary
+      start: 24
+      end: 53
+    - source: (String)
+      style: secondary
+      start: 44
+      end: 52
+  pub struct CommandId(String);:
+    labels:
+    - source: pub struct CommandId(String);
+      style: primary
+      start: 0
+      end: 29
+    - source: (String)
+      style: secondary
+      start: 20
+      end: 28

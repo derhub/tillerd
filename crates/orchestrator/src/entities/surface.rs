@@ -1,9 +1,12 @@
 //! Surface aggregate: a live pane (terminal/diff) under a session. Its id is the
 //! correlation id shared with the daemon PTY and gate.
 
+use serde::{Deserialize, Serialize};
+
 use super::session::SessionId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct SurfaceId(String);
 
 impl SurfaceId {
@@ -20,7 +23,8 @@ impl SurfaceId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum SurfaceKind {
     Terminal,
     Diff,
@@ -35,27 +39,42 @@ impl SurfaceKind {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NewSurface {
-    pub id: Option<SurfaceId>,
-    pub session_id: SessionId,
-    pub kind: SurfaceKind,
-    pub cwd: Option<String>,
-    pub placement: Option<String>,
+/// Lifecycle status of a surface (D9: persist intent -> effect -> record).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
+pub enum SurfaceStatus {
+    /// Intent persisted; PTY spawn has not completed.
+    #[default]
+    Pending,
+    /// PTY is running in the daemon.
+    Live,
+    /// Spawn failed or the PTY exited abnormally.
+    Failed,
+    /// PTY was stopped (SIGKILL via daemon); record kept for resume.
+    Idle,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl SurfaceStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SurfaceStatus::Pending => "pending",
+            SurfaceStatus::Live => "live",
+            SurfaceStatus::Failed => "failed",
+            SurfaceStatus::Idle => "idle",
+        }
+    }
+
+    pub fn is_live(self) -> bool {
+        self == SurfaceStatus::Live
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Surface {
     pub id: SurfaceId,
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
-    pub last_status: Option<String>,
+    pub status: SurfaceStatus,
     pub placement: Option<String>,
-}
-
-impl Surface {
-    pub fn correlation_id(&self) -> &SurfaceId {
-        &self.id
-    }
 }

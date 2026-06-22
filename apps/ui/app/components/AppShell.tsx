@@ -4,6 +4,7 @@ import { ArrowUpRight, Columns2, ExternalLink, Rows2, Undo2 } from "lucide-react
 import { Panel } from "~/components/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/PanelGroup";
 import { WorkspaceSwitcher } from "~/components/WorkspaceSwitcher";
+import { SessionSidebar } from "~/components/SessionSidebar";
 import { LogViewer } from "~/components/LogViewer";
 import { EmptyPanel } from "~/components/EmptyPanel";
 import { TerminalPane } from "~/components/TerminalPane";
@@ -439,7 +440,13 @@ export function AppShell({
             <CommandCenter />
             <div className="h-dvh w-full flex overflow-hidden">
               <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-                <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
+                {isProjectWindow ? (
+                  // A project child window scopes the sidebar to that single project's sessions;
+                  // it shows no workspace switcher (the window is the project).
+                  <SessionSidebar activeProjectId={projectWindowId} />
+                ) : (
+                  <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
+                )}
               </aside>
               <div
                 className="flex-1 min-w-0 pt-px relative"

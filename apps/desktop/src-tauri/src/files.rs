@@ -3,7 +3,7 @@ use std::io::SeekFrom;
 use tauri::ipc::Response;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
-/// Byte length, or `None` (JS `null`) when the file is absent — distinct from an empty file (0).
+/// Byte length, or `None` (JS `null`) when the file is absent -- distinct from an empty file (0).
 #[tauri::command]
 pub async fn file_size(path: String) -> Option<u64> {
     tokio::fs::metadata(&path).await.ok().map(|m| m.len())

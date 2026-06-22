@@ -1,0 +1,24 @@
+id: aggregate-entity-fromrow
+valid:
+    # Aggregate deriving FromRow
+    - |
+        #[derive(sqlx::FromRow)]
+        pub struct Project { pub id: ProjectId, pub name: String }
+    # JSON-embedded value object (serde) — not a table row, out of scope
+    - |
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        pub struct LaunchSpec { pub items: Vec<LaunchItem> }
+    # Create-input DTO — flagged by entities-no-input-dto, not this rule
+    - |
+        #[derive(Debug, Clone)]
+        pub struct NewProject { pub name: Option<String> }
+    # Value object (tuple struct) — out of scope
+    - "pub struct ProjectId(String);"
+invalid:
+    # Aggregate without FromRow
+    - |
+        #[derive(Debug, Clone)]
+        pub struct Project { pub id: ProjectId, pub name: String }
+    # Aggregate with no derive at all
+    - |
+        pub struct Workspace { pub id: WorkspaceId, pub name: String }

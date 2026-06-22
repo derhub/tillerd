@@ -1,0 +1,22 @@
+id: entities-no-input-dto
+snapshots:
+  'pub struct NewProject { pub workspace_id: Option<WorkspaceId>, pub name: Option<String> }':
+    labels:
+    - source: 'pub struct NewProject { pub workspace_id: Option<WorkspaceId>, pub name: Option<String> }'
+      style: primary
+      start: 0
+      end: 89
+    - source: NewProject
+      style: secondary
+      start: 11
+      end: 21
+  'pub struct NewSession { pub project_id: ProjectId }':
+    labels:
+    - source: 'pub struct NewSession { pub project_id: ProjectId }'
+      style: primary
+      start: 0
+      end: 51
+    - source: NewSession
+      style: secondary
+      start: 11
+      end: 21

@@ -1,0 +1,17 @@
+id: infra-stays-internal
+valid:
+    - "use orchestrator::app::session::LaunchSession;"
+    - "use orchestrator::shared::Bus;"
+    - "use crate::infra::runtime::Geometry;"
+    - "fn f() { let g = crate::infra::runtime::Geometry::default(); }"
+    - "fn f() -> crate::infra::runtime::Geometry { todo!() }"
+invalid:
+    - "use orchestrator::infra::migrate;"
+    - "use orchestrator::infra::runtime::FakeRuntime;"
+    - "use orchestrator::infra::runtime::{Geometry, SurfaceEventSink};"
+    - "use orchestrator::infra::*;"
+    - "use orchestrator::infra as adapters;"
+    - "use crate::infra::*;"
+    - "use crate::infra::runtime::*;"
+    - "fn f() { let g = orchestrator::infra::runtime::Geometry::default(); }"
+    - "fn f() -> orchestrator::infra::runtime::Geometry { todo!() }"

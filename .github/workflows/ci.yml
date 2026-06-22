@@ -115,3 +115,17 @@ jobs:
         run: bun --filter @tillerd/desktop-e2e e2e
         env:
           E2E_BUNDLED: "1"
+
+  arch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      # ast-grep enforces the structural code rules in .ast-grep/ (openspec: setup-ast-grep).
+      # Config (sgconfig.yml) drives ruleDirs + tests; pinned via npm.
+      - name: Install ast-grep
+        run: npm install -g @ast-grep/cli@0.43.0
+      # Gate: scan exits non-zero on any `error`-severity finding (warnings do not fail).
+      - run: ast-grep scan
+      # Rule unit tests (valid/invalid fixtures + snapshots) must pass.
+      - run: ast-grep test

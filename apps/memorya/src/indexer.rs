@@ -247,8 +247,8 @@ pub fn index_project(memorya: &Engram, cwd: &Path, ts: i64) -> anyhow::Result<us
 }
 
 /// Collect markdown files under `dir`, honoring `.gitignore` (and `.ignore`,
-/// nested gitignores, and the global gitignore) so ignored files — secrets,
-/// build output — are never indexed. Common heavy directories are pruned even
+/// nested gitignores, and the global gitignore) so ignored files -- secrets,
+/// build output -- are never indexed. Common heavy directories are pruned even
 /// when not gitignored.
 fn collect_markdown(dir: &Path, out: &mut Vec<PathBuf>) {
     let walker = WalkBuilder::new(dir)

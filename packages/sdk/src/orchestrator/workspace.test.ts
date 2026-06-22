@@ -25,7 +25,7 @@ function fakeTransport(result: unknown = null) {
   return { transport, calls };
 }
 
-// ── workspace methods ─────────────────────────────────────────────────────────
+// -- workspace methods ---------------------------------------------------------
 
 test("createWorkspace routes to workspace_create with the name arg", async () => {
   const workspace: Workspace = { id: "ws-1", name: "Alpha" };
@@ -79,7 +79,7 @@ test("deleteWorkspace routes to workspace_delete with the id", async () => {
   expect(calls).toEqual([{ command: WORKSPACE_DELETE, args: { id: "ws-1" } }]);
 });
 
-// ── project scoping ───────────────────────────────────────────────────────────
+// -- project scoping -----------------------------------------------------------
 
 test("listProjects passes an optional workspaceId through to project_list", async () => {
   const projects: Project[] = [];
@@ -119,7 +119,7 @@ test("createProject passes an optional workspaceId through to project_create", a
   expect(result).toEqual(project);
 });
 
-// ── moveProject ───────────────────────────────────────────────────────────────
+// -- moveProject ---------------------------------------------------------------
 
 test("moveProject routes to project_move with projectId and workspaceId", async () => {
   const { transport, calls } = fakeTransport(null);

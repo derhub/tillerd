@@ -1,0 +1,9 @@
+id: entities-app-or-infra-only
+valid:
+    - "use crate::app::surface::SurfaceView;"
+    - "use crate::shared::Bus;"
+    - "let id = ProjectId::new(&self.id);"
+invalid:
+    - "use crate::entities::SurfaceId;"
+    - "use crate::entities::project::{Project, ProjectId};"
+    - "let id = crate::entities::project::ProjectId::mint();"

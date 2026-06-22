@@ -51,8 +51,8 @@ impl Launched {
 /// until it is reachable.
 ///
 /// Adoption requires an exact `version` match on the manifest (R3); any other
-/// state — no manifest, a dead pid, a version mismatch, or an unresponsive
-/// socket — falls through to spawn, which overwrites the stale manifest.
+/// state -- no manifest, a dead pid, a version mismatch, or an unresponsive
+/// socket -- falls through to spawn, which overwrites the stale manifest.
 pub fn adopt_or_spawn(
     dir: &Path,
     version: &str,

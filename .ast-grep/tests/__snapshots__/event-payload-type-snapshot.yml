@@ -1,0 +1,54 @@
+id: event-payload-type
+snapshots:
+  ? |
+    pub enum MixedEvent<'a> {
+        Bytes(&'a [u8]),
+        Typed(ProjectId),
+    }
+  : labels:
+    - source: Typed(ProjectId)
+      style: primary
+      start: 51
+      end: 67
+    - source: ProjectId
+      style: secondary
+      start: 57
+      end: 66
+    - source: (ProjectId)
+      style: secondary
+      start: 56
+      end: 67
+  ? |
+    pub enum OutputEvent {
+        Data(SurfaceOutput),
+    }
+  : labels:
+    - source: Data(SurfaceOutput)
+      style: primary
+      start: 27
+      end: 46
+    - source: SurfaceOutput
+      style: secondary
+      start: 32
+      end: 45
+    - source: (SurfaceOutput)
+      style: secondary
+      start: 31
+      end: 46
+  ? |
+    pub enum SurfaceEvent {
+        Open(SurfaceId),
+    }
+  : labels:
+    - source: Open(SurfaceId)
+      style: primary
+      start: 28
+      end: 43
+    - source: SurfaceId
+      style: secondary
+      start: 33
+      end: 42
+    - source: (SurfaceId)
+      style: secondary
+      start: 32
+      end: 43

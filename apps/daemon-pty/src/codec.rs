@@ -61,7 +61,7 @@ impl FrameDecoder {
             let end = start + payload_len;
             let payload = &self.buf[start..end];
 
-            // Split on the FIRST 0x0a — JSON.stringify never emits a raw newline,
+            // Split on the FIRST 0x0a -- JSON.stringify never emits a raw newline,
             // so the first newline is always the meta/body separator.
             let frame = match payload.iter().position(|&b| b == BODY_SEP) {
                 Some(nl) => DecodedFrame {

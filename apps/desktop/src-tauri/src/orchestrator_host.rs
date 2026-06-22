@@ -3,26 +3,28 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use orchestrator::infra::fs::FsBackend;
-use orchestrator::infra::sqlite::SqliteBackend;
-use orchestrator::store::Storage;
-use orchestrator::supervision::{ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming};
+use orchestrator::app::command::SeedCommands;
+use orchestrator::app::surface::ReconcileSurfaces;
+use orchestrator::supervision::{
+    all_available, ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming, Supervise,
+};
 use orchestrator::{
-    boot, read_service_health, EventSink, HealthSpec, Orchestrator, ServiceHealth, ServiceState,
-    Status,
+    build_bus, read_service_health, Config, HealthSpec, ServiceHealth, ServiceState,
 };
 use process_launch::LaunchError;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::notification_host;
+use crate::transport::sink::{ChannelSink, SurfaceChannels};
 use tillerd_paths::{
-    daemon_socket_in, gate_socket_in, manifest_in, resolve_daemon_bin, resolve_gate_bin,
-    runtime_dir,
+    daemon_socket, daemon_socket_in, data_root, gate_socket_in, manifest_in, resolve_daemon_bin,
+    resolve_gate_bin, runtime_dir,
 };
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
+/// The boot lifecycle status as seen on the wire. Unchanged from the prior host.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum StatusWire {
@@ -31,20 +33,6 @@ pub enum StatusWire {
     Supervising,
     Ready,
     Failed { reason: String },
-}
-
-impl From<&Status> for StatusWire {
-    fn from(status: &Status) -> Self {
-        match status {
-            Status::Booting => StatusWire::Booting,
-            Status::OpeningStore => StatusWire::OpeningStore,
-            Status::Supervising => StatusWire::Supervising,
-            Status::Ready => StatusWire::Ready,
-            Status::Failed { reason } => StatusWire::Failed {
-                reason: reason.clone(),
-            },
-        }
-    }
 }
 
 /// A service's state on the wire. Additive read-only health surface; mirrors
@@ -92,84 +80,13 @@ impl From<ServiceHealth> for ServiceHealthWire {
 
 pub struct OrchestratorState {
     status: Arc<Mutex<StatusWire>>,
-    orchestrator: Arc<Mutex<Option<Orchestrator>>>,
-}
-
-impl OrchestratorState {
-    /// Return the storage aggregate if the orchestrator has booted, or `None`.
-    pub fn storage(&self) -> Option<Arc<Storage>> {
-        self.orchestrator
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|o| o.storage_arc())
-    }
 }
 
 impl Default for OrchestratorState {
     fn default() -> Self {
         Self {
             status: Arc::new(Mutex::new(StatusWire::Booting)),
-            orchestrator: Arc::new(Mutex::new(None)),
         }
-    }
-}
-
-struct TauriEventSink {
-    app: AppHandle,
-    status: Arc<Mutex<StatusWire>>,
-    /// Filled once the orchestrator has booted; until then status notifications are not
-    /// persisted (storage does not exist yet).
-    storage: Arc<Mutex<Option<Arc<Storage>>>>,
-    /// Previous health snapshot for diffing; seeded from the first post-boot read.
-    prev_health: Arc<Mutex<Option<Vec<ServiceHealthWire>>>>,
-    /// Boot-thread runtime handle, used to drive the async notification writes synchronously.
-    handle: tokio::runtime::Handle,
-}
-
-impl TauriEventSink {
-    /// Persist service-up/down (health diff) and ready/failed notifications for a status change.
-    /// No-op until storage is available; the in-boot `Ready` is recorded by `spawn_boot` instead.
-    fn record_status_notifications(&self, event: &Status) {
-        let storage = self.storage.lock().unwrap().clone();
-        let Some(storage) = storage else {
-            return;
-        };
-        let ts = notification_host::now_ms();
-        let current = service_health_snapshot();
-        let prev = self.prev_health.lock().unwrap().clone();
-        if let Some(prev) = prev {
-            for n in notification_host::health_change_notifications(&prev, &current, ts) {
-                self.handle.block_on(notification_host::record(
-                    &self.app,
-                    &storage.notifications,
-                    n,
-                ));
-            }
-        }
-        *self.prev_health.lock().unwrap() = Some(current);
-        match event {
-            Status::Ready => self.handle.block_on(notification_host::record(
-                &self.app,
-                &storage.notifications,
-                notification_host::orchestrator_status(true, None, ts),
-            )),
-            Status::Failed { reason } => self.handle.block_on(notification_host::record(
-                &self.app,
-                &storage.notifications,
-                notification_host::orchestrator_status(false, Some(reason), ts),
-            )),
-            _ => {}
-        }
-    }
-}
-
-impl EventSink for TauriEventSink {
-    fn emit(&self, event: &Status) {
-        let wire = StatusWire::from(event);
-        *self.status.lock().unwrap() = wire.clone();
-        let _ = self.app.emit(ORCHESTRATOR_STATUS_EVENT, wire);
-        self.record_status_notifications(event);
     }
 }
 
@@ -184,8 +101,6 @@ pub fn orchestrator_status(state: State<'_, OrchestratorState>) -> StatusWire {
 fn service_health_specs() -> Vec<HealthSpec> {
     let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
-    // Names match each service's `service.name` in the structured logs
-    // (`tillerd-gate` / `tillerd-daemon`) so a row's logs link filters correctly.
     vec![
         HealthSpec {
             name: "tillerd-gate".to_string(),
@@ -200,10 +115,7 @@ fn service_health_specs() -> Vec<HealthSpec> {
     ]
 }
 
-/// Read-only per-service health (gate, daemon), read live from each manifest so a
-/// service that is down, mismatched, or draining is observable even when the
-/// orchestrator never reached `ready`. The renderer re-queries this on each
-/// `orchestrator://status` event; there is no separate health event.
+/// Read-only per-service health (gate, daemon), read live from each manifest.
 fn service_health_snapshot() -> Vec<ServiceHealthWire> {
     read_service_health(&service_health_specs(), process_launch::pid_is_alive)
         .into_iter()
@@ -233,11 +145,12 @@ fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) 
 fn build_supervisor() -> ProcessSupervisor {
     let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
-    // Cold-starting a freshly-built service can exceed the 10s default under load; fail-fast on a
-    // dead child keeps a genuine crash from waiting this out.
+    // Cold-starting a freshly-built service under load (CI / fresh build) can exceed even 30s before
+    // the manifest flips to ready; fail-fast on a dead child still keeps a genuine crash from waiting
+    // this out, so a generous window only affects the cold path.
     ProcessSupervisor::new()
         .with_timing(SpawnTiming {
-            startup_timeout: Duration::from_secs(30),
+            startup_timeout: Duration::from_secs(60),
             poll_interval: Duration::from_millis(100),
         })
         .service(
@@ -260,59 +173,115 @@ fn build_supervisor() -> ProcessSupervisor {
         )
 }
 
+/// The orchestrator core configuration, resolved from the runtime directory.
+fn boot_config(sink: Arc<ChannelSink<tauri::Wry>>) -> Config {
+    Config {
+        db_path: data_root().join("domain.db"),
+        socket: daemon_socket(),
+        fs_root: data_root().join("config"),
+        log_dir: runtime_dir(),
+        sink: sink as Arc<dyn orchestrator::app::surface::SurfaceSink>,
+    }
+}
+
+fn emit_status<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    slot: &Arc<Mutex<StatusWire>>,
+    wire: StatusWire,
+) {
+    *slot.lock().unwrap() = wire.clone();
+    let _ = app.emit(ORCHESTRATOR_STATUS_EVENT, wire);
+}
+
+/// Build the orchestrator core (bus over the sqlite pool + daemon runtime), supervise
+/// the gate/daemon services, then manage the bus and surface-channel registry so IPC
+/// commands can dispatch. Boot phases stream to the renderer over
+/// `orchestrator://status`. Runs on a dedicated thread with its own tokio runtime.
 pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let status = state.status.clone();
-    let slot = state.orchestrator.clone();
     std::thread::spawn(move || {
-        // Storage is async; the boot thread is not a tokio worker, so it owns a runtime to
-        // drive the post-boot store writes and the in-emit notification recording.
-        let runtime = tokio::runtime::Builder::new_current_thread()
+        let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .expect("build boot runtime");
-        let handle = runtime.handle().clone();
-        let app_for_surface = app.clone();
-        let sink = TauriEventSink {
-            app,
-            status,
-            storage: Arc::new(Mutex::new(None)),
-            prev_health: Arc::new(Mutex::new(None)),
-            handle: handle.clone(),
-        };
-        let mut supervisor = build_supervisor();
-        let open_store = || {
-            let fs = FsBackend::open(tillerd_paths::data_root())?;
-            let sqlite = SqliteBackend::open(&tillerd_paths::store())?;
-            Ok(Storage::open(fs, sqlite))
-        };
-        match boot(open_store, &mut supervisor, &sink) {
-            Ok(orchestrator) => {
-                let storage = orchestrator.storage_arc();
-                // The in-boot `Ready` emit ran before storage was shared with the sink; wire it
-                // up now, seed the health baseline, and record the ready notification.
-                *sink.storage.lock().unwrap() = Some(storage.clone());
-                *sink.prev_health.lock().unwrap() = Some(service_health_snapshot());
-                handle.block_on(notification_host::record(
-                    &app_for_surface,
-                    &storage.notifications,
-                    notification_host::orchestrator_status(true, None, notification_host::now_ms()),
-                ));
-                // Register the surface layer before stashing the orchestrator so
-                // SurfaceState exists before any IPC command can fire.
-                crate::surface_host::register(&app_for_surface, storage);
-                *slot.lock().unwrap() = Some(orchestrator);
-            }
+
+        emit_status(&app, &status, StatusWire::Booting);
+
+        // Surface output port: per-surface ipc::Channel registry shared with the
+        // off-bus attach endpoint and the sink the daemon runtime pushes to.
+        let channels: SurfaceChannels = Default::default();
+        let sink = Arc::new(ChannelSink::new(channels.clone(), app.clone()));
+
+        emit_status(&app, &status, StatusWire::OpeningStore);
+        let bus = match runtime.block_on(build_bus(&boot_config(sink))) {
+            Ok(bus) => bus,
             Err(error) => {
+                emit_status(
+                    &app,
+                    &status,
+                    StatusWire::Failed {
+                        reason: error.to_string(),
+                    },
+                );
                 notification_host::emit_only(
-                    &app_for_surface,
+                    &app,
                     notification_host::orchestrator_status(
                         false,
                         Some(&error.to_string()),
                         notification_host::now_ms(),
                     ),
                 );
-                eprintln!("orchestrator boot failed: {error}");
+                eprintln!("orchestrator boot failed (open store): {error}");
+                return;
             }
+        };
+
+        emit_status(&app, &status, StatusWire::Supervising);
+        let mut supervisor = build_supervisor();
+        let services = match supervisor.ensure_all() {
+            Ok(s) if all_available(&s) => s,
+            Ok(_) | Err(_) => {
+                let reason = "service not available at boot".to_string();
+                emit_status(
+                    &app,
+                    &status,
+                    StatusWire::Failed {
+                        reason: reason.clone(),
+                    },
+                );
+                notification_host::emit_only(
+                    &app,
+                    notification_host::orchestrator_status(
+                        false,
+                        Some(&reason),
+                        notification_host::now_ms(),
+                    ),
+                );
+                eprintln!("orchestrator boot failed (supervision): {reason}");
+                return;
+            }
+        };
+        let _ = services;
+
+        // Seed prebuilt commands (idempotent) and reconcile surfaces against the daemon.
+        let _ = runtime.block_on(bus.execute(SeedCommands));
+        if let Err(e) = runtime.block_on(bus.execute(ReconcileSurfaces)) {
+            eprintln!("surface reconcile failed (non-fatal): {e}");
         }
+
+        emit_status(&app, &status, StatusWire::Ready);
+        runtime.block_on(notification_host::record(
+            &app,
+            &bus,
+            notification_host::orchestrator_status(true, None, notification_host::now_ms()),
+        ));
+
+        // Manage the bus and channel registry; both must exist before any IPC fires.
+        app.manage(channels);
+        app.manage(bus);
+
+        // Keep the boot runtime alive for the process lifetime so the daemon proxy
+        // tasks it spawned continue to run.
+        std::mem::forget(runtime);
     });
 }

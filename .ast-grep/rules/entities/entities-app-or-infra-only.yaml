@@ -1,0 +1,32 @@
+id: entities-app-or-infra-only
+language: Rust
+severity: warning
+message: >-
+  entities/ may be referenced only from app/, infra/, and the bootstrap (boot.rs, context.rs).
+  app/ constructs and applies domain value objects in use-case handlers; infra/ names them only
+  to map columns to and from entity fields (`Row <-> Entity`); the bootstrap wires resources.
+  The rest of the crate (shared, events, …) must speak primitives, not `crate::entities`.
+note: |
+  app/ owns domain rules; infra/ may name entities only for column<->field mapping. Elsewhere
+  take/return primitives:
+
+    // infra (a repo): query_as::<_, Project> / bind value-object columns   -- mapping, allowed
+    // app (a handler): let id = ProjectId::new(&self.id);                   -- construct, allowed
+    // boot/context/shared/events: pass primitives, never `crate::entities`  -- blocked
+
+  severity: warning until every reference outside app/ and infra/ is removed (e.g. `Ctx` and
+  boot stop holding entity-typed state); then flip to error. Tracked by ADR-0038.
+ignores:
+  - "crates/orchestrator/src/app/**"
+  - "crates/orchestrator/src/infra/**"
+  - "crates/orchestrator/src/entities/**"
+  - "crates/orchestrator/src/boot.rs"
+  - "crates/orchestrator/src/context.rs"
+rule:
+  any:
+    - kind: use_declaration
+      regex: '\bcrate::entities\b'
+    - kind: scoped_identifier
+      regex: '^crate::entities\b'
+    - kind: scoped_type_identifier
+      regex: '^crate::entities\b'

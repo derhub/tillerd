@@ -1,0 +1,32 @@
+id: comment-ascii-only-rust
+snapshots:
+  /* curly “quote” here */:
+    labels:
+    - source: /* curly “quote” here */
+      style: primary
+      start: 0
+      end: 28
+  // arrow -> ok but → not:
+    labels:
+    - source: // arrow -> ok but → not
+      style: primary
+      start: 0
+      end: 26
+  // dependency direction entities — infra:
+    labels:
+    - source: // dependency direction entities — infra
+      style: primary
+      start: 0
+      end: 42
+  // emoji 😀 in comment:
+    labels:
+    - source: // emoji 😀 in comment
+      style: primary
+      start: 0
+      end: 24
+  // section § marker:
+    labels:
+    - source: // section § marker
+      style: primary
+      start: 0
+      end: 20

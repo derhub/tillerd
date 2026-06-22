@@ -36,13 +36,13 @@ function isCaptureTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return true;
-  // A terminal surface owns the keystroke while focused — leave it alone.
+  // A terminal surface owns the keystroke while focused -- leave it alone.
   return target.closest(".xterm") != null || target.closest("[role=textbox]") != null;
 }
 
 /**
  * Fire an action from its configured accelerator while no editable surface (input, textarea, or a
- * focused terminal) holds focus. The leader key is excluded — it has its own native path.
+ * focused terminal) holds focus. The leader key is excluded -- it has its own native path.
  */
 export function useGlobalShortcuts(bindings: Map<string, Accelerator>): void {
   const commands = useCommands();

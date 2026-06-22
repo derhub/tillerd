@@ -4,7 +4,7 @@ import { getApp } from "./shared-app";
 
 // WebdriverIO's synthetic click/doubleClick/right-click do not reliably reach React's delegated
 // event listeners in WKWebView (see the `testing` memory). Dispatch real DOM MouseEvents on the
-// target element instead — they bubble to React's root listener and fire the JSX handlers. Keyboard
+// target element instead -- they bubble to React's root listener and fire the JSX handlers. Keyboard
 // input on a focused <input> uses the real WebDriver key path, which does fire onChange/onKeyDown.
 
 async function dispatchMouse(b: Browser, selector: string, type: "dblclick" | "contextmenu") {
@@ -73,7 +73,7 @@ async function mousedownBody(b: Browser) {
   });
 }
 
-// ── Inline Rename ──────────────────────────────────────────────────────────
+// -- Inline Rename ----------------------------------------------------------
 
 test("rename project by double-clicking and pressing Enter", async () => {
   const b = getApp();
@@ -118,7 +118,7 @@ test("cancel project rename by pressing Escape", async () => {
   });
 }, 120_000);
 
-// ── Context Menu ───────────────────────────────────────────────────────────
+// -- Context Menu -----------------------------------------------------------
 
 test("right-click project opens context menu", async () => {
   const b = getApp();
@@ -137,7 +137,7 @@ test("right-click project opens context menu", async () => {
   expect(menuText).toMatch(/delete/i);
 }, 120_000);
 
-// ── Delete ─────────────────────────────────────────────────────────────────
+// -- Delete -----------------------------------------------------------------
 
 test("delete project after confirming dialog", async () => {
   const b = getApp();
@@ -165,7 +165,7 @@ test("delete project after confirming dialog", async () => {
   });
 
   // This test's uniquely-named project header disappears once the delete cascade completes (other
-  // tests' projects remain — the suite shares one TILLERD_DIR).
+  // tests' projects remain -- the suite shares one TILLERD_DIR).
   await b.waitUntil(
     async () => {
       for (const h of await b.$$('[data-testid="project-name"]')) {
@@ -200,7 +200,7 @@ test("cancel project deletion leaves the project in place", async () => {
   });
 }, 120_000);
 
-// ── Session inline rename / context menu ────────────────────────────────────
+// -- Session inline rename / context menu ------------------------------------
 
 test("rename session by double-clicking and pressing Enter", async () => {
   const b = getApp();

@@ -1,8 +1,9 @@
-// ── command names ─────────────────────────────────────────────────────────────
+// -- command names -------------------------------------------------------------
 
 export const PROJECT_CREATE = "project_create";
 export const PROJECT_RENAME = "project_rename";
 export const PROJECT_LIST = "project_list";
+export const PROJECT_GET = "project_get";
 export const PROJECT_ARCHIVE = "project_archive";
 export const PROJECT_DELETE = "project_delete";
 export const PROJECT_REORDER = "project_reorder";
@@ -23,7 +24,7 @@ export const WORKSPACE_RENAME = "workspace_rename";
 export const WORKSPACE_REORDER = "workspace_reorder";
 export const WORKSPACE_DELETE = "workspace_delete";
 
-// ── domain types ──────────────────────────────────────────────────────────────
+// -- domain types --------------------------------------------------------------
 
 export type SourceKind = "blank" | "local_dir" | "git_repo";
 
@@ -50,7 +51,7 @@ export interface Session {
   createdAt: string;
 }
 
-// ── request / response shapes ─────────────────────────────────────────────────
+// -- request / response shapes -------------------------------------------------
 
 export interface CreateProjectArgs {
   sourceKind: SourceKind;
@@ -79,6 +80,10 @@ export interface ReorderProjectArgs {
 
 export interface ListProjectsArgs {
   workspaceId?: string;
+}
+
+export interface GetProjectArgs {
+  id: string;
 }
 
 export interface MoveProjectArgs {
@@ -141,12 +146,13 @@ export interface DeleteWorkspaceArgs {
   id: string;
 }
 
-// ── client interface ──────────────────────────────────────────────────────────
+// -- client interface ----------------------------------------------------------
 
 export interface WorkspaceClient {
   createProject(args: CreateProjectArgs): Promise<Project>;
   renameProject(args: RenameProjectArgs): Promise<void>;
   listProjects(args?: ListProjectsArgs): Promise<Project[]>;
+  getProject(args: GetProjectArgs): Promise<Project | null>;
   archiveProject(args: ArchiveProjectArgs): Promise<void>;
   deleteProject(args: DeleteProjectArgs): Promise<void>;
   reorderProject(args: ReorderProjectArgs): Promise<void>;
@@ -180,6 +186,7 @@ export function createWorkspaceClient(transport: WorkspaceTransport): WorkspaceC
     createProject: (args) => call<Project>(PROJECT_CREATE, args),
     renameProject: (args) => call<void>(PROJECT_RENAME, args),
     listProjects: (args) => call<Project[]>(PROJECT_LIST, args),
+    getProject: (args) => call<Project | null>(PROJECT_GET, args),
     archiveProject: (args) => call<void>(PROJECT_ARCHIVE, args),
     deleteProject: (args) => call<void>(PROJECT_DELETE, args),
     reorderProject: (args) => call<void>(PROJECT_REORDER, args),

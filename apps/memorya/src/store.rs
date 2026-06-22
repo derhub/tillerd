@@ -456,7 +456,7 @@ impl Store {
     }
 }
 
-/// Minimal archive schema (storage only — no triggers or FTS; archive search is
+/// Minimal archive schema (storage only -- no triggers or FTS; archive search is
 /// vector-based). Kept column-compatible with the active `chunks` table.
 const ARCHIVE_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS arc.chunks (

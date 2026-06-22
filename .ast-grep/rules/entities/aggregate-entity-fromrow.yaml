@@ -1,0 +1,40 @@
+id: aggregate-entity-fromrow
+language: Rust
+severity: error
+message: >-
+  An aggregate entity (brace struct in entities/) should derive `sqlx::FromRow` so a
+  repository queries straight into it — no intermediate `*Row` struct, no second map.
+note: |
+  Derive FromRow on the entity; with `sqlx::Type` value objects/enums and any derived
+  column computed in the SELECT, the row decodes in one hop:
+
+    #[derive(sqlx::FromRow)]
+    pub struct Project {
+        pub id: ProjectId,          // #[sqlx(transparent)] value object
+        pub name: String,
+        pub status: ProjectStatus,  // #[derive(sqlx::Type)] enum
+    }
+
+    let project: Option<Project> = sqlx::query_as::<_, Project>(
+        "SELECT id, name,
+                CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
+         FROM project WHERE id = ?")
+        .bind(&id).fetch_optional(exec).await?;
+files:
+  - "**/entities/**"
+rule:
+  kind: struct_item
+  all:
+    - has:
+        kind: field_declaration_list
+    - not:
+        has:
+          field: name
+          regex: '^New'
+    - not:
+        follows:
+          kind: attribute_item
+          regex: 'FromRow|Serialize'
+          stopBy:
+            not:
+              kind: attribute_item

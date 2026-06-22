@@ -3,7 +3,7 @@ import { createProject, openTerminal, surfaceId } from "./helpers";
 import { getApp } from "./shared-app";
 
 // Revisit isolation + persistence: with two sessions open (each with a spawned terminal), navigating
-// back to a session must show THAT session's own terminal — not the other session's, and the SAME
+// back to a session must show THAT session's own terminal -- not the other session's, and the SAME
 // surface it had before, so its content is preserved. Each terminal's identity is its
 // `data-surface-id` (keyboard input to xterm is not drivable under tauri-webdriver, so the surface
 // id stands in for "the terminal I was looking at").
@@ -54,7 +54,7 @@ test("revisiting a session shows that session's own terminal", async () => {
   const s2 = await openTerminal(b);
   expect(s2).not.toBe(s1);
 
-  // Revisit session 1: its OWN terminal must come back — not session 2's, and the same surface.
+  // Revisit session 1: its OWN terminal must come back -- not session 2's, and the same surface.
   await gotoSession(url1);
   const s1Again = await surfaceOtherThan(s2);
   expect(s1Again).not.toBe(s2); // no leak: session 1 must not show session 2's terminal

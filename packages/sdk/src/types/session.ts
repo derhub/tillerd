@@ -29,7 +29,7 @@ export interface AgentSession {
   onStatus(handler: (status: SessionStatus) => void): () => void;
   /**
    * Terminal-plane status (`IDLE` | `WORKING`) derived from the OS view of the
-   * session process — distinct from {@link onStatus}, the agent's hook-derived
+   * session process -- distinct from {@link onStatus}, the agent's hook-derived
    * lifecycle. Co-equal signals; combine them only as a presentation choice.
    */
   onTerminalStatus(handler: (status: SessionStatus) => void): () => void;

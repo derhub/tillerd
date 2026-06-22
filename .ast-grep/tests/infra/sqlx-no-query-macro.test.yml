@@ -1,0 +1,10 @@
+id: sqlx-no-query-macro
+valid:
+    - "let r = sqlx::query_scalar(\"SELECT 1\").bind(x).fetch_one(db).await?;"
+    - "let r = sqlx::query(\"SELECT 1\").bind(x).execute(db).await?;"
+    - "let r = sqlx::query_as::<_, Row>(\"SELECT 1\").bind(x).fetch_optional(db).await?;"
+invalid:
+    - "let r = sqlx::query!(\"SELECT 1\");"
+    - "let r = sqlx::query_as!(T, \"SELECT 1\");"
+    - "let r = query!(\"SELECT 1\");"
+    - "let r = query_as!(T, \"SELECT 1\");"

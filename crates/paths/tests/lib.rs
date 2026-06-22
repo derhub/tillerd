@@ -10,7 +10,7 @@ use tillerd_paths::{
     ENV_TILLERD_DIR,
 };
 
-// ── Requirement: Single runtime directory resolver ───────────────────────────
+// -- Requirement: Single runtime directory resolver ---------------------------
 
 /// Scenario: Environment override
 /// WHEN `TILLERD_DIR` is set
@@ -49,7 +49,7 @@ fn scenario_one_resolver_available() {
     let _ = runtime_dir_or(None);
 }
 
-// ── Requirement: Runtime-layout path builders ──────────────────────────────────
+// -- Requirement: Runtime-layout path builders ----------------------------------
 
 /// Scenario: Paths share the runtime directory
 /// WHEN the daemon socket, gate socket, daemon manifest, and product store paths are requested
@@ -94,7 +94,7 @@ fn scenario_file_names_are_defined_once() {
     let _ = store_in(base);
 }
 
-// ── Requirement: Service binary resolution by precedence ────────────────────────
+// -- Requirement: Service binary resolution by precedence ------------------------
 
 /// Scenario: Override wins when present
 /// WHEN the override environment variable names an existing file
@@ -171,7 +171,7 @@ fn scenario_none_when_absent() {
     assert_eq!(result, None);
 }
 
-// ── Requirement: Single source for the environment-variable surface ──────────────
+// -- Requirement: Single source for the environment-variable surface --------------
 
 /// Scenario: Names referenced, not repeated
 /// WHEN a component reads a governed `TILLERD_*` variable

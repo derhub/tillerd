@@ -1,0 +1,24 @@
+id: entities-no-export
+language: Rust
+severity: error
+message: >-
+  entities/ is fully internal: the module is declared `mod entities;` (no `pub`, no
+  `pub(crate)`) and no `pub use …entities…` re-export exists. Any exposure makes a domain
+  newtype reachable outside the crate, defeating the boundary. The host knows only `app`;
+  expose a primitive or a `Serialize` read DTO from app/ instead.
+note: |
+  Keep `entities` a private module and return a primitive/DTO across the edge:
+
+    mod entities;   // crate root: private, not `pub` and not `pub(crate)`
+    // instead of: pub use crate::entities::SurfaceId;
+    pub struct SurfaceView { pub id: String, /* … */ }   // flat, Serialize
+
+  A private `mod entities;` is still reachable crate-wide (descendants see an ancestor's
+  private module), so `pub(crate)` buys nothing and is rejected to force the fully-internal
+  form. `pub(crate) use crate::entities::X;` (a crate-internal re-export) stays allowed.
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^pub use\s+.*\bentities\b'
+    - kind: mod_item
+      regex: '^pub(\(crate\))? mod entities\b'

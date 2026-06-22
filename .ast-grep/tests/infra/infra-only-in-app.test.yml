@@ -1,0 +1,9 @@
+id: infra-only-in-app
+valid:
+    - "use crate::app::session::LaunchSession;"
+    - "use crate::shared::Bus;"
+    - "use crate::events::surface::SurfaceSink;"
+invalid:
+    - "use crate::infra::runtime::SurfaceRuntime;"
+    - "use crate::infra::runtime::{DaemonRuntime, SurfaceRuntime};"
+    - "runtime: Arc<dyn crate::infra::runtime::SurfaceRuntime>,"

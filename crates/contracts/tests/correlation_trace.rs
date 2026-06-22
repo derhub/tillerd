@@ -131,7 +131,7 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
 }
 
 /// The standardized observability vocabulary (design D5): a correlated record's log
-/// attribute key is exactly `correlation_id` — snake_case, distinct from the camelCase
+/// attribute key is exactly `correlation_id` -- snake_case, distinct from the camelCase
 /// `correlationId` used on the JSON wire. Capture a structured log line emitted in the
 /// production shape (orchestrator, gate, and daemon all log `correlation_id = ...`) and
 /// assert the key, so a drift to the wire form would fail loudly.
@@ -197,7 +197,7 @@ fn the_log_attribute_key_is_exactly_correlation_id() {
 #[ignore = "requires live daemon + gate; set TILLERD_DIR + TILLERD_SESSION_ID and run with --ignored"]
 fn correlation_id_threads_daemon_to_gate_in_live_stack() {
     // Validate that every HookEvent received from the gate carries a non-empty
-    // correlation id — which proves the daemon minted one and the gate preserved it.
+    // correlation id -- which proves the daemon minted one and the gate preserved it.
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 

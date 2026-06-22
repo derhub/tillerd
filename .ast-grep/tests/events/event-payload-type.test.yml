@@ -1,0 +1,48 @@
+id: event-payload-type
+valid:
+    # All standard built-in payload types
+    - |
+        pub enum SurfaceEvent<'a> {
+            Bytes(&'a [u8]),
+            Status(&'a str),
+            Exit(&'a str),
+            Error(&'a str),
+        }
+    # Integer and bool variants
+    - |
+        pub enum MetricEvent {
+            Count(u64),
+            Active(bool),
+            Label(String),
+        }
+    # Option and Vec wrappers over built-ins
+    - |
+        pub enum DataEvent<'a> {
+            Chunk(&'a [u8]),
+            Name(Option<String>),
+            Tags(Vec<String>),
+        }
+    # Unit variants (no payload) are always fine
+    - |
+        pub enum LifecycleEvent {
+            Started,
+            Stopped,
+        }
+
+invalid:
+    # Domain newtype in variant payload
+    - |
+        pub enum SurfaceEvent {
+            Open(SurfaceId),
+        }
+    # Domain struct in variant payload
+    - |
+        pub enum OutputEvent {
+            Data(SurfaceOutput),
+        }
+    # Multiple variants, one bad
+    - |
+        pub enum MixedEvent<'a> {
+            Bytes(&'a [u8]),
+            Typed(ProjectId),
+        }

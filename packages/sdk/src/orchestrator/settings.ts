@@ -1,10 +1,10 @@
-// ── command names ─────────────────────────────────────────────────────────────
+// -- command names -------------------------------------------------------------
 
 export const SETTING_GET = "setting_get";
 export const SETTING_SET = "setting_set";
 export const SETTING_LIST = "setting_list";
 
-// ── domain types ──────────────────────────────────────────────────────────────
+// -- domain types --------------------------------------------------------------
 
 /** Scope a setting is stored under: app-global, or bound to a specific project. */
 export type SettingScope = "global" | "project";
@@ -15,7 +15,7 @@ export interface SettingEntry {
   value: unknown;
 }
 
-// ── request shapes ──────────────────────────────────────────────────────────────
+// -- request shapes --------------------------------------------------------------
 
 export interface GetSettingArgs {
   scope: SettingScope;
@@ -37,7 +37,7 @@ export interface ListSettingsArgs {
   projectId?: string;
 }
 
-// ── client interface ──────────────────────────────────────────────────────────
+// -- client interface ----------------------------------------------------------
 
 /**
  * Host-agnostic settings access. The value is an opaque JSON value; callers narrow

@@ -156,7 +156,7 @@ fn memorya_wire_dependencies_are_only_contracts_rs_and_gate_client() {
     );
 }
 
-// ── Workspace-level dep-direction guards (rule 8.4) ───────────────────────────
+// -- Workspace-level dep-direction guards (rule 8.4) ---------------------------
 
 #[test]
 fn gate_has_no_memorya_or_gateway_or_pty_client_dependency() {

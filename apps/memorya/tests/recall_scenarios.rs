@@ -9,7 +9,7 @@ use memorya::hook_source::{HookSource, StubSource};
 use memorya::Engram;
 use serde_json::json;
 
-// ── Viewer is loopback-only ───────────────────────────────────────────────────
+// -- Viewer is loopback-only ---------------------------------------------------
 
 /// The viewer MUST bind to the loopback interface only, in both standalone and
 /// composed mode. This ensures the human viewer is never reachable off-host.
@@ -23,10 +23,10 @@ fn viewer_is_loopback_only_in_both_modes() {
     );
 }
 
-// ── Standalone exposes its own tool face ─────────────────────────────────────
+// -- Standalone exposes its own tool face -------------------------------------
 
 /// When running alone (`mcp` subcommand), recall is reachable over memorya's own
-/// standalone MCP tool face — `tools/list` advertises `recall`.
+/// standalone MCP tool face -- `tools/list` advertises `recall`.
 #[test]
 fn standalone_exposes_recall_over_its_own_tool_face() {
     let dir = tempfile::tempdir().unwrap();
@@ -43,7 +43,7 @@ fn standalone_exposes_recall_over_its_own_tool_face() {
     );
 }
 
-/// The `mcp` subcommand maps to the `McpWithViewer` face — both the MCP tool
+/// The `mcp` subcommand maps to the `McpWithViewer` face -- both the MCP tool
 /// interface and the viewer are served.
 #[test]
 fn mcp_subcommand_selects_standalone_mcp_with_viewer_face() {
@@ -65,10 +65,10 @@ fn standalone_mode_selected_when_gate_url_absent() {
     );
 }
 
-// ── Composed is fronted by the tool gateway ───────────────────────────────────
+// -- Composed is fronted by the tool gateway -----------------------------------
 
 /// In composed mode, memorya selects the gate-subscription source and its tool
-/// behavior is unchanged — no special-casing in the MCP handler. The gateway
+/// behavior is unchanged -- no special-casing in the MCP handler. The gateway
 /// fronts it as an ordinary MCP backend.
 ///
 /// This test verifies that `tools/call recall` produces the same result whether
@@ -129,7 +129,7 @@ fn composed_mode_recall_tool_behavior_identical_to_standalone() {
     );
 }
 
-/// When a session id is present, composed capture mode is selected — the tool
+/// When a session id is present, composed capture mode is selected -- the tool
 /// subscribes to the gate rather than using a stub source.
 #[test]
 fn composed_mode_selected_when_session_id_present() {
@@ -143,7 +143,7 @@ fn composed_mode_selected_when_session_id_present() {
     );
 }
 
-/// In composed mode, the gateway treats memorya as any other MCP backend — there
+/// In composed mode, the gateway treats memorya as any other MCP backend -- there
 /// is no special-casing. The `recall` tool is served over the same MCP protocol
 /// regardless of whether a gateway fronts it.
 ///

@@ -4,10 +4,10 @@ import { getApp } from "./shared-app";
 
 // The settings gear sits in the shell's bottom-right cluster. Clicking it opens a non-modal
 // popover with a Theme select. Choosing an appearance applies it in real time by toggling the
-// `.dark` class on the document root — a real-webview concern (happy-dom has no real paint and
+// `.dark` class on the document root -- a real-webview concern (happy-dom has no real paint and
 // the popover renders in a portal), so it lives here; the apply/persist logic is unit-tested.
 
-// Set a React controlled <select> by value and fire `change` — webdriverio's selectBy* helpers
+// Set a React controlled <select> by value and fire `change` -- webdriverio's selectBy* helpers
 // do not reliably trigger React's onChange under WKWebView.
 async function selectValue(b: Browser, ariaLabel: string, value: string): Promise<void> {
   await b.execute(

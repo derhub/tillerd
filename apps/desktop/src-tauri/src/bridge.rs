@@ -14,7 +14,7 @@ use tillerd_paths::daemon_socket;
 pub const DAEMON_LOST_EVENT: &str = "daemon-lost";
 
 /// The byte bridge to the daemon's Unix socket. Forwards renderer bytes verbatim and streams
-/// daemon output back over a Channel — it never parses a frame (design D2).
+/// daemon output back over a Channel -- it never parses a frame (design D2).
 #[derive(Default)]
 pub struct BridgeState {
     writer: Arc<Mutex<Option<OwnedWriteHalf>>>,
@@ -53,7 +53,7 @@ pub async fn daemon_connect(
             }
         }
         *writer.lock().await = None;
-        // A drop we did not initiate is a lost connection — surface it as a typed error.
+        // A drop we did not initiate is a lost connection -- surface it as a typed error.
         if !closing.load(Ordering::SeqCst) {
             let _ = app.emit(DAEMON_LOST_EVENT, ());
         }

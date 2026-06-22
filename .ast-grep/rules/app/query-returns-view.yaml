@@ -1,0 +1,42 @@
+id: query-returns-view
+message: >-
+  A query's `Out` must be a read DTO named `*View` (flat, `Serialize` + `FromRow`,
+  mapped straight from the row via `query_as`) or a primitive scalar — never a
+  domain entity or value object. Reads return the read model, not the write model.
+severity: error
+language: Rust
+note: |
+  Define a flat read DTO and map straight from the row — no entity, one hop:
+
+    // app/<area>/view.rs
+    #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ProjectView {
+        pub id: String,
+        pub name: String,
+        pub workspace_id: String,
+    }
+
+    // app/<area>/get_project_by_id.rs
+    impl Query<Ctx> for GetProjectById {
+        type Out = Option<ProjectView>;
+        async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
+            Ok(sqlx::query_as::<_, ProjectView>(
+                "SELECT id, name, workspace_id FROM project WHERE id = ?",
+            )
+            .bind(&self.id)
+            .fetch_optional(cx.db())
+            .await?)
+        }
+    }
+files:
+  - "**/app/**"
+rule:
+  kind: type_item
+  all:
+    - regex: '^type Out ='
+    - not:
+        regex: '^type Out = (Option<|Vec<|Listing<)*(\w*View|i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|String|&str)>*;$'
+    - inside:
+        pattern: impl Query<Ctx> for $S { $$$ }
+        stopBy: end
