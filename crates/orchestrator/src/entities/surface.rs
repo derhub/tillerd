@@ -1,9 +1,11 @@
 //! Surface aggregate: a live pane (terminal/diff) under a session. Its id is the
 //! correlation id shared with the daemon PTY and gate.
 
+use serde::{Deserialize, Serialize};
+
 use super::session::SessionId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SurfaceId(String);
 
 impl SurfaceId {
@@ -35,6 +37,35 @@ impl SurfaceKind {
     }
 }
 
+/// Lifecycle status of a surface (D9: persist intent -> effect -> record).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SurfaceStatus {
+    /// Intent persisted; PTY spawn has not completed.
+    #[default]
+    Pending,
+    /// PTY is running in the daemon.
+    Live,
+    /// Spawn failed or the PTY exited abnormally.
+    Failed,
+    /// PTY was stopped (SIGKILL via daemon); record kept for resume.
+    Idle,
+}
+
+impl SurfaceStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SurfaceStatus::Pending => "pending",
+            SurfaceStatus::Live => "live",
+            SurfaceStatus::Failed => "failed",
+            SurfaceStatus::Idle => "idle",
+        }
+    }
+
+    pub fn is_live(self) -> bool {
+        self == SurfaceStatus::Live
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct NewSurface {
     pub id: Option<SurfaceId>,
@@ -50,12 +81,71 @@ pub struct Surface {
     pub session_id: SessionId,
     pub kind: SurfaceKind,
     pub cwd: Option<String>,
-    pub last_status: Option<String>,
+    pub status: SurfaceStatus,
     pub placement: Option<String>,
 }
 
 impl Surface {
     pub fn correlation_id(&self) -> &SurfaceId {
         &self.id
+    }
+
+    pub fn is_live(&self) -> bool {
+        self.status.is_live()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pending_surface() -> Surface {
+        Surface {
+            id: SurfaceId::from_string("surf-1"),
+            session_id: SessionId::from_string("sess-1"),
+            kind: SurfaceKind::Terminal,
+            cwd: None,
+            status: SurfaceStatus::Pending,
+            placement: None,
+        }
+    }
+
+    #[test]
+    fn surface_status_pending_is_not_live() {
+        let s = pending_surface();
+        assert!(!s.is_live());
+    }
+
+    #[test]
+    fn surface_status_live_is_live() {
+        let s = Surface {
+            status: SurfaceStatus::Live,
+            ..pending_surface()
+        };
+        assert!(s.is_live());
+    }
+
+    #[test]
+    fn surface_status_idle_is_not_live() {
+        let s = Surface {
+            status: SurfaceStatus::Idle,
+            ..pending_surface()
+        };
+        assert!(!s.is_live());
+    }
+
+    #[test]
+    fn surface_status_failed_is_not_live() {
+        let s = Surface {
+            status: SurfaceStatus::Failed,
+            ..pending_surface()
+        };
+        assert!(!s.is_live());
+    }
+
+    #[test]
+    fn correlation_id_matches_surface_id() {
+        let s = pending_surface();
+        assert_eq!(s.correlation_id(), &s.id);
     }
 }

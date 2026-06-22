@@ -1,8 +1,10 @@
 //! Launch template entity: a reusable launch spec bound to a project.
 
+use serde::{Deserialize, Serialize};
+
 use super::project::ProjectId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LaunchTemplateId(String);
 
 impl LaunchTemplateId {

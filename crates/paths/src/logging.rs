@@ -19,8 +19,13 @@ pub fn logs_dir_in(dir: &Path) -> PathBuf {
 /// flushes the non-blocking writer) and a root span carrying the
 /// `service.name` / `service.version` resource; enter or instrument with the
 /// span so every record carries the resource. Honors `LOG_LEVEL` as an
-/// `EnvFilter` directive (`silent` maps to `off`, default `info`). Sets the
-/// global default subscriber, so call it once per process.
+/// `EnvFilter` directive (`silent` maps to `off`, default `info`).
+///
+/// Sets the global default subscriber on the first call; a subsequent call is a
+/// no-op for the subscriber (the existing one stays installed) but still returns
+/// a fresh writer guard and root span for the caller's service identity. This
+/// keeps a process that hosts more than one service (the desktop app embedding
+/// the orchestrator) from panicking on the second initialization.
 pub fn init_file_tracing(service: &str, version: &str, dir: &Path) -> (WorkerGuard, Span) {
     use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -43,7 +48,10 @@ pub fn init_file_tracing(service: &str, version: &str, dir: &Path) -> (WorkerGua
     };
     let filter = EnvFilter::try_new(&directive).unwrap_or_else(|_| EnvFilter::new("info"));
 
-    tracing_subscriber::registry()
+    // `try_init` rather than `init`: a process that hosts two services (the desktop
+    // app embeds the orchestrator) calls this twice. The first call wins; the second
+    // is a no-op instead of a panic.
+    let _ = tracing_subscriber::registry()
         .with(filter)
         .with(
             fmt::layer()
@@ -52,7 +60,7 @@ pub fn init_file_tracing(service: &str, version: &str, dir: &Path) -> (WorkerGua
                 .with_span_list(true)
                 .with_writer(writer),
         )
-        .init();
+        .try_init();
 
     let root = tracing::info_span!("service", service.name = service, service.version = version);
     (guard, root)

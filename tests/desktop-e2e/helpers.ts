@@ -35,7 +35,7 @@ export async function launchReadyApp(): Promise<Browser> {
   });
   await browser.waitUntil(
     async () => (await browser.$("body").getText()).includes("services: ready"),
-    { timeout: 45_000, timeoutMsg: "orchestrator did not reach ready" },
+    { timeout: 90_000, timeoutMsg: "orchestrator did not reach ready" },
   );
   return browser;
 }

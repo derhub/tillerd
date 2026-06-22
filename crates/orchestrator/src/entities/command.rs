@@ -2,7 +2,11 @@
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+use crate::shared::{Error, Result};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CommandId(String);
 
 impl CommandId {
@@ -42,6 +46,23 @@ pub struct Command {
     pub cli: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
+    pub pinned: bool,
+}
+
+impl Command {
+    /// Guard: reject rename, edit, or discard on a Prebuilt command.
+    pub fn guard_not_prebuilt(&self) -> Result<()> {
+        if self.origin == CommandOrigin::Prebuilt {
+            Err(Error::PrebuiltImmutable { kind: "command" })
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Rename the command. Trims whitespace.
+    pub fn rename(&mut self, name: &str) {
+        self.name = name.trim().to_owned();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -51,4 +72,47 @@ pub struct NewCommand {
     pub cli: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn custom_command(id: &str) -> Command {
+        Command {
+            id: CommandId::from_string(id),
+            name: "my-cmd".to_owned(),
+            origin: CommandOrigin::Custom,
+            cli: "/bin/bash".to_owned(),
+            args: vec![],
+            env: HashMap::new(),
+            pinned: false,
+        }
+    }
+
+    fn prebuilt_command(id: &str) -> Command {
+        Command {
+            origin: CommandOrigin::Prebuilt,
+            ..custom_command(id)
+        }
+    }
+
+    #[test]
+    fn guard_not_prebuilt_allows_custom_command() {
+        let cmd = custom_command("cmd-1");
+        assert!(cmd.guard_not_prebuilt().is_ok());
+    }
+
+    #[test]
+    fn guard_not_prebuilt_rejects_prebuilt_command() {
+        let cmd = prebuilt_command("cmd-1");
+        assert!(cmd.guard_not_prebuilt().is_err());
+    }
+
+    #[test]
+    fn rename_trims_whitespace() {
+        let mut cmd = custom_command("cmd-1");
+        cmd.rename("  new name  ");
+        assert_eq!(cmd.name, "new name");
+    }
 }

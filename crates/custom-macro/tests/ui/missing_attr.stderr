@@ -1,0 +1,5 @@
+error: variant `Absent` is missing #[error_code("…")]
+ --> tests/ui/missing_attr.rs:7:5
+  |
+7 |     Absent,
+  |     ^^^^^^

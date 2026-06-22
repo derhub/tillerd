@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["openspec/**", "apps/mcp-gateway/schema.json", "**/*.md"]
+  "ignorePatterns": [".serena/**", "openspec/**", "apps/mcp-gateway/schema.json", "**/*.md"]
 }

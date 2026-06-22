@@ -1,15 +1,15 @@
-//! Tauri bridge for the orchestrator settings store. Delegates to the host-agnostic
-//! `Settings` store; the renderer reaches it through the `@tillerd/sdk` settings client.
-//! Values cross the IPC boundary as JSON values and are persisted as JSON strings
-//! (`value_json`) by the store.
+//! Tauri bridge for the orchestrator settings plane. Builds the `app/settings` CQS
+//! command/query values and dispatches them through the managed `Bus<Ctx>`; the
+//! renderer reaches it through the `@tillerd/sdk` settings client. Values cross the
+//! IPC boundary as JSON values and are persisted as JSON strings (`value_json`).
 
+use orchestrator::app::settings::{ApplySetting, GetSetting, ListSettings};
 use orchestrator::entities::{ProjectId, SettingScope};
-use orchestrator::store::Settings;
+use orchestrator::shared::Bus;
+use orchestrator::Ctx;
 use serde::Serialize;
 use serde_json::Value;
 use tauri::State;
-
-use crate::orchestrator_host::OrchestratorState;
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -29,44 +29,55 @@ fn parse_scope(scope: &str, project_id: Option<String>) -> Result<SettingScope, 
     }
 }
 
-pub async fn do_setting_get(
-    settings: &Settings,
-    scope: SettingScope,
+#[tauri::command]
+pub async fn setting_get(
+    scope: String,
+    project_id: Option<String>,
     key: String,
+    bus: State<'_, Bus<Ctx>>,
 ) -> Result<Option<Value>, String> {
-    match settings
-        .get(scope, key)
+    let scope = parse_scope(&scope, project_id)?;
+    match bus
+        .query(GetSetting { scope, key })
         .await
-        .map_err(|e| format!("{e:?}"))?
+        .map_err(|e| e.to_string())?
     {
-        Some(s) => serde_json::from_str(&s)
+        Some(raw) => serde_json::from_str(&raw)
             .map(Some)
             .map_err(|e| e.to_string()),
         None => Ok(None),
     }
 }
 
-pub async fn do_setting_set(
-    settings: &Settings,
-    scope: SettingScope,
+#[tauri::command]
+pub async fn setting_set(
+    scope: String,
+    project_id: Option<String>,
     key: String,
     value: Value,
+    bus: State<'_, Bus<Ctx>>,
 ) -> Result<(), String> {
+    let scope = parse_scope(&scope, project_id)?;
     let value_json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
-    settings
-        .set(scope, key, value_json)
-        .await
-        .map_err(|e| format!("{e:?}"))
+    bus.execute(ApplySetting {
+        scope,
+        key,
+        value_json,
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
-pub async fn do_setting_list(
-    settings: &Settings,
-    scope: SettingScope,
+#[tauri::command]
+pub async fn setting_list(
+    scope: String,
+    project_id: Option<String>,
+    bus: State<'_, Bus<Ctx>>,
 ) -> Result<Vec<SettingEntryResponse>, String> {
-    settings
-        .list(scope)
+    let scope = parse_scope(&scope, project_id)?;
+    bus.query(ListSettings { scope })
         .await
-        .map_err(|e| format!("{e:?}"))?
+        .map_err(|e| e.to_string())?
         .into_iter()
         .map(|e| {
             let value: Value =
@@ -76,106 +87,9 @@ pub async fn do_setting_list(
         .collect()
 }
 
-#[tauri::command]
-pub async fn setting_get(
-    scope: String,
-    project_id: Option<String>,
-    key: String,
-    state: State<'_, OrchestratorState>,
-) -> Result<Option<Value>, String> {
-    let storage = state
-        .storage()
-        .ok_or_else(|| "orchestrator not ready".to_string())?;
-    let scope = parse_scope(&scope, project_id)?;
-    do_setting_get(&storage.settings, scope, key).await
-}
-
-#[tauri::command]
-pub async fn setting_set(
-    scope: String,
-    project_id: Option<String>,
-    key: String,
-    value: Value,
-    state: State<'_, OrchestratorState>,
-) -> Result<(), String> {
-    let storage = state
-        .storage()
-        .ok_or_else(|| "orchestrator not ready".to_string())?;
-    let scope = parse_scope(&scope, project_id)?;
-    do_setting_set(&storage.settings, scope, key, value).await
-}
-
-#[tauri::command]
-pub async fn setting_list(
-    scope: String,
-    project_id: Option<String>,
-    state: State<'_, OrchestratorState>,
-) -> Result<Vec<SettingEntryResponse>, String> {
-    let storage = state
-        .storage()
-        .ok_or_else(|| "orchestrator not ready".to_string())?;
-    let scope = parse_scope(&scope, project_id)?;
-    do_setting_list(&storage.settings, scope).await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orchestrator::infra::memory::MemoryBackend;
-    use orchestrator::store::Storage;
-
-    fn fake_settings() -> Settings {
-        Storage::in_memory(MemoryBackend::new()).settings
-    }
-
-    #[tokio::test]
-    async fn setting_round_trips_a_json_value() {
-        let settings = fake_settings();
-        do_setting_set(
-            &settings,
-            SettingScope::Global,
-            "theme".to_string(),
-            serde_json::json!("dark"),
-        )
-        .await
-        .unwrap();
-        let got = do_setting_get(&settings, SettingScope::Global, "theme".to_string())
-            .await
-            .unwrap();
-        assert_eq!(got, Some(serde_json::json!("dark")));
-    }
-
-    #[tokio::test]
-    async fn unset_key_resolves_to_none() {
-        let settings = fake_settings();
-        let got = do_setting_get(&settings, SettingScope::Global, "missing".to_string())
-            .await
-            .unwrap();
-        assert_eq!(got, None);
-    }
-
-    #[tokio::test]
-    async fn list_returns_decoded_entries() {
-        let settings = fake_settings();
-        do_setting_set(
-            &settings,
-            SettingScope::Global,
-            "a".to_string(),
-            serde_json::json!(1),
-        )
-        .await
-        .unwrap();
-        let listed = do_setting_list(&settings, SettingScope::Global)
-            .await
-            .unwrap();
-        assert_eq!(
-            listed,
-            vec![SettingEntryResponse {
-                key: "a".to_string(),
-                value: serde_json::json!(1),
-            }]
-        );
-    }
 
     #[test]
     fn entry_response_serializes_to_the_sdk_shape() {

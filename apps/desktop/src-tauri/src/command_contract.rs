@@ -1,52 +1,59 @@
 //! Runtime contract test for every desktop IPC command. The app is built with the real context
 //! (`crate::app_context()` — config + embedded frontend + resolved ACL) on the `tauri::test` mock
-//! runtime, then each command registered in `run()` is invoked through the live IPC path with the
-//! argument shape `@tillerd/sdk` + the desktop bridge actually send. A command that is missing from
-//! the handler fails with "Command <name> not found"; a command whose argument struct drifts from
-//! its body fails with "invalid args `<field>`". Either is a contract break the assertions catch —
-//! at unit-test speed, before a full desktop e2e cycle. Business errors (no store, no daemon) are
-//! expected and ignored: they prove the command was reached.
+//! runtime over a `:memory:` `Ctx` (migrations applied, `FakeRuntime`, `SqliteKv`), then each
+//! command registered in `run()` is invoked through the live IPC path with the argument shape
+//! `@tillerd/sdk` + the desktop bridge actually send. A command that is missing from the handler
+//! fails with "Command <name> not found"; a command whose argument struct drifts from its body
+//! fails with "invalid args `<field>`". Either is a contract break the assertions catch — at
+//! unit-test speed, before a full desktop e2e cycle. Business errors (no daemon, store not ready)
+//! are expected and ignored: they prove the command was reached.
 //!
 //! The invoke origin is `tauri://localhost` (local): app commands carry no ACL manifest, so the
 //! authority's command check is skipped for a local origin and the command dispatches as it does in
 //! the running app. Per-response key shapes are checked by `workspace_host`'s serde tests.
 
-use crate::orchestrator_host::OrchestratorState;
-use crate::surface_host::SurfaceState;
-use crate::{
-    bridge, diag, files, settings_host, store, supervisor, surface_host, window_host,
-    workspace_host,
-};
-use orchestrator::entities::SurfaceId;
-use orchestrator::infra::memory::MemoryBackend;
-use orchestrator::store::Storage;
-use orchestrator::surface::{SurfaceApi, SurfaceEventSink};
-use serial_test::serial;
+use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::test::{mock_builder, MockRuntime};
-use tauri::Manager;
-use tauri::WebviewWindow;
 
-struct NullSink;
-impl SurfaceEventSink for NullSink {
-    fn on_bytes(&self, _: &SurfaceId, _: &[u8]) {}
-    fn on_status(&self, _: &SurfaceId, _: &str) {}
-    fn on_exit(&self, _: &SurfaceId, _: &str) {}
+use orchestrator::context::Ctx;
+use orchestrator::infra::migrate;
+use orchestrator::infra::runtime::FakeRuntime;
+use orchestrator::shared::bus::Bus;
+use orchestrator::shared::kv::SqliteKv;
+use serial_test::serial;
+use tauri::test::{mock_builder, MockRuntime};
+use tauri::{Manager, WebviewWindow};
+
+use crate::orchestrator_host::OrchestratorState;
+use crate::transport::domain;
+use crate::transport::sink::SurfaceChannels;
+use crate::{bridge, diag, files, settings_host, store, supervisor, surface_host, window_host};
+
+/// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`. This is the
+/// context `Bus<Ctx>` dispatches over; the contract test drives every command through
+/// the live IPC path against it.
+async fn memory_ctx() -> Ctx {
+    let pool = migrate::open_memory().await.expect("in-memory pool");
+    let kv = SqliteKv::new(pool.clone());
+    let runtime = Arc::new(FakeRuntime::new());
+    Ctx::new(pool, kv, PathBuf::from("/tmp/tillerd-contract"), runtime)
 }
 
 /// The app with the full handler set and every managed state the commands resolve, on the real
-/// context so the live IPC path runs.
+/// context (real `generate_context!()`, resolved ACL) so the live IPC path runs.
 fn contract_app() -> tauri::App<MockRuntime> {
-    let storage = Arc::new(Storage::in_memory(MemoryBackend::new()));
-    let api = Arc::new(SurfaceApi::new(
-        storage.surfaces.clone(),
-        storage.sessions.clone(),
-        storage.commands.clone(),
-        Arc::new(NullSink),
-        "/tmp/tillerd-contract.sock".into(),
-    ));
+    // Build a `:memory:` Ctx synchronously from a one-shot tokio runtime.
+    let ctx = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime")
+        .block_on(memory_ctx());
 
-    let app = mock_builder()
+    let bus = Bus::new(ctx);
+
+    mock_builder()
+        .manage(bus)
+        .manage(SurfaceChannels::default())
         .manage(bridge::BridgeState::default())
         .manage(store::StoreState::load())
         .manage(supervisor::SupervisorState::default())
@@ -79,30 +86,30 @@ fn contract_app() -> tauri::App<MockRuntime> {
             window_host::window_open,
             window_host::window_focus,
             window_host::window_close,
-            workspace_host::project_create,
-            workspace_host::project_list,
-            workspace_host::project_rename,
-            workspace_host::project_archive,
-            workspace_host::project_delete,
-            workspace_host::project_reorder,
-            workspace_host::project_move,
-            workspace_host::workspace_create,
-            workspace_host::workspace_list,
-            workspace_host::workspace_rename,
-            workspace_host::workspace_reorder,
-            workspace_host::workspace_delete,
-            workspace_host::session_list,
-            workspace_host::session_create,
-            workspace_host::session_rename,
-            workspace_host::session_archive,
-            workspace_host::session_delete,
-            workspace_host::session_reorder,
-            workspace_host::session_layout_set,
-            workspace_host::session_layout_get,
-            workspace_host::command_list,
-            workspace_host::command_create,
-            workspace_host::command_get,
-            workspace_host::command_delete,
+            domain::project_create,
+            domain::project_list,
+            domain::project_rename,
+            domain::project_archive,
+            domain::project_delete,
+            domain::project_reorder,
+            domain::project_move,
+            domain::workspace_create,
+            domain::workspace_list,
+            domain::workspace_rename,
+            domain::workspace_reorder,
+            domain::workspace_delete,
+            domain::session_list,
+            domain::session_create,
+            domain::session_rename,
+            domain::session_archive,
+            domain::session_delete,
+            domain::session_reorder,
+            domain::session_layout_set,
+            domain::session_layout_get,
+            domain::command_list,
+            domain::command_create,
+            domain::command_get,
+            domain::command_delete,
             settings_host::setting_get,
             settings_host::setting_set,
             settings_host::setting_list,
@@ -110,13 +117,7 @@ fn contract_app() -> tauri::App<MockRuntime> {
             crate::menu::command_center_set_leader,
         ])
         .build(crate::app_context())
-        .expect("app builds with the full command set + managed state");
-    app.manage(SurfaceState {
-        api,
-        channels: Default::default(),
-        notifications: storage.notifications.clone(),
-    });
-    app
+        .expect("app builds with the full command set + managed state")
 }
 
 fn main_webview(app: &tauri::App<MockRuntime>) -> WebviewWindow<MockRuntime> {
@@ -333,6 +334,24 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             );
         }
     }
+
+    std::env::remove_var(tillerd_paths::ENV_TILLERD_DIR);
+    std::env::remove_var(tillerd_paths::ENV_DAEMON_BIN);
+}
+
+/// The `Bus<Ctx>` over a `:memory:` substrate is managed and accessible. This is the
+/// wiring contract: the context composes correctly (migrations applied, runtime injected)
+/// and the bus dispatches without panicking. Business logic is not exercised here.
+#[test]
+fn memory_ctx_bus_is_managed_and_wired() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());
+    std::env::set_var(tillerd_paths::ENV_DAEMON_BIN, "/dev/null");
+
+    let app = contract_app();
+
+    // The bus is managed: resolving it does not panic.
+    let _bus: tauri::State<'_, Bus<Ctx>> = app.state();
 
     std::env::remove_var(tillerd_paths::ENV_TILLERD_DIR);
     std::env::remove_var(tillerd_paths::ENV_DAEMON_BIN);

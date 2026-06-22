@@ -1,250 +1,147 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::error::{OrchestratorError, Result};
-use crate::store::Storage;
-use crate::supervision::{all_available, ServiceStatus, Supervise};
+use crate::context::Ctx;
+use crate::infra::migrate;
+use crate::infra::runtime::DaemonRuntime;
+use crate::shared;
+use crate::shared::bus::Bus;
+use crate::shared::kv::SqliteKv;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Status {
-    Booting,
-    OpeningStore,
-    Supervising,
-    Ready,
-    Failed { reason: String },
+// ── build_bus ─────────────────────────────────────────────────────────────────
+
+/// Configuration for [`build_bus`]. All paths are resolved by the caller; there
+/// is no implicit path discovery here.
+pub struct Config {
+    /// Path to the SQLite domain database (created if absent).
+    pub db_path: PathBuf,
+    /// Unix socket path for the PTY daemon.
+    pub socket: PathBuf,
+    /// Root for `shared::fs`-backed user-config (settings, profiles, themes, keybindings).
+    pub fs_root: PathBuf,
+    /// Directory where rolling `*.log` files are written. Sub-directory `logs/`
+    /// is created automatically by the tracing initializer.
+    pub log_dir: PathBuf,
+    /// Sink that receives PTY output, status, and exit frames from the daemon.
+    /// The tauri transport implements this with a per-surface `ipc::Channel`.
+    pub sink: Arc<dyn crate::infra::runtime::SurfaceEventSink>,
 }
 
-pub trait EventSink {
-    fn emit(&self, event: &Status);
-}
+// Keeps the non-blocking log writer's worker thread alive for the process lifetime.
+// Box<dyn Any + Send> avoids a direct tracing-appender dep in this crate; the
+// concrete type is WorkerGuard from tracing-appender (owned by tillerd-paths).
+static LOG_GUARD: std::sync::OnceLock<Box<dyn std::any::Any + Send + Sync>> =
+    std::sync::OnceLock::new();
 
-pub struct Orchestrator {
-    status: Status,
-    storage: Arc<Storage>,
-    services: Vec<ServiceStatus>,
-}
+/// Build the transport-agnostic core: open the pool, run migrations, construct
+/// [`Ctx`], and return a [`Bus<Ctx>`]. No Tauri wiring here.
+///
+/// Initializes JSON-lines rolling-file tracing to `cfg.log_dir/logs/` on the
+/// first call; subsequent calls are no-ops for tracing (the global subscriber is
+/// already set). The log writer guard is held for the process lifetime internally.
+pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
+    let (guard, _root) = tillerd_paths::logging::init_file_tracing(
+        "orchestrator",
+        env!("CARGO_PKG_VERSION"),
+        &cfg.log_dir,
+    );
+    let _ = LOG_GUARD.set(Box::new(guard));
 
-impl Orchestrator {
-    pub fn status(&self) -> &Status {
-        &self.status
-    }
+    std::fs::create_dir_all(&cfg.fs_root).map_err(shared::Error::Io)?;
 
-    pub fn is_ready(&self) -> bool {
-        self.status == Status::Ready
-    }
-
-    pub fn storage(&self) -> &Storage {
-        &self.storage
-    }
-
-    /// A shared handle to durable storage, for subsystems (e.g. the surface
-    /// runtime) that outlive a single call.
-    pub fn storage_arc(&self) -> Arc<Storage> {
-        Arc::clone(&self.storage)
-    }
-
-    pub fn service_statuses(&self) -> &[ServiceStatus] {
-        &self.services
-    }
-}
-
-pub fn boot<F>(
-    open_store: F,
-    supervisor: &mut impl Supervise,
-    sink: &impl EventSink,
-) -> Result<Orchestrator>
-where
-    F: FnOnce() -> Result<Storage>,
-{
-    sink.emit(&Status::Booting);
-
-    sink.emit(&Status::OpeningStore);
-    let storage = Arc::new(fail_on(open_store(), sink)?);
-
-    sink.emit(&Status::Supervising);
-    let services = fail_on(supervisor.ensure_all(), sink)?;
-    if !all_available(&services) {
-        let unavailable = services
-            .iter()
-            .filter(|s| !s.is_available())
-            .map(|s| s.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        return Err(emit_failure(
-            OrchestratorError::ServiceUnavailable {
-                service: unavailable,
-                reason: "service not available at boot".to_string(),
-            },
-            sink,
-        ));
-    }
-
-    let orchestrator = Orchestrator {
-        status: Status::Ready,
-        storage,
-        services,
-    };
-    sink.emit(&Status::Ready);
-    Ok(orchestrator)
-}
-
-fn emit_failure(error: OrchestratorError, sink: &impl EventSink) -> OrchestratorError {
-    sink.emit(&Status::Failed {
-        reason: error.to_string(),
-    });
-    error
-}
-
-fn fail_on<T>(step: Result<T>, sink: &impl EventSink) -> Result<T> {
-    step.map_err(|e| emit_failure(e, sink))
+    let pool = migrate::open_file(&cfg.db_path).await?;
+    let kv = SqliteKv::new(pool.clone());
+    let runtime = Arc::new(DaemonRuntime::new(cfg.sink.clone(), cfg.socket.clone()));
+    let ctx = Ctx::new(pool, kv, cfg.fs_root.clone(), runtime);
+    Ok(Bus::new(ctx))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infra::memory::MemoryBackend;
-    use crate::infra::schema::current_version;
-    use crate::supervision::Liveness;
-    use std::sync::Mutex;
 
-    #[derive(Default)]
-    struct RecordingSink {
-        events: Mutex<Vec<Status>>,
+    // ── build_bus ─────────────────────────────────────────────────────────────
+    //
+    // These tests exercise the Bus<Ctx> contract produced by build_bus without
+    // going through the tracing init (which is process-global). The composition
+    // in build_bus is trivially thin; each piece is tested independently.
+
+    async fn memory_ctx() -> Ctx {
+        use crate::infra::migrate;
+        use crate::infra::runtime::FakeRuntime;
+
+        let pool = migrate::open_memory().await.unwrap();
+        let kv = SqliteKv::new(pool.clone());
+        Ctx::new(
+            pool,
+            kv,
+            PathBuf::from("/tmp/tillerd-boot-test"),
+            Arc::new(FakeRuntime::new()),
+        )
     }
 
-    impl RecordingSink {
-        fn events(&self) -> Vec<Status> {
-            self.events.lock().unwrap().clone()
+    struct NoOp;
+    impl crate::shared::cqs::Command<Ctx> for NoOp {
+        async fn handle(&self, cx: &Ctx) -> crate::shared::Result<()> {
+            let _: i64 = sqlx::query_scalar("SELECT 1").fetch_one(cx.db()).await?;
+            Ok(())
         }
     }
 
-    impl EventSink for RecordingSink {
-        fn emit(&self, event: &Status) {
-            self.events.lock().unwrap().push(event.clone());
+    struct CountWorkspaces;
+    impl crate::shared::cqs::Query<Ctx> for CountWorkspaces {
+        type Out = i64;
+        async fn handle(&self, cx: &Ctx) -> crate::shared::Result<i64> {
+            let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspace")
+                .fetch_one(cx.db())
+                .await?;
+            Ok(n)
         }
     }
 
-    enum FakeSupervisor {
-        AllAvailable,
-        OneUnavailable,
-        Errors,
-    }
-
-    fn status(name: &str, liveness: Liveness) -> ServiceStatus {
-        ServiceStatus {
-            name: name.to_string(),
-            version: Some("1.0.0".to_string()),
-            liveness,
-            pid: Some(1),
-            adopted: true,
-        }
-    }
-
-    impl Supervise for FakeSupervisor {
-        fn ensure_all(&mut self) -> Result<Vec<ServiceStatus>> {
-            match self {
-                FakeSupervisor::AllAvailable => Ok(vec![
-                    status("gate", Liveness::Available),
-                    status("daemon", Liveness::Available),
-                ]),
-                FakeSupervisor::OneUnavailable => Ok(vec![
-                    status("gate", Liveness::Available),
-                    status("daemon", Liveness::Unavailable),
-                ]),
-                FakeSupervisor::Errors => Err(OrchestratorError::ServiceUnavailable {
-                    service: "daemon".to_string(),
-                    reason: "spawn failed".to_string(),
-                }),
-            }
-        }
-    }
-
-    fn open_ok() -> Result<Storage> {
-        Ok(Storage::in_memory(MemoryBackend::new()))
-    }
-
-    fn open_err() -> Result<Storage> {
-        Err(OrchestratorError::StoreVersionTooNew {
-            found: 2,
-            supported: 1,
-        })
-    }
-
-    #[test]
-    fn boot_reaches_ready_and_emits_transitions_in_order() {
-        let sink = RecordingSink::default();
-        let mut supervisor = FakeSupervisor::AllAvailable;
-
-        let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
-
-        assert!(orch.is_ready());
-        assert_eq!(
-            sink.events(),
-            vec![
-                Status::Booting,
-                Status::OpeningStore,
-                Status::Supervising,
-                Status::Ready,
-            ]
-        );
-    }
-
-    #[test]
-    fn ready_not_reported_when_store_open_fails() {
-        let sink = RecordingSink::default();
-        let mut supervisor = FakeSupervisor::AllAvailable;
-
-        let result = boot(open_err, &mut supervisor, &sink);
-
-        assert!(matches!(
-            result,
-            Err(OrchestratorError::StoreVersionTooNew { .. })
-        ));
-        let events = sink.events();
-        assert!(!events.contains(&Status::Ready), "must not report ready");
-        assert!(matches!(events.last(), Some(Status::Failed { .. })));
-    }
-
-    #[test]
-    fn ready_not_reported_when_a_service_is_unavailable() {
-        let sink = RecordingSink::default();
-        let mut supervisor = FakeSupervisor::OneUnavailable;
-
-        let result = boot(open_ok, &mut supervisor, &sink);
-
-        assert!(matches!(
-            result,
-            Err(OrchestratorError::ServiceUnavailable { .. })
-        ));
-        assert!(!sink.events().contains(&Status::Ready));
-    }
-
-    #[test]
-    fn supervision_failure_surfaces_a_typed_error_and_no_ready() {
-        let sink = RecordingSink::default();
-        let mut supervisor = FakeSupervisor::Errors;
-
-        let result = boot(open_ok, &mut supervisor, &sink);
-
-        assert!(matches!(
-            result,
-            Err(OrchestratorError::ServiceUnavailable { .. })
-        ));
-        let events = sink.events();
-        assert!(!events.contains(&Status::Ready));
-        assert!(matches!(events.last(), Some(Status::Failed { .. })));
+    struct NoopSink;
+    impl crate::infra::runtime::SurfaceEventSink for NoopSink {
+        fn on_bytes(&self, _: &crate::entities::SurfaceId, _: &[u8]) {}
+        fn on_status(&self, _: &crate::entities::SurfaceId, _: &str) {}
+        fn on_exit(&self, _: &crate::entities::SurfaceId, _: &str) {}
     }
 
     #[tokio::test]
-    async fn boot_yields_one_instance_that_owns_a_working_store() {
-        let sink = RecordingSink::default();
-        let mut supervisor = FakeSupervisor::AllAvailable;
+    async fn bus_execute_reaches_a_migrated_pool() {
+        let bus = Bus::new(memory_ctx().await);
+        bus.execute(NoOp).await.unwrap();
+    }
 
-        let orch = boot(open_ok, &mut supervisor, &sink).unwrap();
+    #[tokio::test]
+    async fn bus_query_returns_seeded_default_workspace() {
+        let bus = Bus::new(memory_ctx().await);
+        let count = bus.query(CountWorkspaces).await.unwrap();
+        assert_eq!(count, 1);
+    }
 
-        assert_eq!(
-            orch.storage().schema_version().await.unwrap(),
-            current_version()
-        );
-        assert_eq!(orch.service_statuses().len(), 2);
+    #[tokio::test]
+    async fn bus_cx_exposes_the_underlying_pool() {
+        let bus = Bus::new(memory_ctx().await);
+        let n: i64 = sqlx::query_scalar("SELECT 1")
+            .fetch_one(bus.cx().db())
+            .await
+            .unwrap();
+        assert_eq!(n, 1);
+    }
+
+    #[tokio::test]
+    async fn build_bus_opens_a_file_db_and_returns_a_working_bus() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = Config {
+            db_path: dir.path().join("test.db"),
+            socket: dir.path().join("daemon.sock"),
+            fs_root: dir.path().join("config"),
+            log_dir: dir.path().to_owned(),
+            sink: Arc::new(NoopSink),
+        };
+
+        let bus = build_bus(&cfg).await.unwrap();
+        let count = bus.query(CountWorkspaces).await.unwrap();
+        assert_eq!(count, 1, "Default workspace seeded after build_bus");
     }
 }

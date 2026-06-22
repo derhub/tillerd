@@ -2,15 +2,14 @@
 
 pub mod app;
 pub mod boot;
+pub mod context;
 pub mod entities;
-pub mod error;
 pub mod health;
 pub mod infra;
-pub mod launch;
-pub mod store;
+pub mod shared;
 pub mod supervision;
-pub mod surface;
 
-pub use boot::{boot, EventSink, Orchestrator, Status};
-pub use error::{OrchestratorError, Result};
+pub use boot::{build_bus, Config};
+pub use context::Ctx;
 pub use health::{read_service_health, HealthSpec, ServiceHealth, ServiceState};
+pub use shared::Bus;

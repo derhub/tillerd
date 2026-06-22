@@ -5,7 +5,7 @@ use process_launch::Probes;
 pub use process_launch::{LaunchError, SpawnTiming};
 use service_host::{Manifest, ServiceStatus as Lifecycle};
 
-use crate::error::{OrchestratorError, Result};
+use crate::shared::{Error, Result};
 
 #[derive(Debug, Clone)]
 pub struct ServiceSpec {
@@ -67,12 +67,10 @@ pub fn ensure_service(
     // A stale socket from a dead/drained instance blocks a clean bind; clear it first.
     probes.remove_socket(&spec.socket_path);
 
-    let pid = probes
-        .spawn()
-        .map_err(|e| OrchestratorError::ServiceUnavailable {
-            service: spec.name.clone(),
-            reason: e.to_string(),
-        })?;
+    let pid = probes.spawn().map_err(|e| Error::ServiceUnavailable {
+        service: spec.name.clone(),
+        reason: e.to_string(),
+    })?;
 
     let deadline = Instant::now() + timing.startup_timeout;
     loop {
@@ -87,13 +85,13 @@ pub fn ensure_service(
         }
         // Fail fast if the child exited rather than wait out the whole timeout.
         if !probes.is_alive(pid) {
-            return Err(OrchestratorError::ServiceUnavailable {
+            return Err(Error::ServiceUnavailable {
                 service: spec.name.clone(),
                 reason: "process exited during startup".to_string(),
             });
         }
         if Instant::now() >= deadline {
-            return Err(OrchestratorError::ServiceUnavailable {
+            return Err(Error::ServiceUnavailable {
                 service: spec.name.clone(),
                 reason: format!(
                     "did not report ready within {} ms",
@@ -355,7 +353,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("did not report ready")
+            Err(Error::ServiceUnavailable { reason, .. }) if reason.contains("did not report ready")
         ));
     }
 
@@ -373,7 +371,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(OrchestratorError::ServiceUnavailable { reason, .. }) if reason.contains("exited during startup")
+            Err(Error::ServiceUnavailable { reason, .. }) if reason.contains("exited during startup")
         ));
     }
 
