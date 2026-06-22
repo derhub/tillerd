@@ -52,7 +52,7 @@ mod tests {
     use super::*;
     use sqlx::Row;
 
-    // Helpers ──────────────────────────────────────────────────────────────────
+    // Helpers ------------------------------------------------------------------
 
     async fn memory_pool() -> SqlitePool {
         open_memory().await.expect("in-memory pool failed")
@@ -73,7 +73,7 @@ mod tests {
             .collect()
     }
 
-    // ── schema presence ────────────────────────────────────────────────────────
+    // -- schema presence --------------------------------------------------------
 
     #[tokio::test]
     async fn all_domain_tables_exist_after_migration() {
@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(tables.len(), sorted.len());
     }
 
-    // ── seed data ─────────────────────────────────────────────────────────────
+    // -- seed data -------------------------------------------------------------
 
     #[tokio::test]
     async fn default_workspace_is_seeded() {
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(name, "login-shell");
     }
 
-    // ── column presence: new fields required by task 0b ───────────────────────
+    // -- column presence: new fields required by task 0b -----------------------
 
     #[tokio::test]
     async fn workspace_has_sort_order_pinned_archived_at() {
@@ -296,7 +296,7 @@ mod tests {
         .expect("command must accept sort_order and pinned");
     }
 
-    // ── behavioral contracts ────────────────────────────────────────────────────
+    // -- behavioral contracts ----------------------------------------------------
 
     #[tokio::test]
     async fn pinned_items_sort_before_unpinned() {

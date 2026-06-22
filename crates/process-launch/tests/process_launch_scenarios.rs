@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use process_launch::{spawn_fields_differ, BackoffPolicy, SpawnSpec};
 
-// ── Spawn-field diffing ───────────────────────────────────────────────────────
+// -- Spawn-field diffing -------------------------------------------------------
 
 /// A change to `command` (a spawn-affecting field) triggers a restart.
 #[test]
@@ -106,7 +106,7 @@ fn non_spawn_change_does_not_restart_env_outside_allowlist() {
     );
 }
 
-// ── Capped backoff on repeated failure ───────────────────────────────────────
+// -- Capped backoff on repeated failure ---------------------------------------
 
 /// The restart delay grows exponentially but is capped, so a persistently
 /// failing child does not spin at zero delay.

@@ -8,6 +8,7 @@
 //! can be removed.
 
 mod common;
+mod view;
 
 pub mod apply_template_spec;
 pub mod discard_launch_template;
@@ -37,3 +38,4 @@ pub use list_templates::ListTemplates;
 pub use new_launch_template_cmd::NewLaunchTemplateCmd;
 pub use pin_template::PinTemplate;
 pub use unpin_template::UnpinTemplate;
+pub use view::{LaunchTemplateView, TemplateView};

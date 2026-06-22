@@ -1,4 +1,4 @@
-// ── command names ─────────────────────────────────────────────────────────────
+// -- command names -------------------------------------------------------------
 
 export const PROJECT_CREATE = "project_create";
 export const PROJECT_RENAME = "project_rename";
@@ -23,7 +23,7 @@ export const WORKSPACE_RENAME = "workspace_rename";
 export const WORKSPACE_REORDER = "workspace_reorder";
 export const WORKSPACE_DELETE = "workspace_delete";
 
-// ── domain types ──────────────────────────────────────────────────────────────
+// -- domain types --------------------------------------------------------------
 
 export type SourceKind = "blank" | "local_dir" | "git_repo";
 
@@ -50,7 +50,7 @@ export interface Session {
   createdAt: string;
 }
 
-// ── request / response shapes ─────────────────────────────────────────────────
+// -- request / response shapes -------------------------------------------------
 
 export interface CreateProjectArgs {
   sourceKind: SourceKind;
@@ -141,7 +141,7 @@ export interface DeleteWorkspaceArgs {
   id: string;
 }
 
-// ── client interface ──────────────────────────────────────────────────────────
+// -- client interface ----------------------------------------------------------
 
 export interface WorkspaceClient {
   createProject(args: CreateProjectArgs): Promise<Project>;

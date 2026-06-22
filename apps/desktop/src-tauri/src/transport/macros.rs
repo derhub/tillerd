@@ -1,21 +1,21 @@
 //! Declarative shim macros for the tauri transport. Each domain operation is a pure
 //! `app/` CQS command/query value; these macros generate the mechanical
 //! `#[tauri::command]` shim that deserializes the wire arguments, dispatches through the
-//! managed `Bus<Ctx>`, and maps `shared::Error` to the wire string — so adding an op is
+//! managed `Bus<Ctx>`, and maps `shared::Error` to the wire string -- so adding an op is
 //! one listing line. The wire (command name, argument shape, response JSON, error
 //! string) is byte-identical to a hand-written shim: the generated fn takes the same
 //! snake_case params (tauri converts the renderer's camelCase natively) and tauri keeps
 //! routing, argument typing, and per-command ACL.
 //!
 //! Three forms cover the mechanical surface:
-//! - [`transport_command!`] — build a command, `bus.execute`, return `()`.
-//! - [`transport_query!`] — `bus.query`, map the output to the curated wire DTO.
-//! - [`transport_create!`] — the pure-CQS create pattern: build the command (with a
+//! - [`transport_command!`] -- build a command, `bus.execute`, return `()`.
+//! - [`transport_query!`] -- `bus.query`, map the output to the curated wire DTO.
+//! - [`transport_create!`] -- the pure-CQS create pattern: build the command (with a
 //!   transport-minted id), `bus.execute`, then `bus.query` the entity back by id and map
 //!   it to the wire DTO. Minting lives here, in one place, because the core command
 //!   returns `()` (CQS stays pure).
 //!
-//! [`collect_transport!`] expands to the `generate_handler![...]` array — declarative,
+//! [`collect_transport!`] expands to the `generate_handler![...]` array -- declarative,
 //! not `inventory`, because tauri needs the handler idents at compile time. Host/shell
 //! and transport-resident shims (window/file/log/bridge/menu/supervisor/gate/store, the
 //! surface I/O channel, and the few off-bus or non-mechanical domain shims) are NOT
@@ -105,7 +105,7 @@ macro_rules! transport_create {
 /// - host/shell (no domain store): `window_host`, `files`, `diag`, `bridge`, `menu`,
 ///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
 ///   session registry, design D6 / off-bus).
-/// - transport-resident: every `surface_*` shim — they register/attach a per-surface
+/// - transport-resident: every `surface_*` shim -- they register/attach a per-surface
 ///   `tauri::ipc::Channel` and the off-bus input/resize endpoints write straight to the
 ///   runtime port (a `Channel` is a tauri object that cannot live in the core).
 /// - non-mechanical domain: `settings_host::*` (wire `scope`+`projectId` -> `SettingScope`
@@ -114,7 +114,7 @@ macro_rules! transport_create {
 macro_rules! collect_transport {
     () => {
         tauri::generate_handler![
-            // ── host / shell (out of CQS scope) ──
+            // -- host / shell (out of CQS scope) --
             $crate::bridge::daemon_connect,
             $crate::bridge::daemon_send,
             $crate::bridge::daemon_disconnect,
@@ -135,14 +135,14 @@ macro_rules! collect_transport {
             $crate::window_host::window_focus,
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
-            // ── surface I/O (transport-resident: ipc::Channel + off-bus runtime) ──
+            // -- surface I/O (transport-resident: ipc::Channel + off-bus runtime) --
             $crate::surface_host::surface_create,
             $crate::surface_host::surface_spawn,
             $crate::surface_host::surface_close,
             $crate::surface_host::surface_input,
             $crate::surface_host::surface_resize,
             $crate::surface_host::surface_detach,
-            // ── domain (macro-generated + the hand-written list-diff creates) ──
+            // -- domain (macro-generated + the hand-written list-diff creates) --
             $crate::transport::domain::project_create,
             $crate::transport::domain::project_list,
             $crate::transport::domain::project_rename,
@@ -167,11 +167,11 @@ macro_rules! collect_transport {
             $crate::transport::domain::command_create,
             $crate::transport::domain::command_get,
             $crate::transport::domain::command_delete,
-            // ── settings (non-mechanical: scope parse + JSON value<->string) ──
+            // -- settings (non-mechanical: scope parse + JSON value<->string) --
             $crate::settings_host::setting_get,
             $crate::settings_host::setting_set,
             $crate::settings_host::setting_list,
-            // ── notifications (fixed-page query beside the notification sink) ──
+            // -- notifications (fixed-page query beside the notification sink) --
             $crate::notification_host::notifications_list,
         ]
     };

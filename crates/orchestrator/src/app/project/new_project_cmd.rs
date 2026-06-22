@@ -1,5 +1,7 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::entities::project::NewProject;
+use crate::entities::project::SourceKind;
 use crate::entities::workspace::WorkspaceId;
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Result};
@@ -7,26 +9,36 @@ use crate::shared::{Command, Result};
 use super::common::{infer_name, new_id};
 
 /// Create a new project in a workspace (defaulting to the Default workspace).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewProjectCmd {
-    pub params: NewProject,
+    pub source_kind: String,
+    pub root_path: Option<String>,
+    pub name: Option<String>,
+    pub workspace_id: Option<String>,
 }
 
 impl Command<Ctx> for NewProjectCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         let id = new_id();
         let workspace_id = self
-            .params
             .workspace_id
             .clone()
+            .map(WorkspaceId::new)
             .unwrap_or_else(WorkspaceId::default_id);
-        let name = infer_name(&self.params);
+        let source_kind = match self.source_kind.as_str() {
+            "local_dir" => SourceKind::LocalDir,
+            "git_repo" => SourceKind::GitRepo,
+            _ => SourceKind::Blank,
+        };
+        let name = infer_name(self.name.as_deref(), self.root_path.as_deref());
         ProjectRepo::create(
             cx.db(),
             &id,
             &workspace_id,
             &name,
-            self.params.source_kind,
-            self.params.root_path.as_deref(),
+            source_kind,
+            self.root_path.as_deref(),
             0,
         )
         .await?;
@@ -38,8 +50,6 @@ impl Command<Ctx> for NewProjectCmd {
 mod tests {
     use super::*;
     use crate::app::project::test_util::*;
-    use crate::entities::project::SourceKind;
-    use crate::shared::pagination::Page;
 
     use super::super::list_projects_by_workspace::ListProjectsByWorkspace;
 
@@ -47,20 +57,20 @@ mod tests {
     async fn new_project_creates_project_in_workspace() {
         let (_ctx, bus) = ctx().await;
         bus.execute(NewProjectCmd {
-            params: NewProject {
-                source_kind: SourceKind::Blank,
-                root_path: None,
-                name: Some("Alpha".to_owned()),
-                workspace_id: Some(default_ws()),
-            },
+            source_kind: "blank".to_owned(),
+            root_path: None,
+            name: Some("Alpha".to_owned()),
+            workspace_id: Some(default_ws().as_str().to_owned()),
         })
         .await
         .unwrap();
 
         let listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: default_ws(),
-                page: Page::All,
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -74,12 +84,10 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .execute(NewProjectCmd {
-                params: NewProject {
-                    source_kind: SourceKind::Blank,
-                    root_path: None,
-                    name: Some("Beta".to_owned()),
-                    workspace_id: None,
-                },
+                source_kind: "blank".to_owned(),
+                root_path: None,
+                name: Some("Beta".to_owned()),
+                workspace_id: None,
             })
             .await;
         // Command::handle returns Result<()>, not data.

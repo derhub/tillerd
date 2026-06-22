@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::entities::workspace::WorkspaceId;
@@ -5,18 +7,21 @@ use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Error, Result};
 
 /// Reassign a project to another workspace.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MoveProject {
-    pub id: ProjectId,
-    pub workspace_id: WorkspaceId,
+    pub id: String,
+    pub workspace_id: String,
 }
 
 impl Command<Ctx> for MoveProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let mut project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.guard_not_unfiled()?;
-        project.workspace_id = self.workspace_id.clone();
+        project.workspace_id = WorkspaceId::new(&self.workspace_id);
         ProjectRepo::update(cx.db(), &project).await
     }
 }
@@ -25,7 +30,6 @@ impl Command<Ctx> for MoveProject {
 mod tests {
     use super::*;
     use crate::app::project::test_util::*;
-    use crate::shared::pagination::Page;
 
     use super::super::list_projects_by_workspace::ListProjectsByWorkspace;
 
@@ -44,8 +48,8 @@ mod tests {
         seed_project(ctx.db(), "p-move", "Mover", &default_ws()).await;
 
         bus.execute(MoveProject {
-            id: ProjectId::new("p-move"),
-            workspace_id: WorkspaceId::new(other_ws_id),
+            id: "p-move".to_owned(),
+            workspace_id: other_ws_id.to_owned(),
         })
         .await
         .unwrap();
@@ -53,28 +57,26 @@ mod tests {
         // Must appear under the new workspace.
         let new_ws_listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: WorkspaceId::new(other_ws_id),
-                page: Page::All,
+                workspace_id: other_ws_id.to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
-        assert!(new_ws_listing
-            .items
-            .iter()
-            .any(|p| p.id.as_str() == "p-move"));
+        assert!(new_ws_listing.items.iter().any(|p| p.id == "p-move"));
 
         // Must not appear under the old workspace.
         let old_ws_listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: default_ws(),
-                page: Page::All,
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
-        assert!(!old_ws_listing
-            .items
-            .iter()
-            .any(|p| p.id.as_str() == "p-move"));
+        assert!(!old_ws_listing.items.iter().any(|p| p.id == "p-move"));
     }
 
     #[tokio::test]
@@ -85,8 +87,8 @@ mod tests {
         // No need to seed workspace since error is returned before DB call.
         let result = bus
             .execute(MoveProject {
-                id: unfiled_project_id(),
-                workspace_id: WorkspaceId::new(other_ws_id),
+                id: unfiled_project_id().as_str().to_owned(),
+                workspace_id: other_ws_id.to_owned(),
             })
             .await;
         assert!(

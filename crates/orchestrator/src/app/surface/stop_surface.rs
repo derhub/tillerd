@@ -1,24 +1,28 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::{SurfaceId, SurfaceStatus};
 use crate::infra::SurfaceRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::Result;
+use crate::shared::message::Command;
 
 use super::common::require_surface;
 
-// ── StopSurface (keep record, resumable) ────────────────────────────────────────
+// -- StopSurface (keep record, resumable) ----------------------------------------
 
 /// Kill the process inside a surface; the record is kept so it can resume later.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StopSurface {
-    pub id: SurfaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for StopSurface {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        require_surface(cx, &self.id).await?;
-        cx.runtime().stop(&self.id).await?;
-        SurfaceRepo::update_status(cx.db(), &self.id, SurfaceStatus::Idle).await
+        let id = SurfaceId::from_string(&self.id);
+        require_surface(cx, &id).await?;
+        cx.runtime().stop(&id).await?;
+        SurfaceRepo::update_status(cx.db(), &id, SurfaceStatus::Idle).await
     }
 }
 
@@ -29,7 +33,7 @@ mod tests {
     use crate::app::surface::test_util::{harness, one_surface, seed_session, spawn};
     use crate::shared::Error;
 
-    // Scenario: A command mutates and returns nothing — Stop keeps the record idle
+    // Scenario: A command mutates and returns nothing -- Stop keeps the record idle
     #[tokio::test]
     async fn stop_marks_idle_and_keeps_the_record() {
         let h = harness().await;
@@ -52,8 +56,8 @@ mod tests {
             .await
             .unwrap()
             .expect("record kept");
-        assert_eq!(after.status, SurfaceStatus::Idle);
-        assert!(!h.runtime.is_running(&surface.id));
+        assert_eq!(after.status, "idle");
+        assert!(!h.runtime.is_running(&SurfaceId::from_string(&surface.id)));
     }
 
     #[tokio::test]
@@ -62,7 +66,7 @@ mod tests {
         let result = h
             .bus
             .execute(StopSurface {
-                id: SurfaceId::from_string("no-such"),
+                id: "no-such".to_owned(),
             })
             .await;
         assert!(matches!(result, Err(Error::SurfaceNotFound(_))));

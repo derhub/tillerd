@@ -1,24 +1,26 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::workspace::{WorkspaceId, WorkspaceStatus};
 use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Archive a workspace. Rejected if Default or if any session under it is live.
 /// Cascades: archives all sessions across all projects in the workspace.
 /// Uses a transaction because it spans session-level updates.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArchiveWorkspace {
-    pub id: WorkspaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for ArchiveWorkspace {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut ws = WorkspaceRepo::get(cx.db(), &self.id)
+        let id = WorkspaceId::new(&self.id);
+        let mut ws = WorkspaceRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::WorkspaceNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::WorkspaceNotFound(self.id.clone()))?;
         ws.guard_not_default()?;
         ws.guard_active()?;
 
@@ -33,7 +35,7 @@ impl Command<Ctx> for ArchiveWorkspace {
                    WHERE p.workspace_id = ?
                )",
         )
-        .bind(self.id.as_str())
+        .bind(&self.id)
         .fetch_one(cx.db())
         .await?;
 
@@ -49,7 +51,7 @@ impl Command<Ctx> for ArchiveWorkspace {
                    )
                  LIMIT 1",
             )
-            .bind(self.id.as_str())
+            .bind(&self.id)
             .fetch_one(cx.db())
             .await?;
             return Err(Error::SessionNotIdle(format!(
@@ -68,7 +70,7 @@ impl Command<Ctx> for ArchiveWorkspace {
                        SELECT id FROM project WHERE workspace_id = ?
                    )",
             )
-            .bind(self.id.as_str())
+            .bind(&self.id)
             .execute(&mut **tx)
             .await?;
             WorkspaceRepo::update(&mut **tx, &ws).await
@@ -87,7 +89,7 @@ mod tests {
     #[tokio::test]
     async fn archive_workspace_is_rejected_when_a_session_has_live_surfaces() {
         use crate::entities::session::SessionId;
-        use crate::entities::surface::{NewSurface, SurfaceKind, SurfaceStatus};
+        use crate::entities::surface::{SurfaceKind, SurfaceStatus};
         use crate::infra::{SessionRepo, SurfaceRepo};
 
         let cx = ctx().await;
@@ -118,20 +120,22 @@ mod tests {
         SessionRepo::create(cx.db(), &sess).await.unwrap();
 
         // Create a live surface in that session.
-        let new_surf = NewSurface {
-            id: None,
-            session_id: SessionId::from_string("sess-arch-busy"),
-            kind: SurfaceKind::Terminal,
-            cwd: None,
-            placement: None,
-        };
-        let surface = SurfaceRepo::create(cx.db(), &new_surf).await.unwrap();
+        let surface = SurfaceRepo::create(
+            cx.db(),
+            None,
+            &SessionId::from_string("sess-arch-busy"),
+            SurfaceKind::Terminal,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live)
             .await
             .unwrap();
 
         let err = ArchiveWorkspace {
-            id: ws_id("ws-arch-busy"),
+            id: "ws-arch-busy".to_owned(),
         }
         .handle(&cx)
         .await
@@ -145,7 +149,7 @@ mod tests {
         insert_workspace(&cx, "ws-arch-idle", "Idle").await;
 
         ArchiveWorkspace {
-            id: ws_id("ws-arch-idle"),
+            id: "ws-arch-idle".to_owned(),
         }
         .handle(&cx)
         .await
@@ -163,7 +167,7 @@ mod tests {
     async fn archive_default_workspace_is_rejected() {
         let cx = ctx().await;
         let err = ArchiveWorkspace {
-            id: WorkspaceId::default_id(),
+            id: WorkspaceId::DEFAULT.to_owned(),
         }
         .handle(&cx)
         .await
@@ -177,13 +181,13 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-arch-twice", "Double-archive").await;
         ArchiveWorkspace {
-            id: ws_id("ws-arch-twice"),
+            id: "ws-arch-twice".to_owned(),
         }
         .handle(&cx)
         .await
         .unwrap();
         let err = ArchiveWorkspace {
-            id: ws_id("ws-arch-twice"),
+            id: "ws-arch-twice".to_owned(),
         }
         .handle(&cx)
         .await

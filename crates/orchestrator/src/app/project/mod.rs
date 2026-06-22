@@ -4,6 +4,7 @@
 //! knowledge; no `Box<dyn Command>`. Queries return data and perform no writes.
 
 mod common;
+mod view;
 
 pub mod archive_project;
 pub mod discard_project;
@@ -37,3 +38,10 @@ pub use restore_project::RestoreProject;
 pub use search_projects::SearchProjects;
 pub use stop_project_surfaces::StopProjectSurfaces;
 pub use unpin_project::UnpinProject;
+pub use view::ProjectView;
+
+/// The unfiled-project id as a primitive, for hosts that default a missing id
+/// without reaching the domain newtype.
+pub fn unfiled_project_id() -> String {
+    crate::entities::ProjectId::unfiled().as_str().to_string()
+}

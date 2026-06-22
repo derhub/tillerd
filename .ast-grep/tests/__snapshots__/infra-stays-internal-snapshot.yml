@@ -1,0 +1,86 @@
+id: infra-stays-internal
+snapshots:
+  fn f() -> orchestrator::infra::runtime::Geometry { todo!() }:
+    labels:
+    - source: orchestrator::infra::runtime::Geometry
+      style: primary
+      start: 10
+      end: 48
+  fn f() { let g = orchestrator::infra::runtime::Geometry::default(); }:
+    labels:
+    - source: orchestrator::infra::runtime::Geometry::default
+      style: primary
+      start: 17
+      end: 64
+  use *::infra::*:
+    labels:
+    - source: use *::infra::*
+      style: primary
+      start: 0
+      end: 15
+  use *::infra::runtime::*:
+    labels:
+    - source: use *::infra::runtime::*
+      style: primary
+      start: 0
+      end: 24
+  use crate::infra::*:
+    labels:
+    - source: use crate::infra::*
+      style: primary
+      start: 0
+      end: 19
+  use crate::infra::*;:
+    labels:
+    - source: use crate::infra::*;
+      style: primary
+      start: 0
+      end: 20
+  use crate::infra::runtime::*:
+    labels:
+    - source: use crate::infra::runtime::*
+      style: primary
+      start: 0
+      end: 28
+  use crate::infra::runtime::*;:
+    labels:
+    - source: use crate::infra::runtime::*;
+      style: primary
+      start: 0
+      end: 29
+  use create::infra::runtime::*:
+    labels:
+    - source: use create::infra::runtime::*
+      style: primary
+      start: 0
+      end: 29
+  use orchestrator::infra as adapters;:
+    labels:
+    - source: use orchestrator::infra as adapters;
+      style: primary
+      start: 0
+      end: 36
+  use orchestrator::infra::*;:
+    labels:
+    - source: use orchestrator::infra::*;
+      style: primary
+      start: 0
+      end: 27
+  use orchestrator::infra::migrate;:
+    labels:
+    - source: use orchestrator::infra::migrate;
+      style: primary
+      start: 0
+      end: 33
+  use orchestrator::infra::runtime::FakeRuntime;:
+    labels:
+    - source: use orchestrator::infra::runtime::FakeRuntime;
+      style: primary
+      start: 0
+      end: 46
+  use orchestrator::infra::runtime::{Geometry, SurfaceEventSink};:
+    labels:
+    - source: use orchestrator::infra::runtime::{Geometry, SurfaceEventSink};
+      style: primary
+      start: 0
+      end: 63

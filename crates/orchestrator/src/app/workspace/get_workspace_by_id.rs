@@ -1,22 +1,27 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
+use crate::app::workspace::WorkspaceView;
 use crate::context::Ctx;
-use crate::entities::workspace::{Workspace, WorkspaceId};
-use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Fetch one workspace by id. Returns `None` when absent.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetWorkspaceById {
-    pub id: WorkspaceId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetWorkspaceById {
-    type Out = Option<Workspace>;
+    type Out = Option<WorkspaceView>;
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        WorkspaceRepo::get(cx.db(), &self.id).await
+        Ok(
+            sqlx::query_as::<_, WorkspaceView>("SELECT id, name FROM workspace WHERE id = ?")
+                .bind(&self.id)
+                .fetch_optional(cx.db())
+                .await?,
+        )
     }
 }
 
@@ -30,7 +35,7 @@ mod tests {
     async fn get_workspace_by_id_returns_none_for_absent() {
         let cx = ctx().await;
         let out = GetWorkspaceById {
-            id: ws_id("no-such"),
+            id: "no-such".to_owned(),
         }
         .handle(&cx)
         .await
@@ -43,7 +48,7 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-get-1", "Beta").await;
         let out = GetWorkspaceById {
-            id: ws_id("ws-get-1"),
+            id: "ws-get-1".to_owned(),
         }
         .handle(&cx)
         .await

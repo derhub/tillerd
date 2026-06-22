@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::context::Ctx;
-use crate::entities::workspace::{NewWorkspace, WorkspaceId};
+use crate::entities::workspace::{Workspace, WorkspaceId, WorkspaceStatus};
 use crate::infra::migrate;
 use crate::infra::runtime::FakeRuntime;
 use crate::infra::WorkspaceRepo;
@@ -24,13 +24,12 @@ pub(crate) fn ws_id(s: &str) -> WorkspaceId {
 }
 
 pub(crate) async fn insert_workspace(cx: &Ctx, id: &str, name: &str) {
-    WorkspaceRepo::create(
-        cx.db(),
-        &NewWorkspace {
-            name: name.to_owned(),
-        },
-        &ws_id(id),
-    )
-    .await
-    .unwrap();
+    let workspace = Workspace {
+        id: WorkspaceId::new(id),
+        name: name.to_owned(),
+        sort_order: 0,
+        pinned: false,
+        status: WorkspaceStatus::Active,
+    };
+    WorkspaceRepo::create(cx.db(), &workspace).await.unwrap();
 }

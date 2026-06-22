@@ -1,6 +1,6 @@
 //! Read-only per-service health, derived from each service's manifest (the
-//! ADR-0028 discovery source). Unlike the boot snapshot — which only exists when
-//! every service is available — this reads live in any state, so a service that
+//! ADR-0028 discovery source). Unlike the boot snapshot -- which only exists when
+//! every service is available -- this reads live in any state, so a service that
 //! is down, mismatched, or draining is observable. It opens no socket and changes
 //! no service lifecycle; a pid-liveness check keeps a stale manifest from a
 //! crashed service from reading as ready.
@@ -21,7 +21,7 @@ pub struct HealthSpec {
     pub expected_version: String,
 }
 
-/// A service's observed state — richer than boot's available/unavailable so the
+/// A service's observed state -- richer than boot's available/unavailable so the
 /// interface can distinguish a version mismatch or a drain from a healthy service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceState {
@@ -212,7 +212,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // Scenario: No mutating operation is exposed — a stale manifest from a dead
+    // Scenario: No mutating operation is exposed -- a stale manifest from a dead
     // pid reads as unavailable (read path only; the function takes no probe that
     // could start, stop, or restart a service).
     #[test]

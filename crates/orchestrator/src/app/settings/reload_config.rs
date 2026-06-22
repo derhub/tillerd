@@ -1,10 +1,14 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Re-read all user-config from disk (pick up external edits). The stores have
 /// no in-memory cache so subsequent reads already reflect disk state; this
 /// command exists as an explicit reload signal and is a no-op structurally.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReloadConfig;
 
 impl Command<Ctx> for ReloadConfig {
@@ -19,7 +23,6 @@ mod tests {
     use crate::app::settings::apply_setting::ApplySetting;
     use crate::app::settings::get_setting::GetSetting;
     use crate::app::settings::test_util::*;
-    use crate::entities::setting::SettingScope;
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -28,7 +31,8 @@ mod tests {
         let bus = Bus::new(make_ctx(&dir).await);
 
         bus.execute(ApplySetting {
-            scope: SettingScope::Global,
+            scope: "global".to_owned(),
+            project_id: None,
             key: "k".to_owned(),
             value_json: r#""old""#.to_owned(),
         })
@@ -51,7 +55,8 @@ mod tests {
 
         let v = bus
             .query(GetSetting {
-                scope: SettingScope::Global,
+                scope: "global".to_owned(),
+                project_id: None,
                 key: "k".to_owned(),
             })
             .await

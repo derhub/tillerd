@@ -142,7 +142,7 @@ test("re-attaching a detached workspace from the parent restores its detach cont
   );
   await indicator.waitForExist({ timeout: 10_000 });
   // Clicking the indicator closes the child window from the parent, which re-attaches the
-  // workspace — the row returns to its detach control.
+  // workspace -- the row returns to its detach control.
   await indicator.click();
 
   const detachAgain = await b.$(`[data-testid="workspace-detach"][data-workspace-id="${id}"]`);

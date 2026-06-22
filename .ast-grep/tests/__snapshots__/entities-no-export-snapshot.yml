@@ -1,0 +1,32 @@
+id: entities-no-export
+snapshots:
+  pub mod entities;:
+    labels:
+    - source: pub mod entities;
+      style: primary
+      start: 0
+      end: 17
+  pub use crate::entities::*;:
+    labels:
+    - source: pub use crate::entities::*;
+      style: primary
+      start: 0
+      end: 27
+  pub use crate::entities::SurfaceId as Sid;:
+    labels:
+    - source: pub use crate::entities::SurfaceId as Sid;
+      style: primary
+      start: 0
+      end: 42
+  pub use crate::entities::SurfaceId;:
+    labels:
+    - source: pub use crate::entities::SurfaceId;
+      style: primary
+      start: 0
+      end: 35
+  pub use crate::entities::project::ProjectId;:
+    labels:
+    - source: pub use crate::entities::project::ProjectId;
+      style: primary
+      start: 0
+      end: 44

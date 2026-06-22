@@ -1,24 +1,29 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::entities::{NewLaunchTemplate, ProjectId};
+use crate::entities::{LaunchTemplate, LaunchTemplateId, ProjectId};
 use crate::infra::LaunchTemplateRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Create a new launch template for a project.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewLaunchTemplateCmd {
-    pub project_id: ProjectId,
+    pub project_id: String,
     pub spec_version: u32,
     pub spec_json: String,
 }
 
 impl Command<Ctx> for NewLaunchTemplateCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let draft = NewLaunchTemplate {
-            project_id: self.project_id.clone(),
+        let entity = LaunchTemplate {
+            id: LaunchTemplateId::mint(),
+            project_id: ProjectId::new(&self.project_id),
             spec_version: self.spec_version,
             spec_json: self.spec_json.clone(),
         };
-        LaunchTemplateRepo::create(cx.db(), &draft).await?;
+        LaunchTemplateRepo::create(cx.db(), &entity).await?;
         Ok(())
     }
 }
@@ -35,7 +40,7 @@ mod tests {
 
         let result = bus
             .execute(NewLaunchTemplateCmd {
-                project_id: ProjectId::new(UNFILED),
+                project_id: ProjectId::new(UNFILED).as_str().to_owned(),
                 spec_version: 1,
                 spec_json: r#"{"items":[]}"#.to_owned(),
             })

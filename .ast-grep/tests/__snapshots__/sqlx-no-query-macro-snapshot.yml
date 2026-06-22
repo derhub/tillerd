@@ -1,0 +1,26 @@
+id: sqlx-no-query-macro
+snapshots:
+  let r = query!("SELECT 1");:
+    labels:
+    - source: query!("SELECT 1")
+      style: primary
+      start: 8
+      end: 26
+  let r = query_as!(T, "SELECT 1");:
+    labels:
+    - source: query_as!(T, "SELECT 1")
+      style: primary
+      start: 8
+      end: 32
+  let r = sqlx::query!("SELECT 1");:
+    labels:
+    - source: sqlx::query!("SELECT 1")
+      style: primary
+      start: 8
+      end: 32
+  let r = sqlx::query_as!(T, "SELECT 1");:
+    labels:
+    - source: sqlx::query_as!(T, "SELECT 1")
+      style: primary
+      start: 8
+      end: 38

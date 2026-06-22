@@ -4,7 +4,7 @@ import { getApp } from "./shared-app";
 
 // Panel detach / multi-window (roadmap 0.0.11), parent-webview scenarios. tauri-webdriver drives a
 // single webview and cannot invoke commands or emit events from `execute`, so child-window
-// existence, focus-raise, and re-attach are not observable here — those are covered by the desktop
+// existence, focus-raise, and re-attach are not observable here -- those are covered by the desktop
 // command-contract test, the renderer unit tests, and manual verification. What IS observable is the
 // parent's DOM reaction to each action, asserted below.
 

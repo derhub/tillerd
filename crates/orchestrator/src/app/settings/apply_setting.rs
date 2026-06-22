@@ -1,20 +1,27 @@
+use serde::Deserialize;
+
+use crate::app::settings::common::scope_from_parts;
 use crate::context::Ctx;
-use crate::entities::setting::SettingScope;
 use crate::infra::config::SettingStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
-/// Set or overwrite a setting value at a scope.
+/// Set or overwrite a setting value at a scope. `value_json` carries the JSON value
+/// as a serialized string (the wire is a JSON value; it is persisted verbatim).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApplySetting {
-    pub scope: SettingScope,
+    pub scope: String,
+    pub project_id: Option<String>,
     pub key: String,
     pub value_json: String,
 }
 
 impl Command<Ctx> for ApplySetting {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
+        let scope = scope_from_parts(&self.scope, self.project_id.as_deref())?;
         SettingStore::new(cx.fs_root())
-            .apply(&self.scope, &self.key, &self.value_json)
+            .apply(&scope, &self.key, &self.value_json)
             .await
     }
 }
@@ -24,7 +31,6 @@ mod tests {
     use super::*;
     use crate::app::settings::get_setting::GetSetting;
     use crate::app::settings::test_util::*;
-    use crate::entities::setting::SettingScope;
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -33,7 +39,8 @@ mod tests {
         let bus = Bus::new(make_ctx(&dir).await);
 
         bus.execute(ApplySetting {
-            scope: SettingScope::Global,
+            scope: "global".to_owned(),
+            project_id: None,
             key: "theme".to_owned(),
             value_json: r#""dark""#.to_owned(),
         })
@@ -42,7 +49,8 @@ mod tests {
 
         let v = bus
             .query(GetSetting {
-                scope: SettingScope::Global,
+                scope: "global".to_owned(),
+                project_id: None,
                 key: "theme".to_owned(),
             })
             .await

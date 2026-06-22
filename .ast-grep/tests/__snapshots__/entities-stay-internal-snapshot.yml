@@ -1,0 +1,74 @@
+id: entities-stay-internal
+snapshots:
+  fn f() -> orchestrator::entities::ProjectId { todo!() }:
+    labels:
+    - source: orchestrator::entities::ProjectId
+      style: primary
+      start: 10
+      end: 43
+  fn f() { let id = orchestrator::entities::WorkspaceId::default_id(); }:
+    labels:
+    - source: orchestrator::entities::WorkspaceId::default_id
+      style: primary
+      start: 18
+      end: 65
+  use *::entities::*:
+    labels:
+    - source: use *::entities::*
+      style: primary
+      start: 0
+      end: 18
+  use *::entities::project::*:
+    labels:
+    - source: use *::entities::project::*
+      style: primary
+      start: 0
+      end: 27
+  use crate::entities::*:
+    labels:
+    - source: use crate::entities::*
+      style: primary
+      start: 0
+      end: 22
+  use crate::entities::*;:
+    labels:
+    - source: use crate::entities::*;
+      style: primary
+      start: 0
+      end: 23
+  use crate::entities::project::*:
+    labels:
+    - source: use crate::entities::project::*
+      style: primary
+      start: 0
+      end: 31
+  use crate::entities::project::*;:
+    labels:
+    - source: use crate::entities::project::*;
+      style: primary
+      start: 0
+      end: 32
+  use orchestrator::entities as domain;:
+    labels:
+    - source: use orchestrator::entities as domain;
+      style: primary
+      start: 0
+      end: 37
+  use orchestrator::entities::*;:
+    labels:
+    - source: use orchestrator::entities::*;
+      style: primary
+      start: 0
+      end: 30
+  use orchestrator::entities::ProjectId;:
+    labels:
+    - source: use orchestrator::entities::ProjectId;
+      style: primary
+      start: 0
+      end: 38
+  use orchestrator::entities::{SessionId, SurfaceId};:
+    labels:
+    - source: use orchestrator::entities::{SessionId, SurfaceId};
+      style: primary
+      start: 0
+      end: 51

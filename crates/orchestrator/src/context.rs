@@ -1,4 +1,4 @@
-//! The orchestrator context: the real resources every operation runs against —
+//! The orchestrator context: the real resources every operation runs against --
 //! the `SqlitePool`, the `SqliteKv`, the user-config root, and the surface runtime
 //! port. `Ctx` is cheap to clone and `Send + Sync`, so it survives `.await` and
 //! Tauri's `manage`. It holds no pre-built repo aggregate: repos take whatever
@@ -6,9 +6,9 @@
 //! single connection.
 //!
 //! Queries and single-statement commands use `db()` directly; a command that spans
-//! multiple writes opts into `transaction(|tx| …)`, which commits on `Ok` and
+//! multiple writes opts into `transaction(|tx| ...)`, which commits on `Ok` and
 //! explicitly, awaited-rolls-back on `Err` (sqlx rolls back on `Drop`, but `Drop`
-//! cannot `.await` and reports no failure — the helper gives deterministic timing
+//! cannot `.await` and reports no failure -- the helper gives deterministic timing
 //! and a loggable result).
 
 use std::path::{Path, PathBuf};
@@ -72,7 +72,7 @@ impl Ctx {
 
     /// Opt-in unit of work for a command that spans multiple writes. Begins a
     /// transaction, runs `f`, then commits on `Ok` or explicitly awaits a rollback
-    /// on `Err` — the caller's error is returned unchanged; a rollback failure is
+    /// on `Err` -- the caller's error is returned unchanged; a rollback failure is
     /// logged, never masking the original error.
     pub async fn transaction<T, F>(&self, f: F) -> Result<T>
     where

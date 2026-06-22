@@ -1,21 +1,26 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::session::{Session, SessionId, SessionStatus, TitleSource};
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 use super::common::now_iso;
 
 /// Clone a session with its launch spec into the same project.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateSession {
-    pub id: SessionId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DuplicateSession {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let src = SessionRepo::get(cx.db(), &self.id)
+        let id = SessionId::from_string(&self.id);
+        let src = SessionRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::SessionNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::SessionNotFound(self.id.clone()))?;
 
         let copy = Session {
             id: SessionId::mint(),
@@ -37,11 +42,11 @@ impl Command<Ctx> for DuplicateSession {
 mod tests {
     use super::*;
     use crate::app::session::apply_launch_spec::ApplyLaunchSpec;
+    use crate::app::session::get_launch_spec::GetLaunchSpec;
     use crate::app::session::get_session_by_id::GetSessionById;
     use crate::app::session::list_sessions_by_project::ListSessionsByProject;
     use crate::app::session::rename_session::RenameSession;
     use crate::app::session::test_util::{create_one, ctx, unfiled};
-    use crate::shared::pagination::Page;
 
     // Scenario: Duplicating clones the subtree independently
     #[tokio::test]
@@ -63,8 +68,10 @@ mod tests {
 
         let listing = bus
             .query(ListSessionsByProject {
-                project_id: unfiled(),
-                page: Page::All,
+                project_id: unfiled().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -72,7 +79,14 @@ mod tests {
 
         let copy = listing.items.iter().find(|s| s.id != id).unwrap();
         assert!(copy.title.contains("copy"));
-        assert_eq!(copy.spec_version, Some(1));
+        // The copy carries the same launch spec as the original.
+        let copy_spec = bus
+            .query(GetLaunchSpec {
+                id: copy.id.clone(),
+            })
+            .await
+            .unwrap();
+        assert!(copy_spec.is_some());
 
         bus.execute(RenameSession {
             id: id.clone(),

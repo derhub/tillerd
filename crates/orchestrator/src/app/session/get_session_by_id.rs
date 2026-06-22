@@ -1,18 +1,26 @@
+use serde::Deserialize;
+
+use crate::app::session::SessionView;
 use crate::context::Ctx;
-use crate::entities::session::{Session, SessionId};
-use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Query;
 use crate::shared::errors::Result;
+use crate::shared::message::Query;
 
 /// Fetch one session by id.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetSessionById {
-    pub id: SessionId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetSessionById {
-    type Out = Option<Session>;
+    type Out = Option<SessionView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        SessionRepo::get(cx.db(), &self.id).await
+        Ok(sqlx::query_as::<_, SessionView>(
+            "SELECT id, project_id, title, title_source, created_at FROM session WHERE id = ?",
+        )
+        .bind(&self.id)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }
 
@@ -20,7 +28,6 @@ impl Query<Ctx> for GetSessionById {
 mod tests {
     use super::*;
     use crate::app::session::test_util::ctx;
-    use crate::entities::session::SessionId;
 
     // Scenario: A query reads and does not mutate
     #[tokio::test]
@@ -28,7 +35,7 @@ mod tests {
         let (bus, _) = ctx().await;
         let result = bus
             .query(GetSessionById {
-                id: SessionId::from_string("no-such"),
+                id: "no-such".to_owned(),
             })
             .await
             .unwrap();

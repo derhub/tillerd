@@ -1,0 +1,12 @@
+id: no-seam-rust
+language: Rust
+severity: error
+message: >-
+  Banned word "seam" in a comment. Use a precise alternative: boundary, interface,
+  edge, or joint.
+rule:
+  any:
+    - kind: line_comment
+      regex: '(?i)\bseam\b'
+    - kind: block_comment
+      regex: '(?i)\bseam\b'

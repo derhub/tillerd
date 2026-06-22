@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::context::Ctx;
 use crate::infra::NotificationRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Delete a single notification.
@@ -20,35 +20,25 @@ impl Command<Ctx> for DisregardNotification {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::notification::list_notifications::ListNotifications;
-    use crate::app::notification::record_notification::RecordNotification;
     use crate::app::notification::test_util::*;
-    use crate::shared::pagination::Page;
     use crate::shared::Bus;
 
-    // ── Scenario: disregard removes a notification ────────────────────────────
+    // -- Scenario: disregard removes a notification ----------------------------
 
     #[tokio::test]
     async fn disregard_notification_deletes_the_record() {
         let bus = Bus::new(test_ctx().await);
-        bus.execute(RecordNotification {
-            notification: sample("d1"),
-        })
-        .await
-        .unwrap();
+        bus.execute(record_cmd("d1")).await.unwrap();
 
         bus.execute(DisregardNotification { id: "d1".into() })
             .await
             .unwrap();
 
-        let listing = bus
-            .query(ListNotifications { page: Page::All })
-            .await
-            .unwrap();
+        let listing = bus.query(list_all()).await.unwrap();
         assert!(listing.items.is_empty());
     }
 
-    // ── Scenario: disregard on absent id returns not_found ────────────────────
+    // -- Scenario: disregard on absent id returns not_found --------------------
 
     #[tokio::test]
     async fn disregard_notification_on_absent_id_returns_not_found() {

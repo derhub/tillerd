@@ -1,0 +1,27 @@
+id: entities-no-input-dto
+language: Rust
+severity: error
+message: >-
+  entities/ holds domain entities and value objects only — not input DTOs. A `New*`
+  struct is a create-input shape; it belongs on the command in app/, not here.
+note: |
+  Move the input shape onto the command (flat primitives), let the handler build the
+  entity, and have the repo persist the entity:
+
+    // app/project/new_project.rs
+    #[derive(Deserialize)]
+    pub struct NewProject { pub workspace_id: String, pub name: Option<String> }
+
+    impl Command<Ctx> for NewProject {
+        async fn handle(&self, cx: &Ctx) -> Result<()> {
+            let project = Project::new(/* validated fields */);   // build the entity
+            ProjectRepo::create(cx.db(), &project).await          // repo takes the entity
+        }
+    }
+files:
+  - "**/entities/**"
+rule:
+  kind: struct_item
+  has:
+    field: name
+    regex: "^New"

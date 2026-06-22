@@ -1,24 +1,28 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::SurfaceId;
 use crate::infra::SurfaceRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::Result;
+use crate::shared::message::Command;
 
 use super::common::require_surface;
 
-// ── CloseSurface (delete record) ────────────────────────────────────────────────
+// -- CloseSurface (delete record) ------------------------------------------------
 
 /// Remove a surface from a session: kill its runtime proxy and delete the record.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CloseSurface {
-    pub id: SurfaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for CloseSurface {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        require_surface(cx, &self.id).await?;
-        cx.runtime().close(&self.id).await?;
-        SurfaceRepo::delete(cx.db(), &self.id).await
+        let id = SurfaceId::from_string(&self.id);
+        require_surface(cx, &id).await?;
+        cx.runtime().close(&id).await?;
+        SurfaceRepo::delete(cx.db(), &id).await
     }
 }
 
@@ -51,6 +55,6 @@ mod tests {
             .await
             .unwrap();
         assert!(gone.is_none());
-        assert!(!h.runtime.is_running(&surface.id));
+        assert!(!h.runtime.is_running(&SurfaceId::from_string(&surface.id)));
     }
 }

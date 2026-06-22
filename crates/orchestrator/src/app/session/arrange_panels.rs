@@ -1,22 +1,27 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::session::SessionId;
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 /// Set the session's panel-tree geometry (how placements split into panes/tabs).
 /// Independent of the launch spec.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArrangePanels {
-    pub id: SessionId,
+    pub id: String,
     pub panel_tree_json: String,
 }
 
 impl Command<Ctx> for ArrangePanels {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        SessionRepo::get(cx.db(), &self.id)
+        let id = SessionId::from_string(&self.id);
+        SessionRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::SessionNotFound(self.id.as_str().to_owned()))?;
-        SessionRepo::set_panel_tree(cx.db(), &self.id, &self.panel_tree_json).await
+            .ok_or_else(|| Error::SessionNotFound(self.id.clone()))?;
+        SessionRepo::set_panel_tree(cx.db(), &id, &self.panel_tree_json).await
     }
 }
 

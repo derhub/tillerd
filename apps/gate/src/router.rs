@@ -48,8 +48,8 @@ impl Router {
         Self { chains }
     }
 
-    /// Handle one inbound: assign the correlation id once (when absent) — the
-    /// sole point it is minted — then run the kind's chain.
+    /// Handle one inbound: assign the correlation id once (when absent) -- the
+    /// sole point it is minted -- then run the kind's chain.
     pub async fn handle(&self, inbound: Inbound) -> Flow {
         let Inbound {
             kind,

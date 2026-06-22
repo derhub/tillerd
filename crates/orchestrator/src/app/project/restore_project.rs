@@ -1,18 +1,23 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::{ProjectId, ProjectStatus};
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Error, Result};
 
 /// Restore an archived project to active state.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestoreProject {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Command<Ctx> for RestoreProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let mut project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.guard_archived()?;
         project.status = ProjectStatus::Active;
         ProjectRepo::update(cx.db(), &project).await
@@ -25,7 +30,6 @@ mod tests {
     use crate::app::project::test_util::*;
 
     use super::super::archive_project::ArchiveProject;
-    use super::super::get_project_by_id::GetProjectById;
 
     #[tokio::test]
     async fn restore_project_makes_it_active_again() {
@@ -33,21 +37,18 @@ mod tests {
         seed_project(ctx.db(), "p-restore", "Restorable", &default_ws()).await;
 
         bus.execute(ArchiveProject {
-            id: ProjectId::new("p-restore"),
+            id: "p-restore".to_owned(),
         })
         .await
         .unwrap();
 
         bus.execute(RestoreProject {
-            id: ProjectId::new("p-restore"),
+            id: "p-restore".to_owned(),
         })
         .await
         .unwrap();
 
-        let project = bus
-            .query(GetProjectById {
-                id: ProjectId::new("p-restore"),
-            })
+        let project = ProjectRepo::get(ctx.db(), &ProjectId::new("p-restore"))
             .await
             .unwrap()
             .unwrap();
@@ -61,7 +62,7 @@ mod tests {
 
         let result = bus
             .execute(RestoreProject {
-                id: ProjectId::new("p-restore-active"),
+                id: "p-restore-active".to_owned(),
             })
             .await;
         assert!(

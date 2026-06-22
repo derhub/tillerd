@@ -1,29 +1,37 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::entities::command::{CommandOrigin, NewCommand as NewCommandDraft};
+use crate::entities::command::{Command, CommandId, CommandOrigin};
 use crate::infra::CommandRepo;
-use crate::shared::cqs::Command as BusCommand;
+use crate::shared::message::Command as BusCommand;
 use crate::shared::Result;
 
 /// Create a new custom library command.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewCommand {
     pub name: String,
     pub cli: String,
+    #[serde(default)]
     pub args: Vec<String>,
+    #[serde(default)]
     pub env: HashMap<String, String>,
 }
 
 impl BusCommand<Ctx> for NewCommand {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let draft = NewCommandDraft {
+        let command = Command {
+            id: CommandId::mint(),
             name: self.name.clone(),
             origin: CommandOrigin::Custom,
             cli: self.cli.clone(),
             args: self.args.clone(),
             env: self.env.clone(),
+            pinned: false,
         };
-        CommandRepo::create(cx.db(), &draft).await?;
+        CommandRepo::create(cx.db(), &command).await?;
         Ok(())
     }
 }
@@ -35,11 +43,9 @@ mod tests {
     use super::*;
     use crate::app::command::list_commands::ListCommands;
     use crate::app::command::test_util::*;
-    use crate::entities::command::CommandOrigin;
-    use crate::shared::pagination::Page;
     use crate::shared::Bus;
 
-    // ── Scenario: command mutates and returns nothing ─────────────────────────
+    // -- Scenario: command mutates and returns nothing -------------------------
 
     #[tokio::test]
     async fn new_command_creates_a_custom_command_that_get_query_resolves() {
@@ -55,14 +61,16 @@ mod tests {
 
         let listing = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Custom),
-                page: Page::All,
+                origin: Some("custom".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
         let found = listing.items.iter().find(|c| c.name == "my-tool").unwrap();
         assert_eq!(found.cli, "/usr/bin/my-tool");
         assert_eq!(found.args, vec!["--flag"]);
-        assert_eq!(found.origin, CommandOrigin::Custom);
+        assert_eq!(found.origin, "custom");
     }
 }

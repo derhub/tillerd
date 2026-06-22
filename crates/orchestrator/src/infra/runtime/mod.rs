@@ -23,7 +23,7 @@ use crate::shared::Result;
 /// transitions, and lifecycle events here; an implementor bridges them to a
 /// renderer (tauri `ipc::Channel`) or another transport. Sync, so it stays
 /// object-safe and adds no per-frame async overhead. Keystroke input never flows
-/// through here — the sink carries daemon -> renderer output only.
+/// through here -- the sink carries daemon -> renderer output only.
 pub trait SurfaceEventSink: Send + Sync + 'static {
     fn on_bytes(&self, surface: &SurfaceId, bytes: &[u8]);
     fn on_status(&self, surface: &SurfaceId, status: &str);
@@ -59,7 +59,7 @@ type BoxFut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 /// The surface runtime port: drives PTYs in the daemon and streams their output to
 /// a [`SurfaceEventSink`]. Object-safe (`Arc<dyn SurfaceRuntime>` in `Ctx`); methods
 /// return boxed futures so the trait stays `dyn`-compatible without `async-trait`.
-/// The port does no persistence — the app layer owns intent and reconciliation (D9).
+/// The port does no persistence -- the app layer owns intent and reconciliation (D9).
 pub trait SurfaceRuntime: Send + Sync + 'static {
     /// Spawn a surface's PTY and start proxying its output to the sink.
     fn spawn<'a>(&'a self, request: SpawnRequest) -> BoxFut<'a, ()>;

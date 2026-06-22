@@ -1,8 +1,8 @@
 //! The single error registry. Each variant declares a stable, low-cardinality
-//! telemetry code via `#[error_code("…")]`, generated into `code()` by the
+//! telemetry code via `#[error_code("...")]`, generated into `code()` by the
 //! `ErrorCode` derive; a variant missing the attribute is a compile error.
 //! `Display`, `#[from]`, and the source chain stay with `thiserror`. There is no
-//! `level`/`category` — every error logs at `ERROR`. Ids belong in the message,
+//! `level`/`category` -- every error logs at `ERROR`. Ids belong in the message,
 //! never in a code.
 
 use tillerd_custom_macro::ErrorCode;

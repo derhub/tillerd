@@ -1,28 +1,29 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
-use crate::entities::workspace::{NewWorkspace, WorkspaceId};
+use crate::entities::workspace::{Workspace, WorkspaceId, WorkspaceStatus};
 use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
-/// Create a workspace with the given name.
-#[derive(Debug, Serialize, Deserialize)]
+/// Create a workspace with the given id and name.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewWorkspaceCmd {
-    pub id: WorkspaceId,
+    pub id: String,
     pub name: String,
 }
 
 impl Command<Ctx> for NewWorkspaceCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        WorkspaceRepo::create(
-            cx.db(),
-            &NewWorkspace {
-                name: self.name.clone(),
-            },
-            &self.id,
-        )
-        .await
+        let workspace = Workspace {
+            id: WorkspaceId::new(&self.id),
+            name: self.name.clone(),
+            sort_order: 0,
+            pinned: false,
+            status: WorkspaceStatus::Active,
+        };
+        WorkspaceRepo::create(cx.db(), &workspace).await
     }
 }
 
@@ -36,16 +37,18 @@ mod tests {
     #[tokio::test]
     async fn new_workspace_creates_and_returns_unit() {
         let cx = ctx().await;
-        let id = ws_id("ws-new-1");
         let result = NewWorkspaceCmd {
-            id: id.clone(),
+            id: "ws-new-1".to_owned(),
             name: "Alpha".to_owned(),
         }
         .handle(&cx)
         .await;
         assert!(result.is_ok());
 
-        let ws = WorkspaceRepo::get(cx.db(), &id).await.unwrap().unwrap();
+        let ws = WorkspaceRepo::get(cx.db(), &ws_id("ws-new-1"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(ws.name, "Alpha");
     }
 }

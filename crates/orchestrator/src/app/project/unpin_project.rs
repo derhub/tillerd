@@ -1,18 +1,23 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Error, Result};
 
 /// Toggle the `pinned` flag off (unpin the project).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UnpinProject {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Command<Ctx> for UnpinProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let mut project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.pinned = false;
         ProjectRepo::update(cx.db(), &project).await
     }
@@ -23,7 +28,6 @@ mod tests {
     use super::*;
     use crate::app::project::test_util::*;
 
-    use super::super::get_project_by_id::GetProjectById;
     use super::super::pin_project::PinProject;
 
     #[tokio::test]
@@ -33,20 +37,17 @@ mod tests {
         seed_project(ctx.db(), "p-b", "B", &default_ws()).await;
 
         bus.execute(PinProject {
-            id: ProjectId::new("p-a"),
+            id: "p-a".to_owned(),
         })
         .await
         .unwrap();
         bus.execute(UnpinProject {
-            id: ProjectId::new("p-a"),
+            id: "p-a".to_owned(),
         })
         .await
         .unwrap();
 
-        let project = bus
-            .query(GetProjectById {
-                id: ProjectId::new("p-a"),
-            })
+        let project = ProjectRepo::get(ctx.db(), &ProjectId::new("p-a"))
             .await
             .unwrap()
             .unwrap();

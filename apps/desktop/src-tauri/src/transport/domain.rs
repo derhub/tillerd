@@ -7,147 +7,66 @@
 //!
 //! A handful of shims stay hand-written below because they are not mechanical: the
 //! list-diff creates that mint server-side (`project_create`, `session_create`,
-//! `command_create`) — the transport cannot read the entity back by a known id and
-//! `session_create` also fires `LaunchSession` — and so cannot use `transport_create!`.
+//! `command_create`) -- the transport cannot read the entity back by a known id and
+//! `session_create` also fires `LaunchSession` -- and so cannot use `transport_create!`.
 
 use std::collections::HashMap;
 
 use orchestrator::app::command::{
-    DiscardCommand, GetCommandById, ListCommands, NewCommand as NewCommandCmd,
+    CommandView, DiscardCommand, GetCommandById, ListCommands, NewCommand as NewCommandCmd,
 };
 use orchestrator::app::project::{
     ArchiveProject, DiscardProject, ListProjectsByWorkspace, MoveProject, NewProjectCmd,
-    RenameProject, ReorderProject,
+    ProjectView, RenameProject, ReorderProject,
 };
 use orchestrator::app::session::{ArchiveSession, DiscardSession};
 use orchestrator::app::session::{
     ArrangePanels, GetPanelTree, LaunchSession, ListAllSessions, ListSessionsByProject,
-    NewSessionCmd, RenameSession, ReorderSession,
+    NewSessionCmd, RenameSession, ReorderSession, SessionView,
 };
 use orchestrator::app::workspace::{
     DiscardWorkspace, GetWorkspaceById, ListWorkspaces, NewWorkspaceCmd, RenameWorkspace,
-    ReorderWorkspace,
+    ReorderWorkspace, WorkspaceView,
 };
-use orchestrator::entities::{
-    Command, CommandId, CommandOrigin, LaunchTemplateId, NewProject, NewSession, Project,
-    ProjectId, Session, SessionId, SourceKind, TitleSource, Workspace, WorkspaceId,
-};
-use orchestrator::shared::pagination::Page;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::State;
 use uuid::Uuid;
 
 use crate::transport::macros::{transport_command, transport_create, transport_query};
 use crate::transport::Bus;
 
-// ── serializable response types ───────────────────────────────────────────────
-
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ProjectResponse {
-    pub id: String,
-    pub name: String,
-    pub source_kind: String,
-    pub root_path: Option<String>,
-    pub workspace_id: String,
-}
-
-fn project_response(p: Project) -> ProjectResponse {
-    ProjectResponse {
-        id: p.id.as_str().to_string(),
-        name: p.name,
-        source_kind: p.source_kind.as_str().to_string(),
-        root_path: p.root_path,
-        workspace_id: p.workspace_id.as_str().to_string(),
-    }
-}
-
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceResponse {
-    pub id: String,
-    pub name: String,
-}
-
-fn workspace_response(w: Workspace) -> WorkspaceResponse {
-    WorkspaceResponse {
-        id: w.id.as_str().to_string(),
-        name: w.name,
-    }
-}
-
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SessionResponse {
-    pub id: String,
-    pub project_id: String,
-    pub title: String,
-    pub title_source: String,
-    pub created_at: String,
-}
-
-fn session_response(s: Session) -> SessionResponse {
-    SessionResponse {
-        id: s.id.as_str().to_string(),
-        project_id: s.project_id.as_str().to_string(),
-        title: s.title,
-        title_source: s.title_source.as_str().to_string(),
-        created_at: s.created_at,
-    }
-}
-
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct CommandResponse {
-    pub id: String,
-    pub name: String,
-    pub origin: String,
-    pub cli: String,
-    pub args: Vec<String>,
-    pub env: HashMap<String, String>,
-}
-
-fn command_response(c: Command) -> CommandResponse {
-    CommandResponse {
-        id: c.id.as_str().to_string(),
-        name: c.name,
-        origin: c.origin.as_str().to_string(),
-        cli: c.cli,
-        args: c.args,
-        env: c.env,
-    }
-}
-
-// ── project ───────────────────────────────────────────────────────────────────
+// -- project -------------------------------------------------------------------
 
 transport_query!(
-    project_list(workspace_id: Option<String>) -> Vec<ProjectResponse>
+    project_list(workspace_id: Option<String>) -> Vec<ProjectView>
         => ListProjectsByWorkspace {
-            workspace_id: workspace_id.map(WorkspaceId::new).unwrap_or_else(WorkspaceId::default_id),
-            page: Page::All,
+            workspace_id: workspace_id.unwrap_or_else(orchestrator::app::workspace::default_workspace_id),
+            limit: None,
+            offset: None,
+            after: None,
         },
-        |listing| listing.items.into_iter().map(project_response).collect()
+        |listing| listing.items
 );
 
 transport_command!(project_rename(id: String, name: String) => RenameProject {
-    id: ProjectId::new(id),
+    id,
     name,
 });
 
-transport_command!(project_archive(id: String) => ArchiveProject { id: ProjectId::new(id) });
+transport_command!(project_archive(id: String) => ArchiveProject { id });
 
 // Hard-delete a project. `DiscardProject` folds archive-then-discard internally
 // (archives an active project, cascading its sessions, then purges).
-transport_command!(project_delete(id: String) => DiscardProject { id: ProjectId::new(id) });
+transport_command!(project_delete(id: String) => DiscardProject { id });
 
 transport_command!(project_reorder(id: String, sort_order: u32) => ReorderProject {
-    id: ProjectId::new(id),
+    id,
     sort_order,
 });
 
 transport_command!(project_move(id: String, workspace_id: String) => MoveProject {
-    id: ProjectId::new(id),
-    workspace_id: WorkspaceId::new(workspace_id),
+    id,
+    workspace_id,
 });
 
 /// Create a project (server-mints the id and infers the name; list-diff finds the new
@@ -157,30 +76,28 @@ pub async fn project_create(
     name: Option<String>,
     workspace_id: Option<String>,
     bus: State<'_, Bus>,
-) -> Result<ProjectResponse, String> {
-    let workspace = workspace_id
-        .map(WorkspaceId::new)
-        .unwrap_or_else(WorkspaceId::default_id);
+) -> Result<ProjectView, String> {
+    let workspace = workspace_id.unwrap_or_else(orchestrator::app::workspace::default_workspace_id);
 
     let before: Vec<String> = bus
         .query(ListProjectsByWorkspace {
             workspace_id: workspace.clone(),
-            page: Page::All,
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .map(|p| p.id.as_str().to_string())
+        .map(|p| p.id)
         .collect();
 
     bus.execute(NewProjectCmd {
-        params: NewProject {
-            source_kind: SourceKind::Blank,
-            root_path: None,
-            name,
-            workspace_id: Some(workspace.clone()),
-        },
+        source_kind: "blank".to_string(),
+        root_path: None,
+        name,
+        workspace_id: Some(workspace.clone()),
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -188,48 +105,50 @@ pub async fn project_create(
     let project = bus
         .query(ListProjectsByWorkspace {
             workspace_id: workspace,
-            page: Page::All,
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .find(|p| !before.contains(&p.id.as_str().to_string()))
+        .find(|p| !before.contains(&p.id))
         .ok_or_else(|| "project vanished after create".to_string())?;
-    Ok(project_response(project))
+    Ok(project)
 }
 
-// ── workspace ───────────────────────────────────────────────────────────────────
+// -- workspace -------------------------------------------------------------------
 
 transport_create!(
-    workspace_create(name: String) -> WorkspaceResponse {
-        let id = WorkspaceId::new(Uuid::new_v4().to_string());
+    workspace_create(name: String) -> WorkspaceView {
+        let id = Uuid::new_v4().to_string();
         execute: NewWorkspaceCmd { id: id.clone(), name },
         read_back: GetWorkspaceById { id },
-        map: |workspace| workspace_response(workspace),
+        map: |workspace| workspace,
         missing: "workspace vanished after create",
     }
 );
 
 transport_query!(
-    workspace_list() -> Vec<WorkspaceResponse>
-        => ListWorkspaces { page: Page::All },
-        |listing| listing.items.into_iter().map(workspace_response).collect()
+    workspace_list() -> Vec<WorkspaceView>
+        => ListWorkspaces { limit: None, offset: None, after: None },
+        |listing| listing.items
 );
 
 transport_command!(workspace_rename(id: String, name: String) => RenameWorkspace {
-    id: WorkspaceId::new(id),
+    id,
     name,
 });
 
 transport_command!(workspace_reorder(id: String, sort_order: u32) => ReorderWorkspace {
-    id: WorkspaceId::new(id),
+    id,
     sort_order,
 });
 
-transport_command!(workspace_delete(id: String) => DiscardWorkspace { id: WorkspaceId::new(id) });
+transport_command!(workspace_delete(id: String) => DiscardWorkspace { id });
 
-// ── session ───────────────────────────────────────────────────────────────────
+// -- session -------------------------------------------------------------------
 
 // `project_id` omitted => list EVERY session (the sidebar groups all sessions by
 // project); given => that project only. Matches the pre-refactor wire.
@@ -237,28 +156,28 @@ transport_command!(workspace_delete(id: String) => DiscardWorkspace { id: Worksp
 pub async fn session_list(
     project_id: Option<String>,
     bus: State<'_, Bus>,
-) -> Result<Vec<SessionResponse>, String> {
+) -> Result<Vec<SessionView>, String> {
     let listing = match project_id {
         Some(pid) => {
             bus.query(ListSessionsByProject {
-                project_id: ProjectId::new(pid),
-                page: Page::All,
+                project_id: pid,
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
         }
-        None => bus.query(ListAllSessions { page: Page::All }).await,
+        None => {
+            bus.query(ListAllSessions {
+                limit: None,
+                offset: None,
+                after: None,
+            })
+            .await
+        }
     }
     .map_err(|e| e.to_string())?;
-    Ok(listing.items.into_iter().map(session_response).collect())
-}
-
-fn parse_title_source(s: Option<&str>) -> TitleSource {
-    match s {
-        Some("branch") => TitleSource::Branch,
-        Some("both") => TitleSource::Both,
-        Some("custom") => TitleSource::Custom,
-        _ => TitleSource::AgentTitle,
-    }
+    Ok(listing.items)
 }
 
 /// Create a session (server-mints the id; list-diff finds the new row) then brings its
@@ -271,43 +190,44 @@ pub async fn session_create(
     title_source: Option<String>,
     template_id: Option<String>,
     bus: State<'_, Bus>,
-) -> Result<SessionResponse, String> {
-    let pid = project_id
-        .map(ProjectId::new)
-        .unwrap_or_else(ProjectId::unfiled);
-    let draft = NewSession {
-        project_id: Some(pid.clone()),
-        title_source: parse_title_source(title_source.as_deref()),
-        title,
-        template_id: template_id.map(LaunchTemplateId::from_string),
-    };
+) -> Result<SessionView, String> {
+    let pid = project_id.unwrap_or_else(orchestrator::app::project::unfiled_project_id);
 
     let before: Vec<String> = bus
         .query(ListSessionsByProject {
             project_id: pid.clone(),
-            page: Page::All,
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .map(|s| s.id.as_str().to_string())
+        .map(|s| s.id)
         .collect();
 
-    bus.execute(NewSessionCmd(draft))
-        .await
-        .map_err(|e| e.to_string())?;
+    bus.execute(NewSessionCmd {
+        project_id: Some(pid.clone()),
+        title_source: title_source.unwrap_or_default(),
+        title,
+        template_id,
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
     let created = bus
         .query(ListSessionsByProject {
             project_id: pid,
-            page: Page::All,
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .find(|s| !before.contains(&s.id.as_str().to_string()))
+        .find(|s| !before.contains(&s.id))
         .ok_or_else(|| "session vanished after create".to_string())?;
 
     // Bring the session's launch spec to life (a session with no spec launches
@@ -318,52 +238,52 @@ pub async fn session_create(
         })
         .await;
 
-    Ok(session_response(created))
+    Ok(created)
 }
 
 transport_command!(session_rename(id: String, title: String) => RenameSession {
-    id: SessionId::from_string(id),
+    id,
     title,
 });
 
-transport_command!(session_archive(id: String) => ArchiveSession { id: SessionId::from_string(id) });
+transport_command!(session_archive(id: String) => ArchiveSession { id });
 
 // Hard-delete a session. `DiscardSession` folds archive-then-discard internally
 // (archives an active idle session then purges).
-transport_command!(session_delete(id: String) => DiscardSession { id: SessionId::from_string(id) });
+transport_command!(session_delete(id: String) => DiscardSession { id });
 
 transport_command!(session_reorder(id: String, sort_order: u32) => ReorderSession {
-    id: SessionId::from_string(id),
+    id,
     sort_order,
 });
 
 // `id` (not `session_id`) so the IPC arg matches the SDK and the other session commands;
 // the wire `layoutJson` maps to the core `panel_tree_json`.
 transport_command!(session_layout_set(id: String, layout_json: String) => ArrangePanels {
-    id: SessionId::from_string(id),
+    id,
     panel_tree_json: layout_json,
 });
 
 transport_query!(
     session_layout_get(id: String) -> Option<String>
-        => GetPanelTree { id: SessionId::from_string(id) },
+        => GetPanelTree { id },
         |tree| tree
 );
 
-// ── command library ───────────────────────────────────────────────────────────
+// -- command library -----------------------------------------------------------
 
 transport_query!(
-    command_get(id: String) -> Option<CommandResponse>
-        => GetCommandById { id: CommandId::from_string(id) },
-        |cmd| cmd.map(command_response)
+    command_get(id: String) -> Option<CommandView>
+        => GetCommandById { id },
+        |cmd| cmd
 );
 
-transport_command!(command_delete(id: String) => DiscardCommand { id: CommandId::from_string(id) });
+transport_command!(command_delete(id: String) => DiscardCommand { id });
 
 transport_query!(
-    command_list() -> Vec<CommandResponse>
-        => ListCommands { origin: None, page: Page::All },
-        |listing| listing.items.into_iter().map(command_response).collect()
+    command_list() -> Vec<CommandView>
+        => ListCommands { origin: None, limit: None, offset: None, after: None },
+        |listing| listing.items
 );
 
 #[derive(Debug, Deserialize)]
@@ -383,17 +303,19 @@ pub struct CreateCommandRequest {
 pub async fn command_create(
     req: CreateCommandRequest,
     bus: State<'_, Bus>,
-) -> Result<CommandResponse, String> {
+) -> Result<CommandView, String> {
     let existing: Vec<String> = bus
         .query(ListCommands {
-            origin: Some(CommandOrigin::Custom),
-            page: Page::All,
+            origin: Some("custom".to_string()),
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .map(|c| c.id.as_str().to_string())
+        .map(|c| c.id)
         .collect();
 
     bus.execute(NewCommandCmd {
@@ -407,17 +329,19 @@ pub async fn command_create(
 
     let created = bus
         .query(ListCommands {
-            origin: Some(CommandOrigin::Custom),
-            page: Page::All,
+            origin: Some("custom".to_string()),
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?
         .items
         .into_iter()
-        .find(|c| !existing.contains(&c.id.as_str().to_string()))
+        .find(|c| !existing.contains(&c.id))
         .ok_or_else(|| "command vanished after create".to_string())?;
 
-    Ok(command_response(created))
+    Ok(created)
 }
 
 #[cfg(test)]
@@ -437,7 +361,7 @@ mod tests {
 
     #[test]
     fn project_response_matches_sdk_project_shape() {
-        let p = ProjectResponse {
+        let p = ProjectView {
             id: "p".into(),
             name: "P".into(),
             source_kind: "blank".into(),
@@ -452,7 +376,7 @@ mod tests {
 
     #[test]
     fn session_response_matches_sdk_session_shape() {
-        let s = SessionResponse {
+        let s = SessionView {
             id: "s".into(),
             project_id: "p".into(),
             title: "T".into(),
@@ -467,7 +391,7 @@ mod tests {
 
     #[test]
     fn command_response_matches_sdk_command_shape() {
-        let c = CommandResponse {
+        let c = CommandView {
             id: "c".into(),
             name: "c".into(),
             origin: "custom".into(),
@@ -483,23 +407,10 @@ mod tests {
 
     #[test]
     fn workspace_response_matches_sdk_workspace_shape() {
-        let w = WorkspaceResponse {
+        let w = WorkspaceView {
             id: "w".into(),
             name: "W".into(),
         };
         assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name"]);
-    }
-
-    #[test]
-    fn parse_title_source_maps_wire_strings() {
-        assert!(matches!(
-            parse_title_source(Some("custom")),
-            TitleSource::Custom
-        ));
-        assert!(matches!(
-            parse_title_source(Some("branch")),
-            TitleSource::Branch
-        ));
-        assert!(matches!(parse_title_source(None), TitleSource::AgentTitle));
     }
 }

@@ -1,19 +1,25 @@
+use serde::Deserialize;
+
+use crate::app::settings::common::scope_from_parts;
 use crate::context::Ctx;
-use crate::entities::setting::SettingScope;
 use crate::infra::config::SettingStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Clear a setting override at a scope (revert to inherited/default).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetSetting {
-    pub scope: SettingScope,
+    pub scope: String,
+    pub project_id: Option<String>,
     pub key: String,
 }
 
 impl Command<Ctx> for ResetSetting {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
+        let scope = scope_from_parts(&self.scope, self.project_id.as_deref())?;
         SettingStore::new(cx.fs_root())
-            .reset(&self.scope, &self.key)
+            .reset(&scope, &self.key)
             .await
     }
 }
@@ -24,7 +30,6 @@ mod tests {
     use crate::app::settings::apply_setting::ApplySetting;
     use crate::app::settings::get_setting::GetSetting;
     use crate::app::settings::test_util::*;
-    use crate::entities::setting::SettingScope;
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -33,7 +38,8 @@ mod tests {
         let bus = Bus::new(make_ctx(&dir).await);
 
         bus.execute(ApplySetting {
-            scope: SettingScope::Global,
+            scope: "global".to_owned(),
+            project_id: None,
             key: "k".to_owned(),
             value_json: r#""v""#.to_owned(),
         })
@@ -41,7 +47,8 @@ mod tests {
         .unwrap();
 
         bus.execute(ResetSetting {
-            scope: SettingScope::Global,
+            scope: "global".to_owned(),
+            project_id: None,
             key: "k".to_owned(),
         })
         .await
@@ -49,7 +56,8 @@ mod tests {
 
         let v = bus
             .query(GetSetting {
-                scope: SettingScope::Global,
+                scope: "global".to_owned(),
+                project_id: None,
                 key: "k".to_owned(),
             })
             .await

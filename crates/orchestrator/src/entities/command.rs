@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::shared::{Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct CommandId(String);
 
 impl CommandId {
@@ -23,7 +24,8 @@ impl CommandId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum CommandOrigin {
     Prebuilt,
     Custom,
@@ -38,13 +40,15 @@ impl CommandOrigin {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Command {
     pub id: CommandId,
     pub name: String,
     pub origin: CommandOrigin,
     pub cli: String,
+    #[sqlx(json)]
     pub args: Vec<String>,
+    #[sqlx(json)]
     pub env: HashMap<String, String>,
     pub pinned: bool,
 }
@@ -63,15 +67,6 @@ impl Command {
     pub fn rename(&mut self, name: &str) {
         self.name = name.trim().to_owned();
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct NewCommand {
-    pub name: String,
-    pub origin: CommandOrigin,
-    pub cli: String,
-    pub args: Vec<String>,
-    pub env: HashMap<String, String>,
 }
 
 #[cfg(test)]

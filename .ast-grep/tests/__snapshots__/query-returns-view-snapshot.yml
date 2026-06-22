@@ -1,0 +1,56 @@
+id: query-returns-view
+snapshots:
+  ? |
+    impl Query<Ctx> for GetProjectById {
+        type Out = Option<Project>;
+        async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+    }
+  : labels:
+    - source: type Out = Option<Project>;
+      style: primary
+      start: 41
+      end: 68
+    - source: |-
+        impl Query<Ctx> for GetProjectById {
+            type Out = Option<Project>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+      style: secondary
+      start: 0
+      end: 131
+  ? |
+    impl Query<Ctx> for ListSessions {
+        type Out = Listing<Session>;
+        async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+    }
+  : labels:
+    - source: type Out = Listing<Session>;
+      style: primary
+      start: 39
+      end: 67
+    - source: |-
+        impl Query<Ctx> for ListSessions {
+            type Out = Listing<Session>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+      style: secondary
+      start: 0
+      end: 130
+  ? |
+    impl Query<Ctx> for ListSettings {
+        type Out = Vec<SettingEntry>;
+        async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+    }
+  : labels:
+    - source: type Out = Vec<SettingEntry>;
+      style: primary
+      start: 39
+      end: 68
+    - source: |-
+        impl Query<Ctx> for ListSettings {
+            type Out = Vec<SettingEntry>;
+            async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {}
+        }
+      style: secondary
+      start: 0
+      end: 131

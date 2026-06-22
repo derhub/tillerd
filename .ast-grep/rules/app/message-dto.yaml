@@ -1,0 +1,51 @@
+id: message-dto
+message: Message DTO (Command/Query/Io) fields must be public and plain built-in
+  types (String, integers, bool, char, &str, or Option/Vec of those). Convert
+  domain newtypes inside the handler.
+severity: error
+language: Rust
+note: |
+  Hold primitives on the DTO; convert to value objects inside the handler:
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MoveProject {
+        pub id: String,            // not ProjectId
+        pub workspace_id: String,  // not WorkspaceId
+    }
+
+    impl Command<Ctx> for MoveProject {
+        async fn handle(&self, cx: &Ctx) -> Result<()> {
+            let id = ProjectId::new(&self.id);          // convert at the edge
+            let workspace_id = WorkspaceId::new(&self.workspace_id);
+            // ...domain work...
+        }
+    }
+files:
+  - "**/app/**"
+rule:
+  kind: struct_item
+  all:
+    - has:
+        field: name
+        pattern: $STRUCT
+    - has:
+        field: body
+        kind: field_declaration_list
+        has:
+          kind: field_declaration
+          any:
+            - not:
+                pattern: "pub $FNAME: $FTYPE"
+            - has:
+                field: type
+                not:
+                  matches: BUILTIN_TYPE
+    - inside:
+        kind: source_file
+        has:
+          kind: impl_item
+          any:
+            - pattern: impl Command<Ctx> for $STRUCT { $$$ }
+            - pattern: impl Query<Ctx> for $STRUCT { $$$ }
+            - pattern: impl Io<Ctx> for $STRUCT { $$$ }

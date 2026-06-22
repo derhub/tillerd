@@ -1,0 +1,23 @@
+id: comment-ascii-only-rust
+language: Rust
+severity: error
+message: >-
+  Comments must be plain ASCII: no emojis, section signs, smart quotes, arrows, or
+  other non-ASCII typographic characters. Use ASCII equivalents (-> for arrows,
+  "..." for ellipsis, straight quotes).
+note: |
+  Plain ASCII keeps comments grep-able and diff-clean across editors:
+
+    // dependency direction is entities <- infra <- app   (not: entities <- infra)
+    // returns None when absent                            (not: smart quotes/emoji)
+
+  Em/en-dash, arrows, and ellipsis were the bulk of past hits; the tree is now clean,
+  so this is enforced (error) to keep emoji, section sign, and smart quotes out too.
+  Per-language mirror lives under style/typescript/ (ast-grep binds one rule to one
+  language); add a language by copying the folder and swapping language + comment kind.
+rule:
+  any:
+    - kind: line_comment
+      regex: '[^\x00-\x7F]'
+    - kind: block_comment
+      regex: '[^\x00-\x7F]'

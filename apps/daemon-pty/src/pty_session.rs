@@ -31,7 +31,7 @@ pub const SHUTDOWN_GRACE_MS: u64 = 5_000;
 pub const SHUTDOWN_KILL_GRACE_MS: u64 = 250;
 
 /// Terminal-plane status: the OS/process view of a session, distinct from the
-/// agent's hook-derived status. Limited to `IDLE` | `WORKING` — terminal facts
+/// agent's hook-derived status. Limited to `IDLE` | `WORKING` -- terminal facts
 /// cannot reliably establish `WAITING_INPUT`, which is a hook-only property.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TermStatus {
@@ -112,7 +112,7 @@ pub struct Session {
     replay: ReplayBuffer,
     subscribers: HashMap<u64, Subscription>,
 
-    // `term_status` is the last sampled value — the sampler emits only on transition.
+    // `term_status` is the last sampled value -- the sampler emits only on transition.
     last_output_at: Instant,
     term_status: TermStatus,
 
@@ -124,7 +124,7 @@ pub struct Session {
     pub exit_emitted: bool,
 }
 
-// `emit_exit_on_eof`: adopted sessions have no reaper thread — EOF on the master read is the exit.
+// `emit_exit_on_eof`: adopted sessions have no reaper thread -- EOF on the master read is the exit.
 fn start_reader(
     mut reader: Box<dyn Read + Send>,
     session_id: Arc<str>,
@@ -361,7 +361,7 @@ impl Session {
         master.as_raw_fd()
     }
 
-    // ── Terminal status ────────────────────────────────────────────────────
+    // -- Terminal status ----------------------------------------------------
 
     pub fn mark_output(&mut self) {
         self.last_output_at = Instant::now();
@@ -403,7 +403,7 @@ impl Session {
         !self.subscribers.is_empty()
     }
 
-    // ── Subscriber flow control ────────────────────────────────────────────
+    // -- Subscriber flow control --------------------------------------------
 
     pub fn add_subscriber(&mut self, conn_id: u64, initial_credit: i64) {
         self.subscribers.insert(
@@ -607,7 +607,7 @@ mod tests {
 
     #[test]
     fn term_status_degrades_to_idle_when_foreground_unreadable() {
-        // No readable foreground group + quiet ⇒ degrade to quiescence ⇒ IDLE.
+        // No readable foreground group + quiet => degrade to quiescence => IDLE.
         assert_eq!(derive_term_status(true, None, 100), TermStatus::Idle);
     }
 
@@ -646,7 +646,7 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(session.foreground_pgrp(), want);
-        // Forcing the quiet branch (zero threshold): root holds the foreground ⇒
+        // Forcing the quiet branch (zero threshold): root holds the foreground =>
         // Working -> Idle. Exercises the real master fd + derivation end to end.
         assert_eq!(
             session.sample_term_status(Duration::ZERO),

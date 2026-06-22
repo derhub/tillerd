@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Export a profile as its JSON bundle bytes. Returns `None` if not found.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportProfile {
     pub id: String,
 }

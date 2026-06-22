@@ -8,7 +8,7 @@ use crate::shared;
 use crate::shared::bus::Bus;
 use crate::shared::kv::SqliteKv;
 
-// ── build_bus ─────────────────────────────────────────────────────────────────
+// -- build_bus -----------------------------------------------------------------
 
 /// Configuration for [`build_bus`]. All paths are resolved by the caller; there
 /// is no implicit path discovery here.
@@ -56,11 +56,32 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
     Ok(Bus::new(ctx))
 }
 
+// -- test_ctx --------------------------------------------------------------------
+
+/// Build a `:memory:` [`Ctx`] for tests: open an in-memory pool with migrations
+/// applied, wire a [`SqliteKv`] over it, and inject a `FakeRuntime` (no daemon, no
+/// PTY). This is the app-owned test edge the desktop host's IPC contract test drives
+/// every command over -- so the host never reaches into `infra::migrate` /
+/// `infra::runtime` itself.
+pub async fn test_ctx() -> shared::Result<Ctx> {
+    use crate::infra::runtime::FakeRuntime;
+
+    let pool = migrate::open_memory().await?;
+    let kv = SqliteKv::new(pool.clone());
+    let runtime = Arc::new(FakeRuntime::new());
+    Ok(Ctx::new(
+        pool,
+        kv,
+        PathBuf::from("/tmp/tillerd-test-ctx"),
+        runtime,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ── build_bus ─────────────────────────────────────────────────────────────
+    // -- build_bus -------------------------------------------------------------
     //
     // These tests exercise the Bus<Ctx> contract produced by build_bus without
     // going through the tracing init (which is process-global). The composition
@@ -81,7 +102,7 @@ mod tests {
     }
 
     struct NoOp;
-    impl crate::shared::cqs::Command<Ctx> for NoOp {
+    impl crate::shared::message::Command<Ctx> for NoOp {
         async fn handle(&self, cx: &Ctx) -> crate::shared::Result<()> {
             let _: i64 = sqlx::query_scalar("SELECT 1").fetch_one(cx.db()).await?;
             Ok(())
@@ -89,7 +110,7 @@ mod tests {
     }
 
     struct CountWorkspaces;
-    impl crate::shared::cqs::Query<Ctx> for CountWorkspaces {
+    impl crate::shared::message::Query<Ctx> for CountWorkspaces {
         type Out = i64;
         async fn handle(&self, cx: &Ctx) -> crate::shared::Result<i64> {
             let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM workspace")

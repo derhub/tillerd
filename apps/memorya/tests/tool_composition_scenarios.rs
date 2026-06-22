@@ -4,10 +4,10 @@ use memorya::dual_mode::{resolve_capture_mode, CaptureMode};
 use memorya::Engram;
 use serde_json::json;
 
-// ── Standalone operability ────────────────────────────────────────────────────
+// -- Standalone operability ----------------------------------------------------
 
 /// When started without any peer (no gate URL), the tool operates within the
-/// limits of its own concern — storage and recall — without error.
+/// limits of its own concern -- storage and recall -- without error.
 #[test]
 fn tool_runs_with_no_peers_and_serves_recall() {
     let dir = tempfile::tempdir().unwrap();
@@ -24,7 +24,7 @@ fn tool_runs_with_no_peers_and_serves_recall() {
 }
 
 /// Without any gate URL in the environment, standalone mode is selected and
-/// the tool operates using its own stub source — no peer is required.
+/// the tool operates using its own stub source -- no peer is required.
 #[test]
 fn absent_gate_url_selects_standalone_mode() {
     assert_eq!(
@@ -34,7 +34,7 @@ fn absent_gate_url_selects_standalone_mode() {
     );
 }
 
-// ── Absent peer degrades, not crashes ────────────────────────────────────────
+// -- Absent peer degrades, not crashes ----------------------------------------
 
 /// When recall is invoked with no captured content (simulating a peer absent
 /// during its session), the tool reports the limitation rather than crashing.
@@ -60,11 +60,11 @@ fn absent_peer_degrades_gracefully_not_crashes() {
     );
 }
 
-// ── Source selected by wiring ─────────────────────────────────────────────────
+// -- Source selected by wiring -------------------------------------------------
 
 /// In a composed deployment the capture source is the gate subscription (wired
 /// externally). In standalone it is the stub. The tool's MCP handler is
-/// identical in both cases — the source is selected by the orchestrator's wiring,
+/// identical in both cases -- the source is selected by the orchestrator's wiring,
 /// not by hard-coded logic inside the tool.
 #[test]
 fn source_selected_by_wiring_not_hard_coded_inside_the_tool() {
@@ -85,9 +85,9 @@ fn source_selected_by_wiring_not_hard_coded_inside_the_tool() {
     // the other mode.
 }
 
-// ── Contract-only coupling (dep-direction supplement) ─────────────────────────
+// -- Contract-only coupling (dep-direction supplement) -------------------------
 
-/// Engram's tool interface exposes only its MCP contract surface — tools/list,
+/// Engram's tool interface exposes only its MCP contract surface -- tools/list,
 /// tools/call. A consumer of this tool depends only on these published tools,
 /// not on any internal of memorya.
 #[test]

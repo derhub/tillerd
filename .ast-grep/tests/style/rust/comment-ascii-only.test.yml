@@ -1,0 +1,12 @@
+id: comment-ascii-only-rust
+valid:
+    - "// plain ascii comment"
+    - "/* block ascii comment */"
+    - "fn f() {} // trailing ascii"
+    - "// entities <- infra <- app"
+invalid:
+    - "// dependency direction entities — infra"
+    - "// section § marker"
+    - "/* curly “quote” here */"
+    - "// emoji 😀 in comment"
+    - "// arrow -> ok but → not"

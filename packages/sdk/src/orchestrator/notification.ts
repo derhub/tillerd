@@ -1,7 +1,7 @@
 /**
  * A user-relevant lifecycle category surfaced in the notification center. The
  * known values drive default titles/severity; the open `string` arm keeps the
- * taxonomy extensible (future event kinds — agent, diff, workflow) without a
+ * taxonomy extensible (future event kinds -- agent, diff, workflow) without a
  * schema break.
  */
 export type NotificationCategory =
@@ -40,7 +40,7 @@ export interface NotificationEvent {
   detail?: string;
   /** Epoch milliseconds when the event occurred. */
   ts: number;
-  /** Present when the event concerns a surface — drives the default click-through. */
+  /** Present when the event concerns a surface -- drives the default click-through. */
   sessionId?: string;
   surfaceId?: string;
   actions?: NotificationAction[];

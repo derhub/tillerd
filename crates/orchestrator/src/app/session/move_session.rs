@@ -1,25 +1,32 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
+use crate::entities::project::ProjectId;
 use crate::entities::session::SessionId;
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 /// Move a session to another project by updating its `project_id`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MoveSession {
-    pub id: SessionId,
-    pub target_project_id: crate::entities::project::ProjectId,
+    pub id: String,
+    pub target_project_id: String,
 }
 
 impl Command<Ctx> for MoveSession {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         use crate::infra::ProjectRepo;
-        let mut s = SessionRepo::get(cx.db(), &self.id)
+        let id = SessionId::from_string(&self.id);
+        let target_project_id = ProjectId::new(&self.target_project_id);
+        let mut s = SessionRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::SessionNotFound(self.id.as_str().to_owned()))?;
-        ProjectRepo::get(cx.db(), &self.target_project_id)
+            .ok_or_else(|| Error::SessionNotFound(self.id.clone()))?;
+        ProjectRepo::get(cx.db(), &target_project_id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.target_project_id.as_str().to_owned()))?;
-        s.project_id = self.target_project_id.clone();
+            .ok_or_else(|| Error::ProjectNotFound(self.target_project_id.clone()))?;
+        s.project_id = target_project_id;
         SessionRepo::update(cx.db(), &s).await
     }
 }
@@ -30,7 +37,6 @@ mod tests {
     use crate::app::session::get_session_by_id::GetSessionById;
     use crate::app::session::list_sessions_by_project::ListSessionsByProject;
     use crate::app::session::test_util::{create_one, ctx, unfiled};
-    use crate::shared::pagination::Page;
 
     // Scenario: A move reparents by update
     #[tokio::test]
@@ -46,21 +52,22 @@ mod tests {
             .await
             .unwrap();
 
-        let proj_b = crate::entities::project::ProjectId::new("proj-b");
         bus.execute(MoveSession {
             id: id.clone(),
-            target_project_id: proj_b.clone(),
+            target_project_id: "proj-b".to_owned(),
         })
         .await
         .unwrap();
 
         let s = bus.query(GetSessionById { id }).await.unwrap().unwrap();
-        assert_eq!(s.project_id.as_str(), "proj-b");
+        assert_eq!(s.project_id, "proj-b");
 
         let unfiled_list = bus
             .query(ListSessionsByProject {
-                project_id: unfiled(),
-                page: Page::All,
+                project_id: unfiled().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -68,8 +75,10 @@ mod tests {
 
         let proj_b_list = bus
             .query(ListSessionsByProject {
-                project_id: proj_b,
-                page: Page::All,
+                project_id: "proj-b".to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();

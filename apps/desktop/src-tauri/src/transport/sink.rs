@@ -4,14 +4,13 @@
 //! registers, and forwards status/exit/error as tauri events. A future web transport
 //! implements the same port with SSE/WebSocket.
 //!
-//! Keystroke input never flows through this sink — it carries daemon -> renderer
+//! Keystroke input never flows through this sink -- it carries daemon -> renderer
 //! output only (see the off-bus input endpoints), so no payload is ever logged here.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use orchestrator::entities::SurfaceId;
-use orchestrator::infra::runtime::SurfaceEventSink;
+use orchestrator::app::surface::{SurfaceEventSink, SurfaceId};
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The per-surface output channels, keyed by surface id. The renderer creates a
@@ -74,7 +73,7 @@ impl<R: Runtime> SurfaceEventSink for ChannelSink<R> {
 }
 
 /// Deliver bytes to a surface's registered output channel, if any. A surface with no
-/// registered channel (never attached, or already detached) silently drops its bytes —
+/// registered channel (never attached, or already detached) silently drops its bytes --
 /// there is nowhere to stream.
 fn deliver(channels: &SurfaceChannels, surface: &str, bytes: &[u8]) {
     let channels = channels.lock().unwrap_or_else(|e| e.into_inner());
@@ -155,7 +154,7 @@ mod tests {
         deliver(&channels, "surf-unknown", b"hello");
     }
 
-    // After unregister, further bytes are dropped — the stream went quiet.
+    // After unregister, further bytes are dropped -- the stream went quiet.
     #[test]
     fn deliver_drops_bytes_after_unregister() {
         let channels = channels();

@@ -5,7 +5,8 @@
 use crate::shared::{Error, Result};
 
 /// Stable identifier for a library template.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct TemplateId(String);
 
 impl TemplateId {
@@ -23,7 +24,8 @@ impl TemplateId {
 }
 
 /// Origin discriminator shared with the command library.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum TemplateOrigin {
     Prebuilt,
     Custom,
@@ -39,7 +41,7 @@ impl TemplateOrigin {
 }
 
 /// A portable template bundle from the library.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Template {
     pub id: TemplateId,
     pub name: String,
@@ -58,14 +60,6 @@ impl Template {
             Ok(())
         }
     }
-}
-
-/// Data required to import a new custom template bundle.
-#[derive(Debug, Clone)]
-pub struct NewTemplate {
-    pub name: String,
-    pub spec_version: u32,
-    pub spec_json: String,
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@ export interface BannerDeps {
 
 /**
  * Raise a native OS banner for a background event. No-op when the window is focused (the in-app
- * feed covers it) or when the OS permission is denied — the feed still records it either way.
+ * feed covers it) or when the OS permission is denied -- the feed still records it either way.
  */
 export async function raiseBanner(event: NotificationEvent, deps: BannerDeps): Promise<void> {
   if (await deps.isFocused()) return;
@@ -26,7 +26,7 @@ export async function raiseBanner(event: NotificationEvent, deps: BannerDeps): P
 
 /**
  * Bind the desktop {@link BannerDeps} (Tauri window focus + notification plugin). Returns `null`
- * off the desktop host — no native banners there.
+ * off the desktop host -- no native banners there.
  */
 export async function loadBannerDeps(): Promise<BannerDeps | null> {
   if (!isDesktopHost()) return null;

@@ -1,17 +1,22 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::LaunchTemplateId;
 use crate::infra::LaunchTemplateRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Delete a project's launch template.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscardLaunchTemplate {
-    pub id: LaunchTemplateId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DiscardLaunchTemplate {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        LaunchTemplateRepo::delete(cx.db(), &self.id).await
+        let id = LaunchTemplateId::from_string(&self.id);
+        LaunchTemplateRepo::delete(cx.db(), &id).await
     }
 }
 
@@ -19,8 +24,6 @@ impl Command<Ctx> for DiscardLaunchTemplate {
 mod tests {
     use super::*;
     use crate::app::template::test_util::*;
-    use crate::entities::ProjectId;
-    use crate::shared::pagination::Page;
 
     use super::super::get_launch_template_by_id::GetLaunchTemplateById;
     use super::super::list_launch_templates_by_project::ListLaunchTemplatesByProject;
@@ -32,7 +35,7 @@ mod tests {
         let (_cx, bus) = ctx(&dir).await;
 
         bus.execute(NewLaunchTemplateCmd {
-            project_id: ProjectId::new(UNFILED),
+            project_id: UNFILED.to_owned(),
             spec_version: 1,
             spec_json: "{}".to_owned(),
         })
@@ -41,8 +44,10 @@ mod tests {
 
         let listing = bus
             .query(ListLaunchTemplatesByProject {
-                project_id: ProjectId::new(UNFILED),
-                page: Page::All,
+                project_id: UNFILED.to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -66,7 +71,7 @@ mod tests {
 
         let err = bus
             .execute(DiscardLaunchTemplate {
-                id: LaunchTemplateId::mint(),
+                id: LaunchTemplateId::mint().as_str().to_owned(),
             })
             .await
             .unwrap_err();

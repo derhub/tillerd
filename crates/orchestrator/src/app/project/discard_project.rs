@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::infra::project::ProjectRepo;
@@ -6,25 +8,28 @@ use crate::shared::{Command, Error, Result};
 use super::stop_project_surfaces::StopProjectSurfaces;
 
 /// Hard-delete a project (Unfiled rejected). A forceful remove: stops any running
-/// surfaces so nothing is orphaned, then deletes the project — `ON DELETE CASCADE`
+/// surfaces so nothing is orphaned, then deletes the project -- `ON DELETE CASCADE`
 /// drops its sessions, surfaces, and launch templates. Unlike `ArchiveProject`, this
 /// does not require the project to be idle; deleting tears the work down.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscardProject {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DiscardProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.guard_not_unfiled()?;
         StopProjectSurfaces {
             id: self.id.clone(),
         }
         .handle(cx)
         .await?;
-        ProjectRepo::delete(cx.db(), &self.id).await
+        ProjectRepo::delete(cx.db(), &id).await
     }
 }
 
@@ -42,19 +47,19 @@ mod tests {
         seed_project(ctx.db(), "p-discard", "Doomed", &default_ws()).await;
 
         bus.execute(ArchiveProject {
-            id: ProjectId::new("p-discard"),
+            id: "p-discard".to_owned(),
         })
         .await
         .unwrap();
         bus.execute(DiscardProject {
-            id: ProjectId::new("p-discard"),
+            id: "p-discard".to_owned(),
         })
         .await
         .unwrap();
 
         let result = bus
             .query(GetProjectById {
-                id: ProjectId::new("p-discard"),
+                id: "p-discard".to_owned(),
             })
             .await
             .unwrap();
@@ -68,14 +73,14 @@ mod tests {
 
         // An active project is force-removed in one command (no archive precondition).
         bus.execute(DiscardProject {
-            id: ProjectId::new("p-discard-active"),
+            id: "p-discard-active".to_owned(),
         })
         .await
         .unwrap();
 
         let result = bus
             .query(GetProjectById {
-                id: ProjectId::new("p-discard-active"),
+                id: "p-discard-active".to_owned(),
             })
             .await
             .unwrap();
@@ -87,7 +92,7 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .execute(DiscardProject {
-                id: unfiled_project_id(),
+                id: unfiled_project_id().as_str().to_owned(),
             })
             .await;
         assert!(

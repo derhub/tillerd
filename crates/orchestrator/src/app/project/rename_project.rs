@@ -1,19 +1,24 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Error, Result};
 
 /// Rename a project (trims whitespace; entity enforces no-mutation on Unfiled).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RenameProject {
-    pub id: ProjectId,
+    pub id: String,
     pub name: String,
 }
 
 impl Command<Ctx> for RenameProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let mut project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.rename(&self.name);
         ProjectRepo::update(cx.db(), &project).await
     }
@@ -32,7 +37,7 @@ mod tests {
         let project = seed_project(ctx.db(), "p-rename", "Old", &default_ws()).await;
 
         bus.execute(RenameProject {
-            id: project.id.clone(),
+            id: project.id.as_str().to_owned(),
             name: "New".to_owned(),
         })
         .await
@@ -40,7 +45,7 @@ mod tests {
 
         let fetched = bus
             .query(GetProjectById {
-                id: project.id.clone(),
+                id: project.id.as_str().to_owned(),
             })
             .await
             .unwrap()
@@ -55,7 +60,7 @@ mod tests {
 
         let result = bus
             .execute(RenameProject {
-                id: project.id,
+                id: project.id.as_str().to_owned(),
                 name: "Bar".to_owned(),
             })
             .await;

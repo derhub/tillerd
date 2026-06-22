@@ -5,7 +5,7 @@
 //! runtime-free.
 //!
 //! R8 fail-open: any failure to reach the gate, a rejection, or a malformed reply
-//! is logged and the inbound is forwarded unchanged — the gate is observe-only in
+//! is logged and the inbound is forwarded unchanged -- the gate is observe-only in
 //! v1, so a transient gate must never block a tool call.
 
 use std::path::PathBuf;

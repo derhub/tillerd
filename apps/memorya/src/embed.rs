@@ -106,7 +106,7 @@ pub fn embed_pending(
 
 /// A deterministic, dependency-free embedder used only as a test double, so the
 /// pipeline can be exercised without downloading the real model. It hashes
-/// tokens into a fixed-width bag-of-words vector and L2-normalizes — lexical,
+/// tokens into a fixed-width bag-of-words vector and L2-normalizes -- lexical,
 /// not semantic, but stable.
 #[cfg(test)]
 pub(crate) struct StubEmbedder {

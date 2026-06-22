@@ -1,5 +1,5 @@
 //! Diffing: restart only on spawn-affecting fields. Allowlist-gated env keys.
-//! fields, and any env var outside the allowlist — are ignored.
+//! fields, and any env var outside the allowlist -- are ignored.
 
 use std::collections::BTreeMap;
 

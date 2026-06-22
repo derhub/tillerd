@@ -1,16 +1,23 @@
+use serde::Deserialize;
+
+use crate::app::settings::ThemeView;
 use crate::context::Ctx;
-use crate::infra::config::theme::Theme;
 use crate::infra::config::ThemeStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// The currently active theme. Returns `None` if not set.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetActiveTheme;
 
 impl Query<Ctx> for GetActiveTheme {
-    type Out = Option<Theme>;
+    type Out = Option<ThemeView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        ThemeStore::new(cx.fs_root()).get_active().await
+        Ok(ThemeStore::new(cx.fs_root())
+            .get_active()
+            .await?
+            .map(ThemeView))
     }
 }
 

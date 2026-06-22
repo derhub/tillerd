@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Create a new profile.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewProfile {
     pub id: String,
     pub name: String,
@@ -39,6 +43,6 @@ mod tests {
 
         let profiles = bus.query(ListProfiles).await.unwrap();
         assert_eq!(profiles.len(), 1);
-        assert_eq!(profiles[0].name, "My Profile");
+        assert_eq!(profiles[0].0.name, "My Profile");
     }
 }

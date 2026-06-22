@@ -1,6 +1,6 @@
 import { FramedDaemonTransport } from "./framed";
 
-/** Minimal shape of a Tauri v2 `Channel` (inbound carrier) — only what the transport touches. */
+/** Minimal shape of a Tauri v2 `Channel` (inbound carrier) -- only what the transport touches. */
 export interface TauriChannelLike {
   onmessage: ((data: unknown) => void) | null;
 }
@@ -17,7 +17,7 @@ export const DAEMON_DISCONNECT = "daemon_disconnect";
 
 /**
  * Native (web-view) `DaemonTransport`: inbound daemon bytes arrive over a Tauri Channel, outbound
- * frames go over `invoke` — raw bytes only, the Rust core never parses a frame. Ordering across
+ * frames go over `invoke` -- raw bytes only, the Rust core never parses a frame. Ordering across
  * the Channel hop preserves the daemon flow-control credit/ack loop (ADR-0007): ack frames the
  * renderer emits as it drains travel back over {@link DAEMON_SEND} verbatim.
  */

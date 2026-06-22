@@ -1,5 +1,5 @@
 //! Daemon-socket implementation of [`SurfaceRuntime`]: owns the per-surface PTY
-//! proxies and the unix-socket transport. No persistence — status flows out
+//! proxies and the unix-socket transport. No persistence -- status flows out
 //! through the [`SurfaceEventSink`]; the app layer records it.
 
 use std::collections::{BTreeMap, HashMap};

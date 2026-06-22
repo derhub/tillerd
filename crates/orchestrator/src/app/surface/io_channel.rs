@@ -8,7 +8,7 @@ mod tests {
     use crate::entities::SurfaceId;
     use crate::infra::runtime::RuntimeCall;
 
-    // Scenario: Surface input is an I/O channel — off the bus, no command object
+    // Scenario: Surface input is an I/O channel -- off the bus, no command object
     #[tokio::test]
     async fn input_forwards_to_the_runtime_off_bus() {
         let h = harness().await;

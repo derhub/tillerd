@@ -60,6 +60,7 @@ redact = { path = "crates/redact", package = "tillerd-redact" }
 [workspace.lints.rust]
 future-incompatible = "warn"
 nonstandard_style = "warn"
+unused_unsafe = "warn"
 
 [workspace.lints.clippy]
 all = "warn"

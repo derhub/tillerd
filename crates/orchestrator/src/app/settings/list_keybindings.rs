@@ -1,22 +1,31 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
+use crate::app::settings::KeybindingView;
 use crate::context::Ctx;
-use crate::infra::config::keybinding::KeybindingEntry;
 use crate::infra::config::KeybindingStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
-/// The effective keymap: defaults merged with user overrides.
+/// The effective keymap: defaults merged with user overrides. `defaults_json`
+/// carries the compiled-in default keymap as a serialized `{action: chord}` map.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListKeybindings {
-    pub defaults: HashMap<String, String>,
+    pub defaults_json: String,
 }
 
 impl Query<Ctx> for ListKeybindings {
-    type Out = Vec<KeybindingEntry>;
+    type Out = Vec<KeybindingView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        KeybindingStore::new(cx.fs_root(), self.defaults.clone())
+        let defaults: HashMap<String, String> = serde_json::from_str(&self.defaults_json)?;
+        Ok(KeybindingStore::new(cx.fs_root(), defaults)
             .list()
-            .await
+            .await?
+            .into_iter()
+            .map(KeybindingView)
+            .collect())
     }
 }
 
@@ -33,12 +42,15 @@ mod tests {
 
         let entries = bus
             .query(ListKeybindings {
-                defaults: default_keys(),
+                defaults_json: default_keys_json(),
             })
             .await
             .unwrap();
 
-        let new_sess = entries.iter().find(|e| e.action == "new-session").unwrap();
-        assert_eq!(new_sess.chord, "ctrl+n");
+        let new_sess = entries
+            .iter()
+            .find(|e| e.0.action == "new-session")
+            .unwrap();
+        assert_eq!(new_sess.0.chord, "ctrl+n");
     }
 }

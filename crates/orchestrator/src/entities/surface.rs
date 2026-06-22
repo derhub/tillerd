@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use super::session::SessionId;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct SurfaceId(String);
 
 impl SurfaceId {
@@ -22,7 +23,8 @@ impl SurfaceId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum SurfaceKind {
     Terminal,
     Diff,
@@ -38,7 +40,8 @@ impl SurfaceKind {
 }
 
 /// Lifecycle status of a surface (D9: persist intent -> effect -> record).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum SurfaceStatus {
     /// Intent persisted; PTY spawn has not completed.
     #[default]
@@ -66,16 +69,7 @@ impl SurfaceStatus {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NewSurface {
-    pub id: Option<SurfaceId>,
-    pub session_id: SessionId,
-    pub kind: SurfaceKind,
-    pub cwd: Option<String>,
-    pub placement: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Surface {
     pub id: SurfaceId,
     pub session_id: SessionId,

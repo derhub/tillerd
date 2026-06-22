@@ -1,20 +1,43 @@
+use serde::Deserialize;
+
+use crate::app::project::ProjectView;
 use crate::context::Ctx;
-use crate::entities::project::Project;
-use crate::entities::workspace::WorkspaceId;
-use crate::infra::project::ProjectRepo;
 use crate::shared::{Query, Result};
 
 /// Fuzzy-search projects by name (sqlite-side LIKE; no app-side table scan).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchProjects {
-    pub workspace_id: WorkspaceId,
+    pub workspace_id: String,
     pub query: String,
     pub limit: u32,
 }
 
 impl Query<Ctx> for SearchProjects {
-    type Out = Vec<Project>;
+    type Out = Vec<ProjectView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        ProjectRepo::search(cx.db(), &self.workspace_id, &self.query, self.limit).await
+        let pattern = format!("%{}%", self.query.replace('%', "\\%").replace('_', "\\_"));
+        Ok(sqlx::query_as::<_, ProjectView>(
+            "SELECT id, name, source_kind, root_path, workspace_id
+             FROM project
+             WHERE workspace_id = ?
+               AND name LIKE ? ESCAPE '\\'
+             ORDER BY
+               CASE WHEN lower(name) = lower(?) THEN 0
+                    WHEN lower(name) LIKE lower(?) || '%' THEN 1
+                    ELSE 2
+               END,
+               sort_order,
+               id
+             LIMIT ?",
+        )
+        .bind(&self.workspace_id)
+        .bind(&pattern)
+        .bind(&self.query)
+        .bind(format!("{}%", self.query))
+        .bind(self.limit as i64)
+        .fetch_all(cx.db())
+        .await?)
     }
 }
 
@@ -32,7 +55,7 @@ mod tests {
 
         let results = bus
             .query(SearchProjects {
-                workspace_id: default_ws(),
+                workspace_id: default_ws().as_str().to_owned(),
                 query: "Project".to_owned(),
                 limit: 10,
             })
@@ -58,14 +81,14 @@ mod tests {
 
         let results = bus
             .query(SearchProjects {
-                workspace_id: default_ws(),
+                workspace_id: default_ws().as_str().to_owned(),
                 query: "myproject".to_owned(),
                 limit: 10,
             })
             .await
             .unwrap();
 
-        assert!(results.iter().any(|p| p.id.as_str() == "p-case"));
+        assert!(results.iter().any(|p| p.id == "p-case"));
     }
 
     #[tokio::test]
@@ -74,7 +97,7 @@ mod tests {
 
         let results = bus
             .query(SearchProjects {
-                workspace_id: default_ws(),
+                workspace_id: default_ws().as_str().to_owned(),
                 query: "xyzzyxyzzy".to_owned(),
                 limit: 10,
             })

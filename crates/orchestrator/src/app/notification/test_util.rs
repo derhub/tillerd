@@ -4,8 +4,9 @@ use std::sync::Arc;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 
+use crate::app::notification::list_notifications::ListNotifications;
+use crate::app::notification::record_notification::RecordNotification;
 use crate::context::Ctx;
-use crate::entities::notification::NotificationRecord;
 use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
 
@@ -34,8 +35,9 @@ pub(crate) async fn test_ctx() -> Ctx {
     )
 }
 
-pub(crate) fn sample(id: &str) -> NotificationRecord {
-    NotificationRecord {
+/// A `RecordNotification` command for a sample unread notification at `ts = 1_000`.
+pub(crate) fn record_cmd(id: &str) -> RecordNotification {
+    RecordNotification {
         id: id.to_owned(),
         category: "test".to_owned(),
         severity: "info".to_owned(),
@@ -51,10 +53,29 @@ pub(crate) fn sample(id: &str) -> NotificationRecord {
     }
 }
 
-pub(crate) fn sample_at(id: &str, ts: i64) -> NotificationRecord {
-    NotificationRecord {
-        id: id.to_owned(),
+/// A `RecordNotification` command for a sample notification at the given `ts`.
+pub(crate) fn record_cmd_at(id: &str, ts: i64) -> RecordNotification {
+    RecordNotification {
         ts,
-        ..sample(id)
+        ..record_cmd(id)
+    }
+}
+
+/// `ListNotifications` over the full (unbounded) feed.
+pub(crate) fn list_all() -> ListNotifications {
+    ListNotifications {
+        limit: None,
+        offset: None,
+        after: None,
+    }
+}
+
+/// `ListUnreadNotifications` over the full (unbounded) feed.
+pub(crate) fn list_unread_all(
+) -> crate::app::notification::list_unread_notifications::ListUnreadNotifications {
+    crate::app::notification::list_unread_notifications::ListUnreadNotifications {
+        limit: None,
+        offset: None,
+        after: None,
     }
 }

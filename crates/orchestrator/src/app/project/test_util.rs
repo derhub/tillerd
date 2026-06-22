@@ -43,3 +43,16 @@ pub(crate) async fn seed_project(
         .await
         .expect("seed project")
 }
+
+// Create a project with an explicit sort_order (for ordering/pagination tests).
+pub(crate) async fn seed_project_full(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+    name: &str,
+    ws: &WorkspaceId,
+    sort_order: u32,
+) -> Project {
+    ProjectRepo::create(pool, id, ws, name, SourceKind::Blank, None, sort_order)
+        .await
+        .expect("seed project")
+}

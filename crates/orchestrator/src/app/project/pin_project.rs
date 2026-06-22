@@ -1,18 +1,23 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::infra::project::ProjectRepo;
 use crate::shared::{Command, Error, Result};
 
 /// Toggle the `pinned` flag on (pin the project).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PinProject {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Command<Ctx> for PinProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let mut project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.pinned = true;
         ProjectRepo::update(cx.db(), &project).await
     }
@@ -22,7 +27,6 @@ impl Command<Ctx> for PinProject {
 mod tests {
     use super::*;
     use crate::app::project::test_util::*;
-    use crate::shared::pagination::Page;
 
     use super::super::list_projects_by_workspace::ListProjectsByWorkspace;
 
@@ -33,15 +37,17 @@ mod tests {
         seed_project(ctx.db(), "p-pin", "Pinned", &default_ws()).await;
 
         bus.execute(PinProject {
-            id: ProjectId::new("p-pin"),
+            id: "p-pin".to_owned(),
         })
         .await
         .unwrap();
 
         let listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: default_ws(),
-                page: Page::All,
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -49,7 +55,7 @@ mod tests {
         let own: Vec<&str> = listing
             .items
             .iter()
-            .filter(|p| p.id.as_str() == "p-pin" || p.id.as_str() == "p-unpin")
+            .filter(|p| p.id == "p-pin" || p.id == "p-unpin")
             .map(|p| p.id.as_str())
             .collect();
 

@@ -11,7 +11,7 @@ import { getApp } from "./shared-app";
 test("a live event badges the bell; opening clears it and a session row navigates", async () => {
   const b = getApp();
 
-  // Create a session and spawn a terminal — the spawn raises a live "surface-started"
+  // Create a session and spawn a terminal -- the spawn raises a live "surface-started"
   // notification carrying this session id.
   const sessionUrl = await createProject(b, "Notif E2E");
   const sessionId = sessionUrl.split("/session/")[1]?.split(/[/?#]/)[0] ?? "";

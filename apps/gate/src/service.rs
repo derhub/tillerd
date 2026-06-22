@@ -98,7 +98,7 @@ impl Gate {
 
     /// Bind the single front-door socket at its deterministic path and run the
     /// accept loop: every connection is demultiplexed by its route preamble. The
-    /// gate binds no TCP port and publishes no address file — the path derives from
+    /// gate binds no TCP port and publishes no address file -- the path derives from
     /// the runtime directory.
     fn bind_socket(&mut self, base: &Path) -> std::io::Result<()> {
         let path = tillerd_paths::gate_socket_in(base);

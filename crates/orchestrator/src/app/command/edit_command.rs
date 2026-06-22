@@ -1,26 +1,33 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::command::CommandId;
 use crate::infra::CommandRepo;
-use crate::shared::cqs::Command as BusCommand;
+use crate::shared::message::Command as BusCommand;
 use crate::shared::{Error, Result};
 
 use super::guard_not_prebuilt;
 
 /// Replace a custom command's `cli`, `args`, and `env`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EditCommand {
-    pub id: CommandId,
+    pub id: String,
     pub cli: String,
+    #[serde(default)]
     pub args: Vec<String>,
+    #[serde(default)]
     pub env: HashMap<String, String>,
 }
 
 impl BusCommand<Ctx> for EditCommand {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut cmd = CommandRepo::get(cx.db(), &self.id)
+        let id = CommandId::from_string(&self.id);
+        let mut cmd = CommandRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::CommandNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::CommandNotFound(self.id.clone()))?;
         guard_not_prebuilt(&cmd)?;
         cmd.cli = self.cli.clone();
         cmd.args = self.args.clone();
@@ -38,11 +45,9 @@ mod tests {
     use crate::app::command::list_commands::ListCommands;
     use crate::app::command::new_command::NewCommand;
     use crate::app::command::test_util::*;
-    use crate::entities::command::CommandOrigin;
-    use crate::shared::pagination::Page;
     use crate::shared::Bus;
 
-    // ── Scenario: edit mutates cli/args/env ──────────────────────────────────
+    // -- Scenario: edit mutates cli/args/env ----------------------------------
 
     #[tokio::test]
     async fn edit_command_updates_cli_args_env_and_returns_nothing() {
@@ -57,8 +62,10 @@ mod tests {
         .unwrap();
         let id = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Custom),
-                page: Page::All,
+                origin: Some("custom".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()
@@ -90,8 +97,10 @@ mod tests {
         let bus = Bus::new(ctx().await);
         let prebuilt_id = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Prebuilt),
-                page: Page::All,
+                origin: Some("prebuilt".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()

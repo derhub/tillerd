@@ -1,7 +1,7 @@
 //! Notification app operations: CQS command/query objects per design D4.
 //!
 //! Commands mutate and return `Result<()>`; queries read and return `Result<Self::Out>`.
-//! Neither passes through `Box<dyn _>` — dispatch is static.
+//! Neither passes through `Box<dyn _>` -- dispatch is static.
 
 pub mod count_unread_notifications;
 pub mod disregard_all_notifications;
@@ -13,6 +13,8 @@ pub mod mark_notification_read;
 pub mod prune_notifications;
 pub mod record_notification;
 pub mod snooze_notification;
+
+mod view;
 
 #[cfg(test)]
 pub(crate) mod test_util;
@@ -27,3 +29,4 @@ pub use mark_notification_read::MarkNotificationRead;
 pub use prune_notifications::PruneNotifications;
 pub use record_notification::RecordNotification;
 pub use snooze_notification::SnoozeNotification;
+pub use view::NotificationView;

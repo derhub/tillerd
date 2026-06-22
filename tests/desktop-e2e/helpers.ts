@@ -15,7 +15,7 @@ export function clearLogSeeds(logsDir: string): void {
       if (f.startsWith("zzz-e2e-") && f.endsWith(".log")) unlinkSync(join(logsDir, f));
     }
   } catch {
-    // logs dir may not exist yet — nothing to clear
+    // logs dir may not exist yet -- nothing to clear
   }
 }
 
@@ -40,7 +40,7 @@ export async function launchReadyApp(): Promise<Browser> {
   return browser;
 }
 
-// Native `window.prompt` (used by "New project") cannot be driven under WebDriver — stub it.
+// Native `window.prompt` (used by "New project") cannot be driven under WebDriver -- stub it.
 export async function stubPrompt(browser: Browser, value: string): Promise<void> {
   await browser.execute((name: string) => {
     (window as unknown as { prompt: (msg?: string) => string }).prompt = () => name;
@@ -80,11 +80,11 @@ export async function openTerminal(browser: Browser): Promise<string> {
   return surfaceId(browser);
 }
 
-// Navigate to the log viewer the way the app does at runtime — a client-side route change, no
+// Navigate to the log viewer the way the app does at runtime -- a client-side route change, no
 // reload. The native View > Logs menu is not WebDriver-accessible; a hard URL load is unreliable
 // (custom-scheme opaque origin + no SPA fallback); and an injected `import()` of the Tauri API
 // can't resolve a bare specifier. So push the route and fire `popstate`, which react-router's
-// browser history listens for — pure sync DOM, no Promise to serialize.
+// browser history listens for -- pure sync DOM, no Promise to serialize.
 export async function openLogViewer(browser: Browser): Promise<void> {
   await browser.execute(() => {
     window.history.pushState({}, "", "/logs");

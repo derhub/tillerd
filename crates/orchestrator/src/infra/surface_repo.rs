@@ -2,130 +2,89 @@
 //!
 //! All methods take `impl SqliteExecutor<'_>` so the same function works whether
 //! the caller passes `cx.db()` (a pool ref) or `&mut *tx` (a mutable transaction
-//! borrow).  The repo owns the `Row -> Entity` mapping; no slug-tree, no directory
-//! moves.
+//! borrow).  Reads decode straight into the [`Surface`] entity via `query_as`
+//! (`kind`/`status` are `sqlx::Type` newtypes); the read-model `*View` projections
+//! live in `app/surface/`.
+//!
+//! This repo keeps only the command-path methods plus `list`, which is consumed by
+//! the `session`/`project`/`workspace` commands (cross-domain). The read-only
+//! `get_surface_by_id`/`find_by_placement`/`list_resumable` SELECTs moved into the
+//! `app/surface/` query handlers as `SurfaceView` projections.
 
 use sqlx::SqliteExecutor;
 
 use crate::entities::session::SessionId;
-use crate::entities::surface::{NewSurface, Surface, SurfaceId, SurfaceKind, SurfaceStatus};
-use crate::shared::errors::{Error, Result};
+use crate::entities::surface::{Surface, SurfaceId, SurfaceKind, SurfaceStatus};
+use crate::shared::errors::Result;
 use crate::shared::pagination::{Listing, Page};
 
-// ── Row ───────────────────────────────────────────────────────────────────────
-
-struct SurfaceRow {
-    id: String,
-    session_id: String,
-    kind: String,
-    cwd: Option<String>,
-    placement: Option<String>,
-    status: String,
+/// A [`Surface`] plus the `created_at` cursor-key column needed to mint the
+/// continuation cursor without re-querying. `Surface` itself carries no
+/// `created_at`, so cursor paging flattens it alongside.
+#[derive(sqlx::FromRow)]
+struct CursorRow {
+    #[sqlx(flatten)]
+    surface: Surface,
     created_at: String,
 }
 
-impl<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> for SurfaceRow {
-    fn from_row(row: &'r sqlx::sqlite::SqliteRow) -> sqlx::Result<Self> {
-        use sqlx::Row;
-        Ok(SurfaceRow {
-            id: row.try_get("id")?,
-            session_id: row.try_get("session_id")?,
-            kind: row.try_get("kind")?,
-            cwd: row.try_get("cwd")?,
-            placement: row.try_get("placement")?,
-            status: row.try_get("status")?,
-            created_at: row.try_get("created_at")?,
-        })
-    }
-}
-
-impl TryFrom<SurfaceRow> for Surface {
-    type Error = Error;
-
-    fn try_from(r: SurfaceRow) -> Result<Self> {
-        let kind = match r.kind.as_str() {
-            "terminal" => SurfaceKind::Terminal,
-            "diff" => SurfaceKind::Diff,
-            other => {
-                return Err(Error::Validation {
-                    field: "kind",
-                    reason: format!("unknown surface kind: {other}"),
-                })
-            }
-        };
-        let status = match r.status.as_str() {
-            "pending" => SurfaceStatus::Pending,
-            "live" => SurfaceStatus::Live,
-            "idle" => SurfaceStatus::Idle,
-            "failed" => SurfaceStatus::Failed,
-            other => {
-                return Err(Error::Validation {
-                    field: "status",
-                    reason: format!("unknown surface status: {other}"),
-                })
-            }
-        };
-        Ok(Surface {
-            id: SurfaceId::from_string(r.id),
-            session_id: SessionId::from_string(r.session_id),
-            kind,
-            cwd: r.cwd,
-            placement: r.placement,
-            status,
-        })
-    }
-}
-
-fn map_rows(rows: Vec<SurfaceRow>) -> Result<Vec<Surface>> {
-    rows.into_iter().map(Surface::try_from).collect()
-}
-
-// ── Repository ────────────────────────────────────────────────────────────────
+// -- Repository ----------------------------------------------------------------
 
 pub struct SurfaceRepo;
 
 impl SurfaceRepo {
     /// Insert a new surface row at status `pending`. Returns the created `Surface`.
-    pub async fn create<'e>(exec: impl SqliteExecutor<'e>, new: &NewSurface) -> Result<Surface> {
-        let id = new.id.clone().unwrap_or_else(SurfaceId::mint);
+    /// Pass `id = None` to mint a fresh UUID.
+    pub async fn create<'e>(
+        exec: impl SqliteExecutor<'e>,
+        id: Option<&str>,
+        session_id: &SessionId,
+        kind: SurfaceKind,
+        cwd: Option<&str>,
+        placement: Option<&str>,
+    ) -> Result<Surface> {
+        let surface_id = id
+            .map(SurfaceId::from_string)
+            .unwrap_or_else(SurfaceId::mint);
 
         sqlx::query(
             "INSERT INTO surface (id, session_id, kind, cwd, placement, status)
              VALUES (?, ?, ?, ?, ?, ?)",
         )
-        .bind(id.as_str())
-        .bind(new.session_id.as_str())
-        .bind(new.kind.as_str())
-        .bind(new.cwd.as_deref())
-        .bind(new.placement.as_deref())
+        .bind(surface_id.as_str())
+        .bind(session_id.as_str())
+        .bind(kind.as_str())
+        .bind(cwd)
+        .bind(placement)
         .bind(SurfaceStatus::Pending.as_str())
         .execute(exec)
         .await?;
 
         Ok(Surface {
-            id,
-            session_id: new.session_id.clone(),
-            kind: new.kind,
-            cwd: new.cwd.clone(),
-            placement: new.placement.clone(),
+            id: surface_id,
+            session_id: session_id.clone(),
+            kind,
+            cwd: cwd.map(str::to_owned),
+            placement: placement.map(str::to_owned),
             status: SurfaceStatus::Pending,
         })
     }
 
-    /// Fetch one surface by id. Returns `None` when not found.
+    /// Fetch one surface by id. Returns `None` when not found. Command path
+    /// (read-modify-write): `require_surface` reads the entity before a transition.
     pub async fn get<'e>(exec: impl SqliteExecutor<'e>, id: &SurfaceId) -> Result<Option<Surface>> {
-        let row: Option<SurfaceRow> = sqlx::query_as(
-            "SELECT id, session_id, kind, cwd, placement, status, created_at
+        Ok(sqlx::query_as::<_, Surface>(
+            "SELECT id, session_id, kind, cwd, status, placement
              FROM surface WHERE id = ?",
         )
         .bind(id.as_str())
         .fetch_optional(exec)
-        .await?;
-        row.map(Surface::try_from).transpose()
+        .await?)
     }
 
     /// List surfaces in a session ordered live-first then by `created_at`, with
-    /// optional pagination.
+    /// optional pagination. Consumed by the `session`/`project`/`workspace`
+    /// commands (cross-domain), so it returns the entity, not a read `*View`.
     ///
     /// Surfaces have no `pinned` column; the pinned-first contract is fulfilled by
     /// ordering `live` status first (live surfaces are the "active" / promoted ones).
@@ -136,8 +95,8 @@ impl SurfaceRepo {
     ) -> Result<Listing<Surface>> {
         match page {
             Page::All => {
-                let rows: Vec<SurfaceRow> = sqlx::query_as(
-                    "SELECT id, session_id, kind, cwd, placement, status, created_at
+                let items = sqlx::query_as::<_, Surface>(
+                    "SELECT id, session_id, kind, cwd, status, placement
                      FROM surface
                      WHERE session_id = ?
                      ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC",
@@ -145,13 +104,13 @@ impl SurfaceRepo {
                 .bind(session_id.as_str())
                 .fetch_all(exec)
                 .await?;
-                Ok(Listing::new(map_rows(rows)?, None))
+                Ok(Listing::new(items, None))
             }
 
             Page::Offset { limit, offset } => {
                 let fetch = (limit as i64) + 1;
-                let rows: Vec<SurfaceRow> = sqlx::query_as(
-                    "SELECT id, session_id, kind, cwd, placement, status, created_at
+                let rows = sqlx::query_as::<_, Surface>(
+                    "SELECT id, session_id, kind, cwd, status, placement
                      FROM surface
                      WHERE session_id = ?
                      ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
@@ -165,7 +124,7 @@ impl SurfaceRepo {
 
                 let has_next = rows.len() as u32 > limit;
                 let next = has_next.then(|| (offset + limit).to_string());
-                let items = map_rows(rows.into_iter().take(limit as usize).collect())?;
+                let items: Vec<Surface> = rows.into_iter().take(limit as usize).collect();
                 Ok(Listing::new(items, next))
             }
 
@@ -175,9 +134,9 @@ impl SurfaceRepo {
                 // mixed-status set may skip some non-live rows; callers that need
                 // strict stability should use offset pagination or Page::All.
                 let fetch = (limit as i64) + 1;
-                let rows: Vec<SurfaceRow> = if let Some(cursor) = after {
-                    sqlx::query_as(
-                        "SELECT id, session_id, kind, cwd, placement, status, created_at
+                let rows: Vec<CursorRow> = if let Some(cursor) = after {
+                    sqlx::query_as::<_, CursorRow>(
+                        "SELECT id, session_id, kind, cwd, status, placement, created_at
                          FROM surface
                          WHERE session_id = ? AND created_at > ?
                          ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
@@ -189,8 +148,8 @@ impl SurfaceRepo {
                     .fetch_all(exec)
                     .await?
                 } else {
-                    sqlx::query_as(
-                        "SELECT id, session_id, kind, cwd, placement, status, created_at
+                    sqlx::query_as::<_, CursorRow>(
+                        "SELECT id, session_id, kind, cwd, status, placement, created_at
                          FROM surface
                          WHERE session_id = ?
                          ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
@@ -206,7 +165,11 @@ impl SurfaceRepo {
                 let next_cursor = has_next
                     .then(|| rows.get(limit as usize - 1).map(|r| r.created_at.clone()))
                     .flatten();
-                let items = map_rows(rows.into_iter().take(limit as usize).collect())?;
+                let items: Vec<Surface> = rows
+                    .into_iter()
+                    .take(limit as usize)
+                    .map(|r| r.surface)
+                    .collect();
                 Ok(Listing::new(items, next_cursor))
             }
         }
@@ -245,30 +208,14 @@ impl SurfaceRepo {
             .await?;
         Ok(())
     }
-
-    /// Find a surface by session + placement slot. Used by `FindSurfaceByPlacement`.
-    pub async fn find_by_placement<'e>(
-        exec: impl SqliteExecutor<'e>,
-        session_id: &SessionId,
-        placement: &str,
-    ) -> Result<Option<Surface>> {
-        let row: Option<SurfaceRow> = sqlx::query_as(
-            "SELECT id, session_id, kind, cwd, placement, status, created_at
-             FROM surface WHERE session_id = ? AND placement = ?",
-        )
-        .bind(session_id.as_str())
-        .bind(placement)
-        .fetch_optional(exec)
-        .await?;
-        row.map(Surface::try_from).transpose()
-    }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// -- Tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::surface::SurfaceKind;
     use crate::infra::migrate;
 
     // Insert a session row referencing the seeded Unfiled project so that the
@@ -284,14 +231,17 @@ mod tests {
         SessionId::from_string(id)
     }
 
-    fn new_terminal(session: &SessionId) -> NewSurface {
-        NewSurface {
-            id: None,
-            session_id: session.clone(),
-            kind: SurfaceKind::Terminal,
-            cwd: Some("/work".to_owned()),
-            placement: None,
-        }
+    async fn new_terminal<'e>(exec: impl SqliteExecutor<'e>, session: &SessionId) -> Surface {
+        SurfaceRepo::create(
+            exec,
+            None,
+            session,
+            SurfaceKind::Terminal,
+            Some("/work"),
+            None,
+        )
+        .await
+        .expect("new_terminal")
     }
 
     // Scenario: A repository persists and reads a typed entity (round-trip)
@@ -299,15 +249,17 @@ mod tests {
     async fn round_trip_create_and_get() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-rt").await;
-        let new = NewSurface {
-            id: None,
-            session_id: sess.clone(),
-            kind: SurfaceKind::Terminal,
-            cwd: Some("/work".to_owned()),
-            placement: Some("main".to_owned()),
-        };
 
-        let created = SurfaceRepo::create(&pool, &new).await.unwrap();
+        let created = SurfaceRepo::create(
+            &pool,
+            None,
+            &sess,
+            SurfaceKind::Terminal,
+            Some("/work"),
+            Some("main"),
+        )
+        .await
+        .unwrap();
         assert_eq!(created.kind, SurfaceKind::Terminal);
         assert_eq!(created.cwd.as_deref(), Some("/work"));
         assert_eq!(created.placement.as_deref(), Some("main"));
@@ -338,15 +290,9 @@ mod tests {
         let sess_a = seed_session(&pool, "s-a").await;
         let sess_b = seed_session(&pool, "s-b").await;
 
-        SurfaceRepo::create(&pool, &new_terminal(&sess_a))
-            .await
-            .unwrap();
-        SurfaceRepo::create(&pool, &new_terminal(&sess_a))
-            .await
-            .unwrap();
-        SurfaceRepo::create(&pool, &new_terminal(&sess_b))
-            .await
-            .unwrap();
+        new_terminal(&pool, &sess_a).await;
+        new_terminal(&pool, &sess_a).await;
+        new_terminal(&pool, &sess_b).await;
 
         let result = SurfaceRepo::list(&pool, &sess_a, Page::All).await.unwrap();
         assert_eq!(result.items.len(), 2);
@@ -359,9 +305,7 @@ mod tests {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-pg").await;
         for _ in 0..5 {
-            SurfaceRepo::create(&pool, &new_terminal(&sess))
-                .await
-                .unwrap();
+            new_terminal(&pool, &sess).await;
         }
 
         let page1 = SurfaceRepo::list(&pool, &sess, Page::offset(3, 0))
@@ -383,9 +327,7 @@ mod tests {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-all").await;
         for _ in 0..4 {
-            SurfaceRepo::create(&pool, &new_terminal(&sess))
-                .await
-                .unwrap();
+            new_terminal(&pool, &sess).await;
         }
         let result = SurfaceRepo::list(&pool, &sess, Page::All).await.unwrap();
         assert_eq!(result.items.len(), 4);
@@ -396,9 +338,7 @@ mod tests {
     async fn update_persists_cwd_and_placement() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-upd").await;
-        let created = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let created = new_terminal(&pool, &sess).await;
 
         let updated = Surface {
             cwd: Some("/updated".to_owned()),
@@ -416,9 +356,7 @@ mod tests {
     async fn delete_removes_the_row() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-del").await;
-        let created = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let created = new_terminal(&pool, &sess).await;
 
         SurfaceRepo::delete(&pool, &created.id).await.unwrap();
 
@@ -431,9 +369,7 @@ mod tests {
     async fn update_status_transitions_pending_to_live() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-st1").await;
-        let created = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let created = new_terminal(&pool, &sess).await;
         assert_eq!(created.status, SurfaceStatus::Pending);
 
         SurfaceRepo::update_status(&pool, &created.id, SurfaceStatus::Live)
@@ -448,9 +384,7 @@ mod tests {
     async fn update_status_transitions_live_to_idle() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-st2").await;
-        let created = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let created = new_terminal(&pool, &sess).await;
 
         SurfaceRepo::update_status(&pool, &created.id, SurfaceStatus::Live)
             .await
@@ -467,9 +401,7 @@ mod tests {
     async fn update_status_transitions_to_failed() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-st3").await;
-        let created = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let created = new_terminal(&pool, &sess).await;
 
         SurfaceRepo::update_status(&pool, &created.id, SurfaceStatus::Failed)
             .await
@@ -479,18 +411,14 @@ mod tests {
         assert_eq!(fetched.status, SurfaceStatus::Failed);
     }
 
-    // Scenario: A pinned item sorts ahead — surfaces use live-first ordering
+    // Scenario: A pinned item sorts ahead -- surfaces use live-first ordering
     #[tokio::test]
     async fn list_returns_live_surfaces_first() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-ord").await;
 
-        let first = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
-        let second = SurfaceRepo::create(&pool, &new_terminal(&sess))
-            .await
-            .unwrap();
+        let first = new_terminal(&pool, &sess).await;
+        let second = new_terminal(&pool, &sess).await;
 
         // Make the second one live; the first stays idle.
         SurfaceRepo::update_status(&pool, &first.id, SurfaceStatus::Idle)
@@ -513,13 +441,29 @@ mod tests {
     async fn two_creates_on_one_transaction_both_commit() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-tx").await;
-        let na = new_terminal(&sess);
-        let nb = new_terminal(&sess);
 
         let (a, b) = {
             let mut tx = pool.begin().await.unwrap();
-            let a = SurfaceRepo::create(&mut *tx, &na).await.unwrap();
-            let b = SurfaceRepo::create(&mut *tx, &nb).await.unwrap();
+            let a = SurfaceRepo::create(
+                &mut *tx,
+                None,
+                &sess,
+                SurfaceKind::Terminal,
+                Some("/work"),
+                None,
+            )
+            .await
+            .unwrap();
+            let b = SurfaceRepo::create(
+                &mut *tx,
+                None,
+                &sess,
+                SurfaceKind::Terminal,
+                Some("/work"),
+                None,
+            )
+            .await
+            .unwrap();
             tx.commit().await.unwrap();
             (a, b)
         };
@@ -534,47 +478,24 @@ mod tests {
     async fn transaction_rollback_leaves_no_rows() {
         let pool = migrate::open_memory().await.unwrap();
         let sess = seed_session(&pool, "s-rb").await;
-        let na = new_terminal(&sess);
 
         let id = {
             let mut tx = pool.begin().await.unwrap();
-            let s = SurfaceRepo::create(&mut *tx, &na).await.unwrap();
+            let s = SurfaceRepo::create(
+                &mut *tx,
+                None,
+                &sess,
+                SurfaceKind::Terminal,
+                Some("/work"),
+                None,
+            )
+            .await
+            .unwrap();
             tx.rollback().await.unwrap();
             s.id
         };
 
         let result = SurfaceRepo::get(&pool, &id).await.unwrap();
         assert!(result.is_none(), "rolled-back row must not persist");
-    }
-
-    // Scenario: Spawn mints a placement that find resolves
-    #[tokio::test]
-    async fn find_by_placement_returns_surface_for_known_slot() {
-        let pool = migrate::open_memory().await.unwrap();
-        let sess = seed_session(&pool, "s-fp1").await;
-        let new = NewSurface {
-            id: None,
-            session_id: sess.clone(),
-            kind: SurfaceKind::Terminal,
-            cwd: None,
-            placement: Some("panel-1".to_owned()),
-        };
-        let created = SurfaceRepo::create(&pool, &new).await.unwrap();
-
-        let found = SurfaceRepo::find_by_placement(&pool, &sess, "panel-1")
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(found.id, created.id);
-    }
-
-    #[tokio::test]
-    async fn find_by_placement_returns_none_for_absent_slot() {
-        let pool = migrate::open_memory().await.unwrap();
-        let sess = seed_session(&pool, "s-fp2").await;
-        let result = SurfaceRepo::find_by_placement(&pool, &sess, "no-slot")
-            .await
-            .unwrap();
-        assert!(result.is_none());
     }
 }

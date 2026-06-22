@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use super::workspace::WorkspaceId;
 use crate::shared::{Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct ProjectId(String);
 
 impl ProjectId {
@@ -28,7 +29,8 @@ impl ProjectId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum SourceKind {
     Blank,
     LocalDir,
@@ -46,7 +48,8 @@ impl SourceKind {
 }
 
 /// Whether the project is active or archived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum ProjectStatus {
     #[default]
     Active,
@@ -62,7 +65,7 @@ impl ProjectStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Project {
     pub id: ProjectId,
     pub name: String,
@@ -107,17 +110,6 @@ impl Project {
             Ok(())
         }
     }
-}
-
-/// Parameters for creating a new project.
-#[derive(Debug, Clone)]
-pub struct NewProject {
-    pub source_kind: SourceKind,
-    pub root_path: Option<String>,
-    /// Explicit name; overrides inference when supplied.
-    pub name: Option<String>,
-    /// Owning workspace; defaults to the Default workspace when `None`.
-    pub workspace_id: Option<WorkspaceId>,
 }
 
 #[cfg(test)]

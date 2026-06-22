@@ -1,10 +1,10 @@
 //! Runtime contract test for every desktop IPC command. The app is built with the real context
-//! (`crate::app_context()` — config + embedded frontend + resolved ACL) on the `tauri::test` mock
+//! (`crate::app_context()` -- config + embedded frontend + resolved ACL) on the `tauri::test` mock
 //! runtime over a `:memory:` `Ctx` (migrations applied, `FakeRuntime`, `SqliteKv`), then each
 //! command registered in `run()` is invoked through the live IPC path with the argument shape
 //! `@tillerd/sdk` + the desktop bridge actually send. A command that is missing from the handler
 //! fails with "Command <name> not found"; a command whose argument struct drifts from its body
-//! fails with "invalid args `<field>`". Either is a contract break the assertions catch — at
+//! fails with "invalid args `<field>`". Either is a contract break the assertions catch -- at
 //! unit-test speed, before a full desktop e2e cycle. Business errors (no daemon, store not ready)
 //! are expected and ignored: they prove the command was reached.
 //!
@@ -12,14 +12,8 @@
 //! authority's command check is skipped for a local origin and the command dispatches as it does in
 //! the running app. Per-response key shapes are checked by `workspace_host`'s serde tests.
 
-use std::path::PathBuf;
-use std::sync::Arc;
-
 use orchestrator::context::Ctx;
-use orchestrator::infra::migrate;
-use orchestrator::infra::runtime::FakeRuntime;
 use orchestrator::shared::bus::Bus;
-use orchestrator::shared::kv::SqliteKv;
 use serial_test::serial;
 use tauri::test::{mock_builder, MockRuntime};
 use tauri::{Manager, WebviewWindow};
@@ -29,14 +23,13 @@ use crate::transport::domain;
 use crate::transport::sink::SurfaceChannels;
 use crate::{bridge, diag, files, settings_host, store, supervisor, surface_host, window_host};
 
-/// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`. This is the
-/// context `Bus<Ctx>` dispatches over; the contract test drives every command through
-/// the live IPC path against it.
+/// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
+/// orchestrator's app-owned test edge. This is the context `Bus<Ctx>` dispatches over;
+/// the contract test drives every command through the live IPC path against it.
 async fn memory_ctx() -> Ctx {
-    let pool = migrate::open_memory().await.expect("in-memory pool");
-    let kv = SqliteKv::new(pool.clone());
-    let runtime = Arc::new(FakeRuntime::new());
-    Ctx::new(pool, kv, PathBuf::from("/tmp/tillerd-contract"), runtime)
+    orchestrator::boot::test_ctx()
+        .await
+        .expect("in-memory test Ctx")
 }
 
 /// The app with the full handler set and every managed state the commands resolve, on the real
@@ -156,7 +149,7 @@ fn invoke(
 fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
     // Hermetic runtime dir: store/registry writes and the daemon manifest read stay in a temp
     // dir, and `daemon_ensure` resolves the daemon binary to `/dev/null` (exists, so it is
-    // chosen) whose `execve` fails instantly — proving the command is reached without spawning a
+    // chosen) whose `execve` fails instantly -- proving the command is reached without spawning a
     // real daemon or waiting on reachability.
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());
@@ -172,7 +165,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
     // fields are populated so a rename to a required field is caught; required fields must be
     // present or deserialization fails (which is exactly what this test asserts against).
     let cases: Vec<(&str, serde_json::Value)> = vec![
-        // `daemon_connect` excluded — see the handler list (concrete `AppHandle`, channel-only).
+        // `daemon_connect` excluded -- see the handler list (concrete `AppHandle`, channel-only).
         ("daemon_send", serde_json::json!({ "bytes": [0u8, 1, 2] })),
         ("daemon_disconnect", serde_json::json!({})),
         (

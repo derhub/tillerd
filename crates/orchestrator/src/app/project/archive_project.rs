@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::{ProjectId, ProjectStatus};
 use crate::infra::project::ProjectRepo;
@@ -6,27 +8,30 @@ use crate::shared::pagination::Page;
 use crate::shared::{Command, Error, Result};
 
 /// Archive a project (cascades to its sessions; rejected unless every session is idle).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ArchiveProject {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Command<Ctx> for ArchiveProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let project = ProjectRepo::get(cx.db(), &self.id)
+        let id = ProjectId::new(&self.id);
+        let project = ProjectRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?;
         project.guard_not_unfiled()?;
         project.guard_active()?;
 
         // Archive-requires-idle: count live surfaces across all sessions in this project.
-        let live_count = ProjectRepo::count_live_surfaces(cx.db(), &self.id).await?;
+        let live_count = ProjectRepo::count_live_surfaces(cx.db(), &id).await?;
         if live_count > 0 {
-            return Err(Error::SessionNotIdle(self.id.as_str().to_owned()));
+            return Err(Error::SessionNotIdle(self.id.clone()));
         }
 
         cx.transaction(async |tx| {
             // Cascade: archive all active sessions.
-            let sessions = SessionRepo::list(&mut **tx, &self.id, Page::All).await?;
+            let sessions = SessionRepo::list(&mut **tx, &id, Page::All).await?;
             let now = crate::shared::datetime::now_iso8601();
             for session in sessions.items {
                 if session.status == crate::entities::session::SessionStatus::Active {
@@ -46,8 +51,6 @@ impl Command<Ctx> for ArchiveProject {
 mod tests {
     use super::*;
     use crate::app::project::test_util::*;
-
-    use super::super::get_project_by_id::GetProjectById;
 
     #[tokio::test]
     async fn archive_project_is_rejected_when_sessions_have_live_surfaces() {
@@ -73,7 +76,7 @@ mod tests {
 
         let result = bus
             .execute(ArchiveProject {
-                id: ProjectId::new("p-arch-live"),
+                id: "p-arch-live".to_owned(),
             })
             .await;
         assert!(
@@ -97,15 +100,12 @@ mod tests {
             .unwrap();
 
         bus.execute(ArchiveProject {
-            id: ProjectId::new("p-arch-idle"),
+            id: "p-arch-idle".to_owned(),
         })
         .await
         .unwrap();
 
-        let project = bus
-            .query(GetProjectById {
-                id: ProjectId::new("p-arch-idle"),
-            })
+        let project = ProjectRepo::get(ctx.db(), &ProjectId::new("p-arch-idle"))
             .await
             .unwrap()
             .unwrap();
@@ -117,7 +117,7 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .execute(ArchiveProject {
-                id: unfiled_project_id(),
+                id: unfiled_project_id().as_str().to_owned(),
             })
             .await;
         assert!(
@@ -132,14 +132,14 @@ mod tests {
         seed_project(ctx.db(), "p-arch-2", "AlreadyArchived", &default_ws()).await;
 
         bus.execute(ArchiveProject {
-            id: ProjectId::new("p-arch-2"),
+            id: "p-arch-2".to_owned(),
         })
         .await
         .unwrap();
 
         let result = bus
             .execute(ArchiveProject {
-                id: ProjectId::new("p-arch-2"),
+                id: "p-arch-2".to_owned(),
             })
             .await;
         assert!(
@@ -165,7 +165,7 @@ mod tests {
         }
 
         bus.execute(ArchiveProject {
-            id: ProjectId::new("p-cas"),
+            id: "p-cas".to_owned(),
         })
         .await
         .unwrap();

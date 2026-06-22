@@ -1,6 +1,6 @@
 import type { SnapshotFrame } from "./messages";
 
-// SnapshotCell fg/bg/attrs encoding. This is a language-neutral WIRE CONTRACT —
+// SnapshotCell fg/bg/attrs encoding. This is a language-neutral WIRE CONTRACT --
 // any-language daemon that emits snapshot frames must produce cells in exactly
 // this encoding. Canonical definition: the "Snapshot frame cell encoding"
 // requirement in openspec/specs/pty-daemon/spec.md. Keep the two in sync.
@@ -14,9 +14,9 @@ export const ATTR_INVISIBLE = 0x40;
 
 // SnapshotCell color encoding:
 //   0          = default
-//   1–8        = ANSI standard (30–37 -> 1–8)
-//   9–16       = ANSI bright (90–97 -> 9–16)
-//   17–272     = 256-color (index + 17)
+//   1-8        = ANSI standard (30-37 -> 1-8)
+//   9-16       = ANSI bright (90-97 -> 9-16)
+//   17-272     = 256-color (index + 17)
 //   0x1000000+ = 24-bit RGB (0x1000000 | r<<16 | g<<8 | b)
 export const COLOR_DEFAULT = 0;
 
@@ -88,7 +88,7 @@ export function snapshotToBytes(
       // Skip wide-char continuation cells
       if (cell.char === "") continue;
 
-      // Skip default empty spaces (common case — saves bytes)
+      // Skip default empty spaces (common case -- saves bytes)
       if (
         cell.char === " " &&
         cell.fg === COLOR_DEFAULT &&

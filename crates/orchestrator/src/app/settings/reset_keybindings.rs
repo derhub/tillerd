@@ -1,18 +1,24 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::KeybindingStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
-/// Revert the entire keymap to defaults.
+/// Revert the entire keymap to defaults. `defaults_json` carries the default
+/// keymap as a serialized `{action: chord}` map.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetKeybindings {
-    pub defaults: HashMap<String, String>,
+    pub defaults_json: String,
 }
 
 impl Command<Ctx> for ResetKeybindings {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        KeybindingStore::new(cx.fs_root(), self.defaults.clone())
+        let defaults: HashMap<String, String> = serde_json::from_str(&self.defaults_json)?;
+        KeybindingStore::new(cx.fs_root(), defaults)
             .reset_all()
             .await
     }
@@ -34,20 +40,20 @@ mod tests {
         bus.execute(RebindKey {
             action: "rename".to_owned(),
             chord: "ctrl+r".to_owned(),
-            defaults: default_keys(),
+            defaults_json: default_keys_json(),
         })
         .await
         .unwrap();
         bus.execute(RebindKey {
             action: "new-session".to_owned(),
             chord: "ctrl+t".to_owned(),
-            defaults: default_keys(),
+            defaults_json: default_keys_json(),
         })
         .await
         .unwrap();
 
         bus.execute(ResetKeybindings {
-            defaults: default_keys(),
+            defaults_json: default_keys_json(),
         })
         .await
         .unwrap();
@@ -55,14 +61,14 @@ mod tests {
         let rename = bus
             .query(ResolveKeybinding {
                 action: "rename".to_owned(),
-                defaults: default_keys(),
+                defaults_json: default_keys_json(),
             })
             .await
             .unwrap();
         let new_sess = bus
             .query(ResolveKeybinding {
                 action: "new-session".to_owned(),
-                defaults: default_keys(),
+                defaults_json: default_keys_json(),
             })
             .await
             .unwrap();

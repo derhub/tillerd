@@ -1,21 +1,25 @@
+use serde::Deserialize;
+
+use crate::app::settings::common::scope_from_parts;
 use crate::context::Ctx;
-use crate::entities::setting::SettingScope;
 use crate::infra::config::SettingStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Raw setting value at a scope. Returns `None` if absent.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetSetting {
-    pub scope: SettingScope,
+    pub scope: String,
+    pub project_id: Option<String>,
     pub key: String,
 }
 
 impl Query<Ctx> for GetSetting {
     type Out = Option<String>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        SettingStore::new(cx.fs_root())
-            .get(&self.scope, &self.key)
-            .await
+        let scope = scope_from_parts(&self.scope, self.project_id.as_deref())?;
+        SettingStore::new(cx.fs_root()).get(&scope, &self.key).await
     }
 }
 
@@ -23,7 +27,6 @@ impl Query<Ctx> for GetSetting {
 mod tests {
     use super::*;
     use crate::app::settings::test_util::*;
-    use crate::entities::setting::SettingScope;
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -33,7 +36,8 @@ mod tests {
 
         let v = bus
             .query(GetSetting {
-                scope: SettingScope::Global,
+                scope: "global".to_owned(),
+                project_id: None,
                 key: "missing".to_owned(),
             })
             .await

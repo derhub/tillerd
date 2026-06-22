@@ -1,6 +1,6 @@
 //! The generic dispatcher. `Bus<Cx>` is a thin pass-through over a context: it
 //! constructs a span per operation and, on error, emits one structured `ERROR`
-//! event with OTel-named fields — and nothing else. It does NOT own a
+//! event with OTel-named fields -- and nothing else. It does NOT own a
 //! transaction (that is each command's concern) and it never boxes (dispatch is
 //! static over the concrete operation type).
 //!
@@ -11,11 +11,11 @@ use std::error::Error as _;
 
 use tracing::Instrument;
 
-use crate::shared::cqs::{Command, Query};
+use crate::shared::message::{Command, Io, Query};
 use crate::shared::{Error, Result};
 
 /// Dispatches commands and queries over a shared context, carrying only the
-/// cross-cutting telemetry.
+/// cross-cutting telemetry. I/O effects go through `io`, off the telemetry path.
 pub struct Bus<Cx> {
     cx: Cx,
 }
@@ -48,6 +48,13 @@ impl<Cx> Bus<Cx> {
             .instrument(span)
             .await
             .inspect_err(record)
+    }
+
+    /// Run an external I/O effect -- a runtime proxy op (input, resize, attach, ...).
+    /// Deliberately OFF the telemetry path: no span and no error event, so raw
+    /// payloads (keystrokes, bytes) are never captured here. Returns its `Out`.
+    pub async fn io<I: Io<Cx>>(&self, i: I) -> Result<I::Out> {
+        i.handle(&self.cx).await
     }
 }
 

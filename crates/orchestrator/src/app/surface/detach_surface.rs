@@ -1,20 +1,23 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::SurfaceId;
-use crate::shared::cqs::Command;
 use crate::shared::errors::Result;
+use crate::shared::message::Command;
 
-// ── DetachSurface (drop the proxy, PTY keeps running) ───────────────────────────
+// -- DetachSurface (drop the proxy, PTY keeps running) ---------------------------
 
 /// Drop the proxy stream; the PTY keeps running in the daemon. A deliberate,
-/// infrequent op — fine to dispatch and log, so it is a regular bus command.
-#[derive(Debug, Clone)]
+/// infrequent op -- fine to dispatch and log, so it is a regular bus command.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DetachSurface {
-    pub id: SurfaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DetachSurface {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        cx.runtime().detach(&self.id).await
+        cx.runtime().detach(&SurfaceId::from_string(&self.id)).await
     }
 }
 
@@ -31,6 +34,7 @@ mod tests {
         let session = seed_session(&h.pool, "s-detach").await;
         h.bus.execute(spawn(&session)).await.unwrap();
         let surface = one_surface(&h, &session).await;
+        let id = SurfaceId::from_string(&surface.id);
 
         h.bus
             .execute(DetachSurface {
@@ -39,7 +43,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(h.runtime.is_running(&surface.id), "PTY keeps running");
-        assert!(h.runtime.calls().contains(&RuntimeCall::Detach(surface.id)));
+        assert!(h.runtime.is_running(&id), "PTY keeps running");
+        assert!(h.runtime.calls().contains(&RuntimeCall::Detach(id)));
     }
 }

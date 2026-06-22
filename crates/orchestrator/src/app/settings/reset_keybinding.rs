@@ -1,19 +1,25 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::KeybindingStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
-/// Revert one action to its compiled-in default.
+/// Revert one action to its compiled-in default. `defaults_json` carries the
+/// default keymap as a serialized `{action: chord}` map.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetKeybinding {
     pub action: String,
-    pub defaults: HashMap<String, String>,
+    pub defaults_json: String,
 }
 
 impl Command<Ctx> for ResetKeybinding {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        KeybindingStore::new(cx.fs_root(), self.defaults.clone())
+        let defaults: HashMap<String, String> = serde_json::from_str(&self.defaults_json)?;
+        KeybindingStore::new(cx.fs_root(), defaults)
             .reset(&self.action)
             .await
     }
@@ -35,14 +41,14 @@ mod tests {
         bus.execute(RebindKey {
             action: "rename".to_owned(),
             chord: "ctrl+r".to_owned(),
-            defaults: default_keys(),
+            defaults_json: default_keys_json(),
         })
         .await
         .unwrap();
 
         bus.execute(ResetKeybinding {
             action: "rename".to_owned(),
-            defaults: default_keys(),
+            defaults_json: default_keys_json(),
         })
         .await
         .unwrap();
@@ -50,7 +56,7 @@ mod tests {
         let chord = bus
             .query(ResolveKeybinding {
                 action: "rename".to_owned(),
-                defaults: default_keys(),
+                defaults_json: default_keys_json(),
             })
             .await
             .unwrap();

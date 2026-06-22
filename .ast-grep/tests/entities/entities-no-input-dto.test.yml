@@ -1,0 +1,8 @@
+id: entities-no-input-dto
+valid:
+    - "pub struct Project { pub id: ProjectId, pub name: String }"
+    - "pub struct ProjectId(String);"
+    - "pub struct Workspace { pub id: WorkspaceId }"
+invalid:
+    - "pub struct NewProject { pub workspace_id: Option<WorkspaceId>, pub name: Option<String> }"
+    - "pub struct NewSession { pub project_id: ProjectId }"

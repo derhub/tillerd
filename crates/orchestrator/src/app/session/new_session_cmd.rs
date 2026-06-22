@@ -1,33 +1,55 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::entities::session::{NewSession, Session, SessionId, SessionStatus};
+use crate::entities::project::ProjectId;
+use crate::entities::session::{Session, SessionId, SessionStatus, TitleSource};
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 use super::common::now_iso;
 
-/// Create a session in a project. When `draft.template_id` is set the session's
-/// launch spec is copied from the template; otherwise spec is empty.
-pub struct NewSessionCmd(pub NewSession);
+/// Create a session in a project. When `template_id` is set the session's launch
+/// spec is copied from the template; otherwise spec is empty.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewSessionCmd {
+    pub project_id: Option<String>,
+    pub title_source: String,
+    /// Required when `title_source == custom`; used as branch/agent-title otherwise.
+    pub title: Option<String>,
+    /// When set, the session's spec blob and version are copied from this template.
+    pub template_id: Option<String>,
+}
 
 impl Command<Ctx> for NewSessionCmd {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let draft = &self.0;
-        let project_id = draft.project_id.clone().ok_or(Error::Validation {
-            field: "project_id",
-            reason: "required".to_owned(),
-        })?;
+        let project_id = self
+            .project_id
+            .clone()
+            .map(ProjectId::new)
+            .ok_or(Error::Validation {
+                field: "project_id",
+                reason: "required".to_owned(),
+            })?;
 
-        let title = draft.title.clone().unwrap_or_default().trim().to_owned();
+        let title_source = match self.title_source.as_str() {
+            "branch" => TitleSource::Branch,
+            "both" => TitleSource::Both,
+            "custom" => TitleSource::Custom,
+            _ => TitleSource::AgentTitle,
+        };
 
-        let (spec_version, spec_json) = match &draft.template_id {
+        let title = self.title.clone().unwrap_or_default().trim().to_owned();
+
+        let (spec_version, spec_json) = match &self.template_id {
             Some(tid) => {
                 use crate::entities::launch_template::LaunchTemplateId;
                 use crate::infra::LaunchTemplateRepo;
-                let ltid = LaunchTemplateId::from_string(tid.as_str());
+                let ltid = LaunchTemplateId::from_string(tid);
                 let tmpl = LaunchTemplateRepo::get(cx.db(), &ltid)
                     .await?
-                    .ok_or_else(|| Error::LaunchTemplateNotFound(tid.as_str().to_owned()))?;
+                    .ok_or_else(|| Error::LaunchTemplateNotFound(tid.clone()))?;
                 (Some(tmpl.spec_version), Some(tmpl.spec_json))
             }
             None => (None, None),
@@ -37,7 +59,7 @@ impl Command<Ctx> for NewSessionCmd {
             id: SessionId::mint(),
             project_id,
             title,
-            title_source: draft.title_source,
+            title_source,
             created_at: now_iso(),
             spec_version,
             spec_json,
@@ -51,21 +73,20 @@ impl Command<Ctx> for NewSessionCmd {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::app::session::list_sessions_by_project::ListSessionsByProject;
-    use crate::app::session::test_util::{ctx, draft, unfiled};
-
-    use crate::shared::pagination::Page;
+    use crate::app::session::test_util::{ctx, draft_cmd, unfiled};
 
     // Scenario: A command mutates and returns nothing
     #[tokio::test]
     async fn new_session_creates_and_list_returns_it() {
         let (bus, _) = ctx().await;
-        bus.execute(NewSessionCmd(draft(unfiled()))).await.unwrap();
+        bus.execute(draft_cmd(unfiled())).await.unwrap();
         let listing = bus
             .query(ListSessionsByProject {
-                project_id: unfiled(),
-                page: Page::All,
+                project_id: unfiled().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();

@@ -1,22 +1,26 @@
-use crate::context::Ctx;
-use crate::entities::template::{Template, TemplateId};
-use crate::shared::{cqs::Query, Result};
+use serde::Deserialize;
 
-use super::common::{load_template, TemplateIndex};
+use crate::app::template::TemplateView;
+use crate::context::Ctx;
+use crate::shared::{message::Query, Result};
+
+use super::common::{load_template_view, TemplateIndex};
 
 /// Fetch one library template by id. Returns `None` if absent.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTemplateById {
-    pub id: TemplateId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetTemplateById {
-    type Out = Option<Template>;
+    type Out = Option<TemplateView>;
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         let index = TemplateIndex::load(cx.fs_root()).await?;
-        match index.entries.iter().find(|e| e.id == self.id.as_str()) {
+        match index.entries.iter().find(|e| e.id == self.id) {
             None => Ok(None),
-            Some(entry) => Ok(Some(load_template(cx.fs_root(), entry).await?)),
+            Some(entry) => Ok(Some(load_template_view(cx.fs_root(), entry).await?)),
         }
     }
 }
@@ -25,6 +29,7 @@ impl Query<Ctx> for GetTemplateById {
 mod tests {
     use super::*;
     use crate::app::template::test_util::*;
+    use crate::entities::template::TemplateId;
 
     use super::super::import_template::ImportTemplate;
     use super::super::list_templates::ListTemplates;
@@ -36,7 +41,7 @@ mod tests {
 
         let got = bus
             .query(GetTemplateById {
-                id: TemplateId::mint(),
+                id: TemplateId::mint().as_str().to_owned(),
             })
             .await
             .unwrap();

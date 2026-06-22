@@ -9,6 +9,8 @@
 //! custom rows untouched. The migration seeds the same rows; calling it again is a
 //! no-op.
 
+mod view;
+
 pub mod discard_command;
 pub mod duplicate_command;
 pub mod edit_command;
@@ -33,8 +35,9 @@ pub use pin_command::PinCommand;
 pub use rename_command::RenameCommand;
 pub use seed_commands::SeedCommands;
 pub use unpin_command::UnpinCommand;
+pub use view::CommandView;
 
-// ── guard ─────────────────────────────────────────────────────────────────────
+// -- guard ---------------------------------------------------------------------
 
 pub(crate) fn guard_not_prebuilt(
     cmd: &crate::entities::command::Command,
@@ -48,7 +51,7 @@ pub(crate) fn guard_not_prebuilt(
     }
 }
 
-// ── seed helper ───────────────────────────────────────────────────────────────
+// -- seed helper ---------------------------------------------------------------
 
 pub(crate) async fn seed_prebuilt(cx: &crate::context::Ctx) -> crate::shared::Result<()> {
     // The schema migration seeds login-shell; any prebuilt that should exist

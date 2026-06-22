@@ -2,7 +2,7 @@
 
 /// `ts` is event time in epoch milliseconds; `actions_json` is a JSON-encoded action
 /// list when present. `snooze_until` is epoch milliseconds; `None` means not snoozed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct NotificationRecord {
     pub id: String,
     pub category: String,

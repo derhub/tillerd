@@ -4,9 +4,11 @@
 //!
 //! Key rules from the design:
 //! - Single-write commands pass `cx.db()` directly (one statement is atomic).
-//! - Multi-repo cascades call `cx.transaction(|tx| …)` (commit / awaited rollback).
+//! - Multi-repo cascades call `cx.transaction(|tx| ...)` (commit / awaited rollback).
 //! - `ArchiveWorkspace` requires every session under it to be idle (no live surfaces).
 //! - The Default workspace cannot be archived or discarded.
+
+mod view;
 
 pub mod archive_workspace;
 pub mod discard_workspace;
@@ -34,3 +36,10 @@ pub use reorder_workspace::ReorderWorkspace;
 pub use restore_workspace::RestoreWorkspace;
 pub use stop_workspace_surfaces::StopWorkspaceSurfaces;
 pub use unpin_workspace::UnpinWorkspace;
+pub use view::WorkspaceView;
+
+/// The default workspace id as a primitive, for hosts that default a missing id
+/// without reaching the domain newtype.
+pub fn default_workspace_id() -> String {
+    crate::entities::WorkspaceId::default_id().as_str().to_string()
+}

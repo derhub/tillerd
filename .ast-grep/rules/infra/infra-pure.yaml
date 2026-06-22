@@ -1,0 +1,14 @@
+id: infra-pure
+language: Rust
+severity: error
+message: "Layer violation: infra/ must not depend on app/."
+note: |
+  Dependency direction is entities <- infra <- app: infra (repos, adapters, the
+  runtime port) may use entities, but never app/. If an adapter seems to need a
+  command/query, the call belongs in app/ (the handler drives the adapter), not the
+  other way round. infra exposes a port; app/ depends on the port, not vice versa.
+files:
+  - "**/infra/**"
+rule:
+  kind: use_declaration
+  regex: '^use\s+crate::app\b'

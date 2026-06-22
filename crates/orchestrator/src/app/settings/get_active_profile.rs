@@ -1,16 +1,23 @@
+use serde::Deserialize;
+
+use crate::app::settings::ProfileView;
 use crate::context::Ctx;
-use crate::infra::config::profile::Profile;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// The currently active profile. Returns `None` if not set.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetActiveProfile;
 
 impl Query<Ctx> for GetActiveProfile {
-    type Out = Option<Profile>;
+    type Out = Option<ProfileView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        ProfileStore::new(cx.fs_root()).get_active().await
+        Ok(ProfileStore::new(cx.fs_root())
+            .get_active()
+            .await?
+            .map(ProfileView))
     }
 }
 

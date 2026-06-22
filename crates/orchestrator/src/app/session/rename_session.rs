@@ -1,21 +1,26 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::session::SessionId;
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 /// Rename a session. Sets `title_source` to `Custom` so automatic titling
 /// does not override the user's choice.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RenameSession {
-    pub id: SessionId,
+    pub id: String,
     pub title: String,
 }
 
 impl Command<Ctx> for RenameSession {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut s = SessionRepo::get(cx.db(), &self.id)
+        let id = SessionId::from_string(&self.id);
+        let mut s = SessionRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::SessionNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::SessionNotFound(self.id.clone()))?;
         s.rename(&self.title);
         SessionRepo::update(cx.db(), &s).await
     }
@@ -26,7 +31,6 @@ mod tests {
     use super::*;
     use crate::app::session::get_session_by_id::GetSessionById;
     use crate::app::session::test_util::{create_one, ctx};
-    use crate::entities::session::TitleSource;
 
     // Scenario: Renaming a session marks its title as custom
     #[tokio::test]
@@ -43,7 +47,7 @@ mod tests {
 
         let s = bus.query(GetSessionById { id }).await.unwrap().unwrap();
         assert_eq!(s.title, "Renamed");
-        assert_eq!(s.title_source, TitleSource::Custom);
+        assert_eq!(s.title_source, "custom");
     }
 
     #[tokio::test]

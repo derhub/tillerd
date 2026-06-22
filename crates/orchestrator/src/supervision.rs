@@ -105,7 +105,7 @@ pub fn ensure_service(
 
 /// Poll until the draining process exits or the startup window elapses. No force-kill here: an
 /// instance with active sessions exits only when it idles or an explicit upgrade-now (SIGTERM)
-/// retires it (ADR-0029). If it has not exited by the deadline, the caller proceeds anyway — the
+/// retires it (ADR-0029). If it has not exited by the deadline, the caller proceeds anyway -- the
 /// fresh spawn surfaces an unavailable service rather than this blocking forever.
 fn wait_for_exit(probes: &impl Probes, pid: u32, timing: &SpawnTiming) {
     let deadline = Instant::now() + timing.startup_timeout;

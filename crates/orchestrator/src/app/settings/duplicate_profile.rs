@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Copy a profile under a new id and name. The copy is independent.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateProfile {
     pub source_id: String,
     pub new_id: String,
@@ -62,7 +66,7 @@ mod tests {
         .unwrap();
 
         let profiles = bus.query(ListProfiles).await.unwrap();
-        let copy = profiles.iter().find(|p| p.id == "copy").unwrap();
-        assert_eq!(copy.name, "Copy");
+        let copy = profiles.iter().find(|p| p.0.id == "copy").unwrap();
+        assert_eq!(copy.0.name, "Copy");
     }
 }

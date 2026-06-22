@@ -12,7 +12,7 @@ pub struct PutOptions {
 }
 
 impl PutOptions {
-    /// No TTL — entry lives until explicitly deleted or overwritten.
+    /// No TTL -- entry lives until explicitly deleted or overwritten.
     pub fn none() -> Self {
         PutOptions { ttl: None }
     }
@@ -36,7 +36,7 @@ pub trait Kv: Send + Sync + 'static {
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Vec<u8>>>> + Send;
 }
 
-// ── SqliteKv ─────────────────────────────────────────────────────────────────
+// -- SqliteKv -----------------------------------------------------------------
 
 /// Sqlite-backed key-value store. Requires a table created by the migration:
 ///
@@ -122,7 +122,7 @@ impl Kv for SqliteKv {
     }
 }
 
-// ── MemoryKv ──────────────────────────────────────────────────────────────────
+// -- MemoryKv ------------------------------------------------------------------
 
 struct Entry {
     value: Vec<u8>,
@@ -181,7 +181,7 @@ impl Kv for MemoryKv {
 mod tests {
     use super::*;
 
-    // ── MemoryKv contract tests ───────────────────────────────────────────────
+    // -- MemoryKv contract tests -----------------------------------------------
 
     // Scenario: round-trip by key
     #[tokio::test]
@@ -208,7 +208,7 @@ mod tests {
         assert_eq!(got, Some(b"v2".to_vec()));
     }
 
-    // Scenario: TTL — expired entry returns None
+    // Scenario: TTL -- expired entry returns None
     #[tokio::test]
     async fn memory_kv_expired_entry_returns_none() {
         let kv = MemoryKv::new();
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(got, Some(b"v".to_vec()));
     }
 
-    // ── SqliteKv contract tests ───────────────────────────────────────────────
+    // -- SqliteKv contract tests -----------------------------------------------
 
     // Scenario: round-trip by key
     #[tokio::test]
@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(got, Some(b"v2".to_vec()));
     }
 
-    // Scenario: TTL — expired entry returns None
+    // Scenario: TTL -- expired entry returns None
     #[tokio::test]
     async fn sqlite_kv_expired_entry_returns_none() {
         let kv = SqliteKv::in_memory().await.unwrap();

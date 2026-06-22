@@ -1,0 +1,10 @@
+id: comment-ascii-only-ts
+valid:
+    - "// plain ascii comment"
+    - "/* block ascii comment */"
+    - "const x = 1; // trailing ascii"
+invalid:
+    - "// em dash — here"
+    - "// section § marker"
+    - "/* curly “quote” */"
+    - "// emoji 😀"

@@ -1,20 +1,29 @@
+use serde::Deserialize;
+
+use crate::app::template::LaunchTemplateView;
 use crate::context::Ctx;
-use crate::entities::{LaunchTemplate, LaunchTemplateId, ProjectId};
-use crate::infra::LaunchTemplateRepo;
-use crate::shared::cqs::Query;
-use crate::shared::pagination::Page;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Fetch one launch template by id.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetLaunchTemplateById {
-    pub id: LaunchTemplateId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetLaunchTemplateById {
-    type Out = Option<LaunchTemplate>;
+    type Out = Option<LaunchTemplateView>;
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        LaunchTemplateRepo::get(cx.db(), &self.id).await
+        Ok(sqlx::query_as::<_, LaunchTemplateView>(
+            "SELECT id, project_id, spec_version, spec_json
+             FROM launch_template
+             WHERE id = ?",
+        )
+        .bind(&self.id)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }
 
@@ -22,6 +31,7 @@ impl Query<Ctx> for GetLaunchTemplateById {
 mod tests {
     use super::*;
     use crate::app::template::test_util::*;
+    use crate::entities::ProjectId;
 
     use super::super::list_launch_templates_by_project::ListLaunchTemplatesByProject;
     use super::super::new_launch_template_cmd::NewLaunchTemplateCmd;
@@ -32,7 +42,7 @@ mod tests {
         let (cx, bus) = ctx(&dir).await;
 
         bus.execute(NewLaunchTemplateCmd {
-            project_id: ProjectId::new(UNFILED),
+            project_id: ProjectId::new(UNFILED).as_str().to_owned(),
             spec_version: 1,
             spec_json: r#"{"items":[]}"#.to_owned(),
         })
@@ -41,8 +51,10 @@ mod tests {
 
         let listing = bus
             .query(ListLaunchTemplatesByProject {
-                project_id: ProjectId::new(UNFILED),
-                page: Page::All,
+                project_id: UNFILED.to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -60,11 +72,13 @@ mod tests {
         assert_eq!(tmpl.spec_version, 1);
         assert_eq!(tmpl.spec_json, r#"{"items":[]}"#);
 
-        // query wrote nothing — count still 1
+        // query wrote nothing -- count still 1
         let listing2 = bus
             .query(ListLaunchTemplatesByProject {
-                project_id: ProjectId::new(UNFILED),
-                page: Page::All,
+                project_id: UNFILED.to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();

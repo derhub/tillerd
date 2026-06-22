@@ -1,0 +1,98 @@
+id: message-dto-deserialize
+snapshots:
+  ? |
+    #[derive(Clone, Debug, Serialize)]
+    pub struct GetById {
+        pub id: String,
+    }
+    impl Query<Ctx> for GetById {}
+  : labels:
+    - source: |-
+        pub struct GetById {
+            pub id: String,
+        }
+      style: primary
+      start: 35
+      end: 77
+    - source: GetById
+      style: secondary
+      start: 46
+      end: 53
+    - source: impl Query<Ctx> for GetById {}
+      style: secondary
+      start: 78
+      end: 108
+    - source: |
+        #[derive(Clone, Debug, Serialize)]
+        pub struct GetById {
+            pub id: String,
+        }
+        impl Query<Ctx> for GetById {}
+      style: secondary
+      start: 0
+      end: 109
+  ? |
+    pub struct LaunchSession {
+        pub id: String,
+    }
+    impl Command<Ctx> for LaunchSession {
+        async fn handle(&self, cx: &Ctx) -> Result<()> {}
+    }
+  : labels:
+    - source: |-
+        pub struct LaunchSession {
+            pub id: String,
+        }
+      style: primary
+      start: 0
+      end: 48
+    - source: LaunchSession
+      style: secondary
+      start: 11
+      end: 24
+    - source: |-
+        impl Command<Ctx> for LaunchSession {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }
+      style: secondary
+      start: 49
+      end: 142
+    - source: |
+        pub struct LaunchSession {
+            pub id: String,
+        }
+        impl Command<Ctx> for LaunchSession {
+            async fn handle(&self, cx: &Ctx) -> Result<()> {}
+        }
+      style: secondary
+      start: 0
+      end: 143
+  ? |
+    pub struct ReadFile {
+        pub path: String,
+    }
+    impl Io<Ctx> for ReadFile {}
+  : labels:
+    - source: |-
+        pub struct ReadFile {
+            pub path: String,
+        }
+      style: primary
+      start: 0
+      end: 45
+    - source: ReadFile
+      style: secondary
+      start: 11
+      end: 19
+    - source: impl Io<Ctx> for ReadFile {}
+      style: secondary
+      start: 46
+      end: 74
+    - source: |
+        pub struct ReadFile {
+            pub path: String,
+        }
+        impl Io<Ctx> for ReadFile {}
+      style: secondary
+      start: 0
+      end: 75

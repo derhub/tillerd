@@ -1,10 +1,14 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::profile::Profile;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Import a profile from a serialized JSON bundle (the same format `ProfileStore` persists).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportProfile {
     pub profile_json: String,
 }

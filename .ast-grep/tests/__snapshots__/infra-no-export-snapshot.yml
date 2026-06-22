@@ -1,0 +1,32 @@
+id: infra-no-export
+snapshots:
+  pub mod infra;:
+    labels:
+    - source: pub mod infra;
+      style: primary
+      start: 0
+      end: 14
+  pub use crate::infra::migrate;:
+    labels:
+    - source: pub use crate::infra::migrate;
+      style: primary
+      start: 0
+      end: 30
+  pub use crate::infra::runtime::*;:
+    labels:
+    - source: pub use crate::infra::runtime::*;
+      style: primary
+      start: 0
+      end: 33
+  pub use crate::infra::runtime::SurfaceEventSink as Sink;:
+    labels:
+    - source: pub use crate::infra::runtime::SurfaceEventSink as Sink;
+      style: primary
+      start: 0
+      end: 56
+  pub use crate::infra::runtime::SurfaceEventSink;:
+    labels:
+    - source: pub use crate::infra::runtime::SurfaceEventSink;
+      style: primary
+      start: 0
+      end: 48

@@ -1,13 +1,13 @@
 //! CQS command/query objects for the config plane: settings, profiles, themes,
 //! and keybindings. All persistence is file-based via `shared::fs`; no sqlite.
 //!
-//! Stores are constructed on-demand from `cx.fs_root()` — they hold no internal
+//! Stores are constructed on-demand from `cx.fs_root()` -- they hold no internal
 //! cache and are cheap to build.
 //!
 //! Command-query separation is strict: commands mutate and return `()`, queries
 //! read and perform no write.
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// -- Settings ------------------------------------------------------------------
 mod apply_setting;
 mod get_setting;
 mod list_settings;
@@ -16,7 +16,7 @@ mod reset_setting;
 mod resolve_setting;
 mod resolve_settings;
 
-// ── Profiles ──────────────────────────────────────────────────────────────────
+// -- Profiles ------------------------------------------------------------------
 mod activate_profile;
 mod discard_profile;
 mod duplicate_profile;
@@ -27,7 +27,7 @@ mod list_profiles;
 mod new_profile;
 mod rename_profile;
 
-// ── Themes ────────────────────────────────────────────────────────────────────
+// -- Themes --------------------------------------------------------------------
 mod activate_theme;
 mod discard_theme;
 mod export_theme;
@@ -35,12 +35,16 @@ mod get_active_theme;
 mod import_theme;
 mod list_themes;
 
-// ── Keybindings ───────────────────────────────────────────────────────────────
+// -- Keybindings ---------------------------------------------------------------
 mod list_keybindings;
 mod rebind_key;
 mod reset_keybinding;
 mod reset_keybindings;
 mod resolve_keybinding;
+
+// -- Read DTOs -----------------------------------------------------------------
+mod common;
+mod view;
 
 #[cfg(test)]
 pub(crate) mod test_util;
@@ -72,3 +76,4 @@ pub use reset_setting::ResetSetting;
 pub use resolve_keybinding::ResolveKeybinding;
 pub use resolve_setting::ResolveSetting;
 pub use resolve_settings::ResolveSettings;
+pub use view::{KeybindingView, ProfileView, SettingView, ThemeView};

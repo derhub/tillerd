@@ -1,15 +1,13 @@
 //! Tauri bridge for surfaces. Bus commands (`spawn`/`close`) persist and coordinate
 //! through the managed `Bus<Ctx>`; the off-bus I/O channel (`input`/`resize`/
 //! `attach`/`detach`) forwards to the runtime port. The per-surface output
-//! `ipc::Channel` registry is shared with the runtime's `ChannelSink`. The wire —
-//! command names and argument shapes — is unchanged.
+//! `ipc::Channel` registry is shared with the runtime's `ChannelSink`. The wire --
+//! command names and argument shapes -- is unchanged.
 
 use orchestrator::app::surface::{
     attach_surface, resize_surface, send_surface_input, CloseSurface, DetachSurface,
-    FindSurfaceByPlacement, SpawnSurface,
+    FindSurfaceByPlacement, SpawnSurface, SurfaceId,
 };
-use orchestrator::entities::{SessionId, SurfaceId, SurfaceKind};
-use orchestrator::infra::runtime::Geometry;
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
 use tauri::{AppHandle, State};
@@ -33,18 +31,16 @@ pub async fn surface_create<R: tauri::Runtime>(
     rows: u16,
     cwd: Option<String>,
 ) -> Result<String, String> {
-    let session = SessionId::from_string(session_id);
-
     // Revisit: re-attach to the session's existing surface at this placement.
     if let Some(existing) = bus
         .query(FindSurfaceByPlacement {
-            session: session.clone(),
+            session: session_id.clone(),
             placement: placement.clone(),
         })
         .await
         .map_err(|e| e.to_string())?
     {
-        register_channel(&channels, existing.id.as_str(), channel.clone());
+        register_channel(&channels, &existing.id, channel.clone());
         // Drop any lingering proxy first so attach does a fresh subscribe (replays
         // scrollback) instead of an idempotent no-op.
         let _ = bus
@@ -52,48 +48,44 @@ pub async fn surface_create<R: tauri::Runtime>(
                 id: existing.id.clone(),
             })
             .await;
-        match attach_surface(bus.cx(), &existing.id).await {
-            Ok(()) => return Ok(existing.id.as_str().to_string()),
+        match attach_surface(bus.cx(), &SurfaceId::from_string(existing.id.clone())).await {
+            Ok(()) => return Ok(existing.id),
             Err(_) => {
-                unregister_channel(&channels, existing.id.as_str());
-                let _ = bus
-                    .execute(CloseSurface {
-                        id: existing.id.clone(),
-                    })
-                    .await;
+                unregister_channel(&channels, &existing.id);
+                let _ = bus.execute(CloseSurface { id: existing.id }).await;
             }
         }
     }
 
     // Spawn a fresh surface at this placement.
     bus.execute(SpawnSurface {
-        session: session.clone(),
-        kind: SurfaceKind::Terminal,
+        session: session_id.clone(),
+        kind: "terminal".to_string(),
         cwd,
         placement: Some(placement.clone()),
-        command: None,
-        geometry: Some(Geometry { cols, rows }),
+        cols: Some(cols),
+        rows: Some(rows),
     })
     .await
     .map_err(|e| e.to_string())?;
 
     let surface = bus
         .query(FindSurfaceByPlacement {
-            session: session.clone(),
+            session: session_id.clone(),
             placement,
         })
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "surface vanished after spawn".to_string())?;
 
-    let id = surface.id.as_str().to_string();
+    let id = surface.id;
     register_channel(&channels, &id, channel);
-    let _ = attach_surface(bus.cx(), &surface.id).await;
+    let _ = attach_surface(bus.cx(), &SurfaceId::from_string(id.clone())).await;
 
     notification_host::record(
         &app,
         &bus,
-        notification_host::surface_started(&id, session.as_str(), notification_host::now_ms()),
+        notification_host::surface_started(&id, &session_id, notification_host::now_ms()),
     )
     .await;
     Ok(id)
@@ -102,24 +94,26 @@ pub async fn surface_create<R: tauri::Runtime>(
 /// Spawn a surface in a session with a minted placement. Returns the surface id.
 #[tauri::command]
 pub async fn surface_spawn(bus: State<'_, Bus<Ctx>>, session_id: String) -> Result<String, String> {
-    let session = SessionId::from_string(session_id);
     let placement = uuid::Uuid::new_v4().to_string();
     bus.execute(SpawnSurface {
-        session: session.clone(),
-        kind: SurfaceKind::Terminal,
+        session: session_id.clone(),
+        kind: "terminal".to_string(),
         cwd: None,
         placement: Some(placement.clone()),
-        command: None,
-        geometry: None,
+        cols: None,
+        rows: None,
     })
     .await
     .map_err(|e| e.to_string())?;
     let surface = bus
-        .query(FindSurfaceByPlacement { session, placement })
+        .query(FindSurfaceByPlacement {
+            session: session_id,
+            placement,
+        })
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "surface vanished after spawn".to_string())?;
-    Ok(surface.id.as_str().to_string())
+    Ok(surface.id)
 }
 
 /// Close the surface bound to a session + placement: drop its output channel and
@@ -131,15 +125,17 @@ pub async fn surface_close(
     session_id: String,
     placement: String,
 ) -> Result<(), String> {
-    let session = SessionId::from_string(session_id);
     let Some(surface) = bus
-        .query(FindSurfaceByPlacement { session, placement })
+        .query(FindSurfaceByPlacement {
+            session: session_id,
+            placement,
+        })
         .await
         .map_err(|e| e.to_string())?
     else {
         return Ok(());
     };
-    unregister_channel(&channels, surface.id.as_str());
+    unregister_channel(&channels, &surface.id);
     bus.execute(CloseSurface { id: surface.id })
         .await
         .map_err(|e| e.to_string())
@@ -179,9 +175,7 @@ pub async fn surface_detach(
     surface_id: String,
 ) -> Result<(), String> {
     unregister_channel(&channels, &surface_id);
-    bus.execute(DetachSurface {
-        id: SurfaceId::from_string(surface_id),
-    })
-    .await
-    .map_err(|e| e.to_string())
+    bus.execute(DetachSurface { id: surface_id })
+        .await
+        .map_err(|e| e.to_string())
 }

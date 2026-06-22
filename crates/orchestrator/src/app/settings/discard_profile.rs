@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Delete a profile.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscardProfile {
     pub id: String,
 }

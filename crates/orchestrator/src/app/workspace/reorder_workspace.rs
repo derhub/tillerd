@@ -1,23 +1,25 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::workspace::WorkspaceId;
 use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Set a workspace's sort order. Single-write.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReorderWorkspace {
-    pub id: WorkspaceId,
+    pub id: String,
     pub sort_order: u32,
 }
 
 impl Command<Ctx> for ReorderWorkspace {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut ws = WorkspaceRepo::get(cx.db(), &self.id)
+        let id = WorkspaceId::new(&self.id);
+        let mut ws = WorkspaceRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::WorkspaceNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::WorkspaceNotFound(self.id.clone()))?;
         ws.sort_order = self.sort_order;
         WorkspaceRepo::update(cx.db(), &ws).await
     }
@@ -26,9 +28,7 @@ impl Command<Ctx> for ReorderWorkspace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::workspace::get_workspace_by_id::GetWorkspaceById;
     use crate::app::workspace::test_util::*;
-    use crate::shared::cqs::Query;
 
     // Scenario: Reorder sets sort_order.
     #[tokio::test]
@@ -36,19 +36,16 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-ord-1", "Orderable").await;
         ReorderWorkspace {
-            id: ws_id("ws-ord-1"),
+            id: "ws-ord-1".to_owned(),
             sort_order: 42,
         }
         .handle(&cx)
         .await
         .unwrap();
-        let ws = GetWorkspaceById {
-            id: ws_id("ws-ord-1"),
-        }
-        .handle(&cx)
-        .await
-        .unwrap()
-        .unwrap();
+        let ws = WorkspaceRepo::get(cx.db(), &ws_id("ws-ord-1"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(ws.sort_order, 42);
     }
 }

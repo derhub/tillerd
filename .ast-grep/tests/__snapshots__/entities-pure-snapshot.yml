@@ -1,0 +1,26 @@
+id: entities-pure
+snapshots:
+  use crate::app as a;:
+    labels:
+    - source: use crate::app as a;
+      style: primary
+      start: 0
+      end: 20
+  use crate::app::project::ProjectRepo;:
+    labels:
+    - source: use crate::app::project::ProjectRepo;
+      style: primary
+      start: 0
+      end: 37
+  use crate::infra::*;:
+    labels:
+    - source: use crate::infra::*;
+      style: primary
+      start: 0
+      end: 20
+  use crate::infra::project::ProjectRepo;:
+    labels:
+    - source: use crate::infra::project::ProjectRepo;
+      style: primary
+      start: 0
+      end: 39

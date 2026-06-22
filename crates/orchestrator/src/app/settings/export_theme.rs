@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ThemeStore;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Export a theme bundle as bytes. Returns `None` if not found.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportTheme {
     pub id: String,
 }
@@ -20,7 +24,7 @@ mod tests {
     use super::*;
     use crate::app::settings::import_theme::ImportTheme;
     use crate::app::settings::test_util::*;
-    use crate::infra::config::theme::{Theme, ThemeOrigin};
+    use crate::infra::config::theme::Theme;
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -29,12 +33,10 @@ mod tests {
         let bus = Bus::new(make_ctx(&dir).await);
 
         bus.execute(ImportTheme {
-            theme: Theme {
-                id: "t1".to_owned(),
-                name: "T1".to_owned(),
-                origin: ThemeOrigin::Custom,
-                data_json: Some(r#"{"color":"red"}"#.to_owned()),
-            },
+            id: "t1".to_owned(),
+            name: "T1".to_owned(),
+            origin: "custom".to_owned(),
+            data_json: Some(r#"{"color":"red"}"#.to_owned()),
         })
         .await
         .unwrap();

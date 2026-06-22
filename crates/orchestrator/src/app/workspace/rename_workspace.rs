@@ -1,23 +1,25 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::workspace::WorkspaceId;
 use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Rename a workspace. Trims whitespace; single-write.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RenameWorkspace {
-    pub id: WorkspaceId,
+    pub id: String,
     pub name: String,
 }
 
 impl Command<Ctx> for RenameWorkspace {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut ws = WorkspaceRepo::get(cx.db(), &self.id)
+        let id = WorkspaceId::new(&self.id);
+        let mut ws = WorkspaceRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::WorkspaceNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::WorkspaceNotFound(self.id.clone()))?;
         ws.rename(&self.name);
         WorkspaceRepo::update(cx.db(), &ws).await
     }
@@ -26,9 +28,7 @@ impl Command<Ctx> for RenameWorkspace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::workspace::get_workspace_by_id::GetWorkspaceById;
     use crate::app::workspace::test_util::*;
-    use crate::shared::cqs::Query;
 
     // Scenario: Rename mutates, returns nothing.
     #[tokio::test]
@@ -36,19 +36,16 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-ren-1", "Before").await;
         RenameWorkspace {
-            id: ws_id("ws-ren-1"),
+            id: "ws-ren-1".to_owned(),
             name: "After".to_owned(),
         }
         .handle(&cx)
         .await
         .unwrap();
-        let ws = GetWorkspaceById {
-            id: ws_id("ws-ren-1"),
-        }
-        .handle(&cx)
-        .await
-        .unwrap()
-        .unwrap();
+        let ws = WorkspaceRepo::get(cx.db(), &ws_id("ws-ren-1"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(ws.name, "After");
     }
 
@@ -57,19 +54,16 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-ren-2", "Old").await;
         RenameWorkspace {
-            id: ws_id("ws-ren-2"),
+            id: "ws-ren-2".to_owned(),
             name: "  Trimmed  ".to_owned(),
         }
         .handle(&cx)
         .await
         .unwrap();
-        let ws = GetWorkspaceById {
-            id: ws_id("ws-ren-2"),
-        }
-        .handle(&cx)
-        .await
-        .unwrap()
-        .unwrap();
+        let ws = WorkspaceRepo::get(cx.db(), &ws_id("ws-ren-2"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(ws.name, "Trimmed");
     }
 
@@ -77,7 +71,7 @@ mod tests {
     async fn rename_workspace_returns_err_for_missing_workspace() {
         let cx = ctx().await;
         let err = RenameWorkspace {
-            id: ws_id("no-such"),
+            id: "no-such".to_owned(),
             name: "X".to_owned(),
         }
         .handle(&cx)

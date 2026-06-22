@@ -1,11 +1,15 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::shared::cqs::Command as BusCommand;
+use crate::shared::message::Command as BusCommand;
 use crate::shared::Result;
 
 use super::seed_prebuilt;
 
 /// Upsert the built-in prebuilt commands. Idempotent: safe to call at boot
 /// even after the migration has already seeded the rows.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeedCommands;
 
 impl BusCommand<Ctx> for SeedCommands {
@@ -19,11 +23,9 @@ mod tests {
     use super::*;
     use crate::app::command::list_commands::ListCommands;
     use crate::app::command::test_util::*;
-    use crate::entities::command::CommandOrigin;
-    use crate::shared::pagination::Page;
     use crate::shared::Bus;
 
-    // ── Scenario: SeedCommands is idempotent ──────────────────────────────────
+    // -- Scenario: SeedCommands is idempotent ----------------------------------
 
     #[tokio::test]
     async fn seed_commands_is_idempotent() {
@@ -33,8 +35,10 @@ mod tests {
 
         let prebuilt = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Prebuilt),
-                page: Page::All,
+                origin: Some("prebuilt".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();

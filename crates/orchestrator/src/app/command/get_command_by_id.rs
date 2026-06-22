@@ -1,19 +1,29 @@
+use serde::Deserialize;
+
+use crate::app::command::CommandView;
 use crate::context::Ctx;
-use crate::entities::command::{Command, CommandId};
-use crate::infra::CommandRepo;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Fetch a single library command by id.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCommandById {
-    pub id: CommandId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetCommandById {
-    type Out = Option<Command>;
+    type Out = Option<CommandView>;
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        CommandRepo::get(cx.db(), &self.id).await
+        Ok(sqlx::query_as::<_, CommandView>(
+            "SELECT id, name, origin, cli, args_json, env_json
+             FROM command
+             WHERE id = ? AND deleted_at IS NULL",
+        )
+        .bind(&self.id)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }
 
@@ -23,14 +33,14 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // ── Scenario: query reads and does not mutate ─────────────────────────────
+    // -- Scenario: query reads and does not mutate -----------------------------
 
     #[tokio::test]
     async fn get_command_by_id_returns_none_for_absent_id() {
         let bus = Bus::new(ctx().await);
         let result = bus
             .query(GetCommandById {
-                id: CommandId::from_string("no-such-id"),
+                id: "no-such-id".to_owned(),
             })
             .await
             .unwrap();

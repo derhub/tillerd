@@ -1,18 +1,26 @@
+use serde::Deserialize;
+
+use crate::app::surface::SurfaceView;
 use crate::context::Ctx;
-use crate::entities::{Surface, SurfaceId};
-use crate::infra::SurfaceRepo;
-use crate::shared::cqs::Query;
 use crate::shared::errors::Result;
+use crate::shared::message::Query;
 
 /// One surface by id.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetSurfaceById {
-    pub id: SurfaceId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetSurfaceById {
-    type Out = Option<Surface>;
+    type Out = Option<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        SurfaceRepo::get(cx.db(), &self.id).await
+        Ok(sqlx::query_as::<_, SurfaceView>(
+            "SELECT id, session_id, kind, cwd, status, placement
+             FROM surface WHERE id = ?",
+        )
+        .bind(&self.id)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }

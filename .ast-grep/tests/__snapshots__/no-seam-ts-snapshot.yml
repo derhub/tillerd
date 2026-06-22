@@ -1,0 +1,20 @@
+id: no-seam-ts
+snapshots:
+  /* a seam joins them */:
+    labels:
+    - source: /* a seam joins them */
+      style: primary
+      start: 0
+      end: 23
+  // SEAM here:
+    labels:
+    - source: // SEAM here
+      style: primary
+      start: 0
+      end: 12
+  // the seam between modules:
+    labels:
+    - source: // the seam between modules
+      style: primary
+      start: 0
+      end: 27

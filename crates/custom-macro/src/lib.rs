@@ -1,4 +1,4 @@
-//! Core-owned proc-macros. `ErrorCode` reads a per-variant `#[error_code("…")]`
+//! Core-owned proc-macros. `ErrorCode` reads a per-variant `#[error_code("...")]`
 //! attribute and generates a `code(&self) -> &'static str` match. A variant
 //! missing the attribute is a compile error, so the registry stays complete.
 
@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Data, DeriveInput, Fields, LitStr};
 
-/// Derive `code(&self) -> &'static str` from a per-variant `#[error_code("…")]`.
+/// Derive `code(&self) -> &'static str` from a per-variant `#[error_code("...")]`.
 #[proc_macro_derive(ErrorCode, attributes(error_code))]
 pub fn derive_error_code(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

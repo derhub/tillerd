@@ -1,17 +1,22 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::template::TemplateId;
-use crate::shared::{cqs::Command, Result};
+use crate::shared::{message::Command, Result};
 
 use super::common::set_pinned;
 
 /// Pin a library template (pinned items sort first in `ListTemplates`).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PinTemplate {
-    pub id: TemplateId,
+    pub id: String,
 }
 
 impl Command<Ctx> for PinTemplate {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        set_pinned(cx, &self.id, true).await
+        let id = TemplateId::from_string(&self.id);
+        set_pinned(cx, &id, true).await
     }
 }
 

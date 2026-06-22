@@ -1,17 +1,25 @@
+use serde::Deserialize;
+
+use crate::app::project::ProjectView;
 use crate::context::Ctx;
-use crate::entities::project::{Project, ProjectId};
-use crate::infra::project::ProjectRepo;
 use crate::shared::{Query, Result};
 
 /// Fetch one project by id.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetProjectById {
-    pub id: ProjectId,
+    pub id: String,
 }
 
 impl Query<Ctx> for GetProjectById {
-    type Out = Option<Project>;
+    type Out = Option<ProjectView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        ProjectRepo::get(cx.db(), &self.id).await
+        Ok(sqlx::query_as::<_, ProjectView>(
+            "SELECT id, name, source_kind, root_path, workspace_id FROM project WHERE id = ?",
+        )
+        .bind(&self.id)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }
 
@@ -27,7 +35,7 @@ mod tests {
 
         let fetched = bus
             .query(GetProjectById {
-                id: project.id.clone(),
+                id: project.id.as_str().to_owned(),
             })
             .await
             .unwrap();
@@ -40,7 +48,7 @@ mod tests {
         let (_ctx, bus) = ctx().await;
         let result = bus
             .query(GetProjectById {
-                id: ProjectId::new("no-such-id"),
+                id: "no-such-id".to_owned(),
             })
             .await
             .unwrap();

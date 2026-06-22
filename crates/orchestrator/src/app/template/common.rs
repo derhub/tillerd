@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use crate::entities::template::{Template, TemplateId, TemplateOrigin};
+use crate::app::template::view::TemplateView;
+use crate::entities::template::TemplateId;
 use crate::shared::{self, Error, Result};
 
 pub(super) fn template_bundle_path(fs_root: &std::path::Path, id: &TemplateId) -> PathBuf {
@@ -11,7 +12,7 @@ pub(super) fn index_path(fs_root: &std::path::Path) -> PathBuf {
     fs_root.join("templates").join("index.json")
 }
 
-// ── index serialisation (serde only used inside this module, not on CQS structs) ──
+// -- index serialisation (serde only used inside this module, not on CQS structs) --
 
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 pub(super) struct TemplateIndex {
@@ -49,19 +50,21 @@ impl TemplateIndex {
     }
 }
 
-pub(super) async fn load_template(fs_root: &std::path::Path, entry: &IndexEntry) -> Result<Template> {
+/// Assemble a flat [`TemplateView`] from an index entry + its on-disk bundle.
+///
+/// Returns the serialisable read model rather than the domain entity (queries
+/// return Views, not entities).
+pub(super) async fn load_template_view(
+    fs_root: &std::path::Path,
+    entry: &IndexEntry,
+) -> Result<TemplateView> {
     let id = TemplateId::from_string(&entry.id);
     let path = template_bundle_path(fs_root, &id);
     let spec_json = shared::fs::read_string(&path).await?;
-    let origin = if entry.origin == "prebuilt" {
-        TemplateOrigin::Prebuilt
-    } else {
-        TemplateOrigin::Custom
-    };
-    Ok(Template {
-        id,
+    Ok(TemplateView {
+        id: entry.id.clone(),
         name: entry.name.clone(),
-        origin,
+        origin: entry.origin.clone(),
         pinned: entry.pinned,
         spec_version: entry.spec_version,
         spec_json,

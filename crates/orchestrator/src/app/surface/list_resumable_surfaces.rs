@@ -1,25 +1,25 @@
-use crate::context::Ctx;
-use crate::entities::Surface;
-use crate::shared::cqs::Query;
-use crate::shared::errors::Result;
+use serde::Deserialize;
 
-use super::common::row_to_surface;
+use crate::app::surface::SurfaceView;
+use crate::context::Ctx;
+use crate::shared::errors::Result;
+use crate::shared::message::Query;
 
 /// Surfaces eligible for resume: a kept record that is not live (idle/failed/pending).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListResumableSurfaces;
 
 impl Query<Ctx> for ListResumableSurfaces {
-    type Out = Vec<Surface>;
+    type Out = Vec<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        let rows = sqlx::query(
-            "SELECT id, session_id, kind, cwd, placement, status
+        Ok(sqlx::query_as::<_, SurfaceView>(
+            "SELECT id, session_id, kind, cwd, status, placement
              FROM surface WHERE status != 'live'
              ORDER BY created_at ASC",
         )
         .fetch_all(cx.db())
-        .await?;
-        rows.into_iter().map(row_to_surface).collect()
+        .await?)
     }
 }
 
@@ -27,7 +27,7 @@ impl Query<Ctx> for ListResumableSurfaces {
 mod tests {
     use super::*;
     use crate::app::surface::test_util::{harness, one_surface, seed_session, spawn};
-    use crate::entities::{NewSurface, SurfaceId, SurfaceKind, SurfaceStatus};
+    use crate::entities::{SessionId, SurfaceId, SurfaceKind, SurfaceStatus};
     use crate::infra::SurfaceRepo;
 
     // ListResumableSurfaces excludes live surfaces, includes stopped/idle ones
@@ -38,16 +38,14 @@ mod tests {
         h.bus.execute(spawn(&session)).await.unwrap();
         let live = one_surface(&h, &session).await;
 
-        // a second surface, stopped → idle, is resumable
+        // a second surface, stopped -> idle, is resumable
         SurfaceRepo::create(
             &h.pool,
-            &NewSurface {
-                id: Some(SurfaceId::from_string("idle-one")),
-                session_id: session.clone(),
-                kind: SurfaceKind::Terminal,
-                cwd: None,
-                placement: Some("slot-2".to_owned()),
-            },
+            Some("idle-one"),
+            &SessionId::from_string(&session),
+            SurfaceKind::Terminal,
+            None,
+            Some("slot-2"),
         )
         .await
         .unwrap();

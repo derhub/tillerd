@@ -1,30 +1,32 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::workspace::WorkspaceId;
 use crate::infra::{ProjectRepo, WorkspaceRepo};
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Hard-delete a workspace, reassigning its projects to Default first.
 /// The Default workspace itself cannot be discarded.
 /// Multi-repo: reassign + delete are atomic via a transaction.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscardWorkspace {
-    pub id: WorkspaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DiscardWorkspace {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let ws = WorkspaceRepo::get(cx.db(), &self.id)
+        let id = WorkspaceId::new(&self.id);
+        let ws = WorkspaceRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::WorkspaceNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::WorkspaceNotFound(self.id.clone()))?;
         ws.guard_not_default()?;
 
         let default = WorkspaceId::default_id();
         cx.transaction(async |tx| {
-            ProjectRepo::reassign_workspace(&mut **tx, &self.id, &default).await?;
-            WorkspaceRepo::delete(&mut **tx, &self.id).await
+            ProjectRepo::reassign_workspace(&mut **tx, &id, &default).await?;
+            WorkspaceRepo::delete(&mut **tx, &id).await
         })
         .await
     }
@@ -52,7 +54,7 @@ mod tests {
             .unwrap();
 
         DiscardWorkspace {
-            id: ws_id("ws-del-1"),
+            id: "ws-del-1".to_owned(),
         }
         .handle(&cx)
         .await
@@ -84,7 +86,7 @@ mod tests {
     async fn discard_default_workspace_is_rejected() {
         let cx = ctx().await;
         let err = DiscardWorkspace {
-            id: WorkspaceId::default_id(),
+            id: WorkspaceId::DEFAULT.to_owned(),
         }
         .handle(&cx)
         .await
@@ -100,7 +102,7 @@ mod tests {
         // leaves state unchanged.
         let cx = ctx().await;
         let err = DiscardWorkspace {
-            id: ws_id("ghost-ws"),
+            id: "ghost-ws".to_owned(),
         }
         .handle(&cx)
         .await

@@ -115,7 +115,7 @@ impl Daemon {
             });
         }
 
-        // Phase 1 — serve normally until drained.
+        // Phase 1 -- serve normally until drained.
         loop {
             tokio::select! {
                 accepted = listener.accept() => {
@@ -133,7 +133,7 @@ impl Daemon {
             }
         }
 
-        // Phase 2 — drained. Keep serving existing connections (subscribe/input/kill on active
+        // Phase 2 -- drained. Keep serving existing connections (subscribe/input/kill on active
         // sessions) and refuse new spawns, exiting cleanly once the last session ends. No timer
         // kills sessions: SIGTERM is the explicit upgrade-now pressure valve (ADR-0029, design D4).
         loop {
@@ -212,7 +212,7 @@ impl Daemon {
         }
     }
 
-    // Collect status transitions first, then send — the send borrow of `State`
+    // Collect status transitions first, then send -- the send borrow of `State`
     // cannot overlap the mutable iteration over sessions.
     fn sample_terminal_status(&self) {
         let mut st = self.state.lock().unwrap();
@@ -384,7 +384,7 @@ impl Daemon {
                         session.add_subscriber(conn_id, INITIAL_CREDIT);
                         st.sessions.insert(spawn.session_id.clone(), session);
                         // The daemon's session id is the surface id, which is the operation's
-                        // correlation id end to end — emit it so records join the orchestrator's
+                        // correlation id end to end -- emit it so records join the orchestrator's
                         // on the standardized `correlation_id` key (design D5).
                         tracing::info!(correlation_id = %spawn.session_id, pid = pid, "session spawned");
                         st.send_to(conn_id, encode_frame(&json!({ "type": "spawn-ack", "sessionId": spawn.session_id, "pid": pid }), None));
@@ -577,10 +577,10 @@ mod tests {
         );
     }
 
-    // ── daemon-session-subscription: consumer-oblivious scenarios ────────────
+    // -- daemon-session-subscription: consumer-oblivious scenarios ------------
 
     /// The daemon's subscribe path identifies sessions by id only. The `Subscribe`
-    /// frame carries no consumer identity, purpose, or callback — the daemon
+    /// frame carries no consumer identity, purpose, or callback -- the daemon
     /// never needs to know what kind of consumer is subscribing.
     #[test]
     fn subscribe_frame_carries_only_session_id_no_consumer_identity() {
@@ -595,7 +595,7 @@ mod tests {
         }
     }
 
-    /// The daemon's public surface — the hello-ack it sends after negotiation —
+    /// The daemon's public surface -- the hello-ack it sends after negotiation --
     /// advertises only PTY-level capabilities. It does not advertise any hook
     /// ingress, confirming the consumer-agnostic contract from ADR-0016.
     #[test]
@@ -610,10 +610,10 @@ mod tests {
         );
     }
 
-    // ── rust-pty-daemon: consumer-oblivious operation ─────────────────────────
+    // -- rust-pty-daemon: consumer-oblivious operation -------------------------
 
     /// The daemon's subscribe dispatch uses only the session id to route output.
-    /// No consumer type, callback, or identity participates in the path — the
+    /// No consumer type, callback, or identity participates in the path -- the
     /// daemon is consumer-oblivious: adding or removing a consumer type requires
     /// no change here.
     #[test]

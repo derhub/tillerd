@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ThemeStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Set the active theme.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActivateTheme {
     pub id: String,
 }
@@ -25,7 +29,6 @@ mod tests {
     use crate::app::settings::get_active_theme::GetActiveTheme;
     use crate::app::settings::import_theme::ImportTheme;
     use crate::app::settings::test_util::*;
-    use crate::infra::config::theme::{Theme, ThemeOrigin};
     use crate::shared::bus::Bus;
 
     #[tokio::test]
@@ -34,12 +37,10 @@ mod tests {
         let bus = Bus::new(make_ctx(&dir).await);
 
         bus.execute(ImportTheme {
-            theme: Theme {
-                id: "light".to_owned(),
-                name: "Light".to_owned(),
-                origin: ThemeOrigin::Prebuilt,
-                data_json: None,
-            },
+            id: "light".to_owned(),
+            name: "Light".to_owned(),
+            origin: "prebuilt".to_owned(),
+            data_json: None,
         })
         .await
         .unwrap();
@@ -51,7 +52,7 @@ mod tests {
         .unwrap();
 
         let active = bus.query(GetActiveTheme).await.unwrap();
-        assert_eq!(active.as_ref().map(|t| t.id.as_str()), Some("light"));
+        assert_eq!(active.as_ref().map(|t| t.0.id.as_str()), Some("light"));
     }
 
     #[tokio::test]

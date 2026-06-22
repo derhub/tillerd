@@ -1,0 +1,25 @@
+id: aggregate-entity-fromrow
+snapshots:
+  ? |
+    #[derive(Debug, Clone)]
+    pub struct Project { pub id: ProjectId, pub name: String }
+  : labels:
+    - source: 'pub struct Project { pub id: ProjectId, pub name: String }'
+      style: primary
+      start: 24
+      end: 82
+    - source: '{ pub id: ProjectId, pub name: String }'
+      style: secondary
+      start: 43
+      end: 82
+  ? |
+    pub struct Workspace { pub id: WorkspaceId, pub name: String }
+  : labels:
+    - source: 'pub struct Workspace { pub id: WorkspaceId, pub name: String }'
+      style: primary
+      start: 0
+      end: 62
+    - source: '{ pub id: WorkspaceId, pub name: String }'
+      style: secondary
+      start: 21
+      end: 62

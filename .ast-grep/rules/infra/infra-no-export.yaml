@@ -1,0 +1,23 @@
+id: infra-no-export
+language: Rust
+severity: error
+message: >-
+  infra/ is internal and must not be exported: no `pub use …infra…` re-export and no
+  `pub mod infra`. A public re-export makes an adapter/port reachable as
+  `orchestrator::app::…::Adapter`, defeating the boundary even if the module is private.
+  Surface what the host needs through an app-owned command, query, or public port.
+note: |
+  Don't re-export the adapter/port through a public edge — own the edge in app/:
+
+    // instead of: pub use crate::infra::runtime::SurfaceEventSink;   (now public surface)
+    use orchestrator::app::session::LaunchSession;   // app owns the public port
+
+  `pub(crate) use crate::infra::X;` and `pub(crate) mod infra;` are allowed — they keep
+  the item crate-private. The tree is green (lib.rs declares `pub(crate) mod infra;` and
+  no `pub use` of an infra item remains), so this is enforced (error).
+rule:
+  any:
+    - kind: use_declaration
+      regex: '^pub use\s+.*\binfra\b'
+    - kind: mod_item
+      regex: '^pub mod infra\b'

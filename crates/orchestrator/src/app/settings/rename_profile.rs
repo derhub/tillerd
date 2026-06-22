@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Rename an existing profile (updates its `name` field).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RenameProfile {
     pub id: String,
     pub new_name: String,
@@ -49,7 +53,7 @@ mod tests {
         .unwrap();
 
         let profiles = bus.query(ListProfiles).await.unwrap();
-        assert_eq!(profiles[0].name, "New");
+        assert_eq!(profiles[0].0.name, "New");
     }
 
     #[tokio::test]

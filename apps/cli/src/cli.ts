@@ -7,7 +7,7 @@ export interface ManifestData {
 
 /**
  * Everything the CLI touches, injected so the core is exercised against fixtures
- * and fakes — never the operator's real manifest file.
+ * and fakes -- never the operator's real manifest file.
  */
 export interface CliDeps {
   readManifest(): ManifestData | null;

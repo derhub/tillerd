@@ -13,7 +13,7 @@ function openPalette(b: Browser): Promise<void> {
   return b.execute(() => window.dispatchEvent(new CustomEvent("command-center:open")));
 }
 
-// Set a React controlled <select> and fire `change` — webdriverio selectBy* helpers do not reliably
+// Set a React controlled <select> and fire `change` -- webdriverio selectBy* helpers do not reliably
 // trigger React onChange under WKWebView.
 function selectValue(b: Browser, ariaLabel: string, value: string): Promise<void> {
   return b.execute(
@@ -47,7 +47,7 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
   // Lists chrome actions.
   await (await b.$("div*=View logs")).waitForExist({ timeout: 10_000 });
 
-  // Fuzzy filter to the logs action, then invoke it — the same handler View > Logs runs.
+  // Fuzzy filter to the logs action, then invoke it -- the same handler View > Logs runs.
   const input = await b.$('[data-testid="command-center-input"]');
   await input.click();
   await b.keys([..."logs"]);

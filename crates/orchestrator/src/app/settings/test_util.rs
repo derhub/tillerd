@@ -33,3 +33,9 @@ pub fn default_keys() -> HashMap<String, String> {
     m.insert("rename".to_owned(), "F2".to_owned());
     m
 }
+
+/// The default keymap serialized to the JSON-string wire form the keybinding
+/// command/query DTOs carry (`defaults_json`).
+pub fn default_keys_json() -> String {
+    serde_json::to_string(&default_keys()).unwrap()
+}

@@ -208,7 +208,7 @@ pub fn encode_list() -> Vec<u8> {
 }
 
 /// A decoded session-event frame: a handshake ack, raw output bytes, or a
-/// lifecycle event by session id. Consumer-oblivious — no hook plane.
+/// lifecycle event by session id. Consumer-oblivious -- no hook plane.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionFrame {
     /// The daemon's handshake reply.

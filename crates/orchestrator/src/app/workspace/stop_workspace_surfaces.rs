@@ -1,16 +1,16 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
-use crate::entities::workspace::WorkspaceId;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::Result;
 
 /// Stop every live surface under the workspace so it becomes idle (precondition
 /// for archive). Stops via the runtime port; no DB transaction is held across
 /// the runtime effect (D9).
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StopWorkspaceSurfaces {
-    pub id: WorkspaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for StopWorkspaceSurfaces {
@@ -25,7 +25,7 @@ impl Command<Ctx> for StopWorkspaceSurfaces {
              JOIN project p ON p.id = s.project_id
              WHERE p.workspace_id = ? AND sf.status = 'live'",
         )
-        .bind(self.id.as_str())
+        .bind(&self.id)
         .fetch_all(cx.db())
         .await?;
 
@@ -56,7 +56,7 @@ mod tests {
     #[tokio::test]
     async fn stop_workspace_surfaces_stops_all_live_surfaces() {
         use crate::entities::session::SessionId;
-        use crate::entities::surface::{NewSurface, SurfaceKind, SurfaceStatus};
+        use crate::entities::surface::{SurfaceKind, SurfaceStatus};
         use crate::infra::{SessionRepo, SurfaceRepo};
 
         let rt = Arc::new(FakeRuntime::new());
@@ -89,14 +89,16 @@ mod tests {
 
         // Create two live surfaces.
         for _ in 0..2 {
-            let new_surf = NewSurface {
-                id: None,
-                session_id: SessionId::from_string("sess-stop-1"),
-                kind: SurfaceKind::Terminal,
-                cwd: None,
-                placement: None,
-            };
-            let surface = SurfaceRepo::create(cx.db(), &new_surf).await.unwrap();
+            let surface = SurfaceRepo::create(
+                cx.db(),
+                None,
+                &SessionId::from_string("sess-stop-1"),
+                SurfaceKind::Terminal,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
             SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live)
                 .await
                 .unwrap();
@@ -104,7 +106,7 @@ mod tests {
         }
 
         StopWorkspaceSurfaces {
-            id: ws_id("ws-stop-1"),
+            id: "ws-stop-1".to_owned(),
         }
         .handle(&cx)
         .await

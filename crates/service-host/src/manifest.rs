@@ -1,7 +1,7 @@
 //! Atomic manifest: temp + rename prevents partial reads. Stale manifests are overwritten.
 //!
 //! The manifest is the single discovery source (ADR-0028, design D3): a client resolves a service
-//! by reading its manifest's `pid`, `version`, lifecycle `status`, and `socket_path` — no port
+//! by reading its manifest's `pid`, `version`, lifecycle `status`, and `socket_path` -- no port
 //! files, no socket scanning.
 
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ impl Manifest {
     }
 
     /// Write the full manifest payload via a temp file + atomic rename, so every read either
-    /// misses the file or parses a whole manifest — never a partial one.
+    /// misses the file or parses a whole manifest -- never a partial one.
     pub fn write_data(&self, data: &ManifestData) -> std::io::Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)?;

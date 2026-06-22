@@ -3,52 +3,12 @@
 //! or a shared transaction. Owns the `notification` table and the
 //! `Row -> NotificationRecord` mapping.
 
-use sqlx::{FromRow, SqliteExecutor};
+use sqlx::SqliteExecutor;
 
 use crate::entities::notification::NotificationRecord;
-use crate::shared::pagination::{Listing, Page};
 use crate::shared::{Error, Result};
 
-// ── Row type ─────────────────────────────────────────────────────────────────
-
-/// Raw column values as returned by sqlx. SQLite stores booleans as `INTEGER`
-/// (0/1) and optional timestamps as nullable `INTEGER`.
-#[derive(FromRow)]
-struct NotificationRow {
-    id: String,
-    category: String,
-    severity: String,
-    title: Option<String>,
-    message: String,
-    detail: Option<String>,
-    ts: i64,
-    session_id: Option<String>,
-    surface_id: Option<String>,
-    actions_json: Option<String>,
-    read: i64,
-    snooze_until: Option<i64>,
-}
-
-impl From<NotificationRow> for NotificationRecord {
-    fn from(r: NotificationRow) -> Self {
-        NotificationRecord {
-            id: r.id,
-            category: r.category,
-            severity: r.severity,
-            title: r.title,
-            message: r.message,
-            detail: r.detail,
-            ts: r.ts,
-            session_id: r.session_id,
-            surface_id: r.surface_id,
-            actions_json: r.actions_json,
-            read: r.read != 0,
-            snooze_until: r.snooze_until,
-        }
-    }
-}
-
-// ── Repository ────────────────────────────────────────────────────────────────
+// -- Repository ----------------------------------------------------------------
 
 pub struct NotificationRepo;
 
@@ -79,229 +39,21 @@ impl NotificationRepo {
         Ok(())
     }
 
-    /// Fetch one notification by id. Returns `None` when absent.
+    /// Fetch one notification by id. Returns `None` when absent. Used by command
+    /// paths that need a read-modify-write on the entity. `NotificationRecord`
+    /// derives `FromRow`, so the row decodes in one hop (SQLite `read` INTEGER -> `bool`).
     pub async fn get<'e>(
         exec: impl SqliteExecutor<'e>,
         id: &str,
     ) -> Result<Option<NotificationRecord>> {
-        let row = sqlx::query_as::<_, NotificationRow>(
+        Ok(sqlx::query_as::<_, NotificationRecord>(
             "SELECT id, category, severity, title, message, detail, ts,
                     session_id, surface_id, actions_json, read, snooze_until
              FROM notification WHERE id = ?",
         )
         .bind(id)
         .fetch_optional(exec)
-        .await?;
-        Ok(row.map(Into::into))
-    }
-
-    /// List all notifications ordered by `ts DESC`, with optional pagination.
-    pub async fn list<'e>(
-        exec: impl SqliteExecutor<'e>,
-        page: &Page,
-    ) -> Result<Listing<NotificationRecord>> {
-        match page {
-            Page::All => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification ORDER BY ts DESC",
-                )
-                .fetch_all(exec)
-                .await?;
-                Ok(Listing::new(
-                    rows.into_iter().map(Into::into).collect(),
-                    None,
-                ))
-            }
-
-            Page::Offset { limit, offset } => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification ORDER BY ts DESC LIMIT ? OFFSET ?",
-                )
-                .bind(*limit as i64 + 1)
-                .bind(*offset as i64)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    Some((*offset + *limit).to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-
-            Page::Cursor { after: None, limit } => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification ORDER BY ts DESC, id DESC LIMIT ?",
-                )
-                .bind(*limit as i64 + 1)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    items.last().map(|r| r.ts.to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-
-            Page::Cursor {
-                after: Some(cursor),
-                limit,
-            } => {
-                // Cursor is the `ts` of the last item on the previous page.
-                let cursor_ts: i64 = cursor.parse().map_err(|_| Error::Validation {
-                    field: "cursor",
-                    reason: "not a valid timestamp cursor".to_owned(),
-                })?;
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification WHERE ts < ?
-                     ORDER BY ts DESC, id DESC LIMIT ?",
-                )
-                .bind(cursor_ts)
-                .bind(*limit as i64 + 1)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    items.last().map(|r| r.ts.to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-        }
-    }
-
-    /// List only unread notifications (`read = 0`) ordered by `ts DESC`.
-    pub async fn list_unread<'e>(
-        exec: impl SqliteExecutor<'e>,
-        page: &Page,
-    ) -> Result<Listing<NotificationRecord>> {
-        match page {
-            Page::All => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification WHERE read = 0 ORDER BY ts DESC",
-                )
-                .fetch_all(exec)
-                .await?;
-                Ok(Listing::new(
-                    rows.into_iter().map(Into::into).collect(),
-                    None,
-                ))
-            }
-
-            Page::Offset { limit, offset } => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification WHERE read = 0 ORDER BY ts DESC LIMIT ? OFFSET ?",
-                )
-                .bind(*limit as i64 + 1)
-                .bind(*offset as i64)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    Some((*offset + *limit).to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-
-            Page::Cursor { after: None, limit } => {
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification WHERE read = 0 ORDER BY ts DESC, id DESC LIMIT ?",
-                )
-                .bind(*limit as i64 + 1)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    items.last().map(|r| r.ts.to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-
-            Page::Cursor {
-                after: Some(cursor),
-                limit,
-            } => {
-                let cursor_ts: i64 = cursor.parse().map_err(|_| Error::Validation {
-                    field: "cursor",
-                    reason: "not a valid timestamp cursor".to_owned(),
-                })?;
-                let rows = sqlx::query_as::<_, NotificationRow>(
-                    "SELECT id, category, severity, title, message, detail, ts,
-                            session_id, surface_id, actions_json, read, snooze_until
-                     FROM notification WHERE read = 0 AND ts < ?
-                     ORDER BY ts DESC, id DESC LIMIT ?",
-                )
-                .bind(cursor_ts)
-                .bind(*limit as i64 + 1)
-                .fetch_all(exec)
-                .await?;
-
-                let has_more = rows.len() > *limit as usize;
-                let items: Vec<NotificationRecord> = rows
-                    .into_iter()
-                    .take(*limit as usize)
-                    .map(Into::into)
-                    .collect();
-                let next = if has_more {
-                    items.last().map(|r| r.ts.to_string())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-        }
+        .await?)
     }
 
     /// Count unread notifications.
@@ -407,7 +159,7 @@ impl NotificationRepo {
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// -- Tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -452,7 +204,7 @@ mod tests {
         }
     }
 
-    // ── Scenario: round-trip ──────────────────────────────────────────────────
+    // -- Scenario: round-trip --------------------------------------------------
 
     #[tokio::test]
     async fn create_and_get_returns_the_same_record() {
@@ -470,7 +222,7 @@ mod tests {
         assert!(got.is_none());
     }
 
-    // ── Scenario: read and snooze round-trip ──────────────────────────────────
+    // -- Scenario: read and snooze round-trip ----------------------------------
 
     #[tokio::test]
     async fn read_flag_and_snooze_until_round_trip() {
@@ -487,7 +239,7 @@ mod tests {
         assert_eq!(got.snooze_until, Some(9_999_999));
     }
 
-    // ── Scenario: mark_read and count_unread ──────────────────────────────────
+    // -- Scenario: mark_read and count_unread ----------------------------------
 
     #[tokio::test]
     async fn mark_read_removes_record_from_unread_listing() {
@@ -507,11 +259,21 @@ mod tests {
         let after = NotificationRepo::count_unread(&pool).await.unwrap();
         assert_eq!(after, 1);
 
-        let unread = NotificationRepo::list_unread(&pool, &Page::All)
-            .await
-            .unwrap();
-        assert_eq!(unread.items.len(), 1);
-        assert_eq!(unread.items[0].id, "n4");
+        // n3 is now read; n4 is still unread.
+        assert!(
+            NotificationRepo::get(&pool, "n3")
+                .await
+                .unwrap()
+                .unwrap()
+                .read
+        );
+        assert!(
+            !NotificationRepo::get(&pool, "n4")
+                .await
+                .unwrap()
+                .unwrap()
+                .read
+        );
     }
 
     #[tokio::test]
@@ -534,7 +296,7 @@ mod tests {
         assert_eq!(count, 0);
     }
 
-    // ── Scenario: snooze ─────────────────────────────────────────────────────
+    // -- Scenario: snooze -----------------------------------------------------
 
     #[tokio::test]
     async fn snooze_sets_and_clears_snooze_until() {
@@ -563,7 +325,7 @@ mod tests {
         assert_eq!(err.code(), "notification.not_found");
     }
 
-    // ── Scenario: delete ─────────────────────────────────────────────────────
+    // -- Scenario: delete -----------------------------------------------------
 
     #[tokio::test]
     async fn delete_removes_the_record() {
@@ -590,82 +352,15 @@ mod tests {
             NotificationRepo::create(&pool, &sample(id)).await.unwrap();
         }
         NotificationRepo::delete_all(&pool).await.unwrap();
-        let listing = NotificationRepo::list(&pool, &Page::All).await.unwrap();
-        assert!(listing.items.is_empty());
-    }
-
-    // ── Scenario: list (pagination) ───────────────────────────────────────────
-
-    #[tokio::test]
-    async fn list_all_returns_records_ordered_by_ts_desc() {
-        let pool = memory_pool().await;
-        for (id, ts) in [("p1", 100i64), ("p2", 300), ("p3", 200)] {
-            NotificationRepo::create(&pool, &sample_at(id, ts))
-                .await
-                .unwrap();
+        // Every record is gone (all were unread).
+        let count = NotificationRepo::count_unread(&pool).await.unwrap();
+        assert_eq!(count, 0);
+        for id in ["x", "y", "z"] {
+            assert!(NotificationRepo::get(&pool, id).await.unwrap().is_none());
         }
-        let listing = NotificationRepo::list(&pool, &Page::All).await.unwrap();
-        let ids: Vec<&str> = listing.items.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["p2", "p3", "p1"]);
     }
 
-    #[tokio::test]
-    async fn offset_page_returns_bounded_slice_and_continuation() {
-        let pool = memory_pool().await;
-        for (id, ts) in [("o1", 10), ("o2", 20), ("o3", 30), ("o4", 40), ("o5", 50)] {
-            NotificationRepo::create(&pool, &sample_at(id, ts))
-                .await
-                .unwrap();
-        }
-        // ts DESC = [o5, o4, o3, o2, o1]
-        let page1 = NotificationRepo::list(&pool, &Page::offset(2, 0))
-            .await
-            .unwrap();
-        assert_eq!(page1.items.len(), 2);
-        assert_eq!(page1.items[0].id, "o5");
-        assert_eq!(page1.items[1].id, "o4");
-        assert!(page1.has_next());
-
-        let page2 = NotificationRepo::list(&pool, &Page::offset(2, 2))
-            .await
-            .unwrap();
-        assert_eq!(page2.items.len(), 2);
-        assert_eq!(page2.items[0].id, "o3");
-        assert!(page2.has_next());
-
-        let page3 = NotificationRepo::list(&pool, &Page::offset(2, 4))
-            .await
-            .unwrap();
-        assert_eq!(page3.items.len(), 1);
-        assert!(!page3.has_next());
-    }
-
-    #[tokio::test]
-    async fn cursor_page_from_start_returns_bounded_slice() {
-        let pool = memory_pool().await;
-        for (id, ts) in [("c1", 10), ("c2", 20), ("c3", 30)] {
-            NotificationRepo::create(&pool, &sample_at(id, ts))
-                .await
-                .unwrap();
-        }
-        let page1 = NotificationRepo::list(&pool, &Page::cursor_from_start(2))
-            .await
-            .unwrap();
-        assert_eq!(page1.items.len(), 2);
-        assert_eq!(page1.items[0].id, "c3");
-        assert_eq!(page1.items[1].id, "c2");
-        assert!(page1.has_next());
-
-        let next_cursor = page1.next.unwrap();
-        let page2 = NotificationRepo::list(&pool, &Page::cursor_after(&next_cursor, 2))
-            .await
-            .unwrap();
-        assert_eq!(page2.items.len(), 1);
-        assert_eq!(page2.items[0].id, "c1");
-        assert!(!page2.has_next());
-    }
-
-    // ── Scenario: retention cap ───────────────────────────────────────────────
+    // -- Scenario: retention cap -----------------------------------------------
 
     #[tokio::test]
     async fn prune_keeps_only_the_most_recent_n_records() {
@@ -682,10 +377,19 @@ mod tests {
                 .unwrap();
         }
         NotificationRepo::prune(&pool, 3).await.unwrap();
-        let listing = NotificationRepo::list(&pool, &Page::All).await.unwrap();
-        assert_eq!(listing.items.len(), 3);
-        let ids: Vec<&str> = listing.items.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["pr5", "pr4", "pr3"]);
+        // The 3 newest survive; the 2 oldest are pruned.
+        for id in ["pr5", "pr4", "pr3"] {
+            assert!(
+                NotificationRepo::get(&pool, id).await.unwrap().is_some(),
+                "{id} must survive prune"
+            );
+        }
+        for id in ["pr1", "pr2"] {
+            assert!(
+                NotificationRepo::get(&pool, id).await.unwrap().is_none(),
+                "{id} must be pruned"
+            );
+        }
     }
 
     #[tokio::test]
@@ -695,11 +399,13 @@ mod tests {
             .await
             .unwrap();
         NotificationRepo::prune(&pool, 100).await.unwrap();
-        let listing = NotificationRepo::list(&pool, &Page::All).await.unwrap();
-        assert_eq!(listing.items.len(), 1);
+        assert!(NotificationRepo::get(&pool, "only")
+            .await
+            .unwrap()
+            .is_some());
     }
 
-    // ── Scenario: multi-repo call on one tx is atomic ────────────────────────
+    // -- Scenario: multi-repo call on one tx is atomic ------------------------
 
     #[tokio::test]
     async fn two_repo_writes_on_one_tx_are_atomic_on_rollback() {
@@ -737,7 +443,7 @@ mod tests {
             .is_some());
     }
 
-    // ── Scenario: update on absent id returns not_found ───────────────────────
+    // -- Scenario: update on absent id returns not_found -----------------------
 
     #[tokio::test]
     async fn update_on_absent_id_returns_not_found() {

@@ -1,28 +1,35 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
-use crate::entities::command::{CommandId, CommandOrigin, NewCommand as NewCommandDraft};
+use crate::entities::command::{Command, CommandId, CommandOrigin};
 use crate::infra::CommandRepo;
-use crate::shared::cqs::Command as BusCommand;
+use crate::shared::message::Command as BusCommand;
 use crate::shared::{Error, Result};
 
 /// Clone a command as an editable `Custom` copy. Works on `Prebuilt` and `Custom`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateCommand {
-    pub id: CommandId,
+    pub id: String,
     pub name: String,
 }
 
 impl BusCommand<Ctx> for DuplicateCommand {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let src = CommandRepo::get(cx.db(), &self.id)
+        let id = CommandId::from_string(&self.id);
+        let src = CommandRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::CommandNotFound(self.id.as_str().to_owned()))?;
-        let draft = NewCommandDraft {
+            .ok_or_else(|| Error::CommandNotFound(self.id.clone()))?;
+        let copy = Command {
+            id: CommandId::mint(),
             name: self.name.clone(),
             origin: CommandOrigin::Custom,
             cli: src.cli,
             args: src.args,
             env: src.env,
+            pinned: false,
         };
-        CommandRepo::create(cx.db(), &draft).await?;
+        CommandRepo::create(cx.db(), &copy).await?;
         Ok(())
     }
 }
@@ -37,19 +44,19 @@ mod tests {
     use crate::app::command::new_command::NewCommand;
     use crate::app::command::rename_command::RenameCommand;
     use crate::app::command::test_util::*;
-    use crate::entities::command::CommandOrigin;
-    use crate::shared::pagination::Page;
     use crate::shared::Bus;
 
-    // ── Scenario: duplicate prebuilt yields editable custom ──────────────────
+    // -- Scenario: duplicate prebuilt yields editable custom ------------------
 
     #[tokio::test]
     async fn duplicate_command_makes_editable_custom_copy_of_prebuilt() {
         let bus = Bus::new(ctx().await);
         let prebuilt = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Prebuilt),
-                page: Page::All,
+                origin: Some("prebuilt".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()
@@ -67,8 +74,10 @@ mod tests {
 
         let copy = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Custom),
-                page: Page::All,
+                origin: Some("custom".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()
@@ -76,7 +85,7 @@ mod tests {
             .into_iter()
             .find(|c| c.name == "my-login-shell")
             .unwrap();
-        assert_eq!(copy.origin, CommandOrigin::Custom);
+        assert_eq!(copy.origin, "custom");
         assert_eq!(copy.cli, prebuilt.cli);
         assert_eq!(copy.args, prebuilt.args);
 
@@ -89,7 +98,7 @@ mod tests {
         .unwrap();
     }
 
-    // ── Scenario: duplicate custom yields independent copy ────────────────────
+    // -- Scenario: duplicate custom yields independent copy --------------------
 
     #[tokio::test]
     async fn duplicate_custom_command_is_independent_of_source() {
@@ -104,8 +113,10 @@ mod tests {
         .unwrap();
         let src_id = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Custom),
-                page: Page::All,
+                origin: Some("custom".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()
@@ -125,8 +136,10 @@ mod tests {
         // Rename the copy; source is unchanged.
         let copy_id = bus
             .query(ListCommands {
-                origin: Some(CommandOrigin::Custom),
-                page: Page::All,
+                origin: Some("custom".to_owned()),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap()

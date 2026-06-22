@@ -5,6 +5,7 @@
 //! `bus.execute`/`bus.query`. A command never re-dispatches through the bus.
 
 mod common;
+mod view;
 
 pub mod apply_launch_spec;
 pub mod archive_session;
@@ -50,3 +51,4 @@ pub use restore_session::RestoreSession;
 pub use search_sessions::SearchSessions;
 pub use stop_session_surfaces::StopSessionSurfaces;
 pub use unpin_session::UnpinSession;
+pub use view::{LaunchSpecView, SessionView};

@@ -4,7 +4,7 @@ import { ACTION, type ActionId } from "./ids";
 export type Accelerator = string;
 
 export interface Chord {
-  /** Cmd on macOS, Ctrl elsewhere — the two are unified for matching. */
+  /** Cmd on macOS, Ctrl elsewhere -- the two are unified for matching. */
   cmdOrCtrl: boolean;
   alt: boolean;
   shift: boolean;
@@ -91,7 +91,7 @@ export function isPresetName(value: unknown): value is PresetName {
 
 /**
  * Built-in baselines. `default` binds every static action; `vim` / `vscode` / `tmux` map the wired
- * actions in their own flavor and extend as actions are added. Single chords only — multi-key
+ * actions in their own flavor and extend as actions are added. Single chords only -- multi-key
  * sequences are out of scope for this milestone.
  */
 export const PRESETS: Record<PresetName, Partial<Record<ActionId, Accelerator>>> = {
@@ -137,7 +137,7 @@ export function parseOverrides(raw: string): Overrides {
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object") return parsed as Overrides;
   } catch {
-    // malformed — start from none
+    // malformed -- start from none
   }
   return {};
 }

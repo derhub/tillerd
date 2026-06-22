@@ -1,0 +1,13 @@
+id: entities-pure
+language: Rust
+severity: error
+message: "Layer violation: entities/ must not depend on app/ or infra/."
+note: |
+  Entities are the pure domain model — they depend on neither app/ nor infra/.
+  Dependency direction is entities <- infra <- app. If an entity seems to need a
+  repo or a use case, the logic belongs in app/ (a command/query), not the entity.
+files:
+  - "**/entities/**"
+rule:
+  kind: use_declaration
+  regex: '^use\s+crate::(app|infra)\b'

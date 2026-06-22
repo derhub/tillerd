@@ -7,7 +7,7 @@ use service_host::host::{run, ServeContext, Service, ServiceConfig};
 use service_host::manifest::{Manifest, ServiceStatus};
 use service_host::paths::Paths;
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// -- helpers ------------------------------------------------------------------
 
 fn temp_base(tag: &str) -> String {
     let nanos = std::time::SystemTime::now()
@@ -17,10 +17,10 @@ fn temp_base(tag: &str) -> String {
     format!("/tmp/sh-sc-{tag}-{}-{nanos}", std::process::id())
 }
 
-// ── Tool starts via the host entry point ─────────────────────────────────────
+// -- Tool starts via the host entry point -------------------------------------
 
 /// The host resolves resource paths, writes the manifest, and invokes the
-/// tool's serve behavior — in that order.
+/// tool's serve behavior -- in that order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Step {
     PathsResolved,
@@ -77,7 +77,7 @@ async fn tool_starts_via_the_host_entry_point() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Paths derived from the base directory ────────────────────────────────────
+// -- Paths derived from the base directory ------------------------------------
 
 #[tokio::test]
 async fn paths_derived_from_the_base_directory() {
@@ -101,7 +101,7 @@ async fn paths_derived_from_the_base_directory() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Base-directory override respected ────────────────────────────────────────
+// -- Base-directory override respected ----------------------------------------
 
 #[tokio::test]
 async fn base_directory_override_respected() {
@@ -120,7 +120,7 @@ async fn base_directory_override_respected() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Manifest written atomically on start ─────────────────────────────────────
+// -- Manifest written atomically on start -------------------------------------
 
 struct ManifestWitnessService {
     config: ServiceConfig,
@@ -166,7 +166,7 @@ async fn manifest_written_atomically_on_start() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Manifest removed on clean stop ───────────────────────────────────────────
+// -- Manifest removed on clean stop -------------------------------------------
 
 struct NopService {
     config: ServiceConfig,
@@ -199,7 +199,7 @@ async fn manifest_removed_on_clean_stop() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Graceful shutdown on signal ───────────────────────────────────────────────
+// -- Graceful shutdown on signal -----------------------------------------------
 
 /// Signal-driven shutdown: SIGTERM races `serve`; the host shuts down, cleans
 /// up the manifest, and exits. Requires a live process (self-signals), so this
@@ -267,7 +267,7 @@ async fn graceful_shutdown_on_signal() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// ── Drain signal flips the service to draining ───────────────────────────────
+// -- Drain signal flips the service to draining -------------------------------
 
 /// SIGUSR2 mid-serve flips the manifest status to `Draining` while serve keeps
 /// running, so active work can finish before exit. Requires a live process

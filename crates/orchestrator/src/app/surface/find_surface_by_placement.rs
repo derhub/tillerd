@@ -1,21 +1,29 @@
+use serde::Deserialize;
+
+use crate::app::surface::SurfaceView;
 use crate::context::Ctx;
-use crate::entities::session::SessionId;
-use crate::entities::Surface;
-use crate::infra::SurfaceRepo;
-use crate::shared::cqs::Query;
 use crate::shared::errors::Result;
+use crate::shared::message::Query;
 
 /// The surface bound to a session + placement slot.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FindSurfaceByPlacement {
-    pub session: SessionId,
+    pub session: String,
     pub placement: String,
 }
 
 impl Query<Ctx> for FindSurfaceByPlacement {
-    type Out = Option<Surface>;
+    type Out = Option<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
-        SurfaceRepo::find_by_placement(cx.db(), &self.session, &self.placement).await
+        Ok(sqlx::query_as::<_, SurfaceView>(
+            "SELECT id, session_id, kind, cwd, status, placement
+             FROM surface WHERE session_id = ? AND placement = ?",
+        )
+        .bind(&self.session)
+        .bind(&self.placement)
+        .fetch_optional(cx.db())
+        .await?)
     }
 }
 

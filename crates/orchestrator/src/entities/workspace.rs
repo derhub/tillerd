@@ -1,11 +1,12 @@
-//! Workspace aggregate: the top of the tree. Strict containment — every project
+//! Workspace aggregate: the top of the tree. Strict containment -- every project
 //! belongs to exactly one workspace.
 
 use serde::{Deserialize, Serialize};
 
 use crate::shared::{Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct WorkspaceId(String);
 
 impl WorkspaceId {
@@ -30,7 +31,8 @@ impl WorkspaceId {
 }
 
 /// Whether the workspace is active or archived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum WorkspaceStatus {
     #[default]
     Active,
@@ -46,7 +48,7 @@ impl WorkspaceStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Workspace {
     pub id: WorkspaceId,
     pub name: String,
@@ -87,12 +89,6 @@ impl Workspace {
             Ok(())
         }
     }
-}
-
-/// Parameters for creating a new workspace.
-#[derive(Debug, Clone)]
-pub struct NewWorkspace {
-    pub name: String,
 }
 
 #[cfg(test)]

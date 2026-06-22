@@ -12,7 +12,7 @@ function definedTokens(css: string): Set<string> {
 }
 
 describe("theme tokens", () => {
-  // Spec: ui-shell — "Light mode renders from token counterparts".
+  // Spec: ui-shell -- "Light mode renders from token counterparts".
   test("light mode renders from token counterparts", () => {
     const dir = import.meta.dir;
     const dark = definedTokens(readFileSync(join(dir, "dark-2026.css"), "utf8"));

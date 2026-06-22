@@ -1,23 +1,25 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::workspace::{WorkspaceId, WorkspaceStatus};
 use crate::infra::WorkspaceRepo;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Restore an archived workspace. Rejected if it is not archived.
 /// Single-write (workspace row only; children are not auto-restored).
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestoreWorkspace {
-    pub id: WorkspaceId,
+    pub id: String,
 }
 
 impl Command<Ctx> for RestoreWorkspace {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut ws = WorkspaceRepo::get(cx.db(), &self.id)
+        let id = WorkspaceId::new(&self.id);
+        let mut ws = WorkspaceRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::WorkspaceNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::WorkspaceNotFound(self.id.clone()))?;
         ws.guard_archived()?;
         ws.status = WorkspaceStatus::Active;
         WorkspaceRepo::update(cx.db(), &ws).await
@@ -37,14 +39,14 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-restore-1", "Restorable").await;
         ArchiveWorkspace {
-            id: ws_id("ws-restore-1"),
+            id: "ws-restore-1".to_owned(),
         }
         .handle(&cx)
         .await
         .unwrap();
 
         RestoreWorkspace {
-            id: ws_id("ws-restore-1"),
+            id: "ws-restore-1".to_owned(),
         }
         .handle(&cx)
         .await
@@ -63,7 +65,7 @@ mod tests {
         let cx = ctx().await;
         insert_workspace(&cx, "ws-restore-active", "Active").await;
         let err = RestoreWorkspace {
-            id: ws_id("ws-restore-active"),
+            id: "ws-restore-active".to_owned(),
         }
         .handle(&cx)
         .await

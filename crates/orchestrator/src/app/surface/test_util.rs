@@ -2,13 +2,11 @@ use std::sync::Arc;
 
 use sqlx::SqlitePool;
 
+use crate::app::surface::SurfaceView;
 use crate::context::Ctx;
-use crate::entities::session::SessionId;
-use crate::entities::{Surface, SurfaceKind};
 use crate::infra::migrate;
 use crate::infra::runtime::FakeRuntime;
 use crate::shared::kv::SqliteKv;
-use crate::shared::pagination::Page;
 use crate::shared::Bus;
 
 use super::list_surfaces_by_session::ListSurfacesBySession;
@@ -38,7 +36,8 @@ pub(crate) async fn harness() -> Harness {
     }
 }
 
-pub(crate) async fn seed_session(pool: &SqlitePool, id: &str) -> SessionId {
+/// Seed a session row and return its id as the primitive the surface DTOs carry.
+pub(crate) async fn seed_session(pool: &SqlitePool, id: &str) -> String {
     sqlx::query("INSERT INTO session (id, project_id, title) VALUES (?, ?, ?)")
         .bind(id)
         .bind("00000000-0000-0000-0000-000000000000")
@@ -46,25 +45,27 @@ pub(crate) async fn seed_session(pool: &SqlitePool, id: &str) -> SessionId {
         .execute(pool)
         .await
         .expect("seed session");
-    SessionId::from_string(id)
+    id.to_owned()
 }
 
-pub(crate) fn spawn(session: &SessionId) -> SpawnSurface {
+pub(crate) fn spawn(session: &str) -> SpawnSurface {
     SpawnSurface {
-        session: session.clone(),
-        kind: SurfaceKind::Terminal,
+        session: session.to_owned(),
+        kind: "terminal".to_owned(),
         cwd: Some("/work".to_owned()),
         placement: Some("main".to_owned()),
-        command: None,
-        geometry: None,
+        cols: None,
+        rows: None,
     }
 }
 
-pub(crate) async fn one_surface(h: &Harness, session: &SessionId) -> Surface {
+pub(crate) async fn one_surface(h: &Harness, session: &str) -> SurfaceView {
     h.bus
         .query(ListSurfacesBySession {
-            session: session.clone(),
-            page: Page::All,
+            session: session.to_owned(),
+            limit: None,
+            offset: None,
+            after: None,
         })
         .await
         .unwrap()

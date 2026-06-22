@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::context::Ctx;
 use crate::infra::NotificationRepo;
-use crate::shared::cqs::Query;
+use crate::shared::message::Query;
 use crate::shared::Result;
 
 /// Count of unread notifications (badge count).
@@ -21,30 +21,17 @@ impl Query<Ctx> for CountUnreadNotifications {
 mod tests {
     use super::*;
     use crate::app::notification::mark_notification_read::MarkNotificationRead;
-    use crate::app::notification::record_notification::RecordNotification;
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // ── Scenario: count unread reflects only unread ───────────────────────────
+    // -- Scenario: count unread reflects only unread ---------------------------
 
     #[tokio::test]
     async fn count_unread_reflects_only_unread_records() {
         let bus = Bus::new(test_ctx().await);
-        bus.execute(RecordNotification {
-            notification: sample("u1"),
-        })
-        .await
-        .unwrap();
-        bus.execute(RecordNotification {
-            notification: sample("u2"),
-        })
-        .await
-        .unwrap();
-        bus.execute(RecordNotification {
-            notification: sample("u3"),
-        })
-        .await
-        .unwrap();
+        bus.execute(record_cmd("u1")).await.unwrap();
+        bus.execute(record_cmd("u2")).await.unwrap();
+        bus.execute(record_cmd("u3")).await.unwrap();
 
         bus.execute(MarkNotificationRead { id: "u1".into() })
             .await

@@ -8,75 +8,16 @@
 use sqlx::{AssertSqlSafe, SqliteExecutor};
 
 use crate::entities::project::ProjectId;
-use crate::entities::session::{Session, SessionId, SessionStatus, TitleSource};
+use crate::entities::session::{Session, SessionId, SessionStatus};
 use crate::shared::pagination::{Listing, Page};
 use crate::shared::Result;
 
-// ── Row ───────────────────────────────────────────────────────────────────────
+// -- repository ----------------------------------------------------------------
 
-struct SessionRow {
-    id: String,
-    project_id: String,
-    title: String,
-    title_source: String,
-    spec_version: Option<i64>,
-    spec_json: Option<String>,
-    sort_order: i64,
-    pinned: i64,
-    archived_at: Option<String>,
-    created_at: String,
-}
-
-impl<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> for SessionRow {
-    fn from_row(row: &'r sqlx::sqlite::SqliteRow) -> sqlx::Result<Self> {
-        use sqlx::Row;
-        Ok(SessionRow {
-            id: row.try_get("id")?,
-            project_id: row.try_get("project_id")?,
-            title: row.try_get("title")?,
-            title_source: row.try_get("title_source")?,
-            spec_version: row.try_get("spec_version")?,
-            spec_json: row.try_get("spec_json")?,
-            sort_order: row.try_get("sort_order")?,
-            pinned: row.try_get("pinned")?,
-            archived_at: row.try_get("archived_at")?,
-            created_at: row.try_get("created_at")?,
-        })
-    }
-}
-
-impl From<SessionRow> for Session {
-    fn from(r: SessionRow) -> Self {
-        let title_source = match r.title_source.as_str() {
-            "branch" => TitleSource::Branch,
-            "both" => TitleSource::Both,
-            "custom" => TitleSource::Custom,
-            _ => TitleSource::AgentTitle,
-        };
-        let status = if r.archived_at.is_some() {
-            SessionStatus::Archived
-        } else {
-            SessionStatus::Active
-        };
-        Session {
-            id: SessionId::from_string(r.id),
-            project_id: ProjectId::new(r.project_id),
-            title: r.title,
-            title_source,
-            created_at: r.created_at,
-            spec_version: r.spec_version.map(|v| v as u32),
-            spec_json: r.spec_json,
-            sort_order: r.sort_order as u32,
-            pinned: r.pinned != 0,
-            status,
-        }
-    }
-}
-
-// ── repository ────────────────────────────────────────────────────────────────
-
+/// Entity projection: maps straight onto `Session` (status derived from `archived_at`).
 const SELECT: &str = "SELECT id, project_id, title, title_source, spec_version, spec_json,
-                             sort_order, pinned, archived_at, created_at
+                             sort_order, pinned, created_at,
+                             CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                       FROM session";
 
 /// Stateless repository for the `session` table.
@@ -106,19 +47,21 @@ impl SessionRepo {
     }
 
     /// Fetch one session by id. Returns `None` if absent.
+    ///
+    /// Used by command read-modify-write paths; maps straight onto the `Session`
+    /// entity with `status` derived from `archived_at` in the SELECT.
     pub async fn get<'e>(exec: impl SqliteExecutor<'e>, id: &SessionId) -> Result<Option<Session>> {
-        let row: Option<SessionRow> =
-            sqlx::query_as(AssertSqlSafe(format!("{SELECT} WHERE id = ?")))
+        Ok(
+            sqlx::query_as::<_, Session>(AssertSqlSafe(format!("{SELECT} WHERE id = ?")))
                 .bind(id.as_str())
                 .fetch_optional(exec)
-                .await?;
-        Ok(row.map(Session::from))
+                .await?,
+        )
     }
 
-    /// List sessions for a project, pinned-first then by sort_order.
-    ///
-    /// `Page::Cursor` uses keyset pagination; the cursor is the `id` of the
-    /// last seen row (looked up via a subquery for stable ordering).
+    /// List sessions for a project as typed entities. A command-path helper for the
+    /// project aggregate (archive/duplicate/stop cascade over their child sessions);
+    /// read endpoints project straight to `SessionView` in the app layer instead.
     pub async fn list<'e>(
         exec: impl SqliteExecutor<'e>,
         project_id: &ProjectId,
@@ -129,16 +72,15 @@ impl SessionRepo {
 
         match page {
             Page::All => {
-                let rows: Vec<SessionRow> =
+                let items: Vec<Session> =
                     sqlx::query_as(AssertSqlSafe(format!("{SELECT} {where_parent} {order}")))
                         .bind(project_id.as_str())
                         .fetch_all(exec)
                         .await?;
-                let items = rows.into_iter().map(Session::from).collect();
                 Ok(Listing::new(items, None))
             }
             Page::Offset { limit, offset } => {
-                let rows: Vec<SessionRow> = sqlx::query_as(AssertSqlSafe(format!(
+                let items: Vec<Session> = sqlx::query_as(AssertSqlSafe(format!(
                     "{SELECT} {where_parent} {order} LIMIT ? OFFSET ?"
                 )))
                 .bind(project_id.as_str())
@@ -146,15 +88,11 @@ impl SessionRepo {
                 .bind(offset as i64)
                 .fetch_all(exec)
                 .await?;
-                let items = rows.into_iter().map(Session::from).collect();
                 Ok(Listing::new(items, None))
             }
             Page::Cursor { after, limit } => {
-                // Fetch limit+1 to detect whether a next page exists without a
-                // COUNT query. If we get more than limit rows back, a next page
-                // exists; we truncate to limit before returning.
                 let fetch_n = limit as i64 + 1;
-                let rows: Vec<SessionRow> = if let Some(cursor) = after {
+                let rows: Vec<Session> = if let Some(cursor) = after {
                     sqlx::query_as(AssertSqlSafe(format!(
                         "WITH anchor AS (
                              SELECT pinned, sort_order FROM session WHERE id = ?
@@ -185,81 +123,7 @@ impl SessionRepo {
                     .await?
                 };
                 let has_more = rows.len() > limit as usize;
-                let items: Vec<Session> = rows
-                    .into_iter()
-                    .take(limit as usize)
-                    .map(Session::from)
-                    .collect();
-                let next = if has_more {
-                    items.last().map(|s| s.id.as_str().to_owned())
-                } else {
-                    None
-                };
-                Ok(Listing::new(items, next))
-            }
-        }
-    }
-
-    /// List ALL sessions across every project, pinned-first then by sort_order.
-    /// The sidebar groups sessions by project, so it loads them in one call.
-    pub async fn list_all<'e>(
-        exec: impl SqliteExecutor<'e>,
-        page: Page,
-    ) -> Result<Listing<Session>> {
-        let order = "ORDER BY pinned DESC, sort_order ASC, id ASC";
-        match page {
-            Page::All => {
-                let rows: Vec<SessionRow> =
-                    sqlx::query_as(AssertSqlSafe(format!("{SELECT} {order}")))
-                        .fetch_all(exec)
-                        .await?;
-                let items = rows.into_iter().map(Session::from).collect();
-                Ok(Listing::new(items, None))
-            }
-            Page::Offset { limit, offset } => {
-                let rows: Vec<SessionRow> =
-                    sqlx::query_as(AssertSqlSafe(format!("{SELECT} {order} LIMIT ? OFFSET ?")))
-                        .bind(limit as i64)
-                        .bind(offset as i64)
-                        .fetch_all(exec)
-                        .await?;
-                let items = rows.into_iter().map(Session::from).collect();
-                Ok(Listing::new(items, None))
-            }
-            Page::Cursor { after, limit } => {
-                let fetch_n = limit as i64 + 1;
-                let rows: Vec<SessionRow> = if let Some(cursor) = after {
-                    sqlx::query_as(AssertSqlSafe(format!(
-                        "WITH anchor AS (
-                             SELECT pinned, sort_order FROM session WHERE id = ?
-                         )
-                         {SELECT}
-                         WHERE (pinned < (SELECT pinned FROM anchor)
-                                OR (pinned = (SELECT pinned FROM anchor)
-                                    AND sort_order > (SELECT sort_order FROM anchor))
-                                OR (pinned = (SELECT pinned FROM anchor)
-                                    AND sort_order = (SELECT sort_order FROM anchor)
-                                    AND id > ?))
-                         {order}
-                         LIMIT ?"
-                    )))
-                    .bind(&cursor)
-                    .bind(&cursor)
-                    .bind(fetch_n)
-                    .fetch_all(exec)
-                    .await?
-                } else {
-                    sqlx::query_as(AssertSqlSafe(format!("{SELECT} {order} LIMIT ?")))
-                        .bind(fetch_n)
-                        .fetch_all(exec)
-                        .await?
-                };
-                let has_more = rows.len() > limit as usize;
-                let items: Vec<Session> = rows
-                    .into_iter()
-                    .take(limit as usize)
-                    .map(Session::from)
-                    .collect();
+                let items: Vec<Session> = rows.into_iter().take(limit as usize).collect();
                 let next = if has_more {
                     items.last().map(|s| s.id.as_str().to_owned())
                 } else {
@@ -328,19 +192,6 @@ impl SessionRepo {
         Ok(())
     }
 
-    /// Search sessions by title using a sqlite LIKE filter.
-    /// Returns all sessions whose title contains `query` (case-insensitive).
-    pub async fn search<'e>(exec: impl SqliteExecutor<'e>, query: &str) -> Result<Vec<Session>> {
-        let pattern = format!("%{}%", query);
-        let rows: Vec<SessionRow> = sqlx::query_as(AssertSqlSafe(format!(
-            "{SELECT} WHERE title LIKE ? ORDER BY pinned DESC, sort_order ASC, id ASC"
-        )))
-        .bind(pattern)
-        .fetch_all(exec)
-        .await?;
-        Ok(rows.into_iter().map(Session::from).collect())
-    }
-
     /// Read the panel-tree geometry blob for a session.
     pub async fn get_panel_tree<'e>(
         exec: impl SqliteExecutor<'e>,
@@ -369,11 +220,12 @@ impl SessionRepo {
     }
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────
+// -- tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::session::TitleSource;
     use crate::infra::migrate;
 
     fn unfiled() -> ProjectId {
@@ -419,130 +271,6 @@ mod tests {
             .await
             .unwrap();
         assert!(got.is_none());
-    }
-
-    // Scenario: Children are found by parent id
-    #[tokio::test]
-    async fn list_filters_by_project_id() {
-        let pool = migrate::open_memory().await.unwrap();
-        let unfiled_pid = unfiled();
-
-        // Insert a second project under the seeded Default workspace.
-        sqlx::query("INSERT INTO project (id, workspace_id, name) VALUES (?, ?, ?)")
-            .bind("proj-other")
-            .bind("00000000-0000-0000-0000-000000000001")
-            .bind("Other")
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        let other_pid = ProjectId::new("proj-other");
-
-        let s1 = make_session("s-f-1", &unfiled_pid, 0);
-        let s2 = make_session("s-f-2", &unfiled_pid, 1);
-        let s_other = make_session("s-f-other", &other_pid, 0);
-
-        SessionRepo::create(&pool, &s1).await.unwrap();
-        SessionRepo::create(&pool, &s2).await.unwrap();
-        SessionRepo::create(&pool, &s_other).await.unwrap();
-
-        let listing = SessionRepo::list(&pool, &unfiled_pid, Page::All)
-            .await
-            .unwrap();
-        let ids: Vec<&str> = listing.items.iter().map(|s| s.id.as_str()).collect();
-
-        assert!(ids.contains(&"s-f-1"));
-        assert!(ids.contains(&"s-f-2"));
-        assert!(!ids.contains(&"s-f-other"));
-    }
-
-    // Scenario: A pinned item sorts ahead of unpinned
-    #[tokio::test]
-    async fn list_returns_pinned_first() {
-        let pool = migrate::open_memory().await.unwrap();
-        let pid = unfiled();
-
-        let unpinned = make_session("s-unpinned", &pid, 0);
-        let pinned = Session {
-            pinned: true,
-            sort_order: 99, // high sort_order; pinned flag dominates
-            ..make_session("s-pinned", &pid, 99)
-        };
-
-        SessionRepo::create(&pool, &unpinned).await.unwrap();
-        SessionRepo::create(&pool, &pinned).await.unwrap();
-
-        let listing = SessionRepo::list(&pool, &pid, Page::All).await.unwrap();
-        assert_eq!(listing.items[0].id.as_str(), "s-pinned");
-        assert_eq!(listing.items[1].id.as_str(), "s-unpinned");
-    }
-
-    // Scenario: Offset pagination
-    #[tokio::test]
-    async fn list_offset_respects_limit_and_offset() {
-        let pool = migrate::open_memory().await.unwrap();
-        let pid = unfiled();
-        for i in 0u32..5 {
-            SessionRepo::create(&pool, &make_session(&format!("s-off-{i}"), &pid, i))
-                .await
-                .unwrap();
-        }
-
-        let page1 = SessionRepo::list(&pool, &pid, Page::offset(2, 0))
-            .await
-            .unwrap();
-        assert_eq!(page1.items.len(), 2);
-        assert_eq!(page1.items[0].sort_order, 0);
-        assert_eq!(page1.items[1].sort_order, 1);
-
-        let page2 = SessionRepo::list(&pool, &pid, Page::offset(2, 2))
-            .await
-            .unwrap();
-        assert_eq!(page2.items.len(), 2);
-        assert_eq!(page2.items[0].sort_order, 2);
-        assert_eq!(page2.items[1].sort_order, 3);
-    }
-
-    // Scenario: A bounded cursor page returns a continuation cursor
-    #[tokio::test]
-    async fn list_cursor_returns_next_when_more_remain() {
-        let pool = migrate::open_memory().await.unwrap();
-        let pid = unfiled();
-        for i in 0u32..4 {
-            SessionRepo::create(&pool, &make_session(&format!("s-cur-{i}"), &pid, i))
-                .await
-                .unwrap();
-        }
-
-        let page1 = SessionRepo::list(&pool, &pid, Page::cursor_from_start(2))
-            .await
-            .unwrap();
-        assert_eq!(page1.items.len(), 2);
-        assert!(page1.next.is_some(), "should have a continuation cursor");
-
-        let cursor = page1.next.unwrap();
-        let page2 = SessionRepo::list(&pool, &pid, Page::cursor_after(cursor, 2))
-            .await
-            .unwrap();
-        assert_eq!(page2.items.len(), 2);
-        assert!(page2.next.is_none(), "last page has no cursor");
-    }
-
-    #[tokio::test]
-    async fn list_cursor_last_page_has_no_next() {
-        let pool = migrate::open_memory().await.unwrap();
-        let pid = unfiled();
-        for i in 0u32..3 {
-            SessionRepo::create(&pool, &make_session(&format!("s-last-{i}"), &pid, i))
-                .await
-                .unwrap();
-        }
-
-        let listing = SessionRepo::list(&pool, &pid, Page::cursor_from_start(10))
-            .await
-            .unwrap();
-        assert_eq!(listing.items.len(), 3);
-        assert!(listing.next.is_none());
     }
 
     // Scenario: update persists mutable fields
@@ -637,10 +365,8 @@ mod tests {
             tx.commit().await.unwrap();
         }
 
-        let listing = SessionRepo::list(&pool, &pid, Page::All).await.unwrap();
-        let ids: Vec<&str> = listing.items.iter().map(|s| s.id.as_str()).collect();
-        assert!(ids.contains(&"s-tx-1"));
-        assert!(ids.contains(&"s-tx-2"));
+        assert!(SessionRepo::get(&pool, &s1.id).await.unwrap().is_some());
+        assert!(SessionRepo::get(&pool, &s2.id).await.unwrap().is_some());
     }
 
     #[tokio::test]

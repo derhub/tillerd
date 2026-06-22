@@ -122,7 +122,7 @@ pub fn recency_boost(now: i64, ts: i64) -> f32 {
 
 /// Escape FTS5 query terms: wrap each bare token in quotes (so arbitrary user
 /// input can't trigger an FTS5 syntax error) and OR them together, so recall is
-/// forgiving — any matching term contributes rather than requiring all of them.
+/// forgiving -- any matching term contributes rather than requiring all of them.
 pub fn sanitize_match(q: &str) -> String {
     q.split_whitespace()
         .filter(|t| !t.is_empty())

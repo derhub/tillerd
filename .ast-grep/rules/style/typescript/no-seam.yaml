@@ -1,0 +1,9 @@
+id: no-seam-ts
+language: TypeScript
+severity: error
+message: >-
+  Banned word "seam" in a comment. Use a precise alternative: boundary, interface,
+  edge, or joint.
+rule:
+  kind: comment
+  regex: '(?i)\bseam\b'

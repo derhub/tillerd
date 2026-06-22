@@ -319,7 +319,7 @@ mod tests {
         assert_eq!(map["c"], r#""pc""#);
     }
 
-    // Scenario: external config edit is picked up (no caching — reads from disk each call)
+    // Scenario: external config edit is picked up (no caching -- reads from disk each call)
     #[tokio::test]
     async fn external_edit_is_reflected_on_next_read() {
         let dir = TempDir::new().unwrap();

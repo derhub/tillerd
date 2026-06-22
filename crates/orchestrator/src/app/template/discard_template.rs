@@ -1,12 +1,16 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::template::TemplateId;
-use crate::shared::{self, cqs::Command, Error, Result};
+use crate::shared::{self, message::Command, Error, Result};
 
 use super::common::{template_bundle_path, TemplateIndex};
 
 /// Remove a custom template from the library. Rejects Prebuilt templates.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscardTemplate {
-    pub id: TemplateId,
+    pub id: String,
 }
 
 impl Command<Ctx> for DiscardTemplate {
@@ -15,8 +19,8 @@ impl Command<Ctx> for DiscardTemplate {
         let pos = index
             .entries
             .iter()
-            .position(|e| e.id == self.id.as_str())
-            .ok_or_else(|| Error::TemplateNotFound(self.id.as_str().to_owned()))?;
+            .position(|e| e.id == self.id)
+            .ok_or_else(|| Error::TemplateNotFound(self.id.clone()))?;
 
         if index.entries[pos].origin == "prebuilt" {
             return Err(Error::PrebuiltImmutable { kind: "template" });
@@ -63,7 +67,9 @@ mod tests {
         std::fs::write(index_path(dir.path()), s).unwrap();
 
         let err = bus
-            .execute(DiscardTemplate { id: id.clone() })
+            .execute(DiscardTemplate {
+                id: id.as_str().to_owned(),
+            })
             .await
             .unwrap_err();
 
@@ -104,7 +110,7 @@ mod tests {
 
         let err = bus
             .execute(DiscardTemplate {
-                id: TemplateId::mint(),
+                id: TemplateId::mint().as_str().to_owned(),
             })
             .await
             .unwrap_err();

@@ -26,7 +26,7 @@ use supervisor::SupervisorState;
 
 /// The app's real `Context` (config, embedded frontend, resolved ACL). `generate_context!` may
 /// expand only once per binary, so this single call is shared by `run()` and the command-contract
-/// test — the test needs the real ACL (the bundled `default.json`) to drive commands through the
+/// test -- the test needs the real ACL (the bundled `default.json`) to drive commands through the
 /// live IPC path, which a `mock_context` (empty ACL) cannot do.
 fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
@@ -76,7 +76,7 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             // Shutdown is bound to app exit (ExitRequested fires only when the LAST window closes),
-            // never per-window-close — so closing a parent window while a detached child remains
+            // never per-window-close -- so closing a parent window while a detached child remains
             // open leaves the owned daemon running (roadmap 0.0.11, desktop-shell spec).
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 supervisor::shutdown_owned(&app_handle.state::<SupervisorState>());

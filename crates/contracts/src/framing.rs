@@ -3,7 +3,7 @@
 //! payload bytes.
 //!
 //! The codec is payload-agnostic: it frames opaque bytes and never inspects,
-//! validates, or transforms them — the payload encoding is the caller's concern.
+//! validates, or transforms them -- the payload encoding is the caller's concern.
 //! It is also runtime-free: the async stream adapters (reading or writing one
 //! frame over an async socket) stay with each face that owns a runtime, built on
 //! the [`encode_frame`] and [`MAX_FRAME_SIZE`] defined here.
@@ -24,7 +24,7 @@ pub fn encode_frame(payload: &[u8]) -> Vec<u8> {
     out
 }
 
-/// One complete frame's payload bytes. A frame carries only an opaque payload —
+/// One complete frame's payload bytes. A frame carries only an opaque payload --
 /// there is no raw body plane on this wire.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawFrame {

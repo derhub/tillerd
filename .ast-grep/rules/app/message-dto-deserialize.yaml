@@ -1,0 +1,40 @@
+id: message-dto-deserialize
+message: Message DTO (Command/Query/Io) must derive Deserialize so the tauri
+  transport can bind the invoke payload straight into it (no per-command arg
+  plumbing). Add `#[derive(Deserialize)]` (and `#[serde(rename_all = "camelCase")]`).
+severity: error
+language: Rust
+note: |
+  Derive Deserialize so the transport binds the invoke payload directly:
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MoveProject {
+        pub id: String,
+        pub workspace_id: String,
+    }
+
+    // transport shim collapses to: fn(dto: MoveProject, bus) { bus.execute(dto) }
+files:
+  - "**/app/**"
+rule:
+  kind: struct_item
+  all:
+    - has:
+        field: name
+        pattern: $STRUCT
+    - not:
+        follows:
+          kind: attribute_item
+          regex: Deserialize
+          stopBy:
+            not:
+              kind: attribute_item
+    - inside:
+        kind: source_file
+        has:
+          kind: impl_item
+          any:
+            - pattern: impl Command<Ctx> for $STRUCT { $$$ }
+            - pattern: impl Query<Ctx> for $STRUCT { $$$ }
+            - pattern: impl Io<Ctx> for $STRUCT { $$$ }

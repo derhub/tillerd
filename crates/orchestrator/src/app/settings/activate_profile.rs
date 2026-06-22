@@ -1,9 +1,13 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::infra::config::ProfileStore;
-use crate::shared::cqs::Command;
+use crate::shared::message::Command;
 use crate::shared::{Error, Result};
 
 /// Switch the active profile.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActivateProfile {
     pub id: String,
 }
@@ -58,7 +62,7 @@ mod tests {
         .unwrap();
 
         let active = bus.query(GetActiveProfile).await.unwrap();
-        assert_eq!(active.as_ref().map(|p| p.id.as_str()), Some("p2"));
+        assert_eq!(active.as_ref().map(|p| p.0.id.as_str()), Some("p2"));
     }
 
     #[tokio::test]

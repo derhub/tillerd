@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use super::project::ProjectId;
 use crate::shared::{Error, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct SessionId(String);
 
 impl SessionId {
@@ -23,7 +24,8 @@ impl SessionId {
 }
 
 /// How a session's display title is derived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "kebab-case")]
 pub enum TitleSource {
     /// Populated when the agent reports a title on completion.
     #[default]
@@ -48,7 +50,8 @@ impl TitleSource {
 }
 
 /// Whether the session is active or archived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type)]
+#[sqlx(rename_all = "snake_case")]
 pub enum SessionStatus {
     #[default]
     Active,
@@ -64,7 +67,7 @@ impl SessionStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct Session {
     pub id: SessionId,
     pub project_id: ProjectId,
@@ -116,17 +119,6 @@ impl Session {
             Ok(())
         }
     }
-}
-
-/// Parameters for creating a new session.
-#[derive(Debug, Clone, Default)]
-pub struct NewSession {
-    pub project_id: Option<ProjectId>,
-    pub title_source: TitleSource,
-    /// Required when `title_source == Custom`; used as branch/agent-title for other strategies.
-    pub title: Option<String>,
-    /// When supplied, the session's spec blob and version are copied atomically from this template.
-    pub template_id: Option<super::launch_template::LaunchTemplateId>,
 }
 
 #[cfg(test)]

@@ -1,0 +1,10 @@
+id: entities-pure
+valid:
+    - "use crate::shared::Result;"
+    - "use crate::entities::workspace::WorkspaceId;"
+    - "use crate::application::Foo;"
+invalid:
+    - "use crate::app::project::ProjectRepo;"
+    - "use crate::infra::project::ProjectRepo;"
+    - "use crate::infra::*;"
+    - "use crate::app as a;"

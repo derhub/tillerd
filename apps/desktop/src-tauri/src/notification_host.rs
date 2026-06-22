@@ -1,14 +1,14 @@
 //! User-facing notification feed (roadmap 0.0.10). Derives notifications from the lifecycle
 //! signals the desktop host already receives, persists them in the orchestrator store
 //! (ADR-0031), and pushes them to the renderer over [`NOTIFICATION_EVENT`]. Additive: no
-//! orchestrator-core seam changes. The builders are pure so the derivation is unit-tested
+//! orchestrator-core boundary changes. The builders are pure so the derivation is unit-tested
 //! without a running app.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use orchestrator::app::notification::{ListNotifications, PruneNotifications, RecordNotification};
-use orchestrator::entities::NotificationRecord;
-use orchestrator::shared::pagination::Page;
+use orchestrator::app::notification::{
+    ListNotifications, NotificationView, PruneNotifications, RecordNotification,
+};
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
 use serde::Serialize;
@@ -67,8 +67,8 @@ impl NotificationWire {
         self
     }
 
-    fn to_record(&self) -> NotificationRecord {
-        NotificationRecord {
+    fn to_record_cmd(&self) -> RecordNotification {
+        RecordNotification {
             id: self.id.clone(),
             category: self.category.clone(),
             severity: self.severity.clone(),
@@ -84,17 +84,17 @@ impl NotificationWire {
         }
     }
 
-    fn from_record(rec: NotificationRecord) -> Self {
+    fn from_view(view: NotificationView) -> Self {
         Self {
-            id: rec.id,
-            category: rec.category,
-            severity: rec.severity,
-            title: rec.title,
-            message: rec.message,
-            detail: rec.detail,
-            ts: rec.ts,
-            session_id: rec.session_id,
-            surface_id: rec.surface_id,
+            id: view.id,
+            category: view.category,
+            severity: view.severity,
+            title: view.title,
+            message: view.message,
+            detail: view.detail,
+            ts: view.ts,
+            session_id: view.session_id,
+            surface_id: view.surface_id,
         }
     }
 }
@@ -106,7 +106,7 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-// ── builders (pure) ───────────────────────────────────────────────────────
+// -- builders (pure) -------------------------------------------------------
 
 pub fn surface_started(surface_id: &str, session_id: &str, ts: i64) -> NotificationWire {
     NotificationWire::new(
@@ -144,16 +144,12 @@ pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> Notifi
     }
 }
 
-// ── sink ──────────────────────────────────────────────────────────────────
+// -- sink ------------------------------------------------------------------
 
 /// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
 /// Best-effort: a store or emit error never blocks the originating lifecycle event.
 pub async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
-    let _ = bus
-        .execute(RecordNotification {
-            notification: wire.to_record(),
-        })
-        .await;
+    let _ = bus.execute(wire.to_record_cmd()).await;
     let _ = bus.execute(PruneNotifications { keep: MAX_HISTORY }).await;
     let _ = app.emit(NOTIFICATION_EVENT, wire);
 }
@@ -169,17 +165,16 @@ pub fn emit_only<R: tauri::Runtime>(app: &AppHandle<R>, wire: NotificationWire) 
 pub async fn notifications_list(bus: State<'_, Bus<Ctx>>) -> Result<Vec<NotificationWire>, String> {
     let listing = bus
         .query(ListNotifications {
-            page: Page::Offset {
-                offset: 0,
-                limit: HISTORY_LOAD,
-            },
+            limit: Some(HISTORY_LOAD),
+            offset: Some(0),
+            after: None,
         })
         .await
         .map_err(|e| e.to_string())?;
     Ok(listing
         .items
         .into_iter()
-        .map(NotificationWire::from_record)
+        .map(NotificationWire::from_view)
         .collect())
 }
 

@@ -1,15 +1,19 @@
 use std::path::PathBuf;
 
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::template::TemplateId;
-use crate::shared::{self, cqs::Command, Error, Result};
+use crate::shared::{self, message::Command, Error, Result};
 
 use super::common::{template_bundle_path, TemplateIndex};
 
 /// Write a copy of a template bundle to an export destination path.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExportTemplate {
-    pub id: TemplateId,
-    pub dest_path: PathBuf,
+    pub id: String,
+    pub dest_path: String,
 }
 
 impl Command<Ctx> for ExportTemplate {
@@ -18,11 +22,11 @@ impl Command<Ctx> for ExportTemplate {
         let entry = index
             .entries
             .iter()
-            .find(|e| e.id == self.id.as_str())
-            .ok_or_else(|| Error::TemplateNotFound(self.id.as_str().to_owned()))?;
+            .find(|e| e.id == self.id)
+            .ok_or_else(|| Error::TemplateNotFound(self.id.clone()))?;
         let src = template_bundle_path(cx.fs_root(), &TemplateId::from_string(&entry.id));
         let spec_json = shared::fs::read_string(&src).await?;
-        shared::fs::write_string(&self.dest_path, &spec_json).await
+        shared::fs::write_string(&PathBuf::from(&self.dest_path), &spec_json).await
     }
 }
 
@@ -53,7 +57,7 @@ mod tests {
 
         bus.execute(ExportTemplate {
             id,
-            dest_path: dest.clone(),
+            dest_path: dest.to_string_lossy().into_owned(),
         })
         .await
         .unwrap();
@@ -70,8 +74,8 @@ mod tests {
 
         let err = bus
             .execute(ExportTemplate {
-                id: TemplateId::mint(),
-                dest_path: dest,
+                id: TemplateId::mint().as_str().to_owned(),
+                dest_path: dest.to_string_lossy().into_owned(),
             })
             .await
             .unwrap_err();

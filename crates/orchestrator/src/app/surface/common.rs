@@ -1,8 +1,5 @@
-use sqlx::Row;
-
 use crate::context::Ctx;
-use crate::entities::session::SessionId;
-use crate::entities::{Surface, SurfaceId, SurfaceKind, SurfaceStatus};
+use crate::entities::{Surface, SurfaceId};
 use crate::infra::runtime::Geometry;
 use crate::infra::SurfaceRepo;
 use crate::shared::{Error, Result};
@@ -20,52 +17,22 @@ pub(super) async fn require_surface(cx: &Ctx, id: &SurfaceId) -> Result<Surface>
         .ok_or_else(|| Error::SurfaceNotFound(id.as_str().to_owned()))
 }
 
+/// Every surface as a typed entity, oldest first. Command path: `ReconcileSurfaces`
+/// reads `kind`/`cwd`/`id` off each row to rebuild a spawn request, so this stays
+/// the write-model entity, not the `*View` read DTO.
 pub(super) async fn all_surfaces(cx: &Ctx) -> Result<Vec<Surface>> {
-    let rows = sqlx::query(
-        "SELECT id, session_id, kind, cwd, placement, status FROM surface ORDER BY created_at ASC",
+    Ok(sqlx::query_as::<_, Surface>(
+        "SELECT id, session_id, kind, cwd, status, placement
+         FROM surface ORDER BY created_at ASC",
     )
     .fetch_all(cx.db())
-    .await?;
-    rows.into_iter().map(row_to_surface).collect()
+    .await?)
 }
 
-pub(super) fn row_to_surface(row: sqlx::sqlite::SqliteRow) -> Result<Surface> {
-    let kind = match row.try_get::<String, _>("kind")?.as_str() {
-        "terminal" => SurfaceKind::Terminal,
-        "diff" => SurfaceKind::Diff,
-        other => {
-            return Err(Error::Validation {
-                field: "kind",
-                reason: format!("unknown surface kind: {other}"),
-            })
-        }
-    };
-    let status = match row.try_get::<String, _>("status")?.as_str() {
-        "pending" => SurfaceStatus::Pending,
-        "live" => SurfaceStatus::Live,
-        "idle" => SurfaceStatus::Idle,
-        "failed" => SurfaceStatus::Failed,
-        other => {
-            return Err(Error::Validation {
-                field: "status",
-                reason: format!("unknown surface status: {other}"),
-            })
-        }
-    };
-    Ok(Surface {
-        id: SurfaceId::from_string(row.try_get::<String, _>("id")?),
-        session_id: SessionId::from_string(row.try_get::<String, _>("session_id")?),
-        kind,
-        cwd: row.try_get("cwd")?,
-        status,
-        placement: row.try_get("placement")?,
-    })
-}
-
-// ── Off-bus surface I/O channel (never logged, no command object) ───────────────
+// -- Off-bus surface I/O channel (never logged, no command object) ---------------
 
 /// Send raw input bytes to a surface's PTY. Off the bus: no command object, no span,
-/// no telemetry — the payload must never reach a log.
+/// no telemetry -- the payload must never reach a log.
 pub async fn send_surface_input(cx: &Ctx, id: &SurfaceId, bytes: &[u8]) -> Result<()> {
     cx.runtime().input(id, bytes).await
 }
@@ -76,7 +43,7 @@ pub async fn resize_surface(cx: &Ctx, id: &SurfaceId, cols: u16, rows: u16) -> R
 }
 
 /// Connect the proxy stream to an already-running daemon PTY. Lazy, per surface,
-/// driven by the renderer registering its Channel — there is no eager boot
+/// driven by the renderer registering its Channel -- there is no eager boot
 /// attach-all. Off the bus.
 pub async fn attach_surface(cx: &Ctx, id: &SurfaceId) -> Result<()> {
     cx.runtime().attach(id).await

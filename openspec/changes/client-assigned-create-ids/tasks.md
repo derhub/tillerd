@@ -20,10 +20,14 @@
 
 ## 4. Delete `New*` input DTOs; repos take entities
 
-- [ ] 4.1 Delete all seven `New*` from `entities/`; inline their fields onto the flat create commands (drop the `NewSessionCmd` tuple wrapper; switch `infer_name` from `&NewProject` to its two fields).
-- [ ] 4.2 Change the remaining draft-taking repos to accept the entity: `WorkspaceRepo::create(&Workspace)`, `SurfaceRepo::create(&Surface)` (and `CommandRepo`/`LaunchTemplateRepo` from tasks 1.3/1.4). Remove every `use crate::entities::*::New*` from `infra/` — infra imports only entities and value objects.
-- [ ] 4.3 Drop the deleted types from `entities/mod.rs` re-exports; update all `use crate::entities::*::New*` import sites.
+- [x] 4.1 Delete all seven `New*` from `entities/`; inline their fields onto the flat create commands (drop the `NewSessionCmd` tuple wrapper; switch `infer_name` from `&NewProject` to its two fields).
+- [x] 4.2 Change the remaining draft-taking repos to accept the entity: `WorkspaceRepo::create(&Workspace)`, `SurfaceRepo::create(&Surface)` (and `CommandRepo`/`LaunchTemplateRepo` from tasks 1.3/1.4). Remove every `use crate::entities::*::New*` from `infra/` — infra imports only entities and value objects.
+- [x] 4.3 Drop the deleted types from `entities/mod.rs` re-exports; update all `use crate::entities::*::New*` import sites.
 
 ## 5. Verify
 
-- [ ] 5.1 Run the command-contract test, the orchestrator create/duplicate tests, and `cargo clippy --all-targets -- -D warnings`; fix everything until green. (Layer enforcement via ast-grep is delivered by the `arch-rule-enforcement` change.)
+- [x] 5.1 Run the command-contract test, the orchestrator create/duplicate tests, and `cargo clippy --all-targets -- -D warnings`; fix everything until green. (Layer enforcement via ast-grep is delivered by the `arch-rule-enforcement` change.)
+
+> Greening note: sections 4-5 ARE the `entities-no-input-dto` rule-greening (7 `New*` findings). The
+> remaining seven ast-grep rules are greened by `storage-de-abstraction` Phase 6; the `arch-rule-enforcement`
+> change was never created, so the `warning -> error` flip lives in Phase 6f there.

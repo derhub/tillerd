@@ -1,0 +1,11 @@
+id: infra-pure
+valid:
+    - "use crate::entities::project::ProjectId;"
+    - "use crate::shared::pagination::Page;"
+    - "use crate::infra::runtime::Geometry;"
+    - "use std::sync::Arc;"
+invalid:
+    - "use crate::app::project::MoveProject;"
+    - "use crate::app::session::{LaunchSession, EndSession};"
+    - "use crate::app::*;"
+    - "use crate::app as commands;"

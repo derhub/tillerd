@@ -1,18 +1,21 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::SurfaceStatus;
 use crate::infra::runtime::SpawnRequest;
 use crate::infra::SurfaceRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::Result;
+use crate::shared::message::Command;
 
 use super::common::{all_surfaces, default_cwd, DEFAULT_GEOMETRY};
 
-// ── ReconcileSurfaces (boot reconciler, D9) ─────────────────────────────────────
+// -- ReconcileSurfaces (boot reconciler, D9) -------------------------------------
 
 /// Converge the runtime to the persisted desired state on boot:
-/// running-but-no-row → kill; desired-but-not-running → respawn or mark failed.
-/// It attaches no proxy stream — streaming is brought up lazily by `attach_surface`.
-#[derive(Debug, Clone, Default)]
+/// running-but-no-row -> kill; desired-but-not-running -> respawn or mark failed.
+/// It attaches no proxy stream -- streaming is brought up lazily by `attach_surface`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReconcileSurfaces;
 
 impl Command<Ctx> for ReconcileSurfaces {
@@ -20,14 +23,14 @@ impl Command<Ctx> for ReconcileSurfaces {
         let live = cx.runtime().list().await?;
         let desired = all_surfaces(cx).await?;
 
-        // running-but-no-row → kill the orphan PTY
+        // running-but-no-row -> kill the orphan PTY
         for id in &live {
             if !desired.iter().any(|s| &s.id == id) {
                 cx.runtime().close(id).await?;
             }
         }
 
-        // desired-but-not-running → respawn, or mark failed if the spawn fails
+        // desired-but-not-running -> respawn, or mark failed if the spawn fails
         for surface in &desired {
             if live.contains(&surface.id) {
                 continue;
@@ -58,7 +61,7 @@ mod tests {
     use super::*;
     use crate::app::surface::get_surface_by_id::GetSurfaceById;
     use crate::app::surface::test_util::{harness, seed_session};
-    use crate::entities::{NewSurface, SurfaceId, SurfaceKind};
+    use crate::entities::{SessionId, SurfaceId, SurfaceKind};
     use crate::infra::runtime::RuntimeCall;
     use crate::infra::SurfaceRepo;
 
@@ -83,13 +86,11 @@ mod tests {
         // a desired row exists but nothing is running in the daemon
         SurfaceRepo::create(
             &h.pool,
-            &NewSurface {
-                id: Some(SurfaceId::from_string("desired")),
-                session_id: session.clone(),
-                kind: SurfaceKind::Terminal,
-                cwd: None,
-                placement: None,
-            },
+            Some("desired"),
+            &SessionId::from_string(&session),
+            SurfaceKind::Terminal,
+            None,
+            None,
         )
         .await
         .unwrap();
@@ -100,11 +101,13 @@ mod tests {
         assert!(h.runtime.is_running(&id), "desired row must be respawned");
         let surface = h
             .bus
-            .query(GetSurfaceById { id: id.clone() })
+            .query(GetSurfaceById {
+                id: "desired".to_owned(),
+            })
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(surface.status, SurfaceStatus::Live);
+        assert_eq!(surface.status, "live");
         assert!(
             !h.runtime
                 .calls()

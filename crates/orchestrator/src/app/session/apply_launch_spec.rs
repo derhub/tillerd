@@ -1,22 +1,27 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::session::SessionId;
 use crate::infra::session::SessionRepo;
-use crate::shared::cqs::Command;
 use crate::shared::errors::{Error, Result};
+use crate::shared::message::Command;
 
 /// Replace the session's launch spec (the recipe plane: which surfaces + placements).
 /// Does not alter the panel-tree geometry.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ApplyLaunchSpec {
-    pub id: SessionId,
+    pub id: String,
     pub spec_version: u32,
     pub spec_json: String,
 }
 
 impl Command<Ctx> for ApplyLaunchSpec {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        let mut s = SessionRepo::get(cx.db(), &self.id)
+        let id = SessionId::from_string(&self.id);
+        let mut s = SessionRepo::get(cx.db(), &id)
             .await?
-            .ok_or_else(|| Error::SessionNotFound(self.id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::SessionNotFound(self.id.clone()))?;
         s.spec_version = Some(self.spec_version);
         s.spec_json = Some(self.spec_json.clone());
         SessionRepo::update(cx.db(), &s).await

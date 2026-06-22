@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::context::Ctx;
 use crate::entities::project::ProjectId;
 use crate::infra::project::ProjectRepo;
@@ -8,8 +10,10 @@ use crate::shared::{Command, Error, Result};
 use super::common::new_id;
 
 /// Clone a project (sessions + launch specs). The copy is independent of the source.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateProject {
-    pub source_id: ProjectId,
+    pub source_id: String,
     /// Name for the duplicate; defaults to `"Copy of <source name>"`.
     pub name: Option<String>,
 }
@@ -18,9 +22,10 @@ impl Command<Ctx> for DuplicateProject {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         use crate::entities::session::{Session, SessionStatus, TitleSource};
 
-        let source = ProjectRepo::get(cx.db(), &self.source_id)
+        let source_id = ProjectId::new(&self.source_id);
+        let source = ProjectRepo::get(cx.db(), &source_id)
             .await?
-            .ok_or_else(|| Error::ProjectNotFound(self.source_id.as_str().to_owned()))?;
+            .ok_or_else(|| Error::ProjectNotFound(self.source_id.clone()))?;
 
         let new_name = self
             .name
@@ -44,7 +49,7 @@ impl Command<Ctx> for DuplicateProject {
             .await?;
 
             // Clone sessions (with their spec blobs).
-            let sessions = SessionRepo::list(&mut **tx, &self.source_id, Page::All).await?;
+            let sessions = SessionRepo::list(&mut **tx, &source_id, Page::All).await?;
             for s in sessions.items {
                 let new_session = Session {
                     id: crate::entities::session::SessionId::mint(),
@@ -70,7 +75,6 @@ impl Command<Ctx> for DuplicateProject {
 mod tests {
     use super::*;
     use crate::app::project::test_util::*;
-    use crate::shared::pagination::Page;
 
     use super::super::get_project_by_id::GetProjectById;
     use super::super::list_projects_by_workspace::ListProjectsByWorkspace;
@@ -91,7 +95,7 @@ mod tests {
             .unwrap();
 
         bus.execute(DuplicateProject {
-            source_id: ProjectId::new("p-src"),
+            source_id: "p-src".to_owned(),
             name: Some("Copy".to_owned()),
         })
         .await
@@ -99,8 +103,10 @@ mod tests {
 
         let listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: default_ws(),
-                page: Page::All,
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -110,7 +116,7 @@ mod tests {
 
         // The copy must be distinct from the source.
         let copy = copy.unwrap();
-        assert_ne!(copy.id, ProjectId::new("p-src"));
+        assert_ne!(copy.id, "p-src");
     }
 
     #[tokio::test]
@@ -119,7 +125,7 @@ mod tests {
         seed_project(ctx.db(), "p-orig", "Original", &default_ws()).await;
 
         bus.execute(DuplicateProject {
-            source_id: ProjectId::new("p-orig"),
+            source_id: "p-orig".to_owned(),
             name: Some("Clone".to_owned()),
         })
         .await
@@ -127,8 +133,10 @@ mod tests {
 
         let listing = bus
             .query(ListProjectsByWorkspace {
-                workspace_id: default_ws(),
-                page: Page::All,
+                workspace_id: default_ws().as_str().to_owned(),
+                limit: None,
+                offset: None,
+                after: None,
             })
             .await
             .unwrap();
@@ -149,7 +157,7 @@ mod tests {
 
         let source = bus
             .query(GetProjectById {
-                id: ProjectId::new("p-orig"),
+                id: "p-orig".to_owned(),
             })
             .await
             .unwrap()

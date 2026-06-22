@@ -81,3 +81,33 @@ rollback + reconcile.
 - [ ] **5b** `bun run verify` (format:check + check-types + lint + test -- unit+integration; e2e excluded)
   green, **then** `bun run e2e` (behavior net) green; confirm no observable IPC/ACL/wire change, no entity
   type in `shared`/`kv`, keystroke payloads never logged
+
+## Phase 6 -- rule-greening (zero ast-grep findings; flip all warnings -> error)
+
+Drives every `.ast-grep/rules` warning to zero, then flips severity to `error`. Dependency order
+A->B->C->D keeps the crate compiling at each boundary. New*/repos-take-entities is owned by the
+`client-assigned-create-ids` change (its sections 4-5); this phase assumes that has landed.
+
+- [x] **6a entities sqlx derives** -- per VO newtype (`*Id`): `#[derive(sqlx::Type)] #[sqlx(transparent)]`
+  (greens `value-object-sqlx-type`, 7). Column enums (`SourceKind`/`SurfaceKind`/`CommandOrigin`/...):
+  `#[derive(sqlx::Type)]` + `#[sqlx(rename_all=...)]`; *derived* enums (`ProjectStatus` from `archived_at`)
+  stay computed in the SELECT. Each aggregate brace struct: `#[derive(sqlx::FromRow)]` (greens
+  `aggregate-entity-fromrow`, 9).
+- [x] **6b infra repos query straight into entity** -- drop the `*Row` struct + `From<Row>` map; repos use
+  `sqlx::query_as::<_, Entity>` with derived columns via `CASE WHEN ...` in the SELECT. Bind value objects
+  directly (transparent). No behavior change.
+- [x] **6c queries return Views** -- per query handler: define a flat `*View` (`Serialize` + `sqlx::FromRow`,
+  primitive fields, `serde(rename_all="camelCase")`) in the app area; `type Out` becomes
+  `Option<View>`/`Vec<View>`/`Listing<View>`/scalar; handler maps straight via `query_as::<_, View>` over
+  `cx.db()` -- not repo->entity. Update host/test callsites that consumed the entity. Greens
+  `query-returns-view` (29) and the read-path half of `entities-stay-internal`.
+- [x] **6d command DTOs hold primitives** -- per Command/Query/Io DTO: fields -> built-in types (`String`
+  not `ProjectId`), `pub`; add `#[derive(Deserialize)] #[serde(rename_all="camelCase")]`; convert to value
+  objects inside `handle`. Update every test + host callsite (`{ id: ProjectId::new("x") }` ->
+  `{ id: "x".into() }`). Greens `message-dto` (77) + `message-dto-deserialize` (85). Largest blast radius.
+- [x] **6e boundary ports** -- give the host app-owned, primitive-speaking edges for `infra::runtime`
+  (`FakeRuntime`/`Geometry`/`SurfaceEventSink`) and `infra::migrate`, and replace host
+  `use orchestrator::entities::{...}` id/enum imports with app-exposed primitives/Views. Greens
+  `infra-stays-internal` (4) + the remaining `entities-stay-internal` (5). Nothing deferred.
+- [x] **6f flip to error + gate** -- set `severity: error` on all eight transitional rules; `ast-grep scan`
+  zero findings, `ast-grep test` snapshots pass, `bun run verify` + `bun run e2e` green.
