@@ -556,9 +556,7 @@ mod tests {
 
         let results = e.search("redis datastore", 10, 5).unwrap();
         assert_eq!(results.len(), 1);
-        assert!(results[0]
-            .content
-            .contains("redis as the main datastore"));
+        assert!(results[0].content.contains("redis as the main datastore"));
     }
 
     #[test]
