@@ -15,17 +15,22 @@ export interface SettingsSource {
   listSettings(args: { scope: string; projectId?: string | null }): Promise<SettingView[]>;
 }
 
-// `setting_get`/`setting_set` carry an arbitrary JSON `value`, which specta cannot type as a command
-// parameter -- they stay on the raw `core.invoke` escape hatch. `setting_list` is fully typed, so it
-// goes through the generated `commands`. Null off the desktop host.
+// Settings cross the wire as the orchestrator's raw JSON-encoded string; the JSON value is
+// serialized/parsed here. Null off the desktop host.
 export function loadSettingsSource(): Promise<SettingsSource | null> {
-  return withDesktopCore((core) => ({
-    getSetting: (args) => core.invoke("setting_get", args as Record<string, unknown>),
-    setSetting: (args) =>
-      core.invoke<void>("setting_set", args as unknown as Record<string, unknown>),
-    listSettings: (args) =>
+  return withDesktopCore(() => ({
+    getSetting: async ({ scope, projectId, key }) => {
+      const raw = await commands
+        .settingGet({ scope, projectId: projectId ?? null, key })
+        .then(ensureResult);
+      return raw === null ? null : JSON.parse(raw);
+    },
+    setSetting: ({ scope, projectId, key, value }) =>
       commands
-        .settingList({ scope: args.scope, projectId: args.projectId ?? null })
-        .then(ensureResult),
+        .settingSet({ scope, projectId: projectId ?? null, key, valueJson: JSON.stringify(value) })
+        .then(ensureResult)
+        .then(() => undefined),
+    listSettings: ({ scope, projectId }) =>
+      commands.settingList({ scope, projectId: projectId ?? null }).then(ensureResult),
   }));
 }

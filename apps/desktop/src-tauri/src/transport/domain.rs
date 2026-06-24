@@ -36,10 +36,12 @@ use orchestrator::app::session::{
 };
 use orchestrator::app::session::{ArchiveSession, DiscardSession};
 use orchestrator::app::settings::{
-    ActivateProfile, ActivateTheme, DiscardProfile, DiscardTheme, DuplicateProfile, ExportProfile,
-    ExportTheme, GetActiveProfile, GetActiveTheme, ImportProfile, ImportTheme, KeybindingView,
-    ListKeybindings, ListProfiles, ListThemes, NewProfile, ProfileView, RebindKey, ReloadConfig,
-    RenameProfile, ResetKeybinding, ResetKeybindings, ResolveKeybinding, ThemeView,
+    ActivateProfile, ActivateTheme, ApplySetting, DiscardProfile, DiscardTheme, DuplicateProfile,
+    ExportProfile, ExportTheme, GetActiveProfile, GetActiveTheme, GetSetting, ImportProfile,
+    ImportTheme, KeybindingView, ListKeybindings, ListProfiles, ListSettings, ListThemes,
+    NewProfile, ProfileView, RebindKey, ReloadConfig, RenameProfile, ResetKeybinding,
+    ResetKeybindings, ResetSetting, ResolveKeybinding, ResolveSetting, ResolveSettings, SettingView,
+    ThemeView,
 };
 use orchestrator::app::surface::{
     FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces, ListSurfacesBySession,
@@ -586,6 +588,42 @@ transport_query!(
 );
 
 transport_command!(config_reload() => ReloadConfig);
+
+// Settings plane. `value`/`valueJson` cross the wire as the raw JSON-encoded string the
+// orchestrator persists; the client serializes/parses the JSON value.
+transport_query!(
+    setting_get(scope: String, project_id: Option<String>, key: String) -> Option<String>
+        => GetSetting { scope, project_id, key },
+        |raw| raw
+);
+
+transport_command!(
+    setting_set(scope: String, project_id: Option<String>, key: String, value_json: String)
+        => ApplySetting { scope, project_id, key, value_json }
+);
+
+transport_query!(
+    setting_list(scope: String, project_id: Option<String>) -> Vec<SettingView>
+        => ListSettings { scope, project_id },
+        |settings| settings
+);
+
+transport_command!(
+    setting_reset(scope: String, project_id: Option<String>, key: String)
+        => ResetSetting { scope, project_id, key }
+);
+
+transport_query!(
+    setting_resolve(project_id: String, key: String) -> Option<String>
+        => ResolveSetting { project_id, key },
+        |raw| raw
+);
+
+transport_query!(
+    settings_resolve(project_id: String) -> Vec<SettingView>
+        => ResolveSettings { project_id },
+        |settings| settings
+);
 
 transport_create!(
     launch_template_create(

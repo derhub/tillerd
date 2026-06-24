@@ -8,7 +8,6 @@ mod gate_admin;
 mod menu;
 mod notification_host;
 mod orchestrator_host;
-mod settings_host;
 mod specta_export;
 mod store;
 mod supervisor;
@@ -61,10 +60,12 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             surface_host::surface_input,
             surface_host::surface_resize,
             surface_host::surface_detach,
-            settings_host::setting_list,
-            settings_host::setting_reset,
-            settings_host::setting_resolve,
-            settings_host::settings_resolve,
+            transport::domain::setting_get,
+            transport::domain::setting_set,
+            transport::domain::setting_list,
+            transport::domain::setting_reset,
+            transport::domain::setting_resolve,
+            transport::domain::settings_resolve,
             notification_host::notifications_list,
             transport::domain::project_create,
             transport::domain::project_list,

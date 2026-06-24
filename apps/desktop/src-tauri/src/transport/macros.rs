@@ -119,9 +119,8 @@ macro_rules! transport_create {
 /// - transport-resident: every `surface_*` shim -- they register/attach a per-surface
 ///   `tauri::ipc::Channel` and the off-bus input/resize endpoints write straight to the
 ///   runtime port (a `Channel` is a tauri object that cannot live in the core).
-/// - non-mechanical domain: `settings_host::*` (wire `scope`+`projectId` -> `SettingScope`
-///   parse and JSON value <-> string conversion) and `notification_host::notifications_list`
-///   (fixed-page query that lives with the notification sink/builders).
+/// - non-mechanical domain: `notification_host::notifications_list` (fixed-page query that
+///   lives with the notification sink/builders).
 macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
@@ -212,12 +211,12 @@ macro_rules! collect_transport {
             $crate::transport::domain::command_unpin,
             $crate::transport::domain::command_duplicate,
             $crate::transport::domain::command_seed,
-            $crate::settings_host::setting_get,
-            $crate::settings_host::setting_set,
-            $crate::settings_host::setting_list,
-            $crate::settings_host::setting_reset,
-            $crate::settings_host::setting_resolve,
-            $crate::settings_host::settings_resolve,
+            $crate::transport::domain::setting_get,
+            $crate::transport::domain::setting_set,
+            $crate::transport::domain::setting_list,
+            $crate::transport::domain::setting_reset,
+            $crate::transport::domain::setting_resolve,
+            $crate::transport::domain::settings_resolve,
             $crate::transport::domain::profile_get_active,
             $crate::transport::domain::profile_list,
             $crate::transport::domain::profile_create,

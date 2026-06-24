@@ -363,7 +363,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         (
             "setting_set",
-            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract", "value": 1 }),
+            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract", "valueJson": "1" }),
         ),
         (
             "setting_list",

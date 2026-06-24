@@ -53,21 +53,11 @@ export const commands = {
 	 *  output channel so the stream goes quiet.
 	 */
 	surfaceDetach: (args: { surfaceId: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
+	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
+	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),
-	/**
-	 *  Clear a setting override at a scope (revert to inherited/default).
-	 *  `scope` is `"global"` or `"project"`; `project_id` is required for the project scope.
-	 */
 	settingReset: (args: { scope: string; projectId: string | null; key: string }) => typedError<null, string>(__TAURI_INVOKE("setting_reset", args)),
-	/**
-	 *  Effective value for a project: project override if set, else global, else `None`.
-	 *  Returns the raw JSON-encoded string (not parsed), matching the bus output.
-	 */
 	settingResolve: (args: { projectId: string; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_resolve", args)),
-	/**
-	 *  Full effective settings map for a project (global merged with project overrides).
-	 *  Values in each `SettingView` are parsed back to JSON.
-	 */
 	settingsResolve: (args: { projectId: string }) => typedError<SettingView[], string>(__TAURI_INVOKE("settings_resolve", args)),
 	/**  Durable notification history (most recent first) for the renderer to hydrate on boot. */
 	notificationsList: () => typedError<NotificationWire[], string>(__TAURI_INVOKE("notifications_list")),
