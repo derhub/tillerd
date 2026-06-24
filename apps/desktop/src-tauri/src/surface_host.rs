@@ -10,7 +10,7 @@ use orchestrator::app::surface::{
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::notification_host;
 use crate::transport::sink::{register_channel, unregister_channel, SurfaceChannels};
@@ -83,12 +83,13 @@ pub async fn surface_create<R: tauri::Runtime>(
     register_channel(&channels, &id, channel);
     let _ = attach_surface(bus.cx(), &id).await;
 
-    notification_host::record(
-        &app,
-        &bus,
-        notification_host::surface_started(&id, &session_id, notification_host::now_ms()),
-    )
-    .await;
+    if let Some(recorder) = app.try_state::<notification_host::NotificationRecorder>() {
+        recorder.notify(notification_host::surface_started(
+            &id,
+            &session_id,
+            notification_host::now_ms(),
+        ));
+    }
     Ok(id)
 }
 

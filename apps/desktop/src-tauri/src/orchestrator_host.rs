@@ -280,14 +280,20 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
         }
 
         emit_status(&app, &status, StatusWire::Ready);
-        runtime.block_on(notification_host::record(
-            &app,
-            &bus,
-            notification_host::orchestrator_status(true, None, notification_host::now_ms()),
+
+        // One long-lived recorder task drains queued notifications off the producers' path.
+        let recorder = runtime.block_on(async {
+            notification_host::spawn_recorder(app.clone(), orchestrator::shared::Bus::new(bus.cx().clone()))
+        });
+        recorder.notify(notification_host::orchestrator_status(
+            true,
+            None,
+            notification_host::now_ms(),
         ));
 
-        // Manage the bus and channel registry; both must exist before any IPC fires.
+        // Manage the bus, recorder, and channel registry; all must exist before any IPC fires.
         app.manage(channels);
+        app.manage(recorder);
         app.manage(bus);
 
         // Keep the boot runtime alive for the process lifetime so the daemon proxy

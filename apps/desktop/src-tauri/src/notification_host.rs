@@ -143,10 +143,36 @@ pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> Notifi
 
 /// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
 /// Best-effort: a store or emit error never blocks the originating lifecycle event.
-pub async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
+async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
     let _ = bus.execute(wire.to_record_cmd()).await;
     let _ = bus.execute(PruneNotifications { keep: MAX_HISTORY }).await;
     let _ = app.emit(NOTIFICATION_EVENT, wire);
+}
+
+/// Fire-and-forget handle to the bootstrap recorder task. Cloneable; lives in managed state.
+#[derive(Clone)]
+pub struct NotificationRecorder {
+    tx: tokio::sync::mpsc::UnboundedSender<NotificationWire>,
+}
+
+impl NotificationRecorder {
+    /// Queue a notification for persist + emit. Drops on a closed channel; never blocks
+    /// or awaits the bus on the caller's path.
+    pub fn notify(&self, wire: NotificationWire) {
+        let _ = self.tx.send(wire);
+    }
+}
+
+/// Spawn the single long-lived recorder task on the current runtime, draining queued
+/// notifications through [`record`] off the producers' path. Returns the send handle.
+pub fn spawn_recorder(app: AppHandle, bus: Bus<Ctx>) -> NotificationRecorder {
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<NotificationWire>();
+    tokio::spawn(async move {
+        while let Some(wire) = rx.recv().await {
+            record(&app, &bus, wire).await;
+        }
+    });
+    NotificationRecorder { tx }
 }
 
 /// Push a notification to the renderer without persisting it. For the boot-failure case,
