@@ -1,0 +1,9 @@
+id: no-fetch-in-hooks
+valid:
+  - "async function loadDiff() { return fetch('/x'); }"
+  - "const fetchData = () => fetch('/x');"
+  - "function helper() { fetch('/x'); }"
+invalid:
+  - "function useThing() { fetch('/x'); }"
+  - "function Panel() { return fetch('/x'); }"
+  - "const Panel = () => { fetch('/x'); return null; };"

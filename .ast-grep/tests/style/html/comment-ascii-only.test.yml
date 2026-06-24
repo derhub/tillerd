@@ -1,0 +1,6 @@
+id: comment-ascii-only-html
+valid:
+  - "<!-- ascii only -->"
+  - "<div></div>"
+invalid:
+  - "<!-- arrow → here -->"

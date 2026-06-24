@@ -1,0 +1,6 @@
+id: comment-ascii-only-yaml
+valid:
+  - "key: value # ascii only"
+  - "# plain ascii comment"
+invalid:
+  - "key: value # arrow → here"

@@ -1,0 +1,16 @@
+id: router-search-and-nav
+language: Tsx
+severity: error
+files:
+  - "apps/ui/**"
+message: "Let the router own search params and navigation -- a raw href assignment forces a full reload; manual search parsing loses validation/typing."
+note: >-
+  Do: read search params with useSearch() + route search validation instead of
+  new URLSearchParams(window.location.search); navigate with <Link to="..."> or
+  useNavigate() instead of window.location.href = ...
+rule:
+  any:
+    - pattern: new URLSearchParams(window.location.search)
+    - pattern: new URLSearchParams(location.search)
+    - pattern: window.location.href = $$$
+    - pattern: window.location.assign($$$)

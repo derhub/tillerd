@@ -1,0 +1,42 @@
+id: no-component-in-component
+snapshots:
+  const Outer = () => { function Inner(){ return <span/> } return <Inner/> }:
+    labels:
+    - source: function Inner(){ return <span/> }
+      style: primary
+      start: 22
+      end: 56
+    - source: Outer
+      style: secondary
+      start: 6
+      end: 11
+    - source: Outer = () => { function Inner(){ return <span/> } return <Inner/> }
+      style: secondary
+      start: 6
+      end: 74
+    - source: () => { function Inner(){ return <span/> } return <Inner/> }
+      style: secondary
+      start: 14
+      end: 74
+    - source: Inner
+      style: secondary
+      start: 31
+      end: 36
+  function Outer(){ function Inner(){ return <span/> } return <Inner/> }:
+    labels:
+    - source: function Inner(){ return <span/> }
+      style: primary
+      start: 18
+      end: 52
+    - source: Outer
+      style: secondary
+      start: 9
+      end: 14
+    - source: function Outer(){ function Inner(){ return <span/> } return <Inner/> }
+      style: secondary
+      start: 0
+      end: 70
+    - source: Inner
+      style: secondary
+      start: 27
+      end: 32

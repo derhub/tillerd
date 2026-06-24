@@ -1,5 +1,5 @@
-id: comment-ascii-only-ts
-language: Tsx
+id: comment-ascii-only-yaml
+language: Yaml
 severity: error
 message: >-
   Comments must be plain ASCII: no emojis, section signs, smart quotes, arrows, or

@@ -1,10 +1,37 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc"],
+  "ignorePatterns": ["**/routeTree.gen.ts"],
   "categories": {
     "correctness": "error"
   },
-  "rules": {},
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "typescript/no-deprecated": "error"
+  },
+  "overrides": [
+    {
+      "files": ["tests/desktop-e2e/**"],
+      "rules": {
+        // webdriverio v9 ChainablePromiseElement omits `.then` in its published types
+        // (thenable only at runtime), so `await browser.$(...)` is a false positive here.
+        "typescript/await-thenable": "off"
+      }
+    },
+    {
+      "files": ["apps/ui/**/*.test.ts", "apps/ui/**/*.test.tsx"],
+      "rules": {
+        // These files are excluded from apps/ui/tsconfig.json, so tsgolint builds a
+        // fallback program without the `~/*` path alias or bun:test types. Type-aware
+        // diagnostics here are phantom (unresolved symbols), so scope them out to match
+        // what tsc actually checks.
+        "typescript/no-redundant-type-constituents": "off",
+        "typescript/await-thenable": "off"
+      }
+    }
+  ],
   "env": {
     "builtin": true
   }

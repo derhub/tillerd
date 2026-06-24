@@ -1,0 +1,7 @@
+id: react19-use-context
+valid:
+  - "const v = use(MyContext)"
+  - "const v = React.use(MyContext)"
+invalid:
+  - "const v = useContext(MyContext)"
+  - "const v = React.useContext(MyContext)"

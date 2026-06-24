@@ -1,0 +1,12 @@
+id: comment-style-tells-ts
+language: Tsx
+severity: warning
+message: >-
+  Comment carries a style tell (first-person, hedging, narrative, or external
+  doc ref). Comments are last resort and state only non-inferable why. Drop it,
+  or rewrite terse: no first-person (we/our/us), no hedging (simply/basically/
+  maybe), no narrative (used to/no longer/note that), no doc pointer (ADR-NNNN,
+  design DN) -- carry the why inline.
+rule:
+  kind: comment
+  regex: "(?i)\\b(we|our|us|let's|simply|basically|obviously|hopefully|probably|perhaps|maybe|for now|used to|previously|formerly|no longer|note that|originally)\\b|ADR[-\\s]?\\d+|\\bdesign\\s+D\\d+\\b"

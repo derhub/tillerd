@@ -1,6 +1,13 @@
 # sgconfig.yml
 ruleDirs:
   - .ast-grep/rules
+# Parse .ts with the Tsx grammar so one `language: Tsx` rule covers both .ts and
+# .tsx (no -ts/-tsx rule duplication). Safe here: the codebase uses `as` casts, not
+# angle-bracket `<T>x` casts (the only syntax tsx cannot parse). Recommended by
+# ast-grep docs for TS/TSX rule reuse.
+languageGlobs:
+  tsx:
+    - "*.ts"
 testConfigs:
   - testDir: .ast-grep/tests
 utilDirs:

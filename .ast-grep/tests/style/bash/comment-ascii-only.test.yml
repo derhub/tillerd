@@ -1,0 +1,6 @@
+id: comment-ascii-only-bash
+valid:
+  - "# ascii only comment"
+  - "echo hello"
+invalid:
+  - "# arrow → here"

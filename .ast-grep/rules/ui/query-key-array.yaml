@@ -1,0 +1,18 @@
+id: query-key-array
+language: Tsx
+severity: error
+files:
+  - "apps/ui/**"
+message: "TanStack Query key must be an array, not a string -- a string key breaks partial-match invalidation, so mutations leave stale data silently."
+note: "Do: wrap the key in an array -- queryKey: ['todos'] or queryKey: ['todos', id]."
+rule:
+  kind: pair
+  all:
+    - has: { field: key, regex: '^queryKey$' }
+    - has:
+        field: value
+        pattern: $V
+        any:
+          - kind: string
+          - kind: template_string
+fix: 'queryKey: [$V]'

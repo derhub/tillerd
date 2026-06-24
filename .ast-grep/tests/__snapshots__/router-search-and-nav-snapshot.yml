@@ -1,0 +1,14 @@
+id: router-search-and-nav
+snapshots:
+  const p = new URLSearchParams(window.location.search):
+    labels:
+    - source: new URLSearchParams(window.location.search)
+      style: primary
+      start: 10
+      end: 53
+  window.location.href = '/dash':
+    labels:
+    - source: window.location.href = '/dash'
+      style: primary
+      start: 0
+      end: 30

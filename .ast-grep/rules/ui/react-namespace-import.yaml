@@ -1,0 +1,12 @@
+id: react-namespace-import
+language: Tsx
+severity: error
+files:
+  - "apps/ui/**"
+message: "Import React as a namespace, not named value members -- named imports from \"react\" are banned in this codebase."
+note: 'Do: import React from "react" and call through the namespace -- React.use(...), React.useEffect(...), React.useState(...). Type-only imports (import type { ReactNode } from "react") are fine.'
+rule:
+  not: { regex: '^import type' }
+  any:
+    - pattern: import { $$$ } from "react"
+    - pattern: import { $$$ } from 'react'

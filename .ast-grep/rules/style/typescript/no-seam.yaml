@@ -1,5 +1,5 @@
 id: no-seam-ts
-language: TypeScript
+language: Tsx
 severity: error
 message: >-
   Banned word "seam" in a comment. Use a precise alternative: boundary, interface,

@@ -1,0 +1,16 @@
+id: react19-no-forwardref
+language: Tsx
+severity: warning
+files:
+  - "apps/ui/**"
+message: "Do not use forwardRef in React 19 -- it is legacy and slated for removal."
+note: >-
+  Do: accept ref as a normal prop --
+  function Input({ ref, ...props }: Props & { ref?: React.Ref<T> }) { return <input ref={ref} {...props} /> }
+rule:
+  kind: call_expression
+  has:
+    field: function
+    any:
+      - regex: '^forwardRef$'
+      - pattern: React.forwardRef

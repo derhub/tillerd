@@ -1,0 +1,15 @@
+id: comment-style-tells-rust
+valid:
+    - "// raw SQL executes without error"
+    - "// holds the foreground process group"
+    - "// SIGTERM is the upgrade-now pressure valve"
+    - "/// The qualified exit reason."
+invalid:
+    - "// we degrade to quiescence"
+    - "// for now, force the quiet branch"
+    - "// this field is no longer read"
+    - "/* note that this is basically a workaround */"
+    - "// originally derived from the bus sink"
+    - "// retires the old instance (ADR-0029)"
+    - "/// Readiness handle (design D2)."
+    - "//! sole Rust owner of ADR-0009 framing"

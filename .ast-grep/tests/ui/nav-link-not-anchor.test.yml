@@ -1,0 +1,6 @@
+id: nav-link-not-anchor
+valid:
+  - "const x = <Link to=\"/posts\">x</Link>"
+  - "const x = <a href=\"https://example.com\">x</a>"
+invalid:
+  - "const x = <a href=\"/posts\">x</a>"

@@ -1,0 +1,50 @@
+id: comment-style-tells-rust
+snapshots:
+  /* note that this is basically a workaround */:
+    labels:
+    - source: /* note that this is basically a workaround */
+      style: primary
+      start: 0
+      end: 46
+  // for now, force the quiet branch:
+    labels:
+    - source: // for now, force the quiet branch
+      style: primary
+      start: 0
+      end: 34
+  // originally derived from the bus sink:
+    labels:
+    - source: // originally derived from the bus sink
+      style: primary
+      start: 0
+      end: 39
+  // retires the old instance (ADR-0029):
+    labels:
+    - source: // retires the old instance (ADR-0029)
+      style: primary
+      start: 0
+      end: 38
+  // this field is no longer read:
+    labels:
+    - source: // this field is no longer read
+      style: primary
+      start: 0
+      end: 31
+  // we degrade to quiescence:
+    labels:
+    - source: // we degrade to quiescence
+      style: primary
+      start: 0
+      end: 27
+  //! sole Rust owner of ADR-0009 framing:
+    labels:
+    - source: //! sole Rust owner of ADR-0009 framing
+      style: primary
+      start: 0
+      end: 39
+  /// Readiness handle (design D2).:
+    labels:
+    - source: /// Readiness handle (design D2).
+      style: primary
+      start: 0
+      end: 33

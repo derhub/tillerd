@@ -1,0 +1,7 @@
+id: query-key-array
+valid:
+  - "const x = useQuery({ queryKey: ['todos'], queryFn: f })"
+  - "const x = useQuery({ queryKey: todoKeys.list(), queryFn: f })"
+invalid:
+  - "const x = useQuery({ queryKey: 'todos', queryFn: f })"
+  - "const o = queryOptions({ queryKey: `todos`, queryFn: f })"

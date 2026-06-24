@@ -1,0 +1,69 @@
+id: no-async-in-component
+language: Tsx
+severity: error
+files:
+  - "apps/ui/app/**"
+ignores:
+  - "apps/ui/app/lib/data/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/routeTree.gen.ts"
+message: >-
+  React components, hooks, and handlers must not use async/await or .then(). Server
+  reads go through useSuspenseQuery (data flows synchronously via Suspense) or
+  React.use(promise); mutations fire via the mutation object (mutate()), not
+  await mutateAsync(). See docs/tanstack-client-engine.md for the full pattern.
+note: >-
+  Reads: replace async/await with useSuspenseQuery + a Suspense boundary, or
+  React.use(promise). Mutations: call mutate() (fire-and-forget) or handle the
+  returned promise outside a component. Async helpers that are NOT hooks or
+  components (lowercase name, not use*) are exempt -- move the logic there.
+rule:
+  any:
+    # (1) async function declaration named as a hook (use*) or component (PascalCase)
+    - kind: function_declaration
+      all:
+        - regex: '^async '
+        - has:
+            field: name
+            regex: '^(use[A-Z]|[A-Z])'
+    # (2) async arrow function assigned to a hook or component variable
+    - kind: arrow_function
+      all:
+        - regex: '^async '
+        - inside:
+            kind: variable_declarator
+            has:
+              field: name
+              regex: '^(use[A-Z]|[A-Z])'
+    # (3) await expression inside a hook or component body
+    - kind: await_expression
+      inside:
+        stopBy: end
+        any:
+          - kind: function_declaration
+            has:
+              field: name
+              regex: '^(use[A-Z]|[A-Z])'
+          - kind: arrow_function
+            inside:
+              kind: variable_declarator
+              has:
+                field: name
+                regex: '^(use[A-Z]|[A-Z])'
+    # (4) .then() call inside a hook or component body
+    - all:
+        - pattern: $X.then($$$)
+        - inside:
+            stopBy: end
+            any:
+              - kind: function_declaration
+                has:
+                  field: name
+                  regex: '^(use[A-Z]|[A-Z])'
+              - kind: arrow_function
+                inside:
+                  kind: variable_declarator
+                  has:
+                    field: name
+                    regex: '^(use[A-Z]|[A-Z])'

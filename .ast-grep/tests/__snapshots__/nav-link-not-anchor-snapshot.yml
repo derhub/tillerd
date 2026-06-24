@@ -1,0 +1,16 @@
+id: nav-link-not-anchor
+snapshots:
+  const x = <a href="/posts">x</a>:
+    labels:
+    - source: <a href="/posts">
+      style: primary
+      start: 10
+      end: 27
+    - source: a
+      style: secondary
+      start: 11
+      end: 12
+    - source: href="/posts"
+      style: secondary
+      start: 13
+      end: 26

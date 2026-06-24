@@ -1,0 +1,16 @@
+id: react19-use-context
+snapshots:
+  const v = React.useContext(MyContext):
+    fixed: const v = React.use(MyContext)
+    labels:
+    - source: React.useContext(MyContext)
+      style: primary
+      start: 10
+      end: 37
+  const v = useContext(MyContext):
+    fixed: const v = React.use(MyContext)
+    labels:
+    - source: useContext(MyContext)
+      style: primary
+      start: 10
+      end: 31

@@ -6,7 +6,7 @@ cd "$REPO_ROOT"
 
 echo "Setting up development environment..."
 
-# Setup .env — seed from .env.example, rewriting every relative ./ path to an absolute path
+# Setup .env -- seed from .env.example, rewriting every relative ./ path to an absolute path
 # rooted at THIS worktree, so .tillerd and bin live beside it (each worktree is self-contained).
 if [ -f .env ]; then
   echo ".env exists, skipping..."

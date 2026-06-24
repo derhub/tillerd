@@ -1,0 +1,19 @@
+id: no-component-in-component
+language: Tsx
+severity: warning
+files:
+  - "apps/ui/**"
+message: "Do not define a component inside another component -- it gets a new identity every render, so React remounts the whole subtree (losing child state, refiring effects)."
+note: "Do: move the component to module (file top) scope and pass data in via props."
+rule:
+  kind: function_declaration
+  has: { field: name, regex: '^[A-Z]' }
+  inside:
+    stopBy: end
+    any:
+      - kind: function_declaration
+        has: { field: name, regex: '^[A-Z]' }
+      - kind: arrow_function
+        inside:
+          kind: variable_declarator
+          has: { field: name, regex: '^[A-Z]' }
