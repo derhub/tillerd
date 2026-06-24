@@ -2,6 +2,7 @@
 //! themes, keybindings). Provides common operations with proper error handling.
 
 use std::fs;
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use super::errors::Error;
@@ -16,6 +17,75 @@ pub async fn read_string(path: impl AsRef<Path>) -> Result<String, Error> {
 pub async fn read_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
     let path = path.as_ref();
     fs::read(path).map_err(Error::from)
+}
+
+/// A window of complete lines from a file, bounded by absolute byte offsets.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Tail {
+    /// Complete lines in file order, newline stripped.
+    pub lines: Vec<String>,
+    /// Byte offset of the first returned line.
+    pub start: u64,
+    /// Byte offset one past the last newline; where the next read begins.
+    pub end: u64,
+}
+
+/// Read complete lines from `path` within `[from, from + max_bytes)`. With `align` set (and
+/// `from > 0`) the partial first line is dropped so the window starts on a line boundary -- for
+/// reads that begin mid-line (backfilling from the end or an older chunk). With `align` clear,
+/// `from` is taken as a known boundary (continuing a prior read) and the first line is kept. A
+/// partial trailing line is always deferred (re-read from `end`). Empty when the file is absent
+/// or the range holds no newline. Newlines never fall inside a UTF-8 sequence, so byte-windowed
+/// lines decode whole.
+pub async fn tail(
+    path: impl AsRef<Path>,
+    from: u64,
+    max_bytes: u64,
+    align: bool,
+) -> Result<Tail, Error> {
+    let mut file = match fs::File::open(path.as_ref()) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Tail { lines: Vec::new(), start: from, end: from });
+        }
+        Err(e) => return Err(Error::from(e)),
+    };
+    let len = file.metadata().map_err(Error::from)?.len();
+    let from = from.min(len);
+    file.seek(SeekFrom::Start(from)).map_err(Error::from)?;
+    // Stream complete lines from the seek point, capping the scan at max_bytes. Holds one line
+    // at a time plus the small BufReader buffer -- never the file or the whole window.
+    let mut reader = BufReader::new(file.take(max_bytes));
+    let mut line = Vec::new();
+    let mut consumed: u64 = 0;
+
+    if align && from > 0 {
+        let n = reader.read_until(b'\n', &mut line).map_err(Error::from)?;
+        if line.last() != Some(&b'\n') {
+            return Ok(Tail { lines: Vec::new(), start: from, end: from });
+        }
+        consumed += n as u64;
+        line.clear();
+    }
+
+    let start = from + consumed;
+    let mut end = start;
+    let mut lines = Vec::new();
+    loop {
+        line.clear();
+        let n = reader.read_until(b'\n', &mut line).map_err(Error::from)?;
+        // A line without a trailing newline is partial (window or EOF cut it) -- defer it.
+        if n == 0 || line.last() != Some(&b'\n') {
+            break;
+        }
+        consumed += n as u64;
+        end = from + consumed;
+        let body = &line[..line.len() - 1];
+        if !body.is_empty() {
+            lines.push(String::from_utf8_lossy(body).into_owned());
+        }
+    }
+    Ok(Tail { lines, start, end })
 }
 
 /// Write a string to a file, creating or truncating it. Parent directory must exist.
@@ -140,8 +210,8 @@ mod tests {
     #[tokio::test]
     async fn list_entries_returns_all_files_and_dirs() {
         let dir = TempDir::new().unwrap();
-        std_fs::write(dir.path().join("a.txt"), "").unwrap();
-        std_fs::write(dir.path().join("b.txt"), "").unwrap();
+        fs::write(dir.path().join("a.txt"), "").unwrap();
+        fs::write(dir.path().join("b.txt"), "").unwrap();
         std_fs::create_dir(dir.path().join("subdir")).unwrap();
 
         let entries = list_entries(dir.path()).await.unwrap();
@@ -191,5 +261,66 @@ mod tests {
 
         let result = read_string(&file).await;
         assert!(matches!(result, Err(Error::Io(_))));
+    }
+
+    #[tokio::test]
+    async fn tail_from_start_returns_complete_lines_and_defers_partial() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("t.log");
+        fs::write(&file, "a\nbb\nccc").unwrap();
+
+        let t = tail(&file, 0, 1024, false).await.unwrap();
+
+        assert_eq!(t.lines, vec!["a", "bb"]);
+        assert_eq!(t.start, 0);
+        assert_eq!(t.end, 5);
+    }
+
+    #[tokio::test]
+    async fn tail_mid_file_drops_partial_first_line() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("t.log");
+        fs::write(&file, "aaa\nbbb\nccc\n").unwrap();
+
+        // Start inside the first line; the partial "aa" is dropped, window begins at byte 4.
+        let t = tail(&file, 1, 1024, true).await.unwrap();
+
+        assert_eq!(t.lines, vec!["bbb", "ccc"]);
+        assert_eq!(t.start, 4);
+        assert_eq!(t.end, 12);
+    }
+
+    #[tokio::test]
+    async fn tail_continues_from_prior_end() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("t.log");
+        fs::write(&file, "one\ntwo\n").unwrap();
+        let first = tail(&file, 0, 1024, false).await.unwrap();
+
+        fs::write(&file, "one\ntwo\nthree\n").unwrap();
+        let next = tail(&file, first.end, 1024, false).await.unwrap();
+
+        assert_eq!(next.lines, vec!["three"]);
+        assert_eq!(next.start, first.end);
+    }
+
+    #[tokio::test]
+    async fn tail_no_newline_in_range_is_empty() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("t.log");
+        fs::write(&file, "no newline here").unwrap();
+
+        let t = tail(&file, 0, 1024, false).await.unwrap();
+
+        assert!(t.lines.is_empty());
+    }
+
+    #[tokio::test]
+    async fn tail_absent_file_is_empty() {
+        let dir = TempDir::new().unwrap();
+        let t = tail(dir.path().join("missing.log"), 0, 1024, false).await.unwrap();
+
+        assert!(t.lines.is_empty());
+        assert_eq!(t.end, 0);
     }
 }
