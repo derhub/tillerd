@@ -16,15 +16,25 @@ interface SettingsState {
 
 export const settingsStore = new Store<SettingsState>({ values: {}, source: null });
 
+// Writes that fire before hydration resolves the source. Without this buffer the
+// fire-and-forget persist below is dropped against a null source, so an early
+// preset/theme change never reaches the orchestrator and is lost on reload.
+let pendingWrites: { key: string; value: unknown }[] = [];
+
 export async function hydrateSettings(
   resolve: () => Promise<SettingsSource | null> = loadSettingsSource,
 ): Promise<void> {
   const source = await resolve();
   settingsStore.setState((s) => ({ ...s, source }));
+  const pending = pendingWrites;
+  pendingWrites = [];
   if (!source) return;
+  for (const w of pending) void source.setSetting({ scope: "global", key: w.key, value: w.value });
   const entries = await source.listSettings({ scope: "global" });
   const values: Record<string, unknown> = {};
   for (const e of entries) values[e.key] = e.value;
+  // Pre-hydration changes win over the listed snapshot so they are not reverted.
+  for (const w of pending) values[w.key] = w.value;
   settingsStore.setState((s) => ({ ...s, values }));
   if (isTheme(values[THEME_KEY])) {
     applyTheme(document.documentElement, values[THEME_KEY]);
@@ -35,7 +45,8 @@ export async function hydrateSettings(
 export function setGlobalSetting(key: string, value: unknown): void {
   const { source } = settingsStore.state;
   settingsStore.setState((s) => ({ ...s, values: { ...s.values, [key]: value } }));
-  void source?.setSetting({ scope: "global", key, value });
+  if (source) void source.setSetting({ scope: "global", key, value });
+  else pendingWrites.push({ key, value });
 }
 
 export function SettingsProvider({

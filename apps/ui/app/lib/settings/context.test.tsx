@@ -5,7 +5,14 @@ import { afterEach, expect, test } from "bun:test";
 
 import type { SettingsSource } from "~/lib/transport/settings-source";
 
-import { SettingsProvider, settingsStore, useGlobalSetting, useTheme } from "./context";
+import {
+  SettingsProvider,
+  hydrateSettings,
+  setGlobalSetting,
+  settingsStore,
+  useGlobalSetting,
+  useTheme,
+} from "./context";
 import { THEME_CACHE_KEY } from "./theme";
 
 afterEach(() => {
@@ -60,6 +67,18 @@ test("useGlobalSetting hydrates from the source and falls back before then", asy
     wrapper: wrapperFor(source),
   });
   await waitFor(() => expect(result.current.value).toBe("github-light"));
+});
+
+test("a write fired before hydration reaches the source once it resolves", async () => {
+  const { source, writes } = fakeSource();
+
+  setGlobalSetting("keybindings.preset", "vscode");
+  expect(writes).toHaveLength(0);
+
+  await hydrateSettings(() => Promise.resolve(source));
+
+  expect(writes).toContainEqual({ key: "keybindings.preset", value: "vscode" });
+  expect(settingsStore.state.values["keybindings.preset"]).toBe("vscode");
 });
 
 test("useGlobalSetting uses the fallback with no source (off the desktop host)", async () => {
