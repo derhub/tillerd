@@ -4,8 +4,6 @@ export { TauriDaemonTransport } from "./tauri";
 export { TauriFileSource } from "./file-source";
 export { TauriLogSource, loadLogSource, LIST_LOG_FILES } from "./log-source";
 export type { LogSource, LogFileInfo } from "./log-source";
-export { loadServiceHealthSource } from "./service-health-source";
-export type { ServiceHealthSource } from "./service-health-source";
 export { TauriLogger } from "./logger";
 export { TauriAppData } from "./app-data";
 export type { RegistryEntry } from "./app-data";

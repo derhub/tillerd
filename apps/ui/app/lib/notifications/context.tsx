@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
-import {
-  loadNotificationSource,
-  type NotificationSource,
-} from "~/lib/transport/notification-source";
+import { commands, ensureResult, events } from "@tillerd/client-bindings";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
 import { boundedPrepend, MAX_ITEMS } from "./store";
@@ -30,27 +27,23 @@ export function recordNotification(event: NotificationWire): void {
 
 // Subscribe before hydrating durable history so no event arriving between the two reads is lost.
 // Async setup self-guards against resolving after disposal; no unmount race.
-// `null` source (off the desktop host) leaves an empty feed. Resolvers injectable in tests.
 export function startNotifications(
-  resolveSource: () => Promise<NotificationSource | null> = loadNotificationSource,
   resolveBanner: () => Promise<BannerDeps | null> = loadBannerDeps,
 ): () => void {
   let disposed = false;
   let unsub: (() => void) | undefined;
   void (async () => {
-    const source = await resolveSource();
-    if (disposed || !source) return;
     const banner = await resolveBanner();
-    unsub = await source.subscribe((event) => {
+    unsub = await events.notificationEvent.listen((e) => {
       if (disposed) return;
-      recordNotification(event);
-      if (banner) void raiseBanner(event, banner);
+      recordNotification(e.payload);
+      if (banner) void raiseBanner(e.payload, banner);
     });
     if (disposed) {
       unsub();
       return;
     }
-    const history = await source.history();
+    const history = await commands.notificationsList().then(ensureResult);
     if (disposed) {
       unsub();
       return;
@@ -74,17 +67,12 @@ export function markNotificationsRead(): void {
 
 export function NotificationsProvider({
   children,
-  resolveSource = loadNotificationSource,
   resolveBanner = loadBannerDeps,
 }: {
   children: ReactNode;
-  resolveSource?: () => Promise<NotificationSource | null>;
   resolveBanner?: () => Promise<BannerDeps | null>;
 }) {
-  React.useEffect(
-    () => startNotifications(resolveSource, resolveBanner),
-    [resolveSource, resolveBanner],
-  );
+  React.useEffect(() => startNotifications(resolveBanner), [resolveBanner]);
   return <>{children}</>;
 }
 

@@ -2,26 +2,21 @@ import type { ServiceHealthWire } from "@tillerd/client-bindings";
 
 import React from "react";
 
+import { commands } from "@tillerd/client-bindings";
+
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { aggregateHealthState, type AggregateState } from "~/lib/health/aggregate";
-import {
-  loadServiceHealthSource,
-  type ServiceHealthSource,
-} from "~/lib/transport/service-health-source";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { cn } from "~/lib/utils";
 
 import { ServiceHealthPanel } from "./ServiceHealthPanel";
 
 async function fetchHealthSnapshot(
-  resolveSource: () => Promise<ServiceHealthSource | null>,
   cancelled: { current: boolean },
   setServices: (s: ServiceHealthWire[]) => void,
 ): Promise<void> {
-  const source = await resolveSource();
-  if (!source || cancelled.current) return;
   try {
-    const snapshot = await source.snapshot();
+    const snapshot = await commands.serviceHealth();
     if (!cancelled.current) setServices(snapshot);
   } catch {
     // Keep the prior snapshot; indicator degrades gracefully on fetch failure.
@@ -40,13 +35,7 @@ const TEXT: Record<AggregateState, string> = {
   failed: "text-red-300",
 };
 
-export interface ServiceHealthIndicatorProps {
-  resolveSource?: () => Promise<ServiceHealthSource | null>;
-}
-
-export function ServiceHealthIndicator({
-  resolveSource = loadServiceHealthSource,
-}: ServiceHealthIndicatorProps = {}) {
+export function ServiceHealthIndicator() {
   const host = useDesktopHost();
   const phase = host.status;
   const [services, setServices] = React.useState<ServiceHealthWire[]>([]);
@@ -54,11 +43,11 @@ export function ServiceHealthIndicator({
   React.useEffect(() => {
     if (phase === "web") return;
     const cancelled = { current: false };
-    void fetchHealthSnapshot(resolveSource, cancelled, setServices);
+    void fetchHealthSnapshot(cancelled, setServices);
     return () => {
       cancelled.current = true;
     };
-  }, [phase, resolveSource]);
+  }, [phase]);
 
   if (phase === "web") return null;
 

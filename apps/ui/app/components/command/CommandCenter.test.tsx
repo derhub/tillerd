@@ -1,12 +1,28 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
-import { COMMAND_CENTER_OPEN_EVENT } from "~/lib/transport/leader-source";
 
-import { CommandCenter } from "./CommandCenter";
+// Capture the handler registered via events.commandCenterOpen.listen so openPalette() can fire it.
+let activateHandler: (() => void) | null = null;
+
+void mock.module("@tauri-apps/api/event", () => ({
+  listen: (_event: string, cb: (e: unknown) => void) => {
+    activateHandler = () => cb({});
+    return Promise.resolve(() => {});
+  },
+}));
+
+void mock.module("@tauri-apps/api/core", () => ({
+  invoke: async () => null,
+  Channel: class Channel {
+    onmessage: ((v: unknown) => void) | null = null;
+  },
+}));
+
+const { CommandCenter } = await import("./CommandCenter");
 
 afterEach(cleanup);
 
@@ -20,7 +36,7 @@ function renderWith(commands: Command[]) {
 }
 
 function openPalette() {
-  fireEvent(window, new CustomEvent(COMMAND_CENTER_OPEN_EVENT));
+  activateHandler?.();
 }
 
 // cmdk fuzzy filtering requires layout happy-dom does not provide; filter behaviour is in desktop e2e (WKWebView).

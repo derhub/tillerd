@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+import type { SettingView } from "@tillerd/client-bindings";
 
 import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
-import { loadSettingsSource, type SettingsSource } from "~/lib/transport/settings-source";
+import { commands, ensureResult } from "@tillerd/client-bindings";
 
 import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
@@ -11,26 +12,40 @@ import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
 // TanStack Store owns shared client UI state. Server data stays in the Query cache, never here.
 interface SettingsState {
   values: Record<string, unknown>;
-  source: SettingsSource | null;
 }
 
-export const settingsStore = new Store<SettingsState>({ values: {}, source: null });
+export const settingsStore = new Store<SettingsState>({ values: {} });
 
 // Writes that fire before hydration resolves the source. Without this buffer the
 // fire-and-forget persist below is dropped against a null source, so an early
 // preset/theme change never reaches the orchestrator and is lost on reload.
 let pendingWrites: { key: string; value: unknown }[] = [];
+let hydrated = false;
+
+// Test-only: reset module-level state between tests.
+export function _resetForTests(): void {
+  pendingWrites = [];
+  hydrated = false;
+}
+
+function persist(key: string, value: unknown): void {
+  void commands
+    .settingSet({ scope: "global", projectId: null, key, valueJson: JSON.stringify(value) })
+    .then(ensureResult);
+}
+
+function defaultResolve(): Promise<SettingView[]> {
+  return commands.settingList({ scope: "global", projectId: null }).then(ensureResult);
+}
 
 export async function hydrateSettings(
-  resolve: () => Promise<SettingsSource | null> = loadSettingsSource,
+  resolve: () => Promise<SettingView[]> = defaultResolve,
 ): Promise<void> {
-  const source = await resolve();
-  settingsStore.setState((s) => ({ ...s, source }));
+  const entries = await resolve();
   const pending = pendingWrites;
   pendingWrites = [];
-  if (!source) return;
-  for (const w of pending) void source.setSetting({ scope: "global", key: w.key, value: w.value });
-  const entries = await source.listSettings({ scope: "global" });
+  hydrated = true;
+  for (const w of pending) persist(w.key, w.value);
   const values: Record<string, unknown> = {};
   for (const e of entries) values[e.key] = e.value;
   // Pre-hydration changes win over the listed snapshot so they are not reverted.
@@ -43,18 +58,17 @@ export async function hydrateSettings(
 }
 
 export function setGlobalSetting(key: string, value: unknown): void {
-  const { source } = settingsStore.state;
   settingsStore.setState((s) => ({ ...s, values: { ...s.values, [key]: value } }));
-  if (source) void source.setSetting({ scope: "global", key, value });
+  if (hydrated) persist(key, value);
   else pendingWrites.push({ key, value });
 }
 
 export function SettingsProvider({
   children,
-  resolve = loadSettingsSource,
+  resolve = defaultResolve,
 }: {
   children: ReactNode;
-  resolve?: () => Promise<SettingsSource | null>;
+  resolve?: () => Promise<SettingView[]>;
 }) {
   React.useEffect(() => {
     void hydrateSettings(resolve);

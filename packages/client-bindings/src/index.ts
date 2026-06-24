@@ -1,4 +1,6 @@
-export * from "./tauri_bindings.gen";
+// Re-export generated types only. The runtime objects (`commands`, `events`)
+// stay internal — consumers use the wrapper (`query`, `command`, ...) below.
+export type * from "./tauri_bindings.gen";
 export type {
   SessionView as Session,
   ProjectView as Project,

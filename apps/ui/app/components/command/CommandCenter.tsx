@@ -15,17 +15,18 @@ import {
   useLeaderBinding,
   useResolvedBindings,
 } from "~/lib/commands/useKeybindings";
+import { commands as ipc, ensureResult, events } from "@tillerd/client-bindings";
+
 import { subscribe } from "~/lib/subscribe";
-import { COMMAND_CENTER_OPEN_EVENT, loadLeaderKeyPort } from "~/lib/transport/leader-source";
-import { useWindowEvent } from "~/lib/useWindowEvent";
 
 const isMac =
   typeof navigator !== "undefined" && /mac/i.test(navigator.platform || navigator.userAgent);
 
 async function mountLeaderKey(leader: string, onActivate: () => void): Promise<() => void> {
-  const port = await loadLeaderKeyPort();
-  if (!port) return () => {};
-  const [, unlisten] = await Promise.all([port.setBinding(leader), port.onActivate(onActivate)]);
+  const [, unlisten] = await Promise.all([
+    ipc.commandCenterSetLeader({ accelerator: leader }).then(ensureResult),
+    events.commandCenterOpen.listen(() => onActivate()),
+  ]);
   return unlisten;
 }
 
@@ -36,8 +37,6 @@ export function CommandCenter() {
   const leader = useLeaderBinding();
 
   useGlobalShortcuts(bindings);
-
-  useWindowEvent(COMMAND_CENTER_OPEN_EVENT, () => setOpen(true));
 
   React.useEffect(() => subscribe(mountLeaderKey(leader, () => setOpen(true))), [leader]);
 

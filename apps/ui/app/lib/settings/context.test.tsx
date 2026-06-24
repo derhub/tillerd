@@ -1,12 +1,29 @@
 import type { ReactNode } from "react";
+import type { SettingView } from "@tillerd/client-bindings";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 
-import type { SettingsSource } from "~/lib/transport/settings-source";
+const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+
+mock.module("@tillerd/client-bindings", () => ({
+  commands: {
+    settingSet: (args: { scope: string; projectId: null; key: string; valueJson: string }) => {
+      settingSetCalls.push(args);
+      return Promise.resolve({ status: "ok", data: null });
+    },
+    settingList: () => Promise.resolve({ status: "ok", data: [] }),
+    settingGet: () => Promise.resolve({ status: "ok", data: null }),
+  },
+  ensureResult: (r: { status: string; data: unknown } | { status: string; error: unknown }) => {
+    if (r.status === "ok") return (r as { status: string; data: unknown }).data;
+    throw new Error(String((r as { status: string; error: unknown }).error));
+  },
+}));
 
 import {
   SettingsProvider,
+  _resetForTests,
   hydrateSettings,
   setGlobalSetting,
   settingsStore,
@@ -19,40 +36,29 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   document.documentElement.classList.remove("dark");
-  settingsStore.setState(() => ({ values: {}, source: null }));
+  settingsStore.setState(() => ({ values: {} }));
+  _resetForTests();
+  settingSetCalls.length = 0;
 });
 
-function fakeSource(initial: Record<string, unknown> = {}): {
-  source: SettingsSource;
-  writes: { key: string; value: unknown }[];
-} {
-  const store = new Map(Object.entries(initial));
-  const writes: { key: string; value: unknown }[] = [];
-  const source: SettingsSource = {
-    getSetting: async ({ key }) => store.get(key) ?? null,
-    setSetting: async ({ key, value }) => {
-      store.set(key, value);
-      writes.push({ key, value });
-    },
-    listSettings: async () => [...store.entries()].map(([key, value]) => ({ key, value })),
-  };
-  return { source, writes };
+function listFrom(initial: Record<string, unknown>): SettingView[] {
+  return Object.entries(initial).map(([key, value]) => ({ key, value }));
 }
 
-function wrapperFor(source: SettingsSource | null) {
+function wrapperFor(list: SettingView[]) {
   return ({ children }: { children: ReactNode }) => (
-    <SettingsProvider resolve={() => Promise.resolve(source)}>{children}</SettingsProvider>
+    <SettingsProvider resolve={() => Promise.resolve(list)}>{children}</SettingsProvider>
   );
 }
 
 test("a setting change propagates live to every consumer of the same key", async () => {
-  const { source } = fakeSource({ "terminal.scheme": "github-dark" });
+  const list = listFrom({ "terminal.scheme": "github-dark" });
   const { result } = renderHook(
     () => ({
       panel: useGlobalSetting("terminal.scheme", "github-dark"),
       terminal: useGlobalSetting("terminal.scheme", "github-dark"),
     }),
-    { wrapper: wrapperFor(source) },
+    { wrapper: wrapperFor(list) },
   );
 
   await waitFor(() => expect(result.current.terminal.value).toBe("github-dark"));
@@ -62,35 +68,35 @@ test("a setting change propagates live to every consumer of the same key", async
 });
 
 test("useGlobalSetting hydrates from the source and falls back before then", async () => {
-  const { source } = fakeSource({ "terminal.scheme": "github-light" });
+  const list = listFrom({ "terminal.scheme": "github-light" });
   const { result } = renderHook(() => useGlobalSetting("terminal.scheme", "github-dark"), {
-    wrapper: wrapperFor(source),
+    wrapper: wrapperFor(list),
   });
   await waitFor(() => expect(result.current.value).toBe("github-light"));
 });
 
 test("a write fired before hydration reaches the source once it resolves", async () => {
-  const { source, writes } = fakeSource();
-
   setGlobalSetting("keybindings.preset", "vscode");
-  expect(writes).toHaveLength(0);
+  expect(settingSetCalls).toHaveLength(0);
 
-  await hydrateSettings(() => Promise.resolve(source));
+  await hydrateSettings(() => Promise.resolve([]));
 
-  expect(writes).toContainEqual({ key: "keybindings.preset", value: "vscode" });
+  expect(settingSetCalls).toContainEqual(
+    expect.objectContaining({ key: "keybindings.preset", valueJson: JSON.stringify("vscode") }),
+  );
   expect(settingsStore.state.values["keybindings.preset"]).toBe("vscode");
 });
 
 test("useGlobalSetting uses the fallback with no source (off the desktop host)", async () => {
   const { result } = renderHook(() => useGlobalSetting("terminal.scheme", "github-dark"), {
-    wrapper: wrapperFor(null),
+    wrapper: wrapperFor([]),
   });
   expect(result.current.value).toBe("github-dark");
 });
 
 test("setTheme applies the class, caches it, and persists to the source", async () => {
-  const { source, writes } = fakeSource({ theme: "light" });
-  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(source) });
+  const list = listFrom({ theme: "light" });
+  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(list) });
   await waitFor(() => expect(result.current.theme).toBe("light"));
 
   act(() => result.current.setTheme("dark"));
@@ -98,12 +104,16 @@ test("setTheme applies the class, caches it, and persists to the source", async 
   expect(result.current.theme).toBe("dark");
   expect(document.documentElement.classList.contains("dark")).toBe(true);
   expect(localStorage.getItem(THEME_CACHE_KEY)).toBe("dark");
-  await waitFor(() => expect(writes).toContainEqual({ key: "theme", value: "dark" }));
+  await waitFor(() =>
+    expect(settingSetCalls).toContainEqual(
+      expect.objectContaining({ key: "theme", valueJson: JSON.stringify("dark") }),
+    ),
+  );
 });
 
 test("the provider applies the hydrated durable theme to the document", async () => {
-  const { source } = fakeSource({ theme: "light" });
-  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(source) });
+  const list = listFrom({ theme: "light" });
+  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(list) });
 
   await waitFor(() => expect(result.current.theme).toBe("light"));
   expect(document.documentElement.classList.contains("dark")).toBe(false);
