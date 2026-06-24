@@ -169,9 +169,12 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::domain::template_discard,
             transport::domain::template_pin,
             transport::domain::template_unpin,
+            transport::domain::log_list,
+            transport::domain::log_tail,
         ])
         .events(tauri_specta::collect_events![
             orchestrator_host::StatusWire,
+            orchestrator_host::LogsChanged,
             notification_host::NotificationWire,
             transport::sink::SurfaceStatusPayload,
             transport::sink::SurfaceExitPayload,
@@ -241,7 +244,8 @@ pub fn run() {
             // streams lifecycle events to the renderer and reaches `ready`.
             let handle = app.handle().clone();
             let state = app.state::<OrchestratorState>();
-            orchestrator_host::spawn_boot(handle, state.inner());
+            orchestrator_host::spawn_boot(handle.clone(), state.inner());
+            orchestrator_host::spawn_logs_watcher(handle);
             Ok(())
         })
         .invoke_handler(collect_transport!(bridge::daemon_connect))

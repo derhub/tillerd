@@ -260,6 +260,8 @@ macro_rules! collect_transport {
             $crate::transport::domain::template_discard,
             $crate::transport::domain::template_pin,
             $crate::transport::domain::template_unpin,
+            $crate::transport::domain::log_list,
+            $crate::transport::domain::log_tail,
         ]
     };
 }

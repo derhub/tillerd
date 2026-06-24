@@ -220,12 +220,15 @@ export const commands = {
 	templateDiscard: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("template_discard", args)),
 	templatePin: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("template_pin", args)),
 	templateUnpin: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("template_unpin", args)),
+	logList: () => typedError<LogFileView[], string>(__TAURI_INVOKE("log_list")),
+	logTail: (args: { path: string; from: number; maxBytes: number; align: boolean }) => typedError<LogTailView, string>(__TAURI_INVOKE("log_tail", args)),
 };
 
 /** Events */
 export const events = {
 	commandCenterOpen: makeEvent<CommandCenterOpen>("command-center:open"),
 	daemonLost: makeEvent<DaemonLost>("daemon-lost"),
+	logsChanged: makeEvent<LogsChanged>("logs://changed"),
 	menuNavigate: makeEvent<MenuNavigate>("menu:navigate"),
 	notificationEvent: makeEvent<NotificationWire>("notification://event"),
 	orchestratorStatus: makeEvent<StatusWire>("orchestrator://status"),
@@ -330,6 +333,33 @@ export type LogFileEntry = {
 	/**  Current byte size. */
 	size: number,
 };
+
+/**  One structured `.log` file under the runtime logs directory. */
+export type LogFileView = {
+	name: string,
+	path: string,
+	size: number,
+};
+
+/**  One parsed structured-log line. */
+export type LogRecordView = {
+	timestamp: string,
+	level: string,
+	body: string,
+	attributes: unknown,
+	resource: unknown,
+	raw: string,
+};
+
+/**  A bounded window of parsed records plus the byte offsets that produced it. */
+export type LogTailView = {
+	records: LogRecordView[],
+	start: number,
+	end: number,
+};
+
+/**  Nudge: the runtime logs directory changed; the renderer re-pulls via `log_list`/`log_tail`. */
+export type LogsChanged = null;
 
 export type MenuNavigate = string;
 

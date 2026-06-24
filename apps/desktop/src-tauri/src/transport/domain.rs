@@ -17,6 +17,7 @@ use orchestrator::app::command::{
     CommandView, DiscardCommand, DuplicateCommand, EditCommand, GetCommandById, ListCommands,
     NewCommand as NewCommandCmd, PinCommand, RenameCommand, SeedCommands, UnpinCommand,
 };
+use orchestrator::app::logs::{ListLogFiles, LogFileView, LogTailView, TailLog};
 use orchestrator::app::notification::{
     CountUnreadNotifications, DisregardAllNotifications, DisregardNotification,
     ListUnreadNotifications, MarkAllNotificationsRead, MarkNotificationRead, NotificationView,
@@ -695,6 +696,20 @@ transport_command!(template_discard(id: String) => DiscardTemplate { id });
 transport_command!(template_pin(id: String) => PinTemplate { id });
 
 transport_command!(template_unpin(id: String) => UnpinTemplate { id });
+
+// Logs plane. Read-only window pull over the runtime `.log` files; the renderer
+// drives re-pulls off the `logs://changed` event.
+transport_query!(
+    log_list() -> Vec<LogFileView>
+        => ListLogFiles,
+        |files| files
+);
+
+transport_query!(
+    log_tail(path: String, from: u64, max_bytes: u64, align: bool) -> LogTailView
+        => TailLog { path, from, max_bytes, align },
+        |view| view
+);
 
 #[cfg(test)]
 mod tests {

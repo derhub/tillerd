@@ -24,6 +24,13 @@ use tillerd_paths::{
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
+pub const LOGS_CHANGED_EVENT: &str = "logs://changed";
+
+/// Nudge: the runtime logs directory changed; the renderer re-pulls via `log_list`/`log_tail`.
+#[derive(Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "logs://changed")]
+pub struct LogsChanged;
+
 /// The boot lifecycle status as seen on the wire. Unchanged from the prior host.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 #[tauri_specta(event_name = "orchestrator://status")]
@@ -287,4 +294,45 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
         // tasks it spawned continue to run.
         std::mem::forget(runtime);
     });
+}
+
+/// Watch the runtime logs directory on a 1s tick, emitting `logs://changed` when the
+/// summed size of its `.log` files moves. Poll over a filesystem-notify dependency:
+/// the only consumer re-pulls a bounded window, so a 1s nudge is enough and stays
+/// self-contained. Runs on a dedicated thread with its own current-thread runtime.
+pub fn spawn_logs_watcher(app: AppHandle) {
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("build logs watcher runtime");
+        runtime.block_on(async move {
+            let dir = tillerd_paths::logging::logs_dir_in(&runtime_dir());
+            let mut tick = tokio::time::interval(Duration::from_secs(1));
+            let mut last = logs_dir_size(&dir).await;
+            loop {
+                tick.tick().await;
+                let size = logs_dir_size(&dir).await;
+                if size != last {
+                    last = size;
+                    let _ = app.emit(LOGS_CHANGED_EVENT, LogsChanged);
+                }
+            }
+        });
+    });
+}
+
+async fn logs_dir_size(dir: &std::path::Path) -> u64 {
+    let Ok(mut rd) = tokio::fs::read_dir(dir).await else {
+        return 0;
+    };
+    let mut total = 0u64;
+    while let Ok(Some(e)) = rd.next_entry().await {
+        let path = e.path();
+        if path.extension().and_then(|x| x.to_str()) != Some("log") {
+            continue;
+        }
+        total = total.saturating_add(e.metadata().await.map(|m| m.len()).unwrap_or(0));
+    }
+    total
 }

@@ -4,6 +4,7 @@
 //! may own and that hosts must not assemble themselves. Hosts (tauri, future server) delegate here.
 
 pub mod command;
+pub mod logs;
 pub mod notification;
 pub mod project;
 pub mod session;
