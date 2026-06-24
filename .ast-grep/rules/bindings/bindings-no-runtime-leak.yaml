@@ -1,0 +1,25 @@
+id: bindings-no-runtime-leak
+language: Tsx
+severity: error
+message: >-
+  `commands` and `events` are the raw generated Tauri runtime and must stay
+  inside packages/client-bindings/. Import the typed wrapper instead — `query`,
+  `command`, `reorder`, `subscribe` from "@tillerd/client-bindings". Types from
+  the gen module remain public: `import type { ... }` is allowed.
+note: |
+  tauri_bindings.gen.ts exports two runtime objects (commands, events) plus the
+  generated types. Only the wrapper in client.query.ts may call the runtime; the
+  rest of the app depends on the wrapper edge. Type-only imports are unaffected.
+ignores:
+  - "packages/client-bindings/**"
+rule:
+  kind: import_specifier
+  regex: '^(commands|events)$'
+  inside:
+    kind: import_statement
+    stopBy: end
+    has:
+      field: source
+      regex: 'tauri_bindings\.gen|client-bindings/tauri'
+    not:
+      regex: '^import\s+type\b'
