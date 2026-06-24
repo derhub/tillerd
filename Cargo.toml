@@ -43,6 +43,10 @@ uuid = { version = "1", features = ["v4"] }
 nix = "0.31"
 # mcp
 rmcp = "1.7"
+# typed tauri bindings (RC toolchain -- pinned exact; build-time only, output committed + drift-guarded)
+specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
+specta-typescript = "=0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 # testing
 tempfile = "3"
 sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
@@ -57,13 +61,16 @@ process-launch = { path = "crates/process-launch", package = "tillerd-process-la
 orchestrator = { path = "crates/orchestrator", package = "tillerd-orchestrator" }
 redact = { path = "crates/redact", package = "tillerd-redact" }
 
+# Lint groups carry priority = -1 so the individual lints below override them;
+# equal priority is a hard error under `cargo clippy -- -D warnings`.
 [workspace.lints.rust]
-future-incompatible = "warn"
-nonstandard_style = "warn"
-unused_unsafe = "warn"
+future-incompatible = { level = "warn", priority = -1 }
+nonstandard_style = { level = "warn", priority = -1 }
+unused_unsafe = "deny"
+deprecated = "deny"
 
 [workspace.lints.clippy]
-all = "warn"
+all = { level = "warn", priority = -1 }
 redundant_clone = "warn"
 large_enum_variant = "warn"
 needless_collect = "warn"

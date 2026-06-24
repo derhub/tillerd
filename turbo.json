@@ -6,7 +6,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**"],
+      "outputs": ["dist/**"],
       "env": ["TILLERD_DIR"]
     },
     "@tillerd/daemon-pty#build": {
