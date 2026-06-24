@@ -1,19 +1,28 @@
-import { afterEach, expect, test } from "bun:test";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import type { NotificationWire } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
-import type { NotificationEvent } from "@tillerd/sdk/orchestrator";
 
-import { NotificationsProvider, useNotifications } from "./context";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test } from "bun:test";
+
 import type { NotificationSource } from "~/lib/transport/notification-source";
 
-afterEach(cleanup);
+import { NotificationsProvider, notificationsStore, useNotifications } from "./context";
 
-function ev(id: string): NotificationEvent {
+// Shared module store reset before AND after each test: sibling suite failures that record
+// an error notification must not leak into these counts.
+const resetStore = () => notificationsStore.setState(() => ({ items: [], unread: 0 }));
+beforeEach(resetStore);
+afterEach(() => {
+  cleanup();
+  resetStore();
+});
+
+function ev(id: string): NotificationWire {
   return { id, category: "surface-stopped", severity: "info", message: `m${id}`, ts: Number(id) };
 }
 
-function fakeSource(history: NotificationEvent[]) {
-  let emit: ((event: NotificationEvent) => void) | null = null;
+function fakeSource(history: NotificationWire[]) {
+  let emit: ((event: NotificationWire) => void) | null = null;
   const source: NotificationSource = {
     history: async () => history,
     subscribe: async (handler) => {
@@ -21,11 +30,10 @@ function fakeSource(history: NotificationEvent[]) {
       return () => {};
     },
   };
-  return { source, fire: (event: NotificationEvent) => emit?.(event) };
+  return { source, fire: (event: NotificationWire) => emit?.(event) };
 }
 
 function makeWrapper(source: NotificationSource) {
-  // Stable resolver refs so the provider effect does not re-run on each render.
   const resolveSource = async () => source;
   const resolveBanner = async () => null;
   return ({ children }: { children: ReactNode }) => (
@@ -35,7 +43,6 @@ function makeWrapper(source: NotificationSource) {
   );
 }
 
-// Scenario: Opening the center lists recent notifications (hydrated, zero unread)
 test("hydrates durable history with zero unread", async () => {
   const { source } = fakeSource([ev("2"), ev("1")]);
   const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper(source) });
@@ -44,7 +51,6 @@ test("hydrates durable history with zero unread", async () => {
   expect(result.current.unread).toBe(0);
 });
 
-// Scenario: New notification increments the unread count
 test("a live event prepends and increments unread", async () => {
   const { source, fire } = fakeSource([ev("1")]);
   const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper(source) });
@@ -54,7 +60,6 @@ test("a live event prepends and increments unread", async () => {
   expect(result.current.unread).toBe(1);
 });
 
-// Scenario: Opening the center clears the unread count
 test("markRead clears the unread count", async () => {
   const { source, fire } = fakeSource([]);
   const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper(source) });

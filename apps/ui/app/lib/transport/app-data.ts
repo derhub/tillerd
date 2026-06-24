@@ -12,11 +12,8 @@ export interface RegistryEntry {
   cwd: string;
 }
 
-/**
- * Native app-data accessor: user preferences plus the session registry (sessionId -> cwd, used to
- * supply `cwd` on reconnect). Backed by the Rust core's local store over `invoke`; replaces the
- * server-side sqlite registry on the desktop path (design D6).
- */
+// Backed by Rust core's local store over `invoke`; replaces the server-side sqlite registry on
+// the desktop path. Session registry supplies `cwd` on reconnect.
 export class TauriAppData {
   constructor(private readonly core: TauriCore) {}
 
@@ -28,7 +25,6 @@ export class TauriAppData {
     return this.core.invoke<void>(PREF_SET, { key, value });
   }
 
-  /** cwd recorded for a session, or `null` when unknown. */
   getCwd(sessionId: string): Promise<string | null> {
     return this.core.invoke<string | null>(REGISTRY_GET, { sessionId });
   }
@@ -45,7 +41,6 @@ export class TauriAppData {
     return this.core.invoke<RegistryEntry[]>(REGISTRY_LIST);
   }
 
-  /** Drop registry entries whose session is no longer live in the daemon. */
   async reconcile(liveIds: string[]): Promise<void> {
     const live = new Set(liveIds);
     const known = await this.listSessions();

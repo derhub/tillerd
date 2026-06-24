@@ -1,55 +1,74 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { setReady } from "@tillerd/client-bindings";
+import React from "react";
+
 import { isDesktopHost } from "~/lib/transport";
-import { createDesktopOrchestratorClient } from "~/lib/transport/orchestrator";
 import {
-  isFailed,
-  isReady,
-  type OrchestratorClient,
-  type OrchestratorStatus,
-} from "@tillerd/sdk/orchestrator";
+  createDesktopOrchestratorClient,
+  type SimpleOrchestratorClient,
+  type StatusWire,
+} from "~/lib/transport/orchestrator";
 
 export type DesktopHostState =
   | { status: "web" }
   | { status: "booting" }
-  | { status: "ready"; orchestratorClient: OrchestratorClient }
+  | { status: "ready" }
   | { status: "error"; error: Error };
 
-const DesktopHostContext = createContext<DesktopHostState>({ status: "web" });
+const DesktopHostContext = React.createContext<DesktopHostState>({ status: "web" });
 
-function toState(status: OrchestratorStatus, client: OrchestratorClient): DesktopHostState {
-  if (isReady(status)) return { status: "ready", orchestratorClient: client };
-  if (isFailed(status)) return { status: "error", error: new Error(status.reason) };
+function toState(status: StatusWire): DesktopHostState {
+  if (status.state === "ready") {
+    setReady(true);
+    return { status: "ready" };
+  }
+  setReady(false);
+  if (status.state === "failed") return { status: "error", error: new Error(status.reason) };
   return { status: "booting" };
 }
 
-export function DesktopHostProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<DesktopHostState>(() =>
+async function mountOrchestratorClient(
+  onState: (s: DesktopHostState) => void,
+  isCancelled: () => boolean,
+  setUnlisten: (u: () => void) => void,
+): Promise<void> {
+  try {
+    const client: SimpleOrchestratorClient = createDesktopOrchestratorClient();
+    const unlisten = await client.subscribe((status) => {
+      if (!isCancelled()) onState(toState(status));
+    });
+    setUnlisten(unlisten);
+    if (isCancelled()) {
+      unlisten();
+      return;
+    }
+    const current = await client.status();
+    if (!isCancelled()) onState(toState(current));
+  } catch (e) {
+    if (!isCancelled()) {
+      onState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
+    }
+  }
+}
+
+export function DesktopHostProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = React.useState<DesktopHostState>(() =>
     isDesktopHost() ? { status: "booting" } : { status: "web" },
   );
 
-  useEffect(() => {
-    if (!isDesktopHost()) return;
+  React.useEffect(() => {
+    if (!isDesktopHost()) {
+      setReady(false);
+      return;
+    }
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    void (async () => {
-      try {
-        const client = createDesktopOrchestratorClient();
-        // subscribe before the first read so no transition is missed
-        unlisten = await client.subscribe((status) => {
-          if (!cancelled) setState(toState(status, client));
-        });
-        if (cancelled) {
-          unlisten();
-          return;
-        }
-        const current = await client.status();
-        if (!cancelled) setState(toState(current, client));
-      } catch (e) {
-        if (!cancelled) {
-          setState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
-        }
-      }
-    })();
+    void mountOrchestratorClient(
+      setState,
+      () => cancelled,
+      (u) => {
+        unlisten = u;
+      },
+    );
     return () => {
       cancelled = true;
       unlisten?.();
@@ -60,5 +79,5 @@ export function DesktopHostProvider({ children }: { children: ReactNode }) {
 }
 
 export function useDesktopHost(): DesktopHostState {
-  return useContext(DesktopHostContext);
+  return React.use(DesktopHostContext);
 }

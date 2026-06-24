@@ -1,15 +1,17 @@
-import { useState, useCallback, useRef } from "react";
-import { useNavigate, useRevalidator } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import React from "react";
 
+import { scalarString } from "~/lib/json";
 import { WS_BASE } from "~/lib/serverUrl";
 
 export function useSpawnSession() {
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
-  const [spawning, setSpawning] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const queryClient = useQueryClient();
+  const [spawning, setSpawning] = React.useState(false);
+  const wsRef = React.useRef<WebSocket | null>(null);
 
-  const spawn = useCallback(() => {
+  const spawn = React.useCallback(() => {
     if (spawning) return;
     setSpawning(true);
 
@@ -19,12 +21,12 @@ export function useSpawnSession() {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data as string) as Record<string, unknown>;
       if (msg["type"] === "session_start") {
-        const id = String(msg["sessionId"] ?? "");
+        const id = scalarString(msg["sessionId"]);
         ws.close();
         wsRef.current = null;
         setSpawning(false);
-        revalidator.revalidate();
-        void navigate(`/session/${id}`);
+        void queryClient.invalidateQueries({ queryKey: ["sessions"] });
+        void navigate({ to: `/session/${id}` } as never);
       }
     };
 
@@ -34,9 +36,9 @@ export function useSpawnSession() {
     };
 
     ws.onclose = () => {
-      if (spawning) setSpawning(false);
+      setSpawning(false);
     };
-  }, [spawning, navigate, revalidator]);
+  }, [spawning, navigate, queryClient]);
 
   return { spawn, spawning };
 }

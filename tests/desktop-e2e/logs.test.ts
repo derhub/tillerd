@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+
 import { openLogViewer } from "./helpers";
 import { getApp } from "./shared-app";
 

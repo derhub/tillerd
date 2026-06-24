@@ -11,14 +11,14 @@ WORK="$(mktemp -d)"
 export TILLERD_DIR="$WORK/.tillerd"
 mkdir -p "$TILLERD_DIR"
 
-# WebdriverIO logs every command's RESULT at info level — tens of thousands of lines that bury the
+# WebdriverIO logs every command's RESULT at info level -- tens of thousands of lines that bury the
 # test output. Keep only errors (bun:test reports pass/fail structurally; no log parsing).
 export WDIO_LOG_LEVEL=error
 
-# ── builds ──────────────────────────────────────────────────────────────────
+# -- builds ------------------------------------------------------------------
 # Build the services the app spawns and the UI bundle (frontendDist) once; both desktop builds
 # embed that same frontend. Build the desktop binary via the tauri CLI (not raw cargo) so the app
-# serves its embedded frontend — a plain cargo/dev build loads the absent vite devUrl and renders
+# serves its embedded frontend -- a plain cargo/dev build loads the absent vite devUrl and renders
 # about:blank.
 bash tools/build-services.sh
 bunx turbo run build --filter=@tillerd/ui
@@ -27,7 +27,7 @@ bunx turbo run build --filter=@tillerd/ui
 (cd apps/desktop && bunx tauri build --debug --no-bundle --features webdriver)
 DEV_BIN="$REPO_ROOT/target/debug/tillerd-desktop"
 
-# ── preflight: fail fast if the app or its services do not start ───────────────
+# -- preflight: fail fast if the app or its services do not start ---------------
 # A broken boot (panic, or a service that never comes up) otherwise surfaces as a wall of
 # opaque "connection refused" from every webdriver element query until the suite times out.
 # Launch the binary once in an isolated runtime dir and require the orchestrator to bring its
@@ -66,7 +66,7 @@ if [[ -n "${E2E_BUNDLED:-}" ]]; then
   BUNDLED_BIN="$REPO_ROOT/target/release/tillerd-desktop"
 fi
 
-# ── webdriver intermediary ────────────────────────────────────────────────────
+# -- webdriver intermediary ----------------------------------------------------
 # Starts the W3C WebDriver server (it launches the app per session) and reaps everything on exit:
 # the intermediary, the app, AND the services the app spawned. The orchestrator leaves the
 # gate/daemon running by design; the e2e must reap them so repeated runs do not accumulate orphans
@@ -82,20 +82,22 @@ trap '
 ' EXIT
 sleep 1
 
-# ── tests ─────────────────────────────────────────────────────────────────────
+# -- tests ---------------------------------------------------------------------
 # `bun test` runs every *.test.ts sequentially in one process and exits non-zero on any failure.
 # `--bail` stops at the first failure. The scenario suite shares one app launched by the setup.ts
-# preload; resume runs without the preload so its real-restart launches never collide with it.
+# preload; the own-launch specs (resume, reload) run without the preload so their real launches and
+# page reloads never collide with the shared app.
 SETUP="$REPO_ROOT/tests/desktop-e2e/setup.ts"
 RESUME="$REPO_ROOT/tests/desktop-e2e/resume.test.ts"
+RELOAD="$REPO_ROOT/tests/desktop-e2e/reload-deep-route.test.ts"
 
-# Dev scenario suite: one shared app (preload) across every spec except resume.
-SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME")
+# Dev scenario suite: one shared app (preload) across every spec except the own-launch ones.
+SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME" | grep -v "$RELOAD")
 # shellcheck disable=SC2086
 TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail --preload "$SETUP" $SCENARIO_SPECS
 
-# Resume-after-restart: its own launches against the shared TILLERD_DIR.
-TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME"
+# Own-launch specs (own app against the shared TILLERD_DIR): restart-resume and deep-route reload.
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD"
 
 # Bundled build: boot-to-ready only, via the same shared-app preload against the release binary.
 if [[ -n "$BUNDLED_BIN" ]]; then

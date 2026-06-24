@@ -1,4 +1,3 @@
-/** A parsed structured log record, normalized to the OpenTelemetry field groups. */
 export interface LogRecord {
   timestamp: string;
   level: string;
@@ -8,7 +7,6 @@ export interface LogRecord {
   raw: string;
 }
 
-/** Keys that belong to the per-process resource, not to record attributes. */
 const RESOURCE_KEYS = new Set([
   "service.name",
   "service.version",
@@ -17,13 +15,6 @@ const RESOURCE_KEYS = new Set([
   "process.pid",
 ]);
 
-/**
- * Parse one JSON log line (the `tracing-subscriber` JSON shape: top-level
- * `timestamp` / `level`, a `fields` object carrying `message`, and a `spans`
- * stack carrying span fields) into a {@link LogRecord}. Returns `null` for a
- * blank line or one that is not valid JSON, so a malformed line is skipped
- * rather than shown.
- */
 export function parseRecord(line: string): LogRecord | null {
   const trimmed = line.trim();
   if (!trimmed) return null;

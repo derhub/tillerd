@@ -24,11 +24,8 @@ export abstract class FramedDaemonTransport implements DaemonTransport {
   private rejectConnect: ((err: unknown) => void) | null = null;
   protected open = false;
 
-  /** Open the carrier; drive {@link onCarrierOpen}/{@link onCarrierBytes}/{@link onCarrierClose}. */
   protected abstract openCarrier(): void;
-  /** Write framed bytes to the carrier. */
   protected abstract writeBytes(bytes: Uint8Array): void;
-  /** Close the carrier. */
   protected abstract closeCarrier(): void;
 
   connect(): Promise<void> {

@@ -1,5 +1,6 @@
-import { test, expect, describe } from "bun:test";
 import { encodeFrame, FrameDecoder, type DaemonFrame } from "@tillerd/sdk";
+import { test, expect, describe } from "bun:test";
+
 import { WebSocketDaemonTransport, type WebSocketLike } from "./websocket";
 
 class FakeWS implements WebSocketLike {
@@ -21,12 +22,10 @@ class FakeWS implements WebSocketLike {
   open(): void {
     this.onopen?.({});
   }
-  /** Deliver a daemon->client frame to the transport, as the server byte bridge would. */
   deliver(meta: object, body?: Uint8Array): void {
     const buf = encodeFrame(meta, body);
     this.onmessage?.({ data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) });
   }
-  /** Decode every frame the transport has sent so far. */
   sentFrames(): Array<{ meta: DaemonFrame | null; body: Uint8Array | null }> {
     const out: Array<{ meta: DaemonFrame | null; body: Uint8Array | null }> = [];
     for (const chunk of this.sent.splice(0)) {

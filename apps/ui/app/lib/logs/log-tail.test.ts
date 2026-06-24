@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 
 import type { LogFileInfo, LogSource } from "../transport/log-source";
+
 import { LogTail } from "./log-tail";
 
 function rec(ts: string, msg: string): string {

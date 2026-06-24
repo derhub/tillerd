@@ -1,15 +1,23 @@
 import type { TauriCore, TauriChannelLike } from "./tauri";
 
-/** Desktop host = a Tauri v2 web view, which injects `__TAURI_INTERNALS__` on `window`. */
 export function isDesktopHost(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-/** Bind the Tauri core surface; only reached on the desktop host. */
 export async function loadTauriCore(): Promise<TauriCore> {
   const { invoke, Channel } = await import("@tauri-apps/api/core");
+  const { listen } = await import("@tauri-apps/api/event");
   return {
     invoke: (cmd, args) => invoke(cmd, args),
     createChannel: () => new Channel() as unknown as TauriChannelLike,
+    listen: <T>(event: string, handler: (payload: T) => void) =>
+      listen<T>(event, (e) => handler(e.payload)),
   };
+}
+
+export async function withDesktopCore<T>(
+  build: (core: TauriCore) => T | Promise<T>,
+): Promise<T | null> {
+  if (!isDesktopHost()) return null;
+  return build(await loadTauriCore());
 }

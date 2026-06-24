@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+
 import { createProject, observePause, openTerminal, uniqueName } from "./helpers";
 import { getApp } from "./shared-app";
 
@@ -35,7 +36,7 @@ test("detaching a terminal replaces it with a re-attach placeholder", async () =
   const reattach = await b.$('button[aria-label="Re-attach detached window"]');
   expect(await reattach.isExisting()).toBe(true);
 
-  // The live terminal surface no longer renders in the parent window.
+  // The live terminal surface does not render in the parent window after detach.
   const surfaceEl = await b.$("[data-surface-id]");
   expect(await surfaceEl.isExisting()).toBe(false);
 

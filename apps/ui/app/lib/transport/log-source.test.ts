@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 
+import type { TauriChannelLike, TauriCore } from "./tauri";
+
 import { FILE_READ, FILE_SIZE } from "./file-source";
 import { LIST_LOG_FILES, TauriLogSource } from "./log-source";
-import type { TauriChannelLike, TauriCore } from "./tauri";
 
 function fakeCore(
   handlers: Record<string, (args?: Record<string, unknown>) => unknown>,
@@ -11,6 +12,7 @@ function fakeCore(
     invoke: (async (cmd: string, args?: Record<string, unknown>) =>
       handlers[cmd]?.(args)) as TauriCore["invoke"],
     createChannel: (): TauriChannelLike => ({ onmessage: null }),
+    listen: async () => () => {},
   };
 }
 

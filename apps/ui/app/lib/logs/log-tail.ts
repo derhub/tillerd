@@ -1,14 +1,11 @@
 import type { LogSource } from "../transport/log-source";
+
 import { type LogRecord, parseRecord } from "./log-record";
 
 export interface LogTailOptions {
-  /** Records kept in the live tail before the oldest are trimmed (while pinned to bottom). */
   windowSize?: number;
-  /** Absolute cap on records held in memory, enforced even after load-older. */
   maxRecords?: number;
-  /** Bytes read from the tail of each file when first seen. */
   backfillBytes?: number;
-  /** Bytes read per {@link LogTail.loadOlder} step. */
   olderChunkBytes?: number;
 }
 
@@ -20,24 +17,14 @@ const DEFAULTS = {
 };
 
 interface Cursor {
-  /** Confirmed line boundary: lowest byte of the complete lines parsed so far. */
   start: number;
-  /** Tail read position. */
   end: number;
-  /** Partial trailing line (bytes after the last newline within the read range). */
   buf: string;
   decoder: TextDecoder;
 }
 
 const encoder = new TextEncoder();
 
-/**
- * Tails a set of structured log files through a {@link LogSource}: polls each
- * file's size, reads the appended bytes, parses complete JSON lines (buffering a
- * partial trailing line until its newline arrives), and keeps a single window
- * merged across files by timestamp. {@link loadOlder} reads earlier ranges on
- * demand. The polling cadence lives in the caller, not here.
- */
 export class LogTail {
   private readonly cursors = new Map<string, Cursor>();
   private records: LogRecord[] = [];
@@ -57,12 +44,10 @@ export class LogTail {
     this.olderChunkBytes = opts.olderChunkBytes ?? DEFAULTS.olderChunkBytes;
   }
 
-  /** The current merged window. */
   current(): LogRecord[] {
     return this.records;
   }
 
-  /** One poll cycle: pick up new bytes from every file. Returns the merged window. */
   async refresh(): Promise<LogRecord[]> {
     const files = await this.source.list();
     let added = false;
@@ -78,7 +63,6 @@ export class LogTail {
     return this.records;
   }
 
-  /** Read an earlier range of `path`, prepend its records. Returns the merged window. */
   async loadOlder(path: string): Promise<LogRecord[]> {
     const cursor = this.cursors.get(path);
     if (!cursor || cursor.start === 0) return this.records;
@@ -86,12 +70,12 @@ export class LogTail {
 
     const top = cursor.start;
     const goal = Math.max(0, top - this.olderChunkBytes);
-    const readFrom = goal > 0 ? goal - 1 : 0; // read one byte earlier to land on a boundary
+    const readFrom = goal > 0 ? goal - 1 : 0; // read one extra byte to land on a line boundary
     let text = new TextDecoder().decode(await this.source.read(path, readFrom, top - readFrom));
 
     if (readFrom > 0) {
       const advanced = afterFirstLine(text, readFrom);
-      if (!advanced) return this.records; // chunk holds no boundary; skip this step
+      if (!advanced) return this.records;
       cursor.start = advanced.boundary;
       text = advanced.rest;
     } else {
@@ -101,7 +85,6 @@ export class LogTail {
     const older = this.parseComplete(trimTrailingEmpty(text.split("\n")));
     if (older.length) {
       this.records = sortByTime(this.records.concat(older));
-      // Hard cap, even while browsing history: memory can't run away on repeated load-older.
       if (this.records.length > this.maxRecords) {
         this.records = this.records.slice(this.records.length - this.maxRecords);
       }
@@ -109,7 +92,6 @@ export class LogTail {
     return this.records;
   }
 
-  /** Load an earlier range from every tracked file. Returns the merged window. */
   async loadOlderAll(): Promise<LogRecord[]> {
     for (const path of this.cursors.keys()) {
       await this.loadOlder(path);
@@ -124,7 +106,7 @@ export class LogTail {
       return false;
     }
     const goal = Math.max(0, size - this.backfillBytes);
-    const readFrom = goal > 0 ? goal - 1 : 0; // read one byte earlier to land on a boundary
+    const readFrom = goal > 0 ? goal - 1 : 0; // read one extra byte to land on a line boundary
 
     let text = decoder.decode(await this.source.read(path, readFrom, size - readFrom), {
       stream: true,
@@ -133,7 +115,6 @@ export class LogTail {
     if (readFrom > 0) {
       const advanced = afterFirstLine(text, readFrom);
       if (!advanced) {
-        // backfill window holds no line boundary; hold it as a partial tail
         this.cursors.set(path, { start: size, end: size, buf: text, decoder });
         return false;
       }
@@ -169,8 +150,6 @@ export class LogTail {
 
   private commit(): void {
     this.records = sortByTime(this.records);
-    // Pinned to the bottom: trim to the live window. Browsing history: keep more, but never
-    // exceed the absolute cap so memory stays bounded.
     const cap = this.trimEnabled ? this.windowSize : this.maxRecords;
     if (this.records.length > cap) {
       this.records = this.records.slice(this.records.length - cap);
@@ -178,9 +157,9 @@ export class LogTail {
   }
 }
 
-// Drop the first (partial or boundary) line of a chunk that began at byte `readFrom`,
-// returning the remaining complete-line text and the absolute byte offset where it starts.
-// Null when the chunk holds no newline (no boundary to anchor on).
+// Drops the first (partial) line of a chunk starting at byte `readFrom`.
+// Returns the remaining complete-line text and the absolute byte offset where it starts.
+// Null when the chunk holds no newline.
 function afterFirstLine(text: string, readFrom: number): { rest: string; boundary: number } | null {
   const nl = text.indexOf("\n");
   if (nl === -1) return null;

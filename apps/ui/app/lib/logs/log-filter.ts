@@ -1,22 +1,15 @@
 import type { LogRecord } from "./log-record";
 
 export interface LogFilter {
-  /** Exact severity level; only records of that level are shown. */
   level?: string;
-  /** Free-text query over the body and attributes. */
   query?: string;
-  /** `component` attribute facet. */
   component?: string;
-  /** `session.id` attribute facet. */
   sessionId?: string;
-  /** `service.name` resource facet; lets a health row deep-link to one service's logs. */
   service?: string;
 }
 
-/** Severity levels, low to high. Single source of truth for level ordering. */
 export const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;
 
-/** Apply a {@link LogFilter} to records. An empty filter returns them unchanged. */
 export function filterRecords(records: LogRecord[], filter: LogFilter): LogRecord[] {
   const level = filter.level?.toUpperCase();
   const query = filter.query?.trim().toLowerCase() ?? "";
@@ -33,7 +26,6 @@ export function filterRecords(records: LogRecord[], filter: LogFilter): LogRecor
   });
 }
 
-/** Sorted distinct values of an attribute across records (for facet menus). */
 export function distinctAttribute(records: LogRecord[], key: string): string[] {
   const values = new Set<string>();
   for (const r of records) {
@@ -43,7 +35,6 @@ export function distinctAttribute(records: LogRecord[], key: string): string[] {
   return [...values].sort();
 }
 
-/** Sorted distinct `service.name` resource values across records (for the service facet). */
 export function distinctService(records: LogRecord[]): string[] {
   const values = new Set<string>();
   for (const r of records) {

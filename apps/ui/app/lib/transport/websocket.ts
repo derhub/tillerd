@@ -1,3 +1,4 @@
+import { toBytes } from "./bytes";
 import { FramedDaemonTransport } from "./framed";
 
 export interface WebSocketLike {
@@ -14,10 +15,6 @@ export type WebSocketFactory = (url: string) => WebSocketLike;
 
 const defaultFactory: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
 
-/**
- * Network `DaemonTransport`: carries raw daemon frames over a binary WebSocket to the
- * server-side daemon byte bridge.
- */
 export class WebSocketDaemonTransport extends FramedDaemonTransport {
   private ws: WebSocketLike | null = null;
 
@@ -54,10 +51,4 @@ export class WebSocketDaemonTransport extends FramedDaemonTransport {
     this.ws?.close();
     this.ws = null;
   }
-}
-
-function toBytes(data: unknown): Uint8Array | null {
-  if (data instanceof Uint8Array) return data;
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
-  return null;
 }

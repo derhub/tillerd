@@ -1,9 +1,10 @@
-import { test, expect, describe, mock } from "bun:test";
 import { encodeFrame } from "@tillerd/sdk";
-import { TauriDaemonTransport, type TauriCore, type TauriChannelLike } from "./tauri";
+import { test, expect, describe, mock } from "bun:test";
+
+import { TauriAppData } from "./app-data";
 import { TauriFileSource } from "./file-source";
 import { TauriLogger } from "./logger";
-import { TauriAppData } from "./app-data";
+import { TauriDaemonTransport, type TauriCore, type TauriChannelLike } from "./tauri";
 
 type Call = { cmd: string; args?: Record<string, unknown> };
 
@@ -24,7 +25,9 @@ class FakeCore implements TauriCore {
     this.channel = { onmessage: null };
     return this.channel;
   }
-  /** Push daemon->renderer bytes through the channel, as the Rust core would. */
+  async listen(): Promise<() => void> {
+    return () => {};
+  }
   deliver(meta: object, body?: Uint8Array): void {
     const buf = encodeFrame(meta, body);
     this.channel?.onmessage?.(buf);
@@ -36,12 +39,12 @@ describe("TauriDaemonTransport", () => {
     const core = new FakeCore();
     const t = new TauriDaemonTransport(core);
     const connected = t.connect();
-    await Promise.resolve(); // let the daemon_connect promise settle
+    await Promise.resolve();
     expect(core.calls[0]!.cmd).toBe("daemon_connect");
     expect(core.channel).not.toBeNull();
     await Promise.resolve();
     const sent = core.calls.find((c) => c.cmd === "daemon_send");
-    expect(sent).toBeDefined(); // hello frame
+    expect(sent).toBeDefined();
     core.deliver({ type: "hello-ack", version: 1, daemonVersion: "0.0.1" });
     await connected;
   });

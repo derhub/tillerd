@@ -1,14 +1,11 @@
 import { ACTION, type ActionId } from "./ids";
 
-/** A single accelerator chord in canonical string form, e.g. `CmdOrCtrl+Shift+P`. */
 export type Accelerator = string;
 
 export interface Chord {
-  /** Cmd on macOS, Ctrl elsewhere -- the two are unified for matching. */
   cmdOrCtrl: boolean;
   alt: boolean;
   shift: boolean;
-  /** A single uppercased character or a named key (`Enter`, `ArrowUp`, `,`, `\\`). */
   key: string;
 }
 
@@ -18,7 +15,6 @@ function normalizeKey(key: string): string {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
-/** Parse a chord string into its parts, or `null` when it carries no non-modifier key. */
 export function parseAccelerator(input: string): Chord | null {
   const tokens = input
     .split("+")
@@ -35,7 +31,6 @@ export function parseAccelerator(input: string): Chord | null {
   return chord.key ? chord : null;
 }
 
-/** Render a chord in canonical order: CmdOrCtrl, Alt, Shift, then the key. */
 export function formatAccelerator(chord: Chord): Accelerator {
   const parts: string[] = [];
   if (chord.cmdOrCtrl) parts.push("CmdOrCtrl");
@@ -45,13 +40,11 @@ export function formatAccelerator(chord: Chord): Accelerator {
   return parts.join("+");
 }
 
-/** Parse then re-format, yielding the canonical string, or `null` if unparseable. */
 export function canonicalize(input: string): Accelerator | null {
   const chord = parseAccelerator(input);
   return chord ? formatAccelerator(chord) : null;
 }
 
-/** Render an accelerator for display, using mac glyphs when `mac` is set. */
 export function displayAccelerator(accel: Accelerator, mac: boolean): string {
   const chord = parseAccelerator(accel);
   if (!chord) return accel;
@@ -68,7 +61,6 @@ export function displayAccelerator(accel: Accelerator, mac: boolean): string {
   return parts.join("+");
 }
 
-/** Map a keyboard event to its canonical accelerator, or `null` for a modifier-only press. */
 export function eventToAccelerator(e: KeyboardEvent): Accelerator | null {
   if (MODIFIER_KEYS.has(e.key)) return null;
   return formatAccelerator({
@@ -89,11 +81,8 @@ export function isPresetName(value: unknown): value is PresetName {
   return typeof value === "string" && (PRESET_NAMES as readonly string[]).includes(value);
 }
 
-/**
- * Built-in baselines. `default` binds every static action; `vim` / `vscode` / `tmux` map the wired
- * actions in their own flavor and extend as actions are added. Single chords only -- multi-key
- * sequences are out of scope for this milestone.
- */
+// `default` binds every static action; flavor presets (`vim`/`vscode`/`tmux`) bind a subset.
+// Single chords only -- multi-key sequences are out of scope.
 export const PRESETS: Record<PresetName, Partial<Record<ActionId, Accelerator>>> = {
   default: {
     [ACTION.projectNew]: "CmdOrCtrl+Shift+N",
@@ -128,10 +117,8 @@ export const PRESETS: Record<PresetName, Partial<Record<ActionId, Accelerator>>>
   },
 };
 
-/** A per-action override map (canonical accelerators). Absence of a key means "use the preset". */
 export type Overrides = Partial<Record<string, Accelerator>>;
 
-/** Parse a stored overrides blob, tolerating malformed JSON. */
 export function parseOverrides(raw: string): Overrides {
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -142,7 +129,6 @@ export function parseOverrides(raw: string): Overrides {
   return {};
 }
 
-/** Merge the preset baseline with per-action overrides into the resolved binding map. */
 export function resolveBindings(
   preset: PresetName,
   overrides: Overrides,

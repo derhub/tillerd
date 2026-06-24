@@ -1,28 +1,39 @@
-import { expect, test } from "bun:test";
-import { SERVICE_HEALTH_METHOD, type ServiceHealth } from "@tillerd/sdk/orchestrator";
+import type { ServiceHealthWire } from "@tillerd/client-bindings";
 
-import { TauriServiceHealthSource, loadServiceHealthSource } from "./service-health-source";
-import type { TauriCore } from "./tauri";
+import { afterEach, expect, mock, test } from "bun:test";
 
-// Scenario: Desktop host provides the source
+const health: ServiceHealthWire[] = [{ name: "tillerd-gate", version: "1.0.0", state: "ready" }];
+let called: string | undefined;
+
+void mock.module("@tauri-apps/api/core", () => ({
+  invoke: async (cmd: string) => {
+    called = cmd;
+    return health;
+  },
+  Channel: class {},
+}));
+
+const setDesktopHost = (on: boolean) => {
+  if (on) (window as unknown as { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__ = {};
+  else delete (window as unknown as { __TAURI_INTERNALS__?: object }).__TAURI_INTERNALS__;
+};
+
+afterEach(() => {
+  called = undefined;
+  setDesktopHost(false);
+});
+
 test("the desktop source snapshots through the service_health command", async () => {
-  const health: ServiceHealth[] = [{ name: "tillerd-gate", version: "1.0.0", state: "ready" }];
-  let called: string | undefined;
-  const core = {
-    invoke: async (cmd: string) => {
-      called = cmd;
-      return health;
-    },
-    createChannel: () => ({}),
-  } as unknown as TauriCore;
-
-  const result = await new TauriServiceHealthSource(core).snapshot();
-
-  expect(called).toBe(SERVICE_HEALTH_METHOD);
+  setDesktopHost(true);
+  const { loadServiceHealthSource } = await import("./service-health-source");
+  const source = await loadServiceHealthSource();
+  const result = await source?.snapshot();
+  expect(called).toBe("service_health");
   expect(result).toEqual(health);
 });
 
-// Scenario: Source absent on an unsupported host
 test("the source is absent off the desktop host", async () => {
+  setDesktopHost(false);
+  const { loadServiceHealthSource } = await import("./service-health-source");
   expect(await loadServiceHealthSource()).toBeNull();
 });

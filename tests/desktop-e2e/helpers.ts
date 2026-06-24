@@ -1,6 +1,5 @@
 import { readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-
 import { remote } from "webdriverio";
 
 export type Browser = Awaited<ReturnType<typeof remote>>;

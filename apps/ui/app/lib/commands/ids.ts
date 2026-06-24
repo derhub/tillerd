@@ -1,8 +1,3 @@
-/**
- * Stable action ids shared by the keybinding presets and the command registry. A static action is
- * bindable (appears in presets / overrides); dynamic palette entries (e.g. switch-to-session) use a
- * namespaced id like `session.switch:<sessionId>` and carry no keybinding.
- */
 export const ACTION = {
   projectNew: "project.new",
   sessionNew: "session.new",
@@ -18,10 +13,8 @@ export const ACTION = {
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];
 
-/** The static (bindable) action ids, in palette/editor order. */
 export const STATIC_ACTION_IDS: readonly ActionId[] = Object.values(ACTION);
 
-/** Human titles, shared by the registry command labels and the keybinding editor. */
 export const ACTION_TITLES: Record<ActionId, string> = {
   [ACTION.projectNew]: "New project",
   [ACTION.sessionNew]: "New session",
@@ -35,5 +28,5 @@ export const ACTION_TITLES: Record<ActionId, string> = {
   [ACTION.appSettings]: "Settings",
 };
 
-/** Prefix for dynamic switch-to-session palette entries (unbindable). */
-export const SESSION_SWITCH_PREFIX = "session.switch:";
+export const SESSION_SEARCH_ACTION_ID = "session.search";
+export const SESSION_SEARCH_TITLE = "Search sessions";

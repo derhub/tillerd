@@ -1,15 +1,18 @@
-import { afterEach, expect, test } from "bun:test";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, expect, test } from "bun:test";
+
 import type { SettingsSource } from "~/lib/transport/settings-source";
-import { SettingsProvider, useGlobalSetting, useTheme } from "./context";
+
+import { SettingsProvider, settingsStore, useGlobalSetting, useTheme } from "./context";
 import { THEME_CACHE_KEY } from "./theme";
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   document.documentElement.classList.remove("dark");
+  settingsStore.setState(() => ({ values: {}, source: null }));
 });
 
 function fakeSource(initial: Record<string, unknown> = {}): {
@@ -37,7 +40,6 @@ function wrapperFor(source: SettingsSource | null) {
 
 test("a setting change propagates live to every consumer of the same key", async () => {
   const { source } = fakeSource({ "terminal.scheme": "github-dark" });
-  // Two independent consumers of the same key (e.g. the panel and a mounted terminal).
   const { result } = renderHook(
     () => ({
       panel: useGlobalSetting("terminal.scheme", "github-dark"),
@@ -48,7 +50,6 @@ test("a setting change propagates live to every consumer of the same key", async
 
   await waitFor(() => expect(result.current.terminal.value).toBe("github-dark"));
 
-  // The panel changes the scheme; the terminal consumer sees it without a remount.
   act(() => result.current.panel.setValue("github-light"));
   expect(result.current.terminal.value).toBe("github-light");
 });
@@ -69,8 +70,6 @@ test("useGlobalSetting uses the fallback with no source (off the desktop host)",
 });
 
 test("setTheme applies the class, caches it, and persists to the source", async () => {
-  // Seed a non-default durable theme so hydrating to it proves the source has resolved before
-  // the write (otherwise setValue would persist against a not-yet-resolved source).
   const { source, writes } = fakeSource({ theme: "light" });
   const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(source) });
   await waitFor(() => expect(result.current.theme).toBe("light"));

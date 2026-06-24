@@ -1,4 +1,5 @@
 import { test } from "bun:test";
+
 import { type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
@@ -50,7 +51,7 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
   // Fuzzy filter to the logs action, then invoke it -- the same handler View > Logs runs.
   const input = await b.$('[data-testid="command-center-input"]');
   await input.click();
-  await b.keys([..."logs"]);
+  await b.keys(Array.from("logs"));
   await b.waitUntil(
     async () => {
       const items = await b.$$('[data-slot="command-item"]');
@@ -92,20 +93,21 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   await b.waitUntil(
     async () =>
       // tauri v2 always injects the IPC bridge (`@tauri-apps/api` calls it under the hood);
-      // bare-specifier imports do not resolve in the raw webview. `executeAsync` resolves the
-      // invoke promise through the done callback (plain `execute` would not await it).
-      (await b.executeAsync((done: (v: unknown) => void) => {
-        (
-          window as unknown as {
-            __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
-          }
-        ).__TAURI_INTERNALS__
-          .invoke("setting_get", {
+      // bare-specifier imports do not resolve in the raw webview. v9 `execute` awaits async
+      // browser functions, so the invoke result is returned directly (null on failure).
+      (await b.execute(async () => {
+        try {
+          return await (
+            window as unknown as {
+              __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+            }
+          ).__TAURI_INTERNALS__.invoke("setting_get", {
             scope: "global",
             key: "keybindings.preset",
-          })
-          .then(done)
-          .catch(() => done(null));
+          });
+        } catch {
+          return null;
+        }
       })) === "vscode",
     { timeout: 10_000, timeoutMsg: "preset did not persist to the orchestrator before reload" },
   );

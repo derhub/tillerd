@@ -1,14 +1,13 @@
 import type { Logger, LogContext } from "@tillerd/sdk";
+
 import type { TauriCore } from "./tauri";
 
 export const LOG_FORWARD = "log_forward";
 
 type Level = "debug" | "info" | "warn" | "error";
 
-/**
- * Native (web-view) `Logger`: writes to the console and optionally forwards to the Rust core for
- * file/diagnostic capture. Forwarding is best-effort and never throws into the caller.
- */
+// Writes to the console and optionally forwards to the Rust core for file/diagnostic capture.
+// Forwarding is best-effort and never throws into the caller.
 export class TauriLogger implements Logger {
   constructor(
     private readonly core?: TauriCore,

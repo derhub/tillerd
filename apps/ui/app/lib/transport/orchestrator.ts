@@ -1,21 +1,15 @@
-import {
-  createOrchestratorClient,
-  type OrchestratorClient,
-  type OrchestratorHostTransport,
-  type OrchestratorStatus,
-} from "@tillerd/sdk/orchestrator";
+import { commands, events, type StatusWire } from "@tillerd/client-bindings";
 
-export const tauriOrchestratorTransport: OrchestratorHostTransport = {
-  async invoke<T>(method: string, args?: Record<string, unknown>): Promise<T> {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<T>(method, args);
-  },
-  async listen(event, handler) {
-    const { listen } = await import("@tauri-apps/api/event");
-    return listen<OrchestratorStatus>(event, (e) => handler(e.payload));
-  },
-};
+export type { StatusWire };
 
-export function createDesktopOrchestratorClient(): OrchestratorClient {
-  return createOrchestratorClient(tauriOrchestratorTransport);
+export interface SimpleOrchestratorClient {
+  subscribe(handler: (status: StatusWire) => void): Promise<() => void>;
+  status(): Promise<StatusWire>;
+}
+
+export function createDesktopOrchestratorClient(): SimpleOrchestratorClient {
+  return {
+    subscribe: (handler) => events.orchestratorStatus.listen((e) => handler(e.payload)),
+    status: () => commands.orchestratorStatus(),
+  };
 }
