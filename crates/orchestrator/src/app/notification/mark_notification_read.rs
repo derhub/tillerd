@@ -24,8 +24,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: marking read clears the unread badge ------------------------
-
     #[tokio::test]
     async fn mark_notification_read_removes_it_from_unread_listing() {
         let bus = Bus::new(test_ctx().await);
@@ -43,8 +41,6 @@ mod tests {
         let count = bus.query(CountUnreadNotifications).await.unwrap();
         assert_eq!(count, 1);
     }
-
-    // -- Scenario: mark_read on absent id returns not_found --------------------
 
     #[tokio::test]
     async fn mark_notification_read_on_absent_id_returns_not_found() {

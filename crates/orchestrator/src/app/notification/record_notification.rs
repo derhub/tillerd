@@ -50,8 +50,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: command mutates and returns nothing -------------------------
-
     #[tokio::test]
     async fn record_notification_persists_and_returns_unit() {
         let bus = Bus::new(test_ctx().await);

@@ -5,7 +5,7 @@
   "identifier": "com.tillerd.desktop",
   "build": {
     "devUrl": "http://localhost:5173",
-    "frontendDist": "../../ui/build/client"
+    "frontendDist": "../../ui/dist"
   },
   "app": {
     "windows": [

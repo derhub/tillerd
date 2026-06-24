@@ -47,8 +47,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: edit mutates cli/args/env ----------------------------------
-
     #[tokio::test]
     async fn edit_command_updates_cli_args_env_and_returns_nothing() {
         let bus = Bus::new(ctx().await);

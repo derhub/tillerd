@@ -37,8 +37,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: rename mutates name ----------------------------------------
-
     #[tokio::test]
     async fn rename_command_updates_the_name_and_returns_nothing() {
         let bus = Bus::new(ctx().await);
@@ -77,8 +75,6 @@ mod tests {
         assert_eq!(cmd.name, "renamed");
     }
 
-    // -- Scenario: prebuilt commands are immutable -----------------------------
-
     #[tokio::test]
     async fn rename_command_rejects_prebuilt() {
         let bus = Bus::new(ctx().await);
@@ -107,8 +103,6 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.code(), "prebuilt.immutable");
     }
-
-    // -- Scenario: not-found errors --------------------------------------------
 
     #[tokio::test]
     async fn rename_command_returns_not_found_for_absent_id() {

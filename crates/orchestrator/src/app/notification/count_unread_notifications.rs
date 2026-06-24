@@ -24,8 +24,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: count unread reflects only unread ---------------------------
-
     #[tokio::test]
     async fn count_unread_reflects_only_unread_records() {
         let bus = Bus::new(test_ctx().await);

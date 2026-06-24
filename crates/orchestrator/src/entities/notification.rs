@@ -1,4 +1,4 @@
-//! Notification entity: a durably-stored user-facing notification (ADR-0031).
+//! Notification entity: a durably-stored user-facing notification.
 
 /// `ts` is event time in epoch milliseconds; `actions_json` is a JSON-encoded action
 /// list when present. `snooze_until` is epoch milliseconds; `None` means not snoozed.

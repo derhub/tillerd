@@ -13,6 +13,7 @@ use crate::shared::{fs, Result};
 
 /// A keybinding entry: action and its effective chord.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct KeybindingEntry {
     pub action: String,
     pub chord: String,
@@ -138,7 +139,7 @@ mod tests {
         );
     }
 
-    // Scenario: reset removes an override; overrides() no longer contains it
+    // Scenario: reset removes an override; overrides() omits it after reset
     #[tokio::test]
     async fn reset_removes_override() {
         let dir = TempDir::new().unwrap();

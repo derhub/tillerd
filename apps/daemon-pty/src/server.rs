@@ -19,8 +19,8 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 pub const DAEMON_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// Daemon is pty-only and advertises no capabilities: no hook face (ADR-0016) and no snapshot
-// (subscribe replays raw scrollback; fd-handoff is superseded by drain-and-restart, ADR-0029).
+// Daemon is pty-only and advertises no capabilities: no hook face and no snapshot
+// (subscribe replays raw scrollback; fd-handoff is superseded by drain-and-restart).
 const ADVERTISED_CAPABILITIES: &[&str] = &[];
 
 /// Terminal-status sampling cadence and output-quiescence threshold. A session is
@@ -41,7 +41,7 @@ pub struct State {
     next_conn_id: u64,
     events_tx: UnboundedSender<SessionEvent>,
     /// Set once the host signals drain (SIGUSR2): new sessions are refused while active ones
-    /// finish. A clean exit follows when the last session ends (ADR-0029).
+    /// finish. A clean exit follows when the last session ends.
     draining: bool,
 }
 
@@ -92,7 +92,7 @@ impl Daemon {
         tracing::info!(sock = %self.sock_path.display(), "daemon started");
 
         // Listening: announce readiness so the host flips the manifest to `ready` and consumers
-        // (orchestrator adopt-or-spawn, the e2e rig) can discover us from the manifest.
+        // (orchestrator adopt-or-spawn, the e2e rig) can discover this daemon from the manifest.
         ready.signal();
 
         {
@@ -135,7 +135,7 @@ impl Daemon {
 
         // Phase 2 -- drained. Keep serving existing connections (subscribe/input/kill on active
         // sessions) and refuse new spawns, exiting cleanly once the last session ends. No timer
-        // kills sessions: SIGTERM is the explicit upgrade-now pressure valve (ADR-0029, design D4).
+        // kills sessions: SIGTERM is the explicit upgrade-now pressure valve.
         loop {
             // Register the idle wakeup before checking, so a session ending between the check and
             // the await is not missed.
@@ -385,7 +385,7 @@ impl Daemon {
                         st.sessions.insert(spawn.session_id.clone(), session);
                         // The daemon's session id is the surface id, which is the operation's
                         // correlation id end to end -- emit it so records join the orchestrator's
-                        // on the standardized `correlation_id` key (design D5).
+                        // on the standardized `correlation_id` key.
                         tracing::info!(correlation_id = %spawn.session_id, pid = pid, "session spawned");
                         st.send_to(conn_id, encode_frame(&json!({ "type": "spawn-ack", "sessionId": spawn.session_id, "pid": pid }), None));
                     }
@@ -531,7 +531,7 @@ mod tests {
 
     #[test]
     fn advertises_no_capabilities() {
-        // PTY-only: no hook face (ADR-0016) and no snapshot (subscribe replays raw scrollback).
+        // PTY-only: no hook face and no snapshot (subscribe replays raw scrollback).
         assert!(ADVERTISED_CAPABILITIES.is_empty());
     }
 
@@ -542,7 +542,7 @@ mod tests {
         let (events_tx, _events_rx) = tokio::sync::mpsc::unbounded_channel();
         let daemon = Daemon::new(&dir, events_tx);
 
-        // Register a negotiated connection whose outbound frames we can read.
+        // Register a negotiated connection whose outbound frames are readable.
         let (out_tx, mut out_rx) = tokio::sync::mpsc::unbounded_channel::<Arc<[u8]>>();
         let spawn = match crate::messages::parse_client_frame(
             br#"{"type":"spawn","sessionId":"s1","args":[],"token":"t","cols":80,"rows":24,"cwd":"/tmp"}"#,
@@ -577,8 +577,6 @@ mod tests {
         );
     }
 
-    // -- daemon-session-subscription: consumer-oblivious scenarios ------------
-
     /// The daemon's subscribe path identifies sessions by id only. The `Subscribe`
     /// frame carries no consumer identity, purpose, or callback -- the daemon
     /// never needs to know what kind of consumer is subscribing.
@@ -597,7 +595,7 @@ mod tests {
 
     /// The daemon's public surface -- the hello-ack it sends after negotiation --
     /// advertises only PTY-level capabilities. It does not advertise any hook
-    /// ingress, confirming the consumer-agnostic contract from ADR-0016.
+    /// ingress, confirming the consumer-agnostic contract.
     #[test]
     fn daemon_public_surface_has_no_hook_ingress_face() {
         // The advertised capability set is the daemon's entire public surface
@@ -609,8 +607,6 @@ mod tests {
             "daemon surface must contain no hook ingress; found: {surface:?}"
         );
     }
-
-    // -- rust-pty-daemon: consumer-oblivious operation -------------------------
 
     /// The daemon's subscribe dispatch uses only the session id to route output.
     /// No consumer type, callback, or identity participates in the path -- the

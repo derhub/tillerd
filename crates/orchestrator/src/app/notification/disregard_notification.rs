@@ -23,8 +23,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: disregard removes a notification ----------------------------
-
     #[tokio::test]
     async fn disregard_notification_deletes_the_record() {
         let bus = Bus::new(test_ctx().await);
@@ -37,8 +35,6 @@ mod tests {
         let listing = bus.query(list_all()).await.unwrap();
         assert!(listing.items.is_empty());
     }
-
-    // -- Scenario: disregard on absent id returns not_found --------------------
 
     #[tokio::test]
     async fn disregard_notification_on_absent_id_returns_not_found() {

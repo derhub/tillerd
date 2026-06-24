@@ -63,8 +63,6 @@ use uuid::Uuid;
 use crate::transport::macros::{transport_command, transport_create, transport_query};
 use crate::transport::Bus;
 
-// -- project -------------------------------------------------------------------
-
 transport_query!(
     project_list(workspace_id: Option<String>) -> Vec<ProjectView>
         => ListProjectsByWorkspace {
@@ -139,8 +137,6 @@ transport_command!(project_unpin(id: String) => UnpinProject { id });
 
 transport_command!(project_stop_surfaces(id: String) => StopProjectSurfaces { id });
 
-// -- notification -------------------------------------------------------------------
-
 transport_query!(
     notification_list_unread(limit: Option<u32>, offset: Option<u32>, after: Option<String>) -> orchestrator::shared::pagination::Listing<NotificationView>
         => ListUnreadNotifications { limit, offset, after },
@@ -168,21 +164,26 @@ transport_command!(notification_snooze(id: String, snooze_until: Option<i64>) =>
 
 transport_command!(notification_prune(keep: u32) => PruneNotifications { keep });
 
-transport_command!(
-    notification_record(
-        id: String,
-        category: String,
-        severity: String,
-        title: Option<String>,
-        message: String,
-        detail: Option<String>,
-        ts: i64,
-        session_id: Option<String>,
-        surface_id: Option<String>,
-        actions_json: Option<String>,
-        read: bool,
-        snooze_until: Option<i64>,
-    ) => RecordNotification {
+/// Hand-written instead of `transport_command!` because the 12-arg signature
+/// exceeds specta's 10-parameter `SpectaFn` limit. Wire shape is unchanged.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn notification_record(
+    id: String,
+    category: String,
+    severity: String,
+    title: Option<String>,
+    message: String,
+    detail: Option<String>,
+    ts: i64,
+    session_id: Option<String>,
+    surface_id: Option<String>,
+    actions_json: Option<String>,
+    read: bool,
+    snooze_until: Option<i64>,
+    bus: tauri::State<'_, Bus>,
+) -> Result<(), String> {
+    bus.execute(RecordNotification {
         id,
         category,
         severity,
@@ -195,10 +196,10 @@ transport_command!(
         actions_json,
         read,
         snooze_until,
-    }
-);
-
-// -- command library (new ops) -----------------------------------------------------------
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
 
 transport_command!(command_rename(id: String, name: String) => RenameCommand { id, name });
 
@@ -214,8 +215,6 @@ transport_command!(command_unpin(id: String) => UnpinCommand { id });
 transport_command!(command_duplicate(id: String, name: String) => DuplicateCommand { id, name });
 
 transport_command!(command_seed() => SeedCommands);
-
-// -- workspace -------------------------------------------------------------------
 
 transport_create!(
     workspace_create(name: String) -> WorkspaceView {
@@ -261,8 +260,6 @@ transport_command!(workspace_unpin(id: String) => UnpinWorkspace { id });
 
 transport_command!(workspace_stop_surfaces(id: String) => StopWorkspaceSurfaces { id });
 
-// -- surface -------------------------------------------------------------------
-
 transport_query!(
     surface_get(id: String) -> Option<SurfaceView>
         => GetSurfaceById { id },
@@ -291,29 +288,30 @@ transport_command!(surface_stop(id: String) => StopSurface { id });
 
 transport_command!(surface_reconcile() => ReconcileSurfaces);
 
-// -- session -------------------------------------------------------------------
-
 // `project_id` omitted => list EVERY session (the sidebar groups all sessions by
 // project); given => that project only. Matches the pre-refactor wire.
 #[tauri::command]
+#[specta::specta]
 pub async fn session_list(
     project_id: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
     bus: State<'_, Bus>,
 ) -> Result<Vec<SessionView>, String> {
     let listing = match project_id {
         Some(pid) => {
             bus.query(ListSessionsByProject {
                 project_id: pid,
-                limit: None,
-                offset: None,
+                limit,
+                offset,
                 after: None,
             })
             .await
         }
         None => {
             bus.query(ListAllSessions {
-                limit: None,
-                offset: None,
+                limit,
+                offset,
                 after: None,
             })
             .await
@@ -327,6 +325,7 @@ pub async fn session_list(
 /// non-fatal (a spec-less session is valid), so this stays hand-written rather than
 /// using `transport_create!`.
 #[tauri::command]
+#[specta::specta]
 pub async fn session_create(
     project_id: Option<String>,
     title: Option<String>,
@@ -438,8 +437,6 @@ transport_command!(session_restore(id: String) => RestoreSession { id });
 
 transport_command!(session_stop_surfaces(id: String) => StopSessionSurfaces { id });
 
-// -- command library -----------------------------------------------------------
-
 transport_query!(
     command_get(id: String) -> Option<CommandView>
         => GetCommandById { id },
@@ -454,7 +451,7 @@ transport_query!(
         |listing| listing.items
 );
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateCommandRequest {
     pub name: String,
@@ -481,8 +478,6 @@ transport_create!(
     }
 );
 
-// -- settings: profiles --------------------------------------------------------
-
 transport_query!(
     profile_get_active() -> Option<ProfileView>
         => GetActiveProfile,
@@ -498,6 +493,7 @@ transport_query!(
 /// Create a new profile with a caller-supplied id. Hand-written (no GetProfileById
 /// query): executes NewProfile then reads back via ListProfiles + id filter.
 #[tauri::command]
+#[specta::specta]
 pub async fn profile_create(
     id: String,
     name: String,
@@ -535,8 +531,6 @@ transport_query!(
 
 transport_command!(profile_import(profile_json: String) => ImportProfile { profile_json });
 
-// -- settings: themes ----------------------------------------------------------
-
 transport_query!(
     theme_get_active() -> Option<ThemeView>
         => GetActiveTheme,
@@ -563,8 +557,6 @@ transport_command!(
     theme_import(id: String, name: String, origin: String, data_json: Option<String>)
         => ImportTheme { id, name, origin, data_json }
 );
-
-// -- settings: keybindings -----------------------------------------------------
 
 transport_query!(
     keybinding_list(defaults_json: String) -> Vec<KeybindingView>
@@ -593,11 +585,7 @@ transport_query!(
         |chord| chord
 );
 
-// -- settings: config ----------------------------------------------------------
-
 transport_command!(config_reload() => ReloadConfig);
-
-// -- template: launch templates (project-bound) --------------------------------
 
 transport_create!(
     launch_template_create(
@@ -641,8 +629,6 @@ transport_command!(
     launch_template_apply_spec(id: String, spec_version: u32, spec_json: String)
         => ApplyTemplateSpec { id, spec_version, spec_json }
 );
-
-// -- template: portable library -----------------------------------------------
 
 transport_query!(
     template_list() -> Vec<TemplateView>
@@ -769,7 +755,8 @@ mod tests {
 
     #[test]
     fn notification_response_matches_sdk_notification_shape() {
-        // Required fields only -- optional fields drop out via skip_serializing_if.
+        // NotificationView is a single specta type (no skip_serializing_if), so optional fields
+        // serialize as null and the wire shape is stable -- every key is always present.
         let n = NotificationView {
             id: "n".into(),
             category: "surface-started".into(),
@@ -783,7 +770,17 @@ mod tests {
         };
         assert_keys(
             &serde_json::to_value(n).unwrap(),
-            &["id", "category", "severity", "message", "ts"],
+            &[
+                "id",
+                "category",
+                "severity",
+                "title",
+                "message",
+                "detail",
+                "ts",
+                "sessionId",
+                "surfaceId",
+            ],
         );
     }
 

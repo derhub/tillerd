@@ -20,6 +20,7 @@ use crate::transport::sink::{register_channel, unregister_channel, SurfaceChanne
 /// scrollback); otherwise a fresh surface is spawned. Returns the surface id.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_create<R: tauri::Runtime>(
     app: AppHandle<R>,
     bus: State<'_, Bus<Ctx>>,
@@ -93,6 +94,7 @@ pub async fn surface_create<R: tauri::Runtime>(
 
 /// Spawn a surface in a session with a minted placement. Returns the surface id.
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_spawn(bus: State<'_, Bus<Ctx>>, session_id: String) -> Result<String, String> {
     let placement = uuid::Uuid::new_v4().to_string();
     bus.execute(SpawnSurface {
@@ -119,6 +121,7 @@ pub async fn surface_spawn(bus: State<'_, Bus<Ctx>>, session_id: String) -> Resu
 /// Close the surface bound to a session + placement: drop its output channel and
 /// remove its runtime proxy + record.
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_close(
     bus: State<'_, Bus<Ctx>>,
     channels: State<'_, SurfaceChannels>,
@@ -143,6 +146,7 @@ pub async fn surface_close(
 
 /// Send raw input bytes to a surface's PTY. Off the bus; the payload is never logged.
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_input(
     bus: State<'_, Bus<Ctx>>,
     surface_id: String,
@@ -155,6 +159,7 @@ pub async fn surface_input(
 
 /// Resize a surface's PTY. Off the bus (high-frequency pass-through).
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_resize(
     bus: State<'_, Bus<Ctx>>,
     surface_id: String,
@@ -169,6 +174,7 @@ pub async fn surface_resize(
 /// Detach a surface's proxy stream; the PTY keeps running in the daemon. Drops the
 /// output channel so the stream goes quiet.
 #[tauri::command]
+#[specta::specta]
 pub async fn surface_detach(
     bus: State<'_, Bus<Ctx>>,
     channels: State<'_, SurfaceChannels>,

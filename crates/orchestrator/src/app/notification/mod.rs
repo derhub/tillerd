@@ -1,4 +1,4 @@
-//! Notification app operations: CQS command/query objects per design D4.
+//! Notification app operations: CQS command/query objects.
 //!
 //! Commands mutate and return `Result<()>`; queries read and return `Result<Self::Out>`.
 //! Neither passes through `Box<dyn _>` -- dispatch is static.

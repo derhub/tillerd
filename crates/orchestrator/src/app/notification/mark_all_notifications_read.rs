@@ -38,8 +38,6 @@ mod tests {
         assert!(unread.items.is_empty());
     }
 
-    // -- Scenario: list unread excludes read records ---------------------------
-
     #[tokio::test]
     async fn list_unread_excludes_read_records() {
         let bus = Bus::new(test_ctx().await);

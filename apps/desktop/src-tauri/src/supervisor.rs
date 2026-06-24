@@ -10,9 +10,9 @@ use tillerd_paths::{daemon_socket, manifest, resolve_daemon_bin};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Ownership {
-    /// We spawned the daemon; we terminate it on exit.
+    /// Daemon spawned by this process; terminated on exit.
     Owned,
-    /// A pre-existing daemon we connected to; we leave it running on exit (ADR-0007).
+    /// Pre-existing daemon connected to; left running on exit.
     Adopted,
 }
 
@@ -22,7 +22,7 @@ pub struct SupervisorState {
     inner: Mutex<Option<(u32, Ownership)>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct EnsureResult {
     pub ownership: &'static str,
     pub socket: String,
@@ -47,6 +47,7 @@ async fn socket_reachable() -> bool {
 
 /// Adopt a live daemon recorded in the manifest, else spawn one and wait for reachability.
 #[tauri::command]
+#[specta::specta]
 pub async fn daemon_ensure(state: State<'_, SupervisorState>) -> Result<EnsureResult, String> {
     if let Some((pid, _version)) = read_manifest() {
         if is_alive(pid) && socket_reachable().await {

@@ -9,6 +9,7 @@
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
+#[specta::specta]
 pub async fn window_open<R: tauri::Runtime>(
     app: AppHandle<R>,
     label: String,
@@ -26,6 +27,7 @@ pub async fn window_open<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn window_focus<R: tauri::Runtime>(app: AppHandle<R>, label: String) -> Result<(), String> {
     let window = app
         .get_webview_window(&label)
@@ -34,6 +36,7 @@ pub fn window_focus<R: tauri::Runtime>(app: AppHandle<R>, label: String) -> Resu
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn window_close<R: tauri::Runtime>(app: AppHandle<R>, label: String) -> Result<(), String> {
     // close() (not destroy()) so the child's onCloseRequested handler runs -- that handler emits the
     // re-attach event the parent listens for. A missing window is a no-op (already re-attached).

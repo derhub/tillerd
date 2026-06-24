@@ -1,5 +1,4 @@
-//! Read-only per-service health, derived from each service's manifest (the
-//! ADR-0028 discovery source). Unlike the boot snapshot -- which only exists when
+//! Read-only per-service health, derived from each service's manifest. Unlike the boot snapshot -- which only exists when
 //! every service is available -- this reads live in any state, so a service that
 //! is down, mismatched, or draining is observable. It opens no socket and changes
 //! no service lifecycle; a pid-liveness check keeps a stale manifest from a
@@ -40,11 +39,9 @@ pub enum ServiceState {
 /// One service's observed health.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceHealth {
-    /// The service's name.
     pub name: String,
     /// The currently-running version, or `None` when the service is unavailable.
     pub version: Option<String>,
-    /// The derived state.
     pub state: ServiceState,
 }
 

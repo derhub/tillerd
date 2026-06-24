@@ -12,7 +12,7 @@ use orchestrator::{
     build_bus, read_service_health, Config, HealthSpec, ServiceHealth, ServiceState,
 };
 use process_launch::LaunchError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::notification_host;
@@ -25,7 +25,8 @@ use tillerd_paths::{
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
 /// The boot lifecycle status as seen on the wire. Unchanged from the prior host.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "orchestrator://status")]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum StatusWire {
     Booting,
@@ -37,7 +38,7 @@ pub enum StatusWire {
 
 /// A service's state on the wire. Additive read-only health surface; mirrors
 /// `orchestrator::ServiceState`.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum ServiceStateWire {
     Starting,
@@ -60,7 +61,7 @@ impl From<ServiceState> for ServiceStateWire {
 }
 
 /// One service's health on the wire.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceHealthWire {
     pub name: String,
@@ -91,13 +92,14 @@ impl Default for OrchestratorState {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn orchestrator_status(state: State<'_, OrchestratorState>) -> StatusWire {
     state.status.lock().unwrap().clone()
 }
 
 /// The manifest path each supervised service writes, kept here so the health read
 /// and `build_supervisor` resolve the same locations. Read-only health derives
-/// from these manifests (ADR-0028 discovery source); no socket or route is opened.
+/// from these manifests; no socket or route is opened.
 fn service_health_specs() -> Vec<HealthSpec> {
     let dir = runtime_dir();
     let version = env!("CARGO_PKG_VERSION").to_string();
@@ -124,6 +126,7 @@ fn service_health_snapshot() -> Vec<ServiceHealthWire> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn service_health() -> Vec<ServiceHealthWire> {
     service_health_snapshot()
 }

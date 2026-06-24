@@ -7,8 +7,6 @@ use service_host::host::{run, ServeContext, Service, ServiceConfig};
 use service_host::manifest::{Manifest, ServiceStatus};
 use service_host::paths::Paths;
 
-// -- helpers ------------------------------------------------------------------
-
 fn temp_base(tag: &str) -> String {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -16,8 +14,6 @@ fn temp_base(tag: &str) -> String {
         .as_nanos();
     format!("/tmp/sh-sc-{tag}-{}-{nanos}", std::process::id())
 }
-
-// -- Tool starts via the host entry point -------------------------------------
 
 /// The host resolves resource paths, writes the manifest, and invokes the
 /// tool's serve behavior -- in that order.
@@ -77,8 +73,6 @@ async fn tool_starts_via_the_host_entry_point() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// -- Paths derived from the base directory ------------------------------------
-
 #[tokio::test]
 async fn paths_derived_from_the_base_directory() {
     let base = temp_base("paths");
@@ -101,8 +95,6 @@ async fn paths_derived_from_the_base_directory() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// -- Base-directory override respected ----------------------------------------
-
 #[tokio::test]
 async fn base_directory_override_respected() {
     let base = temp_base("override");
@@ -119,8 +111,6 @@ async fn base_directory_override_respected() {
     assert!(paths.socket_path().starts_with(&base));
     let _ = std::fs::remove_dir_all(&base);
 }
-
-// -- Manifest written atomically on start -------------------------------------
 
 struct ManifestWitnessService {
     config: ServiceConfig,
@@ -166,8 +156,6 @@ async fn manifest_written_atomically_on_start() {
     let _ = std::fs::remove_dir_all(&base);
 }
 
-// -- Manifest removed on clean stop -------------------------------------------
-
 struct NopService {
     config: ServiceConfig,
 }
@@ -198,8 +186,6 @@ async fn manifest_removed_on_clean_stop() {
     );
     let _ = std::fs::remove_dir_all(&base);
 }
-
-// -- Graceful shutdown on signal -----------------------------------------------
 
 /// Signal-driven shutdown: SIGTERM races `serve`; the host shuts down, cleans
 /// up the manifest, and exits. Requires a live process (self-signals), so this
@@ -266,8 +252,6 @@ async fn graceful_shutdown_on_signal() {
     );
     let _ = std::fs::remove_dir_all(&base);
 }
-
-// -- Drain signal flips the service to draining -------------------------------
 
 /// SIGUSR2 mid-serve flips the manifest status to `Draining` while serve keeps
 /// running, so active work can finish before exit. Requires a live process

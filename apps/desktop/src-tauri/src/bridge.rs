@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -13,8 +14,12 @@ use tillerd_paths::daemon_socket;
 /// Event emitted to the renderer when the daemon connection drops unexpectedly.
 pub const DAEMON_LOST_EVENT: &str = "daemon-lost";
 
+/// Unit payload for the daemon-lost event (connection dropped unexpectedly).
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+pub struct DaemonLost;
+
 /// The byte bridge to the daemon's Unix socket. Forwards renderer bytes verbatim and streams
-/// daemon output back over a Channel -- it never parses a frame (design D2).
+/// daemon output back over a Channel -- it never parses a frame.
 #[derive(Default)]
 pub struct BridgeState {
     writer: Arc<Mutex<Option<OwnedWriteHalf>>>,
@@ -22,6 +27,7 @@ pub struct BridgeState {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn daemon_connect(
     app: AppHandle,
     channel: Channel<Vec<u8>>,
@@ -45,7 +51,7 @@ pub async fn daemon_connect(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     // Channel preserves order; the daemon flow-control credit/ack loop survives
-                    // the hop (ADR-0007) as long as no bytes are dropped/reordered.
+                    // the hop as long as no bytes are dropped/reordered.
                     if channel.send(buf[..n].to_vec()).is_err() {
                         break;
                     }
@@ -53,7 +59,7 @@ pub async fn daemon_connect(
             }
         }
         *writer.lock().await = None;
-        // A drop we did not initiate is a lost connection -- surface it as a typed error.
+        // An uninitiated drop is a lost connection -- surface it as a typed error.
         if !closing.load(Ordering::SeqCst) {
             let _ = app.emit(DAEMON_LOST_EVENT, ());
         }
@@ -63,6 +69,7 @@ pub async fn daemon_connect(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn daemon_send(bytes: Vec<u8>, state: State<'_, BridgeState>) -> Result<(), String> {
     let mut guard = state.writer.lock().await;
     match guard.as_mut() {
@@ -72,6 +79,7 @@ pub async fn daemon_send(bytes: Vec<u8>, state: State<'_, BridgeState>) -> Resul
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn daemon_disconnect(state: State<'_, BridgeState>) -> Result<(), String> {
     state.closing.store(true, Ordering::SeqCst);
     if let Some(mut write) = state.writer.lock().await.take() {

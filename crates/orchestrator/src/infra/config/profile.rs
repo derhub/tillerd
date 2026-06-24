@@ -11,6 +11,7 @@ use crate::shared::{fs, Result};
 
 /// A stored profile: id, name, and a map of setting overrides.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Profile {
     pub id: String,
     pub name: String,

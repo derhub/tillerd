@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use orchestrator::app::surface::{SurfaceEvent, SurfaceSink};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Runtime};
 
 /// The per-surface output channels, keyed by surface id. The renderer creates a
@@ -24,6 +25,30 @@ pub const STATUS_EVENT: &str = "surface://status";
 pub const EXIT_EVENT: &str = "surface://exit";
 /// The error event name (a non-recoverable surface error after open).
 pub const ERROR_EVENT: &str = "surface:error";
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "surface://status")]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceStatusPayload {
+    pub surface_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "surface://exit")]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceExitPayload {
+    pub surface_id: String,
+    pub qualifier: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "surface:error")]
+#[serde(rename_all = "camelCase")]
+pub struct SurfaceErrorPayload {
+    pub surface_id: String,
+    pub reason: String,
+}
 
 /// Bridges runtime output to the renderer over tauri IPC. Generic over the runtime so
 /// it works under both `Wry` and the `tauri::test` mock runtime.

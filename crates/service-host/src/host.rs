@@ -44,7 +44,7 @@ impl ServiceConfig {
     }
 }
 
-/// Readiness handle (design D2). The service calls [`Ready::signal`] from its serve behavior once
+/// Readiness handle. The service calls [`Ready::signal`] from its serve behavior once
 /// it is listening; the host then flips the manifest `starting -> ready` and logs the transition.
 /// Signalling before the host observes it is fine -- the notification is not lost.
 #[derive(Clone)]
@@ -69,7 +69,7 @@ impl Ready {
     }
 }
 
-/// Drain handle (design D1). The host fires it on the drain signal (SIGUSR2); the service observes
+/// Drain handle. The host fires it on the drain signal (SIGUSR2); the service observes
 /// it inside serve -- [`Drain::is_draining`] for a fast check, [`Drain::draining`] to await the
 /// transition -- then refuses new work, lets active work finish, and returns from serve when idle.
 #[derive(Clone, Default)]
@@ -192,7 +192,7 @@ pub async fn run<S: Service>(mut service: S) -> std::io::Result<()> {
     }
 
     // 2. Write the manifest atomically at `starting`, carrying the socket clients will reach this
-    //    service on once it is ready (discovery is manifest-only -- design D3).
+    //    service on once it is ready (discovery is manifest-only).
     let manifest = Manifest::new(paths.manifest_path());
     let socket_path = paths.socket_path().to_string_lossy().into_owned();
     let mut manifest_data = ManifestData {

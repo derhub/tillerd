@@ -3,8 +3,6 @@ use sqlx::SqliteExecutor;
 use crate::entities::{LaunchTemplate, LaunchTemplateId};
 use crate::shared::{Error, Result};
 
-// -- Repo ---------------------------------------------------------------------
-
 /// Per-entity async repository for [`LaunchTemplate`].
 ///
 /// Methods take `impl SqliteExecutor` so a caller can pass either `&SqlitePool`
@@ -80,16 +78,12 @@ impl LaunchTemplateRepo {
     }
 }
 
-// -- Tests ---------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use sqlx::SqlitePool;
 
     use super::*;
     use crate::entities::ProjectId;
-
-    // -- helpers ---------------------------------------------------------------
 
     async fn apply_migrations(pool: &SqlitePool) {
         sqlx::migrate!("src/infra/migrations")
@@ -134,8 +128,6 @@ mod tests {
             .unwrap()
     }
 
-    // -- Scenario: A repository persists and reads a typed entity -------------
-
     #[tokio::test]
     async fn round_trip_create_and_get() {
         let pool = memory_pool().await;
@@ -152,8 +144,6 @@ mod tests {
         assert_eq!(fetched.spec_version, 1);
         assert_eq!(fetched.spec_json, r#"{"items":[]}"#);
     }
-
-    // -- Scenario: A rename is a plain update ---------------------------------
 
     #[tokio::test]
     async fn update_replaces_spec() {
@@ -190,8 +180,6 @@ mod tests {
         assert_eq!(err.code(), "launch_template.not_found");
     }
 
-    // -- Scenario: Delete ------------------------------------------------------
-
     #[tokio::test]
     async fn delete_removes_the_row() {
         let pool = memory_pool().await;
@@ -213,8 +201,6 @@ mod tests {
         let err = LaunchTemplateRepo::delete(&pool, &id).await.unwrap_err();
         assert_eq!(err.code(), "launch_template.not_found");
     }
-
-    // -- Scenario: multi-repo call on one tx is atomic -------------------------
 
     #[tokio::test]
     async fn two_creates_on_one_transaction_are_atomic() {

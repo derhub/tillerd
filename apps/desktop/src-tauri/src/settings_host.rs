@@ -16,6 +16,7 @@ use serde_json::Value;
 use tauri::State;
 
 #[tauri::command]
+#[specta::specta]
 pub async fn setting_get(
     scope: String,
     project_id: Option<String>,
@@ -39,6 +40,7 @@ pub async fn setting_get(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn setting_set(
     scope: String,
     project_id: Option<String>,
@@ -58,6 +60,7 @@ pub async fn setting_set(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn setting_list(
     scope: String,
     project_id: Option<String>,
@@ -71,6 +74,7 @@ pub async fn setting_list(
 /// Clear a setting override at a scope (revert to inherited/default).
 /// `scope` is `"global"` or `"project"`; `project_id` is required for the project scope.
 #[tauri::command]
+#[specta::specta]
 pub async fn setting_reset(
     scope: String,
     project_id: Option<String>,
@@ -89,6 +93,7 @@ pub async fn setting_reset(
 /// Effective value for a project: project override if set, else global, else `None`.
 /// Returns the raw JSON-encoded string (not parsed), matching the bus output.
 #[tauri::command]
+#[specta::specta]
 pub async fn setting_resolve(
     project_id: String,
     key: String,
@@ -102,6 +107,7 @@ pub async fn setting_resolve(
 /// Full effective settings map for a project (global merged with project overrides).
 /// Values in each `SettingView` are parsed back to JSON.
 #[tauri::command]
+#[specta::specta]
 pub async fn settings_resolve(
     project_id: String,
     bus: State<'_, Bus<Ctx>>,

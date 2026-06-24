@@ -5,8 +5,6 @@ use crate::entities::SurfaceId;
 use crate::shared::errors::Result;
 use crate::shared::message::Command;
 
-// -- DetachSurface (drop the proxy, PTY keeps running) ---------------------------
-
 /// Drop the proxy stream; the PTY keeps running in the daemon. A deliberate,
 /// infrequent op -- fine to dispatch and log, so it is a regular bus command.
 #[derive(Debug, Clone, Deserialize)]

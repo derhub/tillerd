@@ -1,15 +1,13 @@
 //! Per-entity async sqlx repository for the `project` table.
 //!
 //! Methods take a generic `SqliteExecutor` so the same call serves both a
-//! direct pool call and a shared transaction (see design D2).
+//! direct pool call and a shared transaction.
 
 use sqlx::sqlite::SqliteExecutor;
 
 use crate::entities::project::{Project, ProjectId};
 use crate::entities::workspace::WorkspaceId;
 use crate::shared::{Error, Result};
-
-// -- Repository (unit struct of executor-passing functions) --------------------
 
 pub struct ProjectRepo;
 
@@ -140,8 +138,6 @@ impl ProjectRepo {
     }
 }
 
-// -- Tests ---------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,8 +182,6 @@ mod tests {
         )
     }
 
-    // -- Scenario: name normalization happens before persist --------------------
-
     #[tokio::test]
     async fn create_trims_name_and_stored_equals_returned() {
         let pool = pool().await;
@@ -206,8 +200,6 @@ mod tests {
             "stored value must equal returned value"
         );
     }
-
-    // -- Scenario: A repository persists and reads a typed entity -------------
 
     #[tokio::test]
     async fn round_trip_create_and_get() {
@@ -240,8 +232,6 @@ mod tests {
             .expect("get must not error");
         assert!(result.is_none());
     }
-
-    // -- Scenario: A rename is a plain update ----------------------------------
 
     #[tokio::test]
     async fn update_persists_name_change() {
@@ -278,8 +268,6 @@ mod tests {
         );
     }
 
-    // -- Delete ----------------------------------------------------------------
-
     #[tokio::test]
     async fn delete_removes_project() {
         let pool = pool().await;
@@ -291,8 +279,6 @@ mod tests {
         let fetched = ProjectRepo::get(&pool, &project.id).await.unwrap();
         assert!(fetched.is_none(), "deleted project must not be found");
     }
-
-    // -- Scenario: multi-repo call on one tx is atomic -------------------------
 
     #[tokio::test]
     async fn reassign_and_delete_workspace_are_atomic_on_shared_tx() {
@@ -372,7 +358,7 @@ mod tests {
         .unwrap();
 
         // Begin a transaction, reassign, then deliberately violate FK to trigger a
-        // rollback scenario -- we simulate an error by manually rolling back.
+        // rollback -- error is simulated by manually rolling back.
         let mut tx = pool.begin().await.unwrap();
         ProjectRepo::reassign_workspace(&mut *tx, &WorkspaceId::new(other_ws_id()), &ws())
             .await

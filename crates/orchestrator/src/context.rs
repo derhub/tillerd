@@ -50,7 +50,6 @@ impl Ctx {
         &self.db
     }
 
-    /// The key-value store.
     pub fn kv(&self) -> &SqliteKv {
         &self.kv
     }
@@ -60,7 +59,6 @@ impl Ctx {
         &self.fs_root
     }
 
-    /// The surface runtime.
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
     }

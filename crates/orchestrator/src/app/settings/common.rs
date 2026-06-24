@@ -5,8 +5,8 @@ use crate::entities::setting::SettingScope;
 use crate::shared::{Error, Result};
 
 /// Build a [`SettingScope`] from the wire primitives: a scope discriminant
-/// (`"global"` / `"project"`) plus an optional project id. Mirrors the mapping the
-/// host previously performed at the IPC boundary -- `project` scope requires a
+/// (`"global"` / `"project"`) plus an optional project id. Mirrors the mapping
+/// performed at the IPC boundary -- `project` scope requires a
 /// `project_id`; an unknown discriminant is rejected.
 pub(crate) fn scope_from_parts(scope: &str, project_id: Option<&str>) -> Result<SettingScope> {
     match scope {

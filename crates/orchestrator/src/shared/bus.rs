@@ -20,8 +20,6 @@ use tracing::Instrument;
 use crate::shared::message::{Command, Query};
 use crate::shared::{Error, Result};
 
-// -- fan-out primitive -------------------------------------------------------
-
 /// Thread-safe, synchronous 1:N event fan-out.
 ///
 /// Each domain in `events/` pairs a borrowed-enum event type with a sink trait
@@ -118,8 +116,6 @@ mod tests {
 
     use super::*;
 
-    // -- Broadcast tests -----------------------------------------------------
-
     trait Counter: Send + Sync {
         fn increment(&self);
     }
@@ -158,8 +154,6 @@ mod tests {
         // Must not panic and must not call anything (nothing to call).
         bc.dispatch(|s| s.increment());
     }
-
-    // -- Bus tests -----------------------------------------------------------
 
     struct Out;
     impl Command<()> for Out {

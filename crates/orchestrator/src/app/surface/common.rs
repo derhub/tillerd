@@ -29,8 +29,6 @@ pub(super) async fn all_surfaces(cx: &Ctx) -> Result<Vec<Surface>> {
     .await?)
 }
 
-// -- Off-bus surface I/O channel (never logged, no command object) ---------------
-
 /// Send raw input bytes to a surface's PTY. Off the bus: no command object, no span,
 /// no telemetry -- the payload must never reach a log.
 pub async fn send_surface_input(cx: &Ctx, id: &str, bytes: &[u8]) -> Result<()> {

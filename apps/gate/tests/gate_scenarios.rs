@@ -17,8 +17,6 @@ use tillerd_gate::router::{Inbound, Router};
 use tillerd_gate::subscription::Subscriptions;
 use tillerd_gate::{Kind, Outbound, Reject, Token};
 
-// -- helpers ------------------------------------------------------------------
-
 fn stop_body() -> Bytes {
     Bytes::from_static(br#"{"hook_event_name":"Stop","session_id":"agent","timestamp_ms":5}"#)
 }
@@ -39,8 +37,6 @@ fn build_router(registry: Arc<SessionRegistry>, subscriptions: Arc<Subscriptions
     ]);
     Router::new(globals, routes)
 }
-
-// -- Gate carries no tool-call knowledge --------------------------------------
 
 /// The gate's tool route contains no backend registry: it is a pure pass-through
 /// that returns the caller's payload unchanged. The caller, not the gate, routes
@@ -72,8 +68,6 @@ async fn gate_carries_no_tool_call_knowledge_tool_route_is_passthrough() {
         "tool route returns the body unchanged: no backend registry in the gate"
     );
 }
-
-// -- Normalization uses the injected adapter -----------------------------------
 
 /// Replacing the adapter changes what `Normalize` parses; the gate itself
 /// contains no agent-specific logic.
@@ -132,8 +126,6 @@ async fn normalization_uses_the_injected_adapter_not_hard_coded_logic() {
     );
 }
 
-// -- Gate is agent-agnostic in code -------------------------------------------
-
 /// Swapping to a different adapter (ErrAdapter -- simulates an unsupported agent)
 /// rejects unknown payloads without any gate code change.
 #[tokio::test]
@@ -166,8 +158,6 @@ async fn gate_is_agent_agnostic_only_the_adapter_changes() {
         "swapping to a rejecting adapter rejects without touching the gate"
     );
 }
-
-// -- Agent surfaces cannot administer -----------------------------------------
 
 /// A caller on the tool route cannot cause a session to be registered; the admin
 /// surface is the only route that reaches the registry for writes.
@@ -238,8 +228,6 @@ async fn hook_caller_cannot_register_a_session_via_hook_body() {
         "the hook face cannot create a registry entry via the hook body"
     );
 }
-
-// -- Observe wraps auth so rejections are recorded ----------------------------
 
 /// When globals are `[Observe, Auth]`, an auth rejection is still recorded by
 /// the outermost Observe layer -- this is the "inbound runs globals then its route"

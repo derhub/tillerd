@@ -5,6 +5,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
 /// Byte length, or `None` (JS `null`) when the file is absent -- distinct from an empty file (0).
 #[tauri::command]
+#[specta::specta]
 pub async fn file_size(path: String) -> Option<u64> {
     tokio::fs::metadata(&path).await.ok().map(|m| m.len())
 }
@@ -40,7 +41,7 @@ pub(crate) async fn read_bytes(path: &str, offset: u64, length: u64) -> Result<V
 }
 
 /// One structured log file under the runtime logs directory.
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, specta::Type)]
 pub struct LogFileEntry {
     /// File name, e.g. `tillerd-daemon.2026-06-13.log`.
     pub name: String,
@@ -54,6 +55,7 @@ pub struct LogFileEntry {
 /// name. Each entry carries the absolute path the renderer reads through
 /// `file_read` / `file_size`. Empty when the logs directory is absent.
 #[tauri::command]
+#[specta::specta]
 pub async fn list_log_files() -> Vec<LogFileEntry> {
     let dir = tillerd_paths::logging::logs_dir_in(&tillerd_paths::runtime_dir());
     list_log_files_in(&dir).await

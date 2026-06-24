@@ -9,8 +9,6 @@ use crate::shared::message::Command;
 
 use super::common::{all_surfaces, default_cwd, DEFAULT_GEOMETRY};
 
-// -- ReconcileSurfaces (boot reconciler, D9) -------------------------------------
-
 /// Converge the runtime to the persisted desired state on boot:
 /// running-but-no-row -> kill; desired-but-not-running -> respawn or mark failed.
 /// It attaches no proxy stream -- streaming is brought up lazily by `attach_surface`.

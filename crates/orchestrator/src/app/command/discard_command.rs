@@ -35,8 +35,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: prebuilt commands are immutable -----------------------------
-
     #[tokio::test]
     async fn discard_command_rejects_prebuilt() {
         let bus = Bus::new(ctx().await);
@@ -61,8 +59,6 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.code(), "prebuilt.immutable");
     }
-
-    // -- Scenario: discard removes a custom command ----------------------------
 
     #[tokio::test]
     async fn discard_command_removes_it_from_list() {
@@ -98,8 +94,6 @@ mod tests {
         let result = bus.query(GetCommandById { id }).await.unwrap();
         assert!(result.is_none());
     }
-
-    // -- Scenario: not-found errors --------------------------------------------
 
     #[tokio::test]
     async fn discard_command_returns_not_found_for_absent_id() {

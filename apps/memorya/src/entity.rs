@@ -56,7 +56,6 @@ pub fn resolve_or_create(store: &Store, name: &str) -> anyhow::Result<String> {
         return Ok(id);
     }
 
-    // Create.
     let id = new_id(store)?;
     conn.execute(
         "INSERT INTO entities(id, name, type, aliases) VALUES (?1, ?2, NULL, NULL)",

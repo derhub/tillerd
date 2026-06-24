@@ -97,7 +97,7 @@ mod tests {
     // Scenario: Multi-repo cascade is atomic (DiscardWorkspace).
     #[tokio::test]
     async fn discard_workspace_is_atomic_rollback_on_error() {
-        // We cannot easily force an internal tx error here, but we verify
+        // Forcing an internal tx error is not practical here; instead verify
         // that DiscardWorkspace on an absent workspace returns not_found and
         // leaves state unchanged.
         let cx = ctx().await;

@@ -10,6 +10,7 @@ use crate::shared::{fs, Result};
 
 /// Theme origin: prebuilt (immutable) or custom (user-added).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum ThemeOrigin {
     Prebuilt,
@@ -18,6 +19,7 @@ pub enum ThemeOrigin {
 
 /// A stored theme.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Theme {
     pub id: String,
     pub name: String,

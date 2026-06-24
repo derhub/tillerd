@@ -119,8 +119,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: query reads and does not mutate -----------------------------
-
     #[tokio::test]
     async fn list_notifications_does_not_mutate_state() {
         let bus = Bus::new(test_ctx().await);
@@ -134,8 +132,6 @@ mod tests {
         assert_eq!(c1, 2);
     }
 
-    // -- Scenario: list returns records ordered ts DESC ------------------------
-
     #[tokio::test]
     async fn list_notifications_ordered_by_ts_desc() {
         let bus = Bus::new(test_ctx().await);
@@ -147,8 +143,6 @@ mod tests {
         let ids: Vec<&str> = listing.items.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, ["q2", "q3", "q1"]);
     }
-
-    // -- Scenario: offset page returns bounded slice and continuation ----------
 
     #[tokio::test]
     async fn offset_page_returns_bounded_slice_and_continuation() {
@@ -181,8 +175,6 @@ mod tests {
         assert_eq!(page3.items.len(), 1);
         assert!(page3.next.is_none());
     }
-
-    // -- Scenario: cursor page from start and after ----------------------------
 
     #[tokio::test]
     async fn cursor_page_from_start_then_after() {

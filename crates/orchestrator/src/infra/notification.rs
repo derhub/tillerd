@@ -8,8 +8,6 @@ use sqlx::SqliteExecutor;
 use crate::entities::notification::NotificationRecord;
 use crate::shared::{Error, Result};
 
-// -- Repository ----------------------------------------------------------------
-
 pub struct NotificationRepo;
 
 impl NotificationRepo {
@@ -161,8 +159,6 @@ impl NotificationRepo {
     }
 }
 
-// -- Tests ---------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,8 +202,6 @@ mod tests {
         }
     }
 
-    // -- Scenario: round-trip --------------------------------------------------
-
     #[tokio::test]
     async fn create_and_get_returns_the_same_record() {
         let pool = memory_pool().await;
@@ -224,8 +218,6 @@ mod tests {
         assert!(got.is_none());
     }
 
-    // -- Scenario: read and snooze round-trip ----------------------------------
-
     #[tokio::test]
     async fn read_flag_and_snooze_until_round_trip() {
         let pool = memory_pool().await;
@@ -240,8 +232,6 @@ mod tests {
         assert!(got.read);
         assert_eq!(got.snooze_until, Some(9_999_999));
     }
-
-    // -- Scenario: mark_read and count_unread ----------------------------------
 
     #[tokio::test]
     async fn mark_read_removes_record_from_unread_listing() {
@@ -298,8 +288,6 @@ mod tests {
         assert_eq!(count, 0);
     }
 
-    // -- Scenario: snooze -----------------------------------------------------
-
     #[tokio::test]
     async fn snooze_sets_and_clears_snooze_until() {
         let pool = memory_pool().await;
@@ -326,8 +314,6 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.code(), "notification.not_found");
     }
-
-    // -- Scenario: delete -----------------------------------------------------
 
     #[tokio::test]
     async fn delete_removes_the_record() {
@@ -362,8 +348,6 @@ mod tests {
         }
     }
 
-    // -- Scenario: prune executes the DELETE without error --------------------
-
     #[tokio::test]
     async fn prune_runs_delete_and_returns_ok() {
         let pool = memory_pool().await;
@@ -376,8 +360,6 @@ mod tests {
         NotificationRepo::prune(&pool, 2).await.unwrap();
         assert!(NotificationRepo::get(&pool, "pr1").await.unwrap().is_none());
     }
-
-    // -- Scenario: multi-repo call on one tx is atomic ------------------------
 
     #[tokio::test]
     async fn two_repo_writes_on_one_tx_are_atomic_on_rollback() {
@@ -414,8 +396,6 @@ mod tests {
             .unwrap()
             .is_some());
     }
-
-    // -- Scenario: update on absent id returns not_found -----------------------
 
     #[tokio::test]
     async fn update_on_absent_id_returns_not_found() {

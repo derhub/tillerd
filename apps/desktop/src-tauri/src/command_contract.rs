@@ -245,7 +245,10 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         ("surface_stop", serde_json::json!({ "id": "contract" })),
         ("surface_reconcile", serde_json::json!({})),
-        ("session_list", serde_json::json!({ "projectId": null })),
+        (
+            "session_list",
+            serde_json::json!({ "projectId": null, "limit": null, "offset": null }),
+        ),
         (
             "session_create",
             serde_json::json!({ "projectId": null, "title": "x", "titleSource": "agentTitle", "templateId": null }),
@@ -434,7 +437,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "command_center_set_leader",
             serde_json::json!({ "accelerator": "CmdOrCtrl+K" }),
         ),
-        // -- template: launch templates --
         (
             "launch_template_create",
             serde_json::json!({ "projectId": "contract", "specVersion": 1, "specJson": "{}" }),
@@ -455,7 +457,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "launch_template_apply_spec",
             serde_json::json!({ "id": "contract", "specVersion": 1, "specJson": "{}" }),
         ),
-        // -- template: portable library --
         ("template_list", serde_json::json!({})),
         ("template_get", serde_json::json!({ "id": "contract" })),
         (
@@ -509,4 +510,37 @@ fn memory_ctx_bus_is_managed_and_wired() {
 
     std::env::remove_var(tillerd_paths::ENV_TILLERD_DIR);
     std::env::remove_var(tillerd_paths::ENV_DAEMON_BIN);
+}
+
+/// Generate the TypeScript bindings for the tauri commands. Runs the specta
+/// export without launching a full app. The output path is fixed at build time
+/// via `CARGO_MANIFEST_DIR`.
+#[test]
+fn export_tauri_bindings() {
+    let out = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/client-bindings/src/tauri_bindings.gen.ts"
+    );
+    // Run on a thread with an expanded stack to avoid overflow during specta
+    // type traversal across the large command surface.
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(move || {
+            crate::specta_builder()
+                .export(
+                    crate::specta_export::ObjectParamTs(
+                        specta_typescript::Typescript::default().header(crate::GEN_HEADER),
+                    ),
+                    out,
+                )
+                .expect("tauri bindings export succeeded");
+        })
+        .expect("spawn export thread")
+        .join()
+        .expect("export thread joined");
+
+    assert!(
+        std::path::Path::new(out).exists(),
+        "tauri_bindings.ts was written to {out}"
+    );
 }

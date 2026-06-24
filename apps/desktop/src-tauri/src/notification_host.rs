@@ -1,6 +1,6 @@
 //! User-facing notification feed (roadmap 0.0.10). Derives notifications from the lifecycle
-//! signals the desktop host already receives, persists them in the orchestrator store
-//! (ADR-0031), and pushes them to the renderer over [`NOTIFICATION_EVENT`]. Additive: no
+//! signals the desktop host already receives, persists them in the orchestrator store,
+//! and pushes them to the renderer over [`NOTIFICATION_EVENT`]. Additive: no
 //! orchestrator-core boundary changes. The builders are pure so the derivation is unit-tested
 //! without a running app.
 
@@ -11,7 +11,7 @@ use orchestrator::app::notification::{
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 /// Renderer event carrying one notification. Mirrors the SDK `NOTIFICATION_EVENT`.
@@ -24,21 +24,20 @@ const MAX_HISTORY: u32 = 500;
 const HISTORY_LOAD: u32 = 200;
 
 /// One notification on the wire. Field names match the SDK `NotificationEvent`.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "notification://event")]
 #[serde(rename_all = "camelCase")]
+// Optionals serialize as null (not omitted) so serialize/deserialize stay symmetric and specta
+// emits a single type rather than _Serialize/_Deserialize variants.
 pub struct NotificationWire {
     pub id: String,
     pub category: String,
     pub severity: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     pub ts: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub surface_id: Option<String>,
 }
 
@@ -106,8 +105,6 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-// -- builders (pure) -------------------------------------------------------
-
 pub fn surface_started(surface_id: &str, session_id: &str, ts: i64) -> NotificationWire {
     NotificationWire::new(
         "surface-started",
@@ -144,8 +141,6 @@ pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> Notifi
     }
 }
 
-// -- sink ------------------------------------------------------------------
-
 /// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
 /// Best-effort: a store or emit error never blocks the originating lifecycle event.
 pub async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
@@ -162,6 +157,7 @@ pub fn emit_only<R: tauri::Runtime>(app: &AppHandle<R>, wire: NotificationWire) 
 
 /// Durable notification history (most recent first) for the renderer to hydrate on boot.
 #[tauri::command]
+#[specta::specta]
 pub async fn notifications_list(bus: State<'_, Bus<Ctx>>) -> Result<Vec<NotificationWire>, String> {
     let listing = bus
         .query(ListNotifications {

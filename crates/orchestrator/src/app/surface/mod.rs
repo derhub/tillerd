@@ -45,7 +45,6 @@ pub use view::SurfaceView;
 
 pub use common::{attach_surface, resize_surface, send_surface_input};
 
-// -- app-owned boundary edges ------------------------------------------------
 // The host's tauri transport implements `SurfaceSink` and registers it via
 // `boot::Config.sink`. Both speak primitive surface ids, so the host never
 // reaches the domain newtype or the infra layer.

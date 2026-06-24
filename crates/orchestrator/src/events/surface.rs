@@ -11,8 +11,6 @@
 
 use crate::shared::bus::Broadcast;
 
-// -- event -------------------------------------------------------------------
-
 /// Every output variant a surface runtime can produce. All payloads are plain
 /// built-ins borrowed from the decoded frame -- zero extra copy through fan-out.
 pub enum SurfaceEvent<'a> {
@@ -26,8 +24,6 @@ pub enum SurfaceEvent<'a> {
     Error(&'a str),
 }
 
-// -- sink trait --------------------------------------------------------------
-
 /// Receives surface events addressed by primitive surface id.
 ///
 /// Implementations must be `Send + Sync + 'static` so they can be held behind
@@ -37,8 +33,6 @@ pub trait SurfaceSink: Send + Sync + 'static {
     fn emit(&self, surface: &str, event: &SurfaceEvent<'_>);
 }
 
-// -- fan-out terminal --------------------------------------------------------
-
 /// `Broadcast<dyn SurfaceSink>` is itself a `SurfaceSink`: calling `emit`
 /// dispatches to every registered subscriber synchronously.
 impl SurfaceSink for Broadcast<dyn SurfaceSink> {
@@ -46,8 +40,6 @@ impl SurfaceSink for Broadcast<dyn SurfaceSink> {
         self.dispatch(|s| s.emit(surface, event));
     }
 }
-
-// -- closure blanket (D8) ----------------------------------------------------
 
 /// Any `Fn(&str, &SurfaceEvent<'_>) + Send + Sync + 'static` is a sink, so
 /// callers can subscribe with a closure and need no explicit struct or impl.
@@ -59,8 +51,6 @@ where
         self(surface, event)
     }
 }
-
-// -- tests -------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

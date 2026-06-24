@@ -3,8 +3,6 @@ use sqlx::SqliteExecutor;
 use crate::entities::workspace::{Workspace, WorkspaceId};
 use crate::shared::Result;
 
-// -- Repo ---------------------------------------------------------------------
-
 /// Per-entity async repository for `Workspace`. Methods take a sqlx executor
 /// so the same method serves a direct pool call and a shared transaction.
 pub struct WorkspaceRepo;
@@ -73,8 +71,6 @@ impl WorkspaceRepo {
         Ok(())
     }
 }
-
-// -- Tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

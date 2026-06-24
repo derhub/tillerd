@@ -66,8 +66,8 @@ impl Query<Ctx> for ListSessionsByProject {
             }
             Page::Cursor { after, limit } => {
                 // Fetch limit+1 to detect whether a next page exists without a
-                // COUNT query. If we get more than limit rows back, a next page
-                // exists; we truncate to limit before returning.
+                // COUNT query. More than limit rows back means a next page
+                // exists; truncate to limit before returning.
                 let fetch_n = limit as i64 + 1;
                 let rows: Vec<SessionView> = if let Some(cursor) = after {
                     sqlx::query_as(AssertSqlSafe(format!(
@@ -246,7 +246,7 @@ mod tests {
     }
 
     // Scenario: A bounded cursor page returns a continuation cursor.
-    // Cursor mode is driven by `after`; we anchor on the first row, then page.
+    // Cursor mode is driven by `after`; anchors on the first row, then pages.
     #[tokio::test]
     async fn list_cursor_returns_next_when_more_remain() {
         let (bus, pool) = ctx().await;

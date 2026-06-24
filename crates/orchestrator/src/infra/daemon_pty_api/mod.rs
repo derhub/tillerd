@@ -21,8 +21,6 @@ use std::sync::Arc;
 use crate::entities::SurfaceId;
 use crate::shared::Result;
 
-// -- raw output types --------------------------------------------------------
-
 /// One decoded output frame from a surface PTY proxy. All payloads are owned
 /// so they can cross the mpsc channel boundary without a lifetime.
 pub enum Output {

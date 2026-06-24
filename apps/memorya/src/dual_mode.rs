@@ -10,7 +10,6 @@ pub const SESSION_ID_ENV: &str = "TILLERD_SESSION_ID";
 pub enum Face {
     /// The MCP stdio server plus the loopback viewer.
     McpWithViewer,
-    /// The loopback viewer only.
     ViewerOnly,
 }
 

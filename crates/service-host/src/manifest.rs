@@ -1,6 +1,6 @@
 //! Atomic manifest: temp + rename prevents partial reads. Stale manifests are overwritten.
 //!
-//! The manifest is the single discovery source (ADR-0028, design D3): a client resolves a service
+//! The manifest is the single discovery source: a client resolves a service
 //! by reading its manifest's `pid`, `version`, lifecycle `status`, and `socket_path` -- no port
 //! files, no socket scanning.
 
@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 /// A service's lifecycle status as recorded in its manifest. Consumers read this to decide whether
 /// a service is reachable: only `Ready` accepts work; `Starting` is not yet listening and
-/// `Draining` refuses new work (ADR-0028, design D2).
+/// `Draining` refuses new work.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ServiceStatus {
@@ -27,7 +27,6 @@ pub enum ServiceStatus {
 /// (once known) the socket clients reach it on.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ManifestData {
-    /// The hosting process id.
     pub pid: u32,
     /// The hosting tool's version string.
     pub version: String,

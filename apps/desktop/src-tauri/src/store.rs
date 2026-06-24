@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use tillerd_paths::runtime_dir;
 
 /// Native app-data store: user preferences plus the session registry (sessionId -> cwd). Replaces
-/// the server-side sqlite registry on the desktop path (design D6). Persisted as JSON.
+/// the server-side sqlite registry on the desktop path. Persisted as JSON.
 #[derive(Default, Serialize, Deserialize)]
 struct StoreData {
     #[serde(default)]
@@ -49,7 +49,7 @@ async fn persist(data: &StoreData) {
     let _ = tokio::fs::write(path, bytes).await;
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 pub struct RegistryEntry {
     #[serde(rename = "sessionId")]
     session_id: String,
@@ -57,11 +57,13 @@ pub struct RegistryEntry {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn pref_get(key: String, state: State<'_, StoreState>) -> Result<Option<Value>, ()> {
     Ok(state.inner.lock().await.prefs.get(&key).cloned())
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn pref_set(key: String, value: Value, state: State<'_, StoreState>) -> Result<(), ()> {
     let mut data = state.inner.lock().await;
     data.prefs.insert(key, value);
@@ -70,6 +72,7 @@ pub async fn pref_set(key: String, value: Value, state: State<'_, StoreState>) -
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn registry_get(
     session_id: String,
     state: State<'_, StoreState>,
@@ -78,6 +81,7 @@ pub async fn registry_get(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn registry_set(
     session_id: String,
     cwd: String,
@@ -90,6 +94,7 @@ pub async fn registry_set(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn registry_remove(session_id: String, state: State<'_, StoreState>) -> Result<(), ()> {
     let mut data = state.inner.lock().await;
     data.registry.remove(&session_id);
@@ -98,6 +103,7 @@ pub async fn registry_remove(session_id: String, state: State<'_, StoreState>) -
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn registry_list(state: State<'_, StoreState>) -> Result<Vec<RegistryEntry>, ()> {
     Ok(state
         .inner

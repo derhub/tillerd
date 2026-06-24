@@ -8,8 +8,6 @@ use crate::shared::message::Command;
 
 use super::common::require_surface;
 
-// -- CloseSurface (delete record) ------------------------------------------------
-
 /// Remove a surface from a session: kill its runtime proxy and delete the record.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

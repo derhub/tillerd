@@ -14,7 +14,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc::UnboundedSender;
 
-/// The PTY transport behind a session: spawned by us, with portable-pty owning the master/child.
+/// The PTY transport behind a session: spawned externally, with portable-pty owning the master/child.
 enum Pty {
     Spawned {
         master: Box<dyn MasterPty + Send>,
@@ -361,8 +361,6 @@ impl Session {
         master.as_raw_fd()
     }
 
-    // -- Terminal status ----------------------------------------------------
-
     pub fn mark_output(&mut self) {
         self.last_output_at = Instant::now();
     }
@@ -375,7 +373,7 @@ impl Session {
 
     fn foreground_pgrp(&self) -> Option<i32> {
         let fd = self.raw_master_fd()?;
-        // SAFETY: `tcgetpgrp` only reads the foreground process group of our own
+        // SAFETY: `tcgetpgrp` only reads the foreground process group of this
         // valid, open PTY master fd; it has no other effects.
         #[allow(unsafe_code)]
         let pgrp = unsafe { nix::libc::tcgetpgrp(fd) };
@@ -402,8 +400,6 @@ impl Session {
     pub fn has_subscribers(&self) -> bool {
         !self.subscribers.is_empty()
     }
-
-    // -- Subscriber flow control --------------------------------------------
 
     pub fn add_subscriber(&mut self, conn_id: u64, initial_credit: i64) {
         self.subscribers.insert(

@@ -4,6 +4,7 @@ use serde::Serialize;
 ///
 /// Decoded straight from the `launch_template` table via `query_as`.
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchTemplateView {
     pub id: String,
@@ -17,6 +18,7 @@ pub struct LaunchTemplateView {
 /// Built from the filesystem template index + bundle (not table-mapped), so it is
 /// assembled by hand in the query handler rather than via `query_as`.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct TemplateView {
     pub id: String,

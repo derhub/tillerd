@@ -25,8 +25,6 @@ mod tests {
     use crate::infra::NotificationRepo;
     use crate::shared::Bus;
 
-    // -- Scenario: snooze defers a notification --------------------------------
-
     #[tokio::test]
     async fn snooze_sets_snooze_until_and_clear_restores_none() {
         let bus = Bus::new(test_ctx().await);
@@ -54,8 +52,6 @@ mod tests {
         let cleared = NotificationRepo::get(&pool, "sn1").await.unwrap().unwrap();
         assert_eq!(cleared.snooze_until, None);
     }
-
-    // -- Scenario: snooze on absent id returns not_found -----------------------
 
     #[tokio::test]
     async fn snooze_on_absent_id_returns_not_found() {

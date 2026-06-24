@@ -7,11 +7,20 @@
 
 use std::sync::Mutex;
 
+use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
 use tauri::{Emitter, Manager, State, Wry};
 
 /// Default leader accelerator -- the common palette convention; rebindable from settings.
 pub const DEFAULT_LEADER_ACCEL: &str = "CmdOrCtrl+K";
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "menu:navigate")]
+pub struct MenuNavigate(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[tauri_specta(event_name = "command-center:open")]
+pub struct CommandCenterOpen(pub String);
 
 /// Where a menu id routes when its item fires: a renderer event and its payload.
 pub struct MenuRoute {
@@ -79,6 +88,7 @@ pub fn install_menu(app: &tauri::App) -> tauri::Result<()> {
 
 /// Rebind the native leader accelerator. No-op until the leader item is installed.
 #[tauri::command]
+#[specta::specta]
 pub fn command_center_set_leader(
     accelerator: String,
     state: State<LeaderMenuState>,

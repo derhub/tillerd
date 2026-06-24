@@ -34,6 +34,7 @@ macro_rules! transport_command {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[specta::specta]
         #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
@@ -54,6 +55,7 @@ macro_rules! transport_query {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[specta::specta]
         #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
@@ -82,6 +84,7 @@ macro_rules! transport_create {
     ) => {
         $(#[$meta])*
         #[tauri::command]
+        #[specta::specta]
         #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
         pub async fn $name(
             $( $param: $ty, )*
@@ -99,7 +102,7 @@ macro_rules! transport_create {
     };
 }
 
-/// Expand to the `tauri::generate_handler![...]` array of every desktop IPC command.
+/// Expand to the `tauri_specta::collect_commands![...]` array of every desktop IPC command.
 /// Declarative (not `inventory`): tauri needs the handler idents at compile time. Lists
 /// the macro-generated domain shims (`transport::domain`) alongside the hand-written
 /// host/shell and transport-resident shims.
@@ -112,7 +115,7 @@ macro_rules! transport_create {
 /// Stays hand-written (NOT macro-generated), listed here:
 /// - host/shell (no domain store): `window_host`, `files`, `diag`, `bridge`, `menu`,
 ///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
-///   session registry, design D6 / off-bus).
+///   session registry, off-bus).
 /// - transport-resident: every `surface_*` shim -- they register/attach a per-surface
 ///   `tauri::ipc::Channel` and the off-bus input/resize endpoints write straight to the
 ///   runtime port (a `Channel` is a tauri object that cannot live in the core).
@@ -122,9 +125,7 @@ macro_rules! transport_create {
 macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
-            // -- runtime-specific (e.g. daemon_connect takes AppHandle<Wry>, excluded from test) --
             $( $runtime_cmd, )*
-            // -- host / shell (out of CQS scope) --
             $crate::bridge::daemon_send,
             $crate::bridge::daemon_disconnect,
             $crate::files::file_size,
@@ -144,14 +145,12 @@ macro_rules! collect_transport {
             $crate::window_host::window_focus,
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
-            // -- surface I/O (transport-resident: ipc::Channel + off-bus runtime) --
             $crate::surface_host::surface_create,
             $crate::surface_host::surface_spawn,
             $crate::surface_host::surface_close,
             $crate::surface_host::surface_input,
             $crate::surface_host::surface_resize,
             $crate::surface_host::surface_detach,
-            // -- domain --
             $crate::transport::domain::project_create,
             $crate::transport::domain::project_list,
             $crate::transport::domain::project_rename,
@@ -213,14 +212,12 @@ macro_rules! collect_transport {
             $crate::transport::domain::command_unpin,
             $crate::transport::domain::command_duplicate,
             $crate::transport::domain::command_seed,
-            // -- settings: scope-sensitive (scope+projectId parse, value<->string) --
             $crate::settings_host::setting_get,
             $crate::settings_host::setting_set,
             $crate::settings_host::setting_list,
             $crate::settings_host::setting_reset,
             $crate::settings_host::setting_resolve,
             $crate::settings_host::settings_resolve,
-            // -- settings: profiles --
             $crate::transport::domain::profile_get_active,
             $crate::transport::domain::profile_list,
             $crate::transport::domain::profile_create,
@@ -230,22 +227,18 @@ macro_rules! collect_transport {
             $crate::transport::domain::profile_discard,
             $crate::transport::domain::profile_export,
             $crate::transport::domain::profile_import,
-            // -- settings: themes --
             $crate::transport::domain::theme_get_active,
             $crate::transport::domain::theme_list,
             $crate::transport::domain::theme_activate,
             $crate::transport::domain::theme_discard,
             $crate::transport::domain::theme_export,
             $crate::transport::domain::theme_import,
-            // -- settings: keybindings --
             $crate::transport::domain::keybinding_list,
             $crate::transport::domain::keybinding_rebind,
             $crate::transport::domain::keybinding_reset,
             $crate::transport::domain::keybinding_reset_all,
             $crate::transport::domain::keybinding_resolve,
-            // -- settings: config --
             $crate::transport::domain::config_reload,
-            // -- notifications (fixed-page query beside the notification sink) --
             $crate::notification_host::notifications_list,
             $crate::transport::domain::notification_list_unread,
             $crate::transport::domain::notification_count_unread,
@@ -256,13 +249,11 @@ macro_rules! collect_transport {
             $crate::transport::domain::notification_snooze,
             $crate::transport::domain::notification_prune,
             $crate::transport::domain::notification_record,
-            // -- template: launch templates (project-bound) --
             $crate::transport::domain::launch_template_create,
             $crate::transport::domain::launch_template_list,
             $crate::transport::domain::launch_template_get,
             $crate::transport::domain::launch_template_discard,
             $crate::transport::domain::launch_template_apply_spec,
-            // -- template: portable library --
             $crate::transport::domain::template_list,
             $crate::transport::domain::template_get,
             $crate::transport::domain::template_import,

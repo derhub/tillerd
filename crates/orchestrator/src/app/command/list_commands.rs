@@ -87,8 +87,8 @@ impl Query<Ctx> for ListCommands {
             }
             Page::Cursor { after, limit } => {
                 // Fetch limit+1 to detect whether a next page exists without a
-                // COUNT query. If we get more than limit rows back, a next page
-                // exists; we truncate to limit before returning.
+                // COUNT query. More than limit rows back means a next page
+                // exists; truncate to limit before returning.
                 let fetch_n = limit as i64 + 1;
                 let rows: Vec<CommandView> = if let Some(cursor) = after {
                     if let Some(origin) = origin_filter {

@@ -310,8 +310,6 @@ impl Store {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
-    // --- consolidation ---
-
     /// Uncovered chunk `(id, content)` for a session, oldest first.
     pub fn session_uncovered_chunks(&self, session_id: &str) -> anyhow::Result<Vec<(i64, String)>> {
         let mut stmt = self.conn.prepare(
@@ -386,8 +384,6 @@ impl Store {
         let rows = stmt.query_map(params![before_ts, min_uncovered], |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
-
-    // --- eviction / archive ---
 
     /// Stats for non-archived, non-doc chunks (doc chunks are regenerated each
     /// session, so they are not archived).

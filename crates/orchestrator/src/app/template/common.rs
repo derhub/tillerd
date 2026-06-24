@@ -14,8 +14,6 @@ pub(super) fn index_path(fs_root: &std::path::Path) -> PathBuf {
     fs_root.join("templates").join("index.json")
 }
 
-// -- index serialisation (serde only used inside this module, not on CQS structs) --
-
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 pub(super) struct TemplateIndex {
     pub(super) entries: Vec<IndexEntry>,
