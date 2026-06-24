@@ -1,5 +1,5 @@
-import { test, expect, describe } from "bun:test";
 import { encodeFrame, FrameDecoder } from "@tillerd/sdk";
+import { test, expect, describe } from "bun:test";
 
 const enc = new TextEncoder();
 

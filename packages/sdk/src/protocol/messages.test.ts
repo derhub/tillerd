@@ -1,6 +1,8 @@
 import { test, expect } from "bun:test";
-import { parseDaemonFrame } from "./messages";
+
 import type { StatusFrame } from "./messages";
+
+import { parseDaemonFrame } from "./messages";
 
 // Conformance fixture shared with the daemon-pty emitter
 // (packages/daemon-pty/src/server.rs `status_frame_matches_shared_contract`).

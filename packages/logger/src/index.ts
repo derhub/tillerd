@@ -1,9 +1,10 @@
-import pino from "pino";
+import type { Logger, LogContext, Resource } from "@tillerd/sdk";
 import type { DestinationStream } from "pino";
-import { build as buildPretty } from "pino-pretty";
+
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Logger, LogContext, Resource } from "@tillerd/sdk";
+import pino from "pino";
+import { build as buildPretty } from "pino-pretty";
 
 export type { Logger, LogContext, Resource } from "@tillerd/sdk";
 

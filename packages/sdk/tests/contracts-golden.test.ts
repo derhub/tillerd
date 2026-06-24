@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test";
+
 import type { HookEvent } from "../src/index";
 
 // The same canonical events the Rust `contracts-rs` round-trips against. If the two

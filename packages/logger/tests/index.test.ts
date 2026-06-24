@@ -2,8 +2,10 @@ import { test, expect, describe, afterEach } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createLogger, noopLogger } from "../src/index";
+
 import type { Resource } from "../src/index";
+
+import { createLogger, noopLogger } from "../src/index";
 
 const RES: Resource = { "service.name": "tillerd-test", "service.version": "0.0.0" };
 

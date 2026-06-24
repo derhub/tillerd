@@ -1,5 +1,5 @@
-import type { SessionStatus, ContentEvent, ExitEvent } from "./events";
 import type { AtError } from "./errors";
+import type { SessionStatus, ContentEvent, ExitEvent } from "./events";
 
 export interface SessionOptions {
   cwd?: string;

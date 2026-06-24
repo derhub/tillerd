@@ -1,6 +1,8 @@
 import { test, expect } from "bun:test";
-import { AtError } from "../src/index";
+
 import type { SessionStatus, HookEvent, HookEventType, ContentEvent } from "../src/index";
+
+import { AtError } from "../src/index";
 
 test("SessionStatus values are valid string literals", () => {
   const statuses: SessionStatus[] = ["IDLE", "WORKING", "WAITING_INPUT", "DONE"];
