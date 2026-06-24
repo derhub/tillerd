@@ -90,24 +90,25 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   // The renderer persists settings fire-and-forget (`void source.setSetting`), so confirm the
   // write actually landed in the orchestrator before reloading -- otherwise the reload races
   // the async persist and the preset is lost (the source of this test's flakiness).
+  //
+  // `execute` returns null for an async browser function under tauri-webdriver, so the read
+  // cannot be awaited inline. Each poll fires the invoke (fire-and-forget) into a window slot
+  // and returns the slot's prior value synchronously; the slot reaches "vscode" once the write
+  // is visible.
   await b.waitUntil(
     async () =>
-      // tauri v2 always injects the IPC bridge (`@tauri-apps/api` calls it under the hood);
-      // bare-specifier imports do not resolve in the raw webview. v9 `execute` awaits async
-      // browser functions, so the invoke result is returned directly (null on failure).
-      (await b.execute(async () => {
-        try {
-          return await (
-            window as unknown as {
-              __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
-            }
-          ).__TAURI_INTERNALS__.invoke("setting_get", {
-            scope: "global",
-            key: "keybindings.preset",
-          });
-        } catch {
-          return null;
-        }
+      (await b.execute(() => {
+        const w = window as unknown as {
+          __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+          __presetPersisted?: unknown;
+        };
+        void w.__TAURI_INTERNALS__
+          .invoke("setting_get", { scope: "global", key: "keybindings.preset" })
+          .then((v) => {
+            w.__presetPersisted = v;
+          })
+          .catch(() => {});
+        return w.__presetPersisted ?? null;
       })) === "vscode",
     { timeout: 10_000, timeoutMsg: "preset did not persist to the orchestrator before reload" },
   );
