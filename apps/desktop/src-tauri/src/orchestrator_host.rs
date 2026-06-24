@@ -134,8 +134,8 @@ fn service_health_snapshot() -> Vec<ServiceHealthWire> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn service_health() -> Vec<ServiceHealthWire> {
-    service_health_snapshot()
+pub fn service_health() -> Result<Vec<ServiceHealthWire>, String> {
+    Ok(service_health_snapshot())
 }
 
 fn spawn_fn(resolve: fn() -> Option<PathBuf>, name: &'static str, dir: PathBuf) -> SpawnFn {

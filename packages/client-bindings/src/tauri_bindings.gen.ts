@@ -25,7 +25,7 @@ export const commands = {
 	/**  Adopt a live daemon recorded in the manifest, else spawn one and wait for reachability. */
 	daemonEnsure: () => typedError<EnsureResult, string>(__TAURI_INVOKE("daemon_ensure")),
 	orchestratorStatus: () => __TAURI_INVOKE<StatusWire>("orchestrator_status"),
-	serviceHealth: () => __TAURI_INVOKE<ServiceHealthWire[]>("service_health"),
+	serviceHealth: () => typedError<ServiceHealthWire[], string>(__TAURI_INVOKE("service_health")),
 	windowOpen: (args: { label: string; query: string }) => typedError<null, string>(__TAURI_INVOKE("window_open", args)),
 	windowFocus: (args: { label: string }) => typedError<null, string>(__TAURI_INVOKE("window_focus", args)),
 	windowClose: (args: { label: string }) => typedError<null, string>(__TAURI_INVOKE("window_close", args)),
