@@ -35,7 +35,9 @@ pub async fn setting_get(
     {
         Some(raw) => {
             eprintln!("E2EDBG setting_get key={key} raw={raw}");
-            serde_json::from_str(&raw).map(Some).map_err(|e| e.to_string())
+            serde_json::from_str(&raw)
+                .map(Some)
+                .map_err(|e| e.to_string())
         }
         None => {
             eprintln!("E2EDBG setting_get key={key} MISS");
