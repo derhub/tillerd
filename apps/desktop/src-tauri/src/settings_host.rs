@@ -23,19 +23,24 @@ pub async fn setting_get(
     key: String,
     bus: State<'_, Bus<Ctx>>,
 ) -> Result<Option<Value>, String> {
+    eprintln!("E2EDBG setting_get scope={scope} project={project_id:?} key={key}");
     match bus
         .query(GetSetting {
             scope,
             project_id,
-            key,
+            key: key.clone(),
         })
         .await
         .map_err(|e| e.to_string())?
     {
-        Some(raw) => serde_json::from_str(&raw)
-            .map(Some)
-            .map_err(|e| e.to_string()),
-        None => Ok(None),
+        Some(raw) => {
+            eprintln!("E2EDBG setting_get key={key} raw={raw}");
+            serde_json::from_str(&raw).map(Some).map_err(|e| e.to_string())
+        }
+        None => {
+            eprintln!("E2EDBG setting_get key={key} MISS");
+            Ok(None)
+        }
     }
 }
 
@@ -49,14 +54,18 @@ pub async fn setting_set(
     bus: State<'_, Bus<Ctx>>,
 ) -> Result<(), String> {
     let value_json = serde_json::to_string(&value).map_err(|e| e.to_string())?;
-    bus.execute(ApplySetting {
-        scope,
-        project_id,
-        key,
-        value_json,
-    })
-    .await
-    .map_err(|e| e.to_string())
+    eprintln!("E2EDBG setting_set scope={scope} project={project_id:?} key={key} val={value_json}");
+    let r = bus
+        .execute(ApplySetting {
+            scope,
+            project_id,
+            key: key.clone(),
+            value_json,
+        })
+        .await
+        .map_err(|e| e.to_string());
+    eprintln!("E2EDBG setting_set key={key} result={r:?}");
+    r
 }
 
 #[tauri::command]
