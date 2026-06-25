@@ -2,8 +2,6 @@ import { MutationCache, QueryClient } from "@tanstack/react-query";
 
 import { broadcastInvalidate } from "./crossWindowSync";
 import { recordNotification } from "./notifications/context";
-import { uuid } from "./transport/web-crypto";
-
 // Each window creates its own QueryClient so caches do not leak across windows.
 export function makeQueryClient(): QueryClient {
   // Invalidation after a successful mutation is automatic and configured once here, not repeated in
@@ -20,7 +18,7 @@ export function makeQueryClient(): QueryClient {
     // Optimistic mutations roll back via their own onError; this is the separate user-facing signal.
     onError: (error) => {
       recordNotification({
-        id: uuid(),
+        id: crypto.randomUUID(),
         category: "mutation-error",
         severity: "error",
         title: null,
