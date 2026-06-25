@@ -120,6 +120,32 @@ impl TestRuntimeProbe {
             })
             .collect()
     }
+
+    /// Recorded `spawn` surface ids, in call order. A revisit re-attaches an
+    /// existing surface, so a second open at the same placement adds no spawn.
+    pub fn spawns(&self) -> Vec<String> {
+        self.0
+            .calls()
+            .into_iter()
+            .filter_map(|call| match call {
+                RuntimeCall::Spawn(surface) => Some(surface.as_str().to_owned()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Recorded `attach` surface ids, in call order. A revisit attaches the
+    /// existing surface's proxy, replaying scrollback to the fresh sink.
+    pub fn attaches(&self) -> Vec<String> {
+        self.0
+            .calls()
+            .into_iter()
+            .filter_map(|call| match call {
+                RuntimeCall::Attach(surface) => Some(surface.as_str().to_owned()),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 /// Like [`test_ctx`] but also returns a [`TestRuntimeProbe`] over the in-memory
@@ -136,6 +162,20 @@ pub async fn test_ctx_with_probe() -> shared::Result<(Ctx, TestRuntimeProbe)> {
         Runtime::Fake(runtime.clone()),
     );
     Ok((cx, TestRuntimeProbe(runtime)))
+}
+
+/// Seed a session row over a test `Ctx` so a host-side test can spawn surfaces
+/// (which carry a `session_id` foreign key) without reaching into `infra`. Mirrors
+/// the app-layer surface test seed; the default-project sentinel id satisfies the
+/// `session.project_id` reference the migrations install.
+pub async fn seed_session(cx: &Ctx, id: &str) -> shared::Result<()> {
+    sqlx::query("INSERT INTO session (id, project_id, title) VALUES (?, ?, ?)")
+        .bind(id)
+        .bind("00000000-0000-0000-0000-000000000000")
+        .bind("test")
+        .execute(cx.db())
+        .await?;
+    Ok(())
 }
 
 #[cfg(test)]

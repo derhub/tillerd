@@ -55,6 +55,8 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             window_host::window_close::<tauri::Wry>,
             menu::command_center_set_leader,
             surface_host::surface_create::<tauri::Wry>,
+            surface_host::surface_channel::<tauri::Wry>,
+            surface_host::surface_channel_send_cmd,
             surface_host::surface_spawn,
             surface_host::surface_close,
             surface_host::surface_input,

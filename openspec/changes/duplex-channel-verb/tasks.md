@@ -5,7 +5,7 @@
 
 ## 2. Migrate surface onto one channel (specs: surface over one channel) (D3, D4)
 
-- [x] 2.1 (green) `surface_channel` open is defined via `transport_channel!`: spawns, queries placement, registers `ChannelSink` via `SubscribeSurface`, attaches. Legacy `surface_create`/`surface_input`/`surface_resize` shims kept (Phase-1 UI still calls them). Gap vs `surface_create`: channel open always spawns fresh -- no revisit/scrollback-replay path. Noted; out of scope.
+- [x] 2.1 (green) `surface_channel` open is defined via `transport_channel!`: spawns, queries placement, registers `ChannelSink` via `SubscribeSurface`, attaches. Legacy `surface_create`/`surface_input`/`surface_resize` shims kept (Phase-1 UI still calls them). Revisit/scrollback-replay gap RESOLVED: open delegates to `surface_channel_open`, which ports `surface_create`'s revisit branch (Subscribe fresh sink -> Detach -> attach replays scrollback; on attach-failure unsubscribe+close and respawn) plus the `SurfaceStarted` notable on fresh spawn -- full behavioral parity. Exposed in specta (`surface_channel::<Wry>` + `surface_channel_send_cmd`).
 - [x] 2.2 (red->green) Parity tests added in `transport/channel.rs`: `output_frames_reach_the_registered_sink` (subscribe `ByteRecorder` sink via `SubscribeSurface`, dispatch via `surface_sinks().dispatch`, assert frame arrives); `two_inputs_arrive_in_order` (two sequential `Input` sends arrive at probe in order). Pre-existing tests cover: input->runtime bytes, off-telemetry invariant, resize->runtime, `Close`->unsubscribes-and-stops-frames. 537 tests pass; clippy clean.
 
 ## 3. Duplex client binding (D1)
@@ -20,5 +20,5 @@
 ## Staged for Phase-1 (surface cutover — coupled to the UI migration)
 
 - `transport_channel!` macro + `SurfaceClientMsg` tagged send + off-telemetry invariant + `openSurfaceChannel` duplex handle: DELIVERED + tested.
-- `surface_channel` is a backend instantiation (registered + contract-tested) but NOT yet in the specta `collect_commands!`/typed bindings; `openSurfaceChannel` currently routes to the legacy `surfaceCreate`/`surfaceInput`/`surfaceResize`/`surfaceClose` commands (full behavior incl. revisit/scrollback — correct today).
-- Remaining cutover (Phase-1, with the renderer adopting `openSurfaceChannel`): expose `surface_channel`/`surface_channel_send_cmd` in specta; fill `surface_channel` open's revisit + scrollback-replay parity with `surface_create`; repoint `openSurfaceChannel` to the channel commands; retire the legacy surface shims.
+- `surface_channel`/`surface_channel_send_cmd` are now in the specta `collect_commands!` and the typed bindings (`surfaceChannel`/`surfaceChannelSendCmd`); `surface_channel` open has full revisit + scrollback-replay parity with `surface_create`. `openSurfaceChannel` still routes to the legacy `surfaceCreate`/`surfaceInput`/`surfaceResize`/`surfaceClose` commands (correct today).
+- Remaining cutover (Phase-1, with the renderer adopting `openSurfaceChannel`): repoint `openSurfaceChannel` to the channel commands; retire the legacy surface shims.
