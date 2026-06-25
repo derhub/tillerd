@@ -34,6 +34,31 @@ pub struct Config {
 static LOG_GUARD: std::sync::OnceLock<Box<dyn std::any::Any + Send + Sync>> =
     std::sync::OnceLock::new();
 
+/// Install the process-global file-tracing subscriber on first boot.
+///
+/// Gated to non-test builds: `init_file_tracing` calls `set_global_default`,
+/// which mutates the process-wide `tracing` `MAX_LEVEL` static. In the `--lib`
+/// unit-test binary that global write races, across threads, with the
+/// thread-local `set_default` guards the span-counting tests install; a parallel
+/// guard lowering `MAX_LEVEL` in the window where a measured `info_span!` reads
+/// it makes that span never get created, so its layer counts zero. Skipping the
+/// global install under `cfg(test)` leaves `MAX_LEVEL` governed solely by those
+/// thread-local guards (always TRACE while a guard is alive), so every span
+/// test's measured dispatch is observed deterministically regardless of order or
+/// parallelism.
+#[cfg(not(test))]
+fn init_tracing(log_dir: &std::path::Path) {
+    let (guard, _root) =
+        tillerd_paths::logging::init_file_tracing("orchestrator", env!("CARGO_PKG_VERSION"), log_dir);
+    let _ = LOG_GUARD.set(Box::new(guard));
+}
+
+#[cfg(test)]
+fn init_tracing(_log_dir: &std::path::Path) {
+    // No-op in the unit-test binary: see the `cfg(not(test))` variant above.
+    let _ = &LOG_GUARD;
+}
+
 /// Build the transport-agnostic core: open the pool, run migrations, construct
 /// [`Ctx`], and return a [`Bus<Ctx>`]. No Tauri wiring here.
 ///
@@ -41,12 +66,7 @@ static LOG_GUARD: std::sync::OnceLock<Box<dyn std::any::Any + Send + Sync>> =
 /// first call; subsequent calls are no-ops for tracing (the global subscriber is
 /// already set). The log writer guard is held for the process lifetime internally.
 pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
-    let (guard, _root) = tillerd_paths::logging::init_file_tracing(
-        "orchestrator",
-        env!("CARGO_PKG_VERSION"),
-        &cfg.log_dir,
-    );
-    let _ = LOG_GUARD.set(Box::new(guard));
+    init_tracing(&cfg.log_dir);
 
     std::fs::create_dir_all(&cfg.fs_root).map_err(shared::Error::Io)?;
 
