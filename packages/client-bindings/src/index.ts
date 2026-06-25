@@ -1,5 +1,5 @@
 // Re-export generated types only. The runtime objects (`commands`, `events`)
-// stay internal — consumers use the wrapper (`query`, `command`, ...) below.
+// stay internal -- consumers use the wrapper (`query`, `command`, ...) below.
 export type * from "./tauri_bindings.gen";
 export type {
   SessionView as Session,
@@ -9,6 +9,7 @@ export type {
 export {
   query,
   command,
+  runCommand,
   reorder,
   subscribe,
   entityKey,
@@ -18,9 +19,10 @@ export {
   type CommandKey,
 } from "./client.query";
 export { setReady, whenReady, ensureResult } from "./readiness";
-export { setQueryClient } from "./query-client";
+export { getQueryClient, setQueryClient } from "./query-client";
 export {
   useEventSub,
+  orchestratorStatus,
   makeSurfaceChannel,
   makeStreamChannel,
   openSurfaceChannel,

@@ -1,4 +1,5 @@
 import type { EventCallback } from "@tauri-apps/api/event";
+import type { StatusWire } from "./tauri_bindings.gen";
 
 import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
@@ -24,6 +25,12 @@ export function useEventSub<T>(evt: TauriEvent<T>, cb: EventCallback<T>): void {
       unlisten?.();
     };
   }, [evt]);
+}
+
+// The orchestrator status is the readiness-bootstrap command: it runs BEFORE setReady, so it stays
+// outside the readiness-gated query()/command() wrappers and returns StatusWire directly (not a Result).
+export function orchestratorStatus(): Promise<StatusWire> {
+  return commands.orchestratorStatus();
 }
 
 export type StreamHandle<T> = {

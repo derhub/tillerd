@@ -150,6 +150,12 @@ export function command<K extends TypedKey, R = unknown>(
   });
 }
 
+// Fire a command outside a React hook (bootstrap providers, callbacks). Ungated, like command()'s
+// mutationFn: writes do not wait on readiness. The caller owns invalidation (fire-and-forget writes).
+export function runCommand<K extends TypedKey>(key: K, args?: Args<K>): Promise<Result<K>> {
+  return call(key, args);
+}
+
 // Maps ordered ids to one <entity>Reorder(id, sortOrder) per row. Not optimistic: lists are
 // infinite-backed ({pages}, not a flat array), so it refetches rather than patch an unknown shape.
 export function reorder<K extends TypedKey>(key: K) {

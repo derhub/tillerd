@@ -1,4 +1,5 @@
-import { commands, ensureResult } from "@tillerd/client-bindings";
+import { command } from "@tillerd/client-bindings";
+import { useMutation } from "@tanstack/react-query";
 import React from "react";
 
 import type { PanelLeaf } from "~/lib/panelTree";
@@ -12,27 +13,16 @@ import { RegisterCommands } from "~/lib/commands/registry";
 import { bootContent } from "~/lib/health/boot-content";
 import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
-import { run } from "~/lib/subscribe";
 import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { usePanelTree } from "~/lib/usePanelTree";
 
-async function spawnInto(
-  sessionId: string,
-  leafId: string,
-  setContent: (id: string, content: { type: "terminal"; placement: string }) => void,
-): Promise<void> {
-  const placement = await commands.surfaceSpawn({ sessionId }).then(ensureResult);
-  setContent(leafId, { type: "terminal", placement });
-}
-
-async function closeTerminal(sessionId: string, placement: string): Promise<void> {
-  await commands.surfaceClose({ sessionId, placement }).then(ensureResult);
-}
-
 export function PanelContent() {
   const { sessionId } = React.use(SessionContext);
   const { detached, detach, reattach } = React.use(DetachedPanelsContext);
+
+  const surfaceSpawn = useMutation(command("surfaceSpawn"));
+  const surfaceClose = useMutation(command("surfaceClose"));
 
   const host = useDesktopHost();
   const graceElapsed = useDelayedTrue(host.status === "booting", 200);
@@ -56,19 +46,22 @@ export function PanelContent() {
   const handleSpawn = React.useCallback(
     (leafId: string) => {
       if (!sessionId) return;
-      run(spawnInto(sessionId, leafId, setContent));
+      surfaceSpawn.mutate(
+        { sessionId },
+        { onSuccess: (placement) => setContent(leafId, { type: "terminal", placement }) },
+      );
     },
-    [sessionId, setContent],
+    [sessionId, setContent, surfaceSpawn],
   );
 
   const handleClose = React.useCallback(
     (leaf: PanelLeaf) => {
       if (leaf.content.type === "terminal" && sessionId) {
-        run(closeTerminal(sessionId, leaf.content.placement));
+        surfaceClose.mutate({ sessionId, placement: leaf.content.placement });
       }
       close(leaf.id);
     },
-    [sessionId, close],
+    [sessionId, close, surfaceClose],
   );
 
   const panelCommands = useShellCommands({

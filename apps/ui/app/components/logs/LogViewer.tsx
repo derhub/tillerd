@@ -1,3 +1,8 @@
+import type { QueryClient } from "@tanstack/react-query";
+import type { LogStreamHandle } from "@tillerd/client-bindings";
+
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import { query, subscribe, subscribeLogs, useEventSub } from "@tillerd/client-bindings";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import React from "react";
 
@@ -10,78 +15,111 @@ import {
   distinctService,
   filterRecords,
 } from "~/lib/logs/log-filter";
-import { LogTail } from "~/lib/logs/log-tail";
-import { type LogSource, loadLogSource } from "~/lib/transport/log-source";
+import { parseRecord } from "~/lib/logs/log-record";
+import { run } from "~/lib/subscribe";
+import { isDesktopHost } from "~/lib/transport";
 import { cn } from "~/lib/utils";
 
-async function startLogTail(
-  resolveSource: () => Promise<LogSource | null>,
-  pollMs: number,
+// Last window pulled per file on backlog; live tail then arrives via subscribeLogs. "Load older"
+// widens the window by one step.
+const BACKFILL_BYTES = 256 * 1024;
+const OLDER_STEP_BYTES = 256 * 1024;
+const MAX_RECORDS = 10_000;
+
+type LogRecordView = {
+  timestamp: string;
+  level: string;
+  body: string;
+  attributes: unknown;
+  resource: unknown;
+  raw: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function fromView(view: LogRecordView): LogRecord {
+  return {
+    timestamp: view.timestamp,
+    level: view.level,
+    body: view.body,
+    attributes: asRecord(view.attributes),
+    resource: asRecord(view.resource),
+    raw: view.raw,
+  };
+}
+
+function sortByTime(records: LogRecord[]): LogRecord[] {
+  return [...records].sort((a, b) =>
+    a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0,
+  );
+}
+
+// Service prefix the log subscription keys on (the file-name stem before the first dot).
+function servicePrefix(name: string): string {
+  const dot = name.indexOf(".");
+  return dot === -1 ? name : name.slice(0, dot);
+}
+
+function logBacklogQuery(qc: QueryClient, windowBytes: number, enabled: boolean) {
+  return queryOptions({
+    queryKey: ["logs", "backlog", windowBytes],
+    enabled,
+    queryFn: async (): Promise<LogRecord[]> => {
+      const files = await qc.fetchQuery(query("logList"));
+      const tails = await Promise.all(
+        files.map((file) =>
+          qc.fetchQuery(
+            query("logTail", {
+              path: file.path,
+              from: Math.max(0, file.size - windowBytes),
+              maxBytes: windowBytes,
+              align: file.size > windowBytes,
+            }),
+          ),
+        ),
+      );
+      const records = tails.flatMap((tail) => tail.records.map(fromView));
+      return sortByTime(records);
+    },
+  });
+}
+
+async function startLiveTail(
+  qc: QueryClient,
   cancelled: { current: boolean },
-  tailRef: React.RefObject<LogTail | null>,
-  timerRef: { current: ReturnType<typeof setInterval> | undefined },
-  busyRef: React.RefObject<boolean>,
-  lastRef: React.RefObject<LogRecord[] | null>,
-  setUnsupported: (v: boolean) => void,
-  setRecords: (v: LogRecord[]) => void,
+  handlesRef: React.RefObject<LogStreamHandle[]>,
+  append: (record: LogRecord) => void,
 ): Promise<void> {
-  const source = await resolveSource();
+  const files = await qc.fetchQuery(query("logList"));
   if (cancelled.current) return;
-  if (!source) {
-    setUnsupported(true);
+  const services = [...new Set(files.map((file) => servicePrefix(file.name)))];
+  const handles = await Promise.all(
+    services.map((service) =>
+      subscribeLogs(service, (line) => {
+        const record = parseRecord(line);
+        if (record) append(record);
+      }),
+    ),
+  );
+  if (cancelled.current) {
+    for (const handle of handles) void handle.teardown();
     return;
   }
-  const tail = new LogTail(source);
-  tailRef.current = tail;
-  const tick = async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    try {
-      const next = await tail.refresh();
-      if (!cancelled.current && next !== lastRef.current) {
-        lastRef.current = next;
-        setRecords([...next]);
-      }
-    } finally {
-      busyRef.current = false;
-    }
-  };
-  await tick();
-  if (!cancelled.current) timerRef.current = setInterval(() => void tick(), pollMs);
+  handlesRef.current = handles;
 }
-
-async function loadOlderRecords(
-  tail: LogTail,
-  busyRef: React.RefObject<boolean>,
-  lastRef: React.RefObject<LogRecord[] | null>,
-  setRecords: (v: LogRecord[]) => void,
-): Promise<void> {
-  if (busyRef.current) return;
-  busyRef.current = true;
-  try {
-    const next = await tail.loadOlderAll();
-    lastRef.current = next;
-    setRecords([...next]);
-  } finally {
-    busyRef.current = false;
-  }
-}
-
-const POLL_MS = 1000;
 
 export interface LogViewerProps {
-  resolveSource?: () => Promise<LogSource | null>;
-  pollMs?: number;
   initialService?: string;
 }
 
-export function LogViewer({
-  resolveSource = loadLogSource,
-  pollMs = POLL_MS,
-  initialService,
-}: LogViewerProps) {
-  const [records, setRecords] = React.useState<LogRecord[]>([]);
-  const [unsupported, setUnsupported] = React.useState(false);
+export function LogViewer({ initialService }: LogViewerProps) {
+  const qc = useQueryClient();
+  const desktop = isDesktopHost();
+  const [windowBytes, setWindowBytes] = React.useState(BACKFILL_BYTES);
+  const backlog = useQuery(logBacklogQuery(qc, windowBytes, desktop));
+  const [live, setLive] = React.useState<LogRecord[]>([]);
   const [filter, setFilter] = React.useState<LogFilter>(() =>
     initialService ? { service: initialService } : {},
   );
@@ -90,37 +128,40 @@ export function LogViewer({
     setPrevService(initialService);
     setFilter((f) => ({ ...f, service: initialService }));
   }
-  const tailRef = React.useRef<LogTail | null>(null);
-  const busyRef = React.useRef(false);
-  const lastRef = React.useRef<LogRecord[] | null>(null);
+  const handlesRef = React.useRef<LogStreamHandle[]>([]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const stickRef = React.useRef(true);
 
+  const append = React.useCallback((record: LogRecord) => {
+    setLive((rows) => {
+      const next = rows.length >= MAX_RECORDS ? rows.slice(rows.length - MAX_RECORDS + 1) : rows;
+      return [...next, record];
+    });
+  }, []);
+
+  useEventSub(subscribe("logsChanged"), () => {
+    void qc.invalidateQueries({ queryKey: ["logs", "backlog"] });
+  });
+
   React.useEffect(() => {
+    if (!desktop) return;
     const cancelled = { current: false };
-    const timerRef = { current: undefined as ReturnType<typeof setInterval> | undefined };
-    void startLogTail(
-      resolveSource,
-      pollMs,
-      cancelled,
-      tailRef,
-      timerRef,
-      busyRef,
-      lastRef,
-      setUnsupported,
-      setRecords,
-    );
+    run(startLiveTail(qc, cancelled, handlesRef, append));
     return () => {
       cancelled.current = true;
-      if (timerRef.current) clearInterval(timerRef.current);
+      for (const handle of handlesRef.current) void handle.teardown();
+      handlesRef.current = [];
     };
-  }, [resolveSource, pollMs]);
+  }, [qc, append, desktop]);
 
   const handleLoadOlder = React.useCallback(() => {
-    const tail = tailRef.current;
-    if (!tail) return;
-    void loadOlderRecords(tail, busyRef, lastRef, setRecords);
+    setWindowBytes((b) => b + OLDER_STEP_BYTES);
   }, []);
+
+  const records = React.useMemo(
+    () => sortByTime((backlog.data ?? []).concat(live)),
+    [backlog.data, live],
+  );
 
   const components = React.useMemo(() => distinctAttribute(records, "component"), [records]);
   const sessions = React.useMemo(() => distinctAttribute(records, "session.id"), [records]);
@@ -145,7 +186,7 @@ export function LogViewer({
     if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 16;
   }, []);
 
-  if (unsupported) {
+  if (!desktop) {
     return (
       <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
         Log viewer is available on the desktop app.

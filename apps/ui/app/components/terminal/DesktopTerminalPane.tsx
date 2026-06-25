@@ -1,6 +1,8 @@
+import type { ChannelHandle } from "@tillerd/client-bindings";
 import type { Terminal } from "@xterm/xterm";
 
-import { commands, ensureResult, events, makeSurfaceChannel } from "@tillerd/client-bindings";
+import { command, openSurfaceChannel, subscribe } from "@tillerd/client-bindings";
+import { useMutation } from "@tanstack/react-query";
 import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
@@ -8,7 +10,7 @@ import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { useGlobalSetting } from "~/lib/settings/context";
 import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
 import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
-import { subscribe } from "~/lib/subscribe";
+import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
 
 // Async setup extracted so the component effect stays non-async.
 // The abort object is mutated by the effect cleanup to signal cancellation at each await point.
@@ -22,6 +24,7 @@ async function bindDesktopTerminal(
   setSurfaceId: (id: string) => void,
   setStatus: (s: string) => void,
   detachOnUnmount: boolean,
+  detachSurface: (surfaceId: string) => void,
 ): Promise<() => void> {
   const { Terminal } = await lazyXterm();
   const { FitAddon } = await lazyFitAddon();
@@ -49,22 +52,18 @@ async function bindDesktopTerminal(
     return () => {};
   }
 
-  const channel = makeSurfaceChannel();
-  channel.onmessage = (bytes) => term.write(new Uint8Array(bytes));
-
-  const surfaceId = ensureResult(
-    await commands.surfaceCreate({
-      channel,
-      sessionId,
-      placement,
-      cols: term.cols,
-      rows: term.rows,
-      cwd: null,
-    }),
-  );
+  const handle: ChannelHandle = await openSurfaceChannel({
+    sessionId,
+    placement,
+    cols: term.cols,
+    rows: term.rows,
+    cwd: null,
+  });
+  handle.onmessage = (bytes) => term.write(new Uint8Array(bytes));
+  const surfaceId = handle.surfaceId;
 
   if (abort.cancelled) {
-    void commands.surfaceDetach({ surfaceId });
+    detachSurface(surfaceId);
     term.dispose();
     return () => {};
   }
@@ -74,22 +73,22 @@ async function bindDesktopTerminal(
 
   const encoder = new TextEncoder();
   term.onData((data) => {
-    void commands.surfaceInput({ surfaceId, bytes: [...encoder.encode(data)] });
+    void handle.send(encoder.encode(data));
   });
 
   const ro = new ResizeObserver(() => {
     fitAddon.fit();
     if (term.cols && term.rows) {
-      void commands.surfaceResize({ surfaceId, cols: term.cols, rows: term.rows });
+      void handle.resize(term.cols, term.rows);
     }
   });
   if (containerRef.current) ro.observe(containerRef.current);
 
-  const unsubStatus = await events.surfaceStatus.listen((e) => {
+  const unsubStatus = await subscribe("surfaceStatus").listen((e) => {
     if (e.payload.surfaceId === surfaceId && !abort.cancelled) setStatus(e.payload.status);
   });
 
-  const unsubExit = await events.surfaceExit.listen((e) => {
+  const unsubExit = await subscribe("surfaceExit").listen((e) => {
     if (e.payload.surfaceId === surfaceId && !abort.cancelled) setStatus("exited");
   });
 
@@ -97,7 +96,11 @@ async function bindDesktopTerminal(
     ro.disconnect();
     unsubStatus();
     unsubExit();
-    if (detachOnUnmount) void commands.surfaceDetach({ surfaceId });
+    // Stop local delivery without tearing down the backend PTY; detach (when owning) keeps the
+    // surface alive for the parent's revisit path. A detached child window skips detach to avoid a
+    // channel-remove race.
+    handle.onmessage = () => {};
+    if (detachOnUnmount) detachSurface(surfaceId);
     term.dispose();
     termRef.current = null;
   };
@@ -123,6 +126,10 @@ export function DesktopTerminalPane(_props: {
   const terminalTheme = getTerminalTheme(scheme);
   const termRef = React.useRef<Terminal | null>(null);
 
+  const detach = useMutation(command("surfaceDetach"));
+  const detachRef = React.useRef(detach.mutateAsync);
+  detachRef.current = detach.mutateAsync;
+
   React.useEffect(() => {
     const term = termRef.current;
     if (term) term.options.theme = terminalTheme;
@@ -130,7 +137,7 @@ export function DesktopTerminalPane(_props: {
 
   React.useEffect(() => {
     const abort = { cancelled: false };
-    const unsub = subscribe(
+    const unsub = bridgeSubscribe(
       bindDesktopTerminal(
         abort,
         containerRef,
@@ -141,6 +148,7 @@ export function DesktopTerminalPane(_props: {
         (id) => setSurfaceId(id),
         setStatus,
         detachOnUnmount,
+        (id) => void detachRef.current({ surfaceId: id }),
       ),
     );
     return () => {

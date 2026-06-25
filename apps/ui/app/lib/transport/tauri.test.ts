@@ -2,7 +2,6 @@ import { encodeFrame } from "@tillerd/sdk";
 import { test, expect, describe, mock } from "bun:test";
 
 import { TauriAppData } from "./app-data";
-import { TauriFileSource } from "./file-source";
 import { TauriLogger } from "./logger";
 import { TauriDaemonTransport, type TauriCore, type TauriChannelLike } from "./tauri";
 
@@ -80,23 +79,6 @@ describe("TauriDaemonTransport", () => {
   });
 });
 
-describe("TauriFileSource", () => {
-  test("size returns null distinctly for an absent file", async () => {
-    const core = new FakeCore();
-    core.on("file_size", (a) => (a!.path === "missing" ? null : 42));
-    const fs = new TauriFileSource(core);
-    expect(await fs.size("missing")).toBeNull();
-    expect(await fs.size("there")).toBe(42);
-  });
-
-  test("read returns the raw bytes from the core", async () => {
-    const core = new FakeCore();
-    core.on("file_read", () => new Uint8Array([1, 2, 3]));
-    const fs = new TauriFileSource(core);
-    const out = await fs.read("p", 0, 3);
-    expect([...out]).toEqual([1, 2, 3]);
-  });
-});
 
 describe("TauriLogger", () => {
   test("forwards each level to the core", async () => {
