@@ -48,8 +48,11 @@ static LOG_GUARD: std::sync::OnceLock<Box<dyn std::any::Any + Send + Sync>> =
 /// parallelism.
 #[cfg(not(test))]
 fn init_tracing(log_dir: &std::path::Path) {
-    let (guard, _root) =
-        tillerd_paths::logging::init_file_tracing("orchestrator", env!("CARGO_PKG_VERSION"), log_dir);
+    let (guard, _root) = tillerd_paths::logging::init_file_tracing(
+        "orchestrator",
+        env!("CARGO_PKG_VERSION"),
+        log_dir,
+    );
     let _ = LOG_GUARD.set(Box::new(guard));
 }
 
