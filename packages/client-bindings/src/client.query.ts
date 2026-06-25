@@ -39,6 +39,7 @@ const ENTITY: ReadonlyArray<readonly [string, string]> = [
   ["serviceHealth", "serviceHealth"],
   ["keybinding", "keybindings"],
   ["workspace", "workspaces"],
+  ["log", "logs"],
   ["settings", "settings"],
   ["setting", "settings"],
   ["template", "templates"],

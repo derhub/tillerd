@@ -4,6 +4,7 @@ mod command_contract;
 mod daemon_session;
 mod diag;
 mod gate_admin;
+mod log_host;
 mod menu;
 mod notification_host;
 mod orchestrator_host;
@@ -55,6 +56,8 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             surface_host::surface_spawn,
             surface_host::surface_close,
             surface_host::surface_detach,
+            log_host::log_subscribe,
+            log_host::log_unsubscribe,
             transport::domain::setting_get,
             transport::domain::setting_set,
             transport::domain::setting_list,

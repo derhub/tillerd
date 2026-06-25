@@ -8,6 +8,7 @@
 //! Keystroke input never flows through this sink -- it carries daemon -> renderer
 //! output only (see the off-bus input endpoints), so no payload is ever logged here.
 
+use orchestrator::app::logs::{LogLine, LogSink};
 use orchestrator::app::surface::{SurfaceEvent, SurfaceSink};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Runtime};
@@ -89,6 +90,26 @@ impl<R: Runtime> SurfaceSink for ChannelSink<R> {
     }
 }
 
+/// Bridges one service's followed log output to the renderer over tauri IPC.
+/// Each appended line is sent as a `String` on the renderer-provided `Channel`.
+/// The registry owns key-scoping, so `emit`'s service arg is unused for routing.
+pub struct LogChannelSink {
+    channel: tauri::ipc::Channel<String>,
+}
+
+impl LogChannelSink {
+    /// Build a sink over one renderer channel.
+    pub fn for_channel(channel: tauri::ipc::Channel<String>) -> Self {
+        Self { channel }
+    }
+}
+
+impl LogSink for LogChannelSink {
+    fn emit(&self, _service: &str, line: &LogLine<'_>) {
+        let _ = self.channel.send(line.0.to_owned());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -143,5 +164,30 @@ mod tests {
     fn sink_over(channel: tauri::ipc::Channel<Vec<u8>>) -> ChannelSink<tauri::test::MockRuntime> {
         let app = tauri::test::mock_app();
         ChannelSink::for_channel(channel, app.handle().clone())
+    }
+
+    /// A `Channel<String>` that records every line it receives.
+    fn recording_line_channel() -> (tauri::ipc::Channel<String>, Arc<Mutex<Vec<String>>>) {
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let sink = received.clone();
+        let channel = tauri::ipc::Channel::new(move |body| {
+            if let tauri::ipc::InvokeResponseBody::Json(json) = body {
+                let line: String = serde_json::from_str(&json).unwrap_or_default();
+                sink.lock().unwrap().push(line);
+            }
+            Ok(())
+        });
+        (channel, received)
+    }
+
+    // A followed line is sent to the log sink's own channel as a string.
+    #[test]
+    fn log_sink_sends_each_line_to_the_channel() {
+        let (channel, received) = recording_line_channel();
+        let sink = LogChannelSink::for_channel(channel);
+
+        sink.emit("tillerd-daemon", &LogLine("a line"));
+
+        assert_eq!(received.lock().unwrap().as_slice(), ["a line".to_owned()]);
     }
 }

@@ -48,6 +48,16 @@ export const commands = {
 	 *  subscription so the stream goes quiet.
 	 */
 	surfaceDetach: (args: { surfaceId: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
+	/**
+	 *  Register the renderer's channel as a live sink for `service`'s appended log
+	 *  lines. Subsequent lines arrive on `channel` until `log_unsubscribe`.
+	 */
+	logSubscribe: (args: { channel: Channel<string>; service: string }) => typedError<null, string>(__TAURI_INVOKE("log_subscribe", args)),
+	/**
+	 *  Tear down the live log subscription for `service`: drop every sink registered
+	 *  under the service key so the stream goes quiet.
+	 */
+	logUnsubscribe: (args: { service: string }) => typedError<null, string>(__TAURI_INVOKE("log_unsubscribe", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),

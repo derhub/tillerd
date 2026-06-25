@@ -24,7 +24,9 @@ export {
   makeSurfaceChannel,
   makeStreamChannel,
   openSurfaceChannel,
+  subscribeLogs,
   type StreamHandle,
   type ChannelHandle,
   type SurfaceChannelParams,
+  type LogStreamHandle,
 } from "./subscribe";

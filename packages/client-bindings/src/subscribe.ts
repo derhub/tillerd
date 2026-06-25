@@ -51,6 +51,34 @@ export type ChannelHandle = {
   close(): Promise<void>;
 };
 
+/** Teardown for a live log subscription: detaches the channel and unsubscribes the service. */
+export type LogStreamHandle = {
+  teardown: () => Promise<void>;
+};
+
+/**
+ * Subscribe to the live log stream for one service (the log file-name prefix, e.g.
+ * `tillerd-daemon`). `onLine` is called for every appended line. Returns a handle whose
+ * `teardown` stops delivery and unsubscribes the service.
+ */
+export async function subscribeLogs(
+  service: string,
+  onLine: (line: string) => void,
+): Promise<LogStreamHandle> {
+  const channel = new Channel<string>();
+  channel.onmessage = onLine;
+  ensureResult(await commands.logSubscribe({ channel, service }));
+  return {
+    teardown(): Promise<void> {
+      channel.onmessage = () => undefined;
+      return commands
+        .logUnsubscribe({ service })
+        .then(ensureResult)
+        .then(() => undefined);
+    },
+  };
+}
+
 export type SurfaceChannelParams = {
   sessionId: string;
   placement: string;

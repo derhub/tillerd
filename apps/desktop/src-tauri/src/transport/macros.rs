@@ -144,6 +144,8 @@ macro_rules! collect_transport {
             $crate::surface_host::surface_spawn,
             $crate::surface_host::surface_close,
             $crate::surface_host::surface_detach,
+            $crate::log_host::log_subscribe,
+            $crate::log_host::log_unsubscribe,
             $crate::transport::domain::project_create,
             $crate::transport::domain::project_list,
             $crate::transport::domain::project_rename,
