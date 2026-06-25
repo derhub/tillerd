@@ -95,23 +95,30 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   // cannot be awaited inline. Each poll fires the invoke (fire-and-forget) into a window slot
   // and returns the slot's prior value synchronously; the slot reaches "vscode" once the write
   // is visible.
-  await b.waitUntil(
-    async () =>
-      (await b.execute(() => {
-        const w = window as unknown as {
-          __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
-          __presetPersisted?: unknown;
-        };
-        void w.__TAURI_INTERNALS__
-          .invoke("setting_get", { scope: "global", key: "keybindings.preset" })
-          .then((v) => {
-            w.__presetPersisted = v;
-          })
-          .catch(() => {});
-        return w.__presetPersisted ?? null;
-      })) === "vscode",
-    { timeout: 10_000, timeoutMsg: "preset did not persist to the orchestrator before reload" },
-  );
+  try {
+    await b.waitUntil(
+      async () =>
+        (await b.execute(() => {
+          const w = window as unknown as {
+            __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+            __presetPersisted?: unknown;
+          };
+          void w.__TAURI_INTERNALS__
+            .invoke("setting_get", { scope: "global", projectId: null, key: "keybindings.preset" })
+            .then((v) => {
+              w.__presetPersisted = typeof v === "string" ? JSON.parse(v) : v;
+            })
+            .catch((err) => {
+              w.__presetPersisted = "ERROR: " + (err?.message || err || "unknown");
+            });
+          return w.__presetPersisted ?? null;
+        })) === "vscode",
+      { timeout: 10_000 },
+    );
+  } catch {
+    const val = await b.execute(() => (window as any).__presetPersisted);
+    throw new Error(`preset did not persist to the orchestrator before reload. Last value: ${val}`);
+  }
 
   // Reload the webview and confirm the preset re-applies after re-hydration.
   await b.execute(() => window.location.reload());
