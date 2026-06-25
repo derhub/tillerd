@@ -23,4 +23,3 @@ export function delegatingQuery(overrides: Record<string, (args?: unknown) => un
   };
   return Object.assign(fn, { infinite: (realQuery as { infinite: unknown }).infinite });
 }
-

@@ -1,6 +1,5 @@
 /// <reference types="bun" />
 import { beforeEach } from "bun:test";
-
 // bun runs every test file in one process and module mocks / module-global state are process-global,
 // never reset between files (mock.restore does NOT undo mock.module in bun 1.3.x), so a file's stubs
 // leak into whatever file runs next. Under a different filesystem order (macOS vs Linux CI) that
