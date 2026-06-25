@@ -5680,6 +5680,7 @@ dependencies = [
  "tillerd-process-launch",
  "tillerd-service-host",
  "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "uuid",

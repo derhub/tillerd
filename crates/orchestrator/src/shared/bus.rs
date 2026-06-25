@@ -1,8 +1,10 @@
-//! The generic dispatcher. `Bus<Cx>` is a thin pass-through over a context: it
-//! constructs a span per operation and, on error, emits one structured `ERROR`
-//! event with OTel-named fields -- and nothing else. It does NOT own a
-//! transaction (that is each command's concern) and it never boxes (dispatch is
-//! static over the concrete operation type).
+//! The generic dispatcher. `Bus<Cx>` re-expresses dispatch as a `tower::Service`
+//! pipeline: each `execute`/`query` builds a one-shot operation envelope (`Op`)
+//! whose handler future is pre-bound at the typed boundary, then drives it
+//! through the middleware stack composed in `crate::middleware`. The
+//! cross-cutting span and the single structured `ERROR` event live in the layer,
+//! not inline. Handlers stay plain `Command<Cx>`/`Query<Cx>`; they never become
+//! `Service`s. The one boxed handler future per dispatch is the only allocation.
 //!
 //! Surface input/resize/attach never pass through the bus, so no keystroke
 //! payload is ever captured by a span or event here.
@@ -12,13 +14,28 @@
 //! no telemetry, and no CQS contract -- it is only a thread-safe subscriber list
 //! with synchronous, borrow-and-forward iteration.
 
-use std::error::Error as _;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, RwLock};
+use std::task::{Context, Poll};
 
-use tracing::Instrument;
+use tower::Service;
 
+use crate::app::notification::RecordNotification;
+use crate::context::Ctx;
+use crate::middleware::{self, NotificationRecorder};
 use crate::shared::message::{Command, Query};
 use crate::shared::{Error, Result};
+
+pub(crate) type BoxFuture<T> = Pin<Box<dyn Future<Output = Result<T>> + Send>>;
+
+/// A bus operation that, when dispatched, also yields a notification to record.
+/// The recording layer reads `notification()` after the handler runs; `None`
+/// means the operation is not notification-worthy. Only lifecycle signals impl
+/// this -- ordinary commands and queries never do.
+pub trait Notable {
+    fn notification(&self) -> Option<RecordNotification>;
+}
 
 /// Thread-safe, synchronous 1:N event fan-out.
 ///
@@ -63,7 +80,7 @@ pub struct Bus<Cx> {
     cx: Cx,
 }
 
-impl<Cx> Bus<Cx> {
+impl<Cx: Clone + Send + Sync + 'static> Bus<Cx> {
     pub fn new(cx: Cx) -> Self {
         Self { cx }
     }
@@ -76,32 +93,95 @@ impl<Cx> Bus<Cx> {
     /// Run a mutation. Returns its `Result<()>`; on error, logs one `ERROR`
     /// event. No transaction is opened here.
     pub async fn execute<C: Command<Cx>>(&self, c: C) -> Result<()> {
-        let span = tracing::info_span!("command", action = std::any::type_name::<C>());
-        c.handle(&self.cx)
-            .instrument(span)
-            .await
-            .inspect_err(record)
+        let cx = self.cx.clone();
+        let op = Op {
+            action: std::any::type_name::<C>(),
+            kind: OpKind::Command,
+            notable: None,
+            fut: Box::pin(async move { c.handle(&cx).await }),
+        };
+        drive(op, None).await
     }
 
     /// Run a read. Returns its `Out`; on error, logs one `ERROR` event. Reads
     /// never hold a write lock.
     pub async fn query<Q: Query<Cx>>(&self, q: Q) -> Result<Q::Out> {
-        let span = tracing::info_span!("query", action = std::any::type_name::<Q>());
-        q.handle(&self.cx)
-            .instrument(span)
-            .await
-            .inspect_err(record)
+        let cx = self.cx.clone();
+        let op = Op {
+            action: std::any::type_name::<Q>(),
+            kind: OpKind::Query,
+            notable: None,
+            fut: Box::pin(async move { q.handle(&cx).await }),
+        };
+        drive(op, None).await
     }
 }
 
-/// One structured `ERROR` event with OTel-named fields. The stable `code()` is
-/// the low-cardinality `error.type`; the id stays in the message, not the code.
-fn record(e: &Error) {
-    tracing::error!(
-        error.type = e.code(),
-        exception.message = %e,
-        source = ?e.source(),
-    );
+impl Bus<Ctx> {
+    /// Run a notification-worthy lifecycle signal through the bus. The signal's
+    /// handler does its (minimal) domain work; the notification-recording layer
+    /// then records exactly one notification from `c.notification()` and nudges
+    /// the change sink. This is the single recording point.
+    pub async fn execute_notable<C: Command<Ctx> + Notable>(&self, c: C) -> Result<()> {
+        let cx = self.cx.clone();
+        let op = Op {
+            action: std::any::type_name::<C>(),
+            kind: OpKind::Command,
+            notable: c.notification(),
+            fut: Box::pin(async move { c.handle(&cx).await }),
+        };
+        drive(op, Some(NotificationRecorder::new(self.cx.clone()))).await
+    }
+}
+
+/// Whether an envelope carries a mutation or a read. Layers branch their span
+/// name on it; it never reaches a handler.
+#[derive(Clone, Copy)]
+pub(crate) enum OpKind {
+    Command,
+    Query,
+}
+
+/// An erased dispatch envelope: the operation's identity (`action`, `kind`) plus
+/// its handler invocation as a pre-built `'static` future. The future owns its
+/// `Cx` clone and the message, so the typed `&Cx` borrow is resolved before the
+/// envelope is built and the pipeline can drive a uniform `Op<T>` for any `T`.
+pub(crate) struct Op<T> {
+    pub(crate) action: &'static str,
+    pub(crate) kind: OpKind,
+    /// The notification to record after a notification-worthy signal's handler
+    /// runs. `None` for ordinary commands and queries -- the recording layer
+    /// passes them through untouched.
+    pub(crate) notable: Option<RecordNotification>,
+    pub(crate) fut: BoxFuture<T>,
+}
+
+/// Drive one envelope through the middleware stack. The stack's set and order
+/// live in `crate::middleware::pipeline`; the recording layer's dependency (the
+/// notification store, via `Ctx`) is supplied here, so it is a pass-through when
+/// `recorder` is `None` (the ordinary command/query path).
+async fn drive<T: Send + 'static>(op: Op<T>, recorder: Option<NotificationRecorder>) -> Result<T> {
+    use tower::ServiceExt;
+    middleware::pipeline(recorder).oneshot(op).await
+}
+
+/// The innermost `Service`: it just drives the envelope's pre-built future.
+/// Uniform over the output type `T`.
+#[derive(Clone, Copy)]
+pub(crate) struct HandlerService;
+
+impl<T> Service<Op<T>> for HandlerService {
+    type Response = T;
+    type Error = Error;
+    type Future = BoxFuture<T>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<std::result::Result<(), Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, op: Op<T>) -> Self::Future {
+        op.fut
+    }
 }
 
 #[cfg(test)]
@@ -188,8 +268,8 @@ mod tests {
     /// A passthrough command whose context is a shared cell it writes through, to
     /// prove the bus hands the command the context.
     struct Increment;
-    impl Command<Mutex<u32>> for Increment {
-        async fn handle(&self, cx: &Mutex<u32>) -> Result<()> {
+    impl Command<Arc<Mutex<u32>>> for Increment {
+        async fn handle(&self, cx: &Arc<Mutex<u32>>) -> Result<()> {
             *cx.lock().unwrap() += 1;
             Ok(())
         }
@@ -223,7 +303,7 @@ mod tests {
 
     #[tokio::test]
     async fn execute_returns_ok_and_passes_the_context_to_the_command() {
-        let bus = Bus::new(Mutex::new(0));
+        let bus = Bus::new(Arc::new(Mutex::new(0)));
         bus.execute(Increment).await.unwrap();
         assert_eq!(*bus.cx().lock().unwrap(), 1);
     }
@@ -273,5 +353,256 @@ mod tests {
         bus.execute(Out).await.unwrap();
 
         assert!(events.0.lock().unwrap().is_empty());
+    }
+
+    type Trace = Arc<Mutex<Vec<&'static str>>>;
+
+    /// A layer that pushes its marker into a shared trace when its inner service
+    /// is called, then delegates unchanged -- the test instrument that proves a
+    /// layer observes a dispatch without altering it.
+    struct MarkerLayer(&'static str, Trace);
+
+    impl<S> tower::Layer<S> for MarkerLayer {
+        type Service = Marker<S>;
+        fn layer(&self, inner: S) -> Self::Service {
+            Marker {
+                tag: self.0,
+                trace: Arc::clone(&self.1),
+                inner,
+            }
+        }
+    }
+
+    struct Marker<S> {
+        tag: &'static str,
+        trace: Trace,
+        inner: S,
+    }
+
+    impl<S, T> tower::Service<Op<T>> for Marker<S>
+    where
+        S: tower::Service<Op<T>, Response = T, Error = Error>,
+    {
+        type Response = T;
+        type Error = Error;
+        type Future = S::Future;
+
+        fn poll_ready(
+            &mut self,
+            cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::result::Result<(), Error>> {
+            self.inner.poll_ready(cx)
+        }
+
+        fn call(&mut self, op: Op<T>) -> Self::Future {
+            self.trace.lock().unwrap().push(self.tag);
+            self.inner.call(op)
+        }
+    }
+
+    fn op<T: Send + 'static>(value: T) -> Op<T> {
+        Op {
+            action: "test.op",
+            kind: OpKind::Command,
+            notable: None,
+            fut: Box::pin(async move { Ok(value) }),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_installed_layer_observes_a_dispatch_without_changing_the_result() {
+        use tower::{ServiceBuilder, ServiceExt};
+
+        let trace: Trace = Arc::default();
+        let service = ServiceBuilder::new()
+            .layer(MarkerLayer("observed", Arc::clone(&trace)))
+            .service(HandlerService);
+
+        let out = service.oneshot(op(7u32)).await.unwrap();
+
+        assert_eq!(out, 7);
+        assert_eq!(*trace.lock().unwrap(), ["observed"]);
+    }
+
+    #[tokio::test]
+    async fn two_layers_run_in_composition_order_around_the_handler() {
+        use tower::{ServiceBuilder, ServiceExt};
+
+        let trace: Trace = Arc::default();
+        let service = ServiceBuilder::new()
+            .layer(MarkerLayer("outer", Arc::clone(&trace)))
+            .layer(MarkerLayer("inner", Arc::clone(&trace)))
+            .service(HandlerService);
+
+        service.oneshot(op(())).await.unwrap();
+
+        assert_eq!(*trace.lock().unwrap(), ["outer", "inner"]);
+    }
+
+    /// Counts the bus spans (`command`/`query`) opened during a closure -- the
+    /// observable signal that a dispatch entered the layered path. Surface I/O
+    /// must open none.
+    #[derive(Default, Clone)]
+    struct BusSpans(Arc<Mutex<usize>>);
+
+    impl<S: Subscriber> Layer<S> for BusSpans {
+        fn on_new_span(
+            &self,
+            attrs: &tracing::span::Attributes<'_>,
+            _id: &tracing::span::Id,
+            _ctx: Context<'_, S>,
+        ) {
+            let name = attrs.metadata().name();
+            if name == "command" || name == "query" {
+                *self.0.lock().unwrap() += 1;
+            }
+        }
+    }
+
+    /// 2.5: surface input/resize/attach are plain `&Ctx` calls straight to the
+    /// runtime port (`send_surface_input` -> `cx.runtime().input`). They build no
+    /// `Op` and open no bus span, so no layer on the dispatch path ever observes
+    /// a keystroke. A real `bus.execute`, by contrast, opens exactly one bus span
+    /// -- proving the assertion is the off-bus routing, not a dead layer.
+    #[tokio::test]
+    async fn surface_input_reaches_the_runtime_without_entering_the_layered_path() {
+        use crate::app::surface::send_surface_input;
+        use crate::infra::daemon_pty_api::{FakeRuntime, Runtime, RuntimeCall};
+        use crate::shared::kv::SqliteKv;
+        use crate::Ctx;
+        use sqlx::sqlite::SqlitePoolOptions;
+
+        let spans = BusSpans::default();
+        let _guard = tracing_subscriber::registry()
+            .with(spans.clone())
+            .set_default();
+
+        let runtime = Arc::new(FakeRuntime::new());
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        let kv = SqliteKv::in_memory().await.unwrap();
+        let cx = Ctx::new(
+            pool,
+            kv,
+            std::path::PathBuf::from("/tmp/tillerd-test"),
+            Runtime::Fake(Arc::clone(&runtime)),
+        );
+
+        send_surface_input(&cx, "sf_1", b"ls\n").await.unwrap();
+
+        assert_eq!(
+            runtime.calls(),
+            vec![RuntimeCall::Input {
+                surface: crate::entities::SurfaceId::from_string("sf_1"),
+                bytes: b"ls\n".to_vec(),
+            }]
+        );
+        assert_eq!(*spans.0.lock().unwrap(), 0);
+
+        struct NoopOverCtx;
+        impl Command<Ctx> for NoopOverCtx {
+            async fn handle(&self, _cx: &Ctx) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let bus = Bus::new(cx);
+        bus.execute(NoopOverCtx).await.unwrap();
+        assert_eq!(*spans.0.lock().unwrap(), 1);
+    }
+
+    /// 3.1: a `Notable` op dispatched through the bus is observed by the
+    /// recording layer, which reads its `notification()`. The notifications-
+    /// changed sink captures what the layer read, proving the observation.
+    #[tokio::test]
+    async fn a_notable_op_is_observed_by_the_recording_layer() {
+        use crate::app::notification::SurfaceStarted;
+
+        let ctx = crate::boot::test_ctx().await.unwrap();
+        let observed: Arc<Mutex<Vec<String>>> = Arc::default();
+        let sink = Arc::clone(&observed);
+        ctx.notifications_changed()
+            .subscribe(Arc::new(move |n: &RecordNotification| {
+                sink.lock().unwrap().push(n.category.clone());
+            }));
+
+        Bus::new(ctx)
+            .execute_notable(SurfaceStarted {
+                surface_id: "sf_1".to_owned(),
+                session_id: "se_1".to_owned(),
+                ts: 7,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(*observed.lock().unwrap(), vec!["surface-started".to_owned()]);
+    }
+
+    /// 3.3: one `Notable` signal records exactly one notification, and the single
+    /// recording point (the layer) announces it exactly once -- no second
+    /// recorder records the same signal.
+    #[tokio::test]
+    async fn one_notable_signal_records_exactly_one_notification() {
+        use crate::app::notification::{ListNotifications, SurfaceStarted};
+
+        let ctx = crate::boot::test_ctx().await.unwrap();
+        let announced: Arc<Mutex<u32>> = Arc::default();
+        let counter = Arc::clone(&announced);
+        ctx.notifications_changed()
+            .subscribe(Arc::new(move |_n: &RecordNotification| {
+                *counter.lock().unwrap() += 1;
+            }));
+
+        let bus = Bus::new(ctx);
+        bus.execute_notable(SurfaceStarted {
+            surface_id: "sf_1".to_owned(),
+            session_id: "se_1".to_owned(),
+            ts: 7,
+        })
+        .await
+        .unwrap();
+
+        let listing = bus
+            .query(ListNotifications {
+                limit: None,
+                offset: None,
+                after: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(listing.items.len(), 1);
+        assert_eq!(*announced.lock().unwrap(), 1);
+    }
+
+    /// An ordinary command carries no notable payload and records nothing -- the
+    /// recording layer is a pass-through for the 115 existing commands.
+    #[tokio::test]
+    async fn an_ordinary_command_records_no_notification() {
+        use crate::app::notification::ListNotifications;
+
+        let ctx = crate::boot::test_ctx().await.unwrap();
+
+        struct NoopOverCtx;
+        impl Command<Ctx> for NoopOverCtx {
+            async fn handle(&self, _cx: &Ctx) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let bus = Bus::new(ctx);
+        bus.execute(NoopOverCtx).await.unwrap();
+
+        let listing = bus
+            .query(ListNotifications {
+                limit: None,
+                offset: None,
+                after: None,
+            })
+            .await
+            .unwrap();
+        assert!(listing.items.is_empty());
     }
 }

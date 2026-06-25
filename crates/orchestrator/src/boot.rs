@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::app::notification::NotificationSink;
 use crate::app::surface::{SurfaceSink, SurfaceStream};
 use crate::context::Ctx;
 use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime};
@@ -24,6 +25,9 @@ pub struct Config {
     /// Surface output sink. The tauri transport implements this with a per-surface
     /// `ipc::Channel` registry. Receives PTY bytes, status, and exit frames.
     pub sink: Arc<dyn SurfaceSink>,
+    /// Notifications-changed sink. The host subscribes to push each recorded
+    /// notification to the renderer; the recording layer announces them here.
+    pub notification_sink: Arc<dyn NotificationSink>,
 }
 
 // Keeps the non-blocking log writer's worker thread alive for the process lifetime.
@@ -56,6 +60,12 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
 
     let runtime = Runtime::Daemon(DaemonPtyApi::new(cfg.socket.clone()));
     let ctx = Ctx::new(pool, kv, cfg.fs_root.clone(), runtime);
+
+    // The middleware stack order lives in `crate::middleware::pipeline`; here is
+    // where its recording-layer dependency is wired: the store and this change
+    // sink come from `Ctx`, supplied to dispatch rather than hardcoded.
+    ctx.notifications_changed()
+        .subscribe(cfg.notification_sink.clone());
     // `Ctx` wraps the runtime in `Arc` internally; clone out the same `Arc` so
     // the pump shares the same instance without an extra allocation.
     let runtime_arc = Arc::clone(ctx.runtime_arc());
@@ -132,6 +142,11 @@ mod tests {
         fn emit(&self, _surface: &str, _event: &crate::app::surface::SurfaceEvent<'_>) {}
     }
 
+    struct NoopNotificationSink;
+    impl crate::app::notification::NotificationSink for NoopNotificationSink {
+        fn emit(&self, _notification: &crate::app::notification::RecordNotification) {}
+    }
+
     #[tokio::test]
     async fn bus_execute_reaches_a_migrated_pool() {
         let bus = Bus::new(memory_ctx().await);
@@ -164,10 +179,71 @@ mod tests {
             fs_root: dir.path().join("config"),
             log_dir: dir.path().to_owned(),
             sink: Arc::new(NoopSink),
+            notification_sink: Arc::new(NoopNotificationSink),
         };
 
         let bus = build_bus(&cfg).await.unwrap();
         let count = bus.query(CountWorkspaces).await.unwrap();
         assert_eq!(count, 1, "Default workspace seeded after build_bus");
+    }
+
+    #[tokio::test]
+    async fn an_orchestrator_status_change_at_boot_is_recorded_once_across_a_thread() {
+        use std::sync::Mutex;
+
+        use crate::app::notification::{ListNotifications, OrchestratorStatus, RecordNotification};
+
+        struct CountingSink(Arc<Mutex<u32>>);
+        impl crate::app::notification::NotificationSink for CountingSink {
+            fn emit(&self, _n: &RecordNotification) {
+                *self.0.lock().unwrap() += 1;
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let announced = Arc::new(Mutex::new(0u32));
+        let cfg = Config {
+            db_path: dir.path().join("test.db"),
+            socket: dir.path().join("daemon.sock"),
+            fs_root: dir.path().join("config"),
+            log_dir: dir.path().to_owned(),
+            sink: Arc::new(NoopSink),
+            notification_sink: Arc::new(CountingSink(announced.clone())),
+        };
+        let bus = build_bus(&cfg).await.unwrap();
+
+        // Dispatch from a separate thread that owns its own runtime, mirroring the
+        // boot thread. The status change records once via the layer.
+        let boot_ctx = bus.cx().clone();
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                Bus::new(boot_ctx)
+                    .execute_notable(OrchestratorStatus {
+                        ready: true,
+                        reason: None,
+                        ts: 42,
+                    })
+                    .await
+                    .unwrap();
+            });
+        })
+        .join()
+        .unwrap();
+
+        let listing = bus
+            .query(ListNotifications {
+                limit: None,
+                offset: None,
+                after: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(listing.items.len(), 1);
+        assert_eq!(listing.items[0].category, "orchestrator-status");
+        assert_eq!(*announced.lock().unwrap(), 1);
     }
 }

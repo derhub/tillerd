@@ -7,6 +7,7 @@ mod entities;
 pub(crate) mod events;
 pub mod health;
 mod infra;
+mod middleware;
 pub mod shared;
 pub mod supervision;
 
