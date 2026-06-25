@@ -1,4 +1,3 @@
-
 use orchestrator::app::workspace::{
     ArchiveWorkspace, DiscardWorkspace, GetWorkspaceById, ListWorkspaces, NewWorkspaceCmd,
     PinWorkspace, RenameWorkspace, ReorderWorkspace, RestoreWorkspace, StopWorkspaceSurfaces,
@@ -71,9 +70,6 @@ mod tests {
             id: "w".into(),
             name: "W".into(),
         };
-        assert_keys(
-            &serde_json::to_value(w).unwrap(),
-            &["id", "name"],
-        );
+        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name"]);
     }
 }

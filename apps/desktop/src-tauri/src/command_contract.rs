@@ -139,25 +139,35 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ("orchestrator_status", serde_json::json!({})),
         ("service_health", serde_json::json!({})),
         (
+            "surface_resolve_or_spawn",
+            serde_json::json!({ "session": "contract", "placement": "p", "cwd": null, "cols": 80, "rows": 24 }),
+        ),
+        (
             "surface_channel",
-            serde_json::json!({ "channel": channel, "sessionId": "contract", "placement": "p", "cols": 80, "rows": 24, "cwd": null }),
+            serde_json::json!({ "channel": channel, "req": { "surfaceId": "contract" } }),
         ),
         (
             "surface_channel_send",
             serde_json::json!({ "key": "contract", "msg": { "kind": "input", "bytes": [1u8] } }),
         ),
         (
+            "surface_channel_close",
+            serde_json::json!({ "req": { "surfaceId": "contract" } }),
+        ),
+        (
+            "log_channel",
+            serde_json::json!({ "channel": channel, "req": { "service": "contract" } }),
+        ),
+        (
+            "log_channel_close",
+            serde_json::json!({ "req": { "service": "contract" } }),
+        ),
+        (
             "surface_spawn",
             serde_json::json!({ "sessionId": "contract" }),
         ),
-        (
-            "surface_close",
-            serde_json::json!({ "id": "contract" }),
-        ),
-        (
-            "surface_detach",
-            serde_json::json!({ "id": "contract" }),
-        ),
+        ("surface_close", serde_json::json!({ "id": "contract" })),
+        ("surface_detach", serde_json::json!({ "id": "contract" })),
         (
             "window_open",
             serde_json::json!({ "label": "detached-contract", "query": "?w=detached&session=s&placement=p" }),

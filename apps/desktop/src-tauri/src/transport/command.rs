@@ -1,4 +1,3 @@
-
 use std::collections::HashMap;
 
 use orchestrator::app::command::{
@@ -69,7 +68,6 @@ transport_create!(
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     fn assert_keys(value: &serde_json::Value, expected: &[&str]) {
         let obj = value.as_object().expect("response serializes to an object");

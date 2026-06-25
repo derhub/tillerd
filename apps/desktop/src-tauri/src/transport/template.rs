@@ -1,4 +1,3 @@
-
 use orchestrator::app::template::{
     ApplyTemplateSpec, DiscardLaunchTemplate, DiscardTemplate, ExportTemplate,
     GetLaunchTemplateById, GetTemplateById, ImportTemplate, LaunchTemplateView,

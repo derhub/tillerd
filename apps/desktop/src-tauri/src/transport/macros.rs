@@ -1,32 +1,3 @@
-//! Declarative shim macros for the tauri transport. Each domain operation is a pure
-//! `app/` CQS command/query value; these macros generate the mechanical
-//! `#[tauri::command]` shim that deserializes the wire arguments, dispatches through the
-//! managed `Bus<Ctx>`, and maps `shared::Error` to the wire string -- so adding an op is
-//! one listing line. The wire (command name, argument shape, response JSON, error
-//! string) is byte-identical to a hand-written shim: the generated fn takes the same
-//! snake_case params (tauri converts the renderer's camelCase natively) and tauri keeps
-//! routing, argument typing, and per-command ACL.
-//!
-//! Three forms cover the mechanical surface:
-//! - [`transport_command!`] -- build a command, `bus.execute`, return `()`.
-//! - [`transport_query!`] -- `bus.query`, map the output to the curated wire DTO.
-//! - [`transport_create!`] -- the pure-CQS create pattern: build the command (with a
-//!   transport-minted id), `bus.execute`, then `bus.query` the entity back by id and map
-//!   it to the wire DTO. Minting lives here, in one place, because the core command
-//!   returns `()` (CQS stays pure).
-//!
-//! [`collect_transport!`] expands to the `generate_handler![...]` array -- declarative,
-//! not `inventory`, because tauri needs the handler idents at compile time. Host/shell
-//! and transport-resident shims (window/log/bridge/menu/supervisor/gate/store, the
-//! surface I/O channel, and the few off-bus or non-mechanical domain shims) are NOT
-//! macro-generated and are listed alongside in `collect_transport!`.
-
-/// Generate a `#[tauri::command]` shim for a command (mutation returning `()`).
-///
-/// `$param: $ty = $build` declares one wire argument and how it maps into the core
-/// field: `$build` is an expression in scope of the param binding (e.g. an id-newtype
-/// constructor). The `=> Core { field: expr, .. }` clause is the core command value the
-/// bus executes.
 macro_rules! transport_command {
     (
         $(#[$meta:meta])*
@@ -35,7 +6,7 @@ macro_rules! transport_command {
         $(#[$meta])*
         #[tauri::command]
         #[specta::specta]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -45,8 +16,6 @@ macro_rules! transport_command {
     };
 }
 
-/// Generate a `#[tauri::command]` shim for a query. `=> $query` is the core query value;
-/// `|$out| $map` maps its output to the wire response (Vec/Option/DTO/passthrough).
 macro_rules! transport_query {
     (
         $(#[$meta:meta])*
@@ -56,7 +25,7 @@ macro_rules! transport_query {
         $(#[$meta])*
         #[tauri::command]
         #[specta::specta]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -67,10 +36,6 @@ macro_rules! transport_query {
     };
 }
 
-/// Generate a `#[tauri::command]` shim for a create: build the command (typically with a
-/// transport-minted id captured before `=>`), execute it, then query the entity back by
-/// id and map it to the wire DTO. `let $bind = $mint;` runs first so the same id flows
-/// into both the command and the read-back query.
 macro_rules! transport_create {
     (
         $(#[$meta:meta])*
@@ -85,7 +50,7 @@ macro_rules! transport_create {
         $(#[$meta])*
         #[tauri::command]
         #[specta::specta]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -102,23 +67,6 @@ macro_rules! transport_create {
     };
 }
 
-/// Expand to the `tauri_specta::collect_commands![...]` array of every desktop IPC command.
-/// Declarative (not `inventory`): tauri needs the handler idents at compile time. Lists
-/// the macro-generated domain shims (`transport::domain`) alongside the hand-written
-/// host/shell and transport-resident shims.
-///
-/// Accepts optional runtime-specific commands as arguments -- handlers that cannot be
-/// registered on the test `MockRuntime`. Pass them positionally:
-/// - `collect_transport!($crate::bridge::daemon_connect)` in production (`lib.rs`).
-/// - `collect_transport!()` in the command-contract test (omits `daemon_connect`).
-///
-/// Stays hand-written (NOT macro-generated), listed here:
-/// - host/shell (no domain store): `window_host`, `diag`, `bridge`, `menu`,
-///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
-///   session registry, off-bus).
-/// - transport-resident: the `surface_channel` shims register/attach a per-surface
-///   `tauri::ipc::Channel` and the off-bus client messages write straight to the
-///   runtime port (a `Channel` is a tauri object that cannot live in the core).
 macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
@@ -139,13 +87,15 @@ macro_rules! collect_transport {
             $crate::window_host::window_focus,
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
+            $crate::transport::surface::surface_resolve_or_spawn,
             $crate::transport::surface::surface_channel,
             $crate::transport::surface::surface_channel_send,
+            $crate::transport::surface::surface_channel_close,
             $crate::transport::surface::surface_spawn,
             $crate::transport::surface::surface_close,
             $crate::transport::surface::surface_detach,
-            $crate::transport::logs::log_subscribe,
-            $crate::transport::logs::log_unsubscribe,
+            $crate::transport::logs::log_channel,
+            $crate::transport::logs::log_channel_close,
             $crate::transport::project::project_create,
             $crate::transport::project::project_list,
             $crate::transport::project::project_rename,
@@ -262,4 +212,80 @@ macro_rules! collect_transport {
     };
 }
 
-pub(crate) use {collect_transport, transport_command, transport_create, transport_query};
+macro_rules! domain_channel {
+    (
+        pub open $open_name:ident ( $req_ty:ty ),
+        pub send $send_name:ident ( $msg_ty:ty ),
+        pub close $close_name:ident ( $close_ty:ty )
+    ) => {
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $open_name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
+            req: $req_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::OpenDomainChannel;
+            let sink = ::std::sync::Arc::new($crate::transport::surface::ChannelSink::for_channel(
+                channel, app,
+            ));
+            req.handle(bus.cx(), sink).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $send_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            key: ::std::string::String,
+            msg: $msg_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::DomainChannelMessage;
+            msg.handle(bus.cx(), &key).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $close_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            req: $close_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::CloseDomainChannel;
+            req.handle(bus.cx()).await.map_err(|e| e.to_string())
+        }
+    };
+
+    (
+        pub open $open_name:ident ( $req_ty:ty ),
+        pub close $close_name:ident ( $close_ty:ty )
+    ) => {
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $open_name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
+            req: $req_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::OpenDomainChannel;
+            let sink = ::std::sync::Arc::new($crate::transport::surface::ChannelSink::for_channel(
+                channel, app,
+            ));
+            req.handle(bus.cx(), sink).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $close_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            req: $close_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::CloseDomainChannel;
+            req.handle(bus.cx()).await.map_err(|e| e.to_string())
+        }
+    };
+}
+
+pub(crate) use {
+    collect_transport, domain_channel, transport_command, transport_create, transport_query,
+};

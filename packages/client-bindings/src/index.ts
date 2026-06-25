@@ -1,5 +1,3 @@
-// Re-export generated types only. The runtime objects (`commands`, `events`)
-// stay internal -- consumers use the wrapper (`query`, `command`, ...) below.
 export type * from "./tauri_bindings.gen";
 export type {
   SessionView as Session,
@@ -23,12 +21,9 @@ export { getQueryClient, setQueryClient } from "./query-client";
 export {
   useEventSub,
   orchestratorStatus,
-  openStream,
-  openChannel,
-  openSurfaceChannel,
-  subscribeLogs,
-  type StreamHandle,
-  type ChannelHandle,
-  type SurfaceChannelParams,
-  type LogStreamHandle,
+  surfaceChannel,
+  logChannel,
+  type SurfaceChannelEvent,
+  type SurfaceChannelHandle,
+  type LogChannelHandle,
 } from "./subscribe";

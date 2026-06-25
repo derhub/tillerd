@@ -1,4 +1,3 @@
-
 use orchestrator::app::settings::{
     ActivateProfile, ActivateTheme, ApplySetting, DiscardProfile, DiscardTheme, DuplicateProfile,
     ExportProfile, ExportTheme, GetActiveProfile, GetActiveTheme, GetSetting, ImportProfile,
@@ -157,7 +156,6 @@ transport_command!(config_reload() => ReloadConfig);
 
 #[cfg(test)]
 mod tests {
-
 
     fn assert_keys(value: &serde_json::Value, expected: &[&str]) {
         let obj = value.as_object().expect("response serializes to an object");

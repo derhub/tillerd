@@ -3,12 +3,13 @@ use std::sync::Arc;
 
 use crate::app::logs::LogFollower;
 use crate::app::notification::NotificationSink;
-use crate::app::surface::SurfaceStream;
+use crate::app::surface::SurfaceChannelStream;
 use crate::context::Ctx;
 use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime, RuntimeCall};
 use crate::infra::migrate;
 use crate::shared;
 use crate::shared::bus::Bus;
+use crate::shared::domain_channel::DomainChannelStream;
 use crate::shared::kv::SqliteKv;
 
 /// Configuration for [`build_bus`]. All paths are resolved by the caller; there
@@ -70,25 +71,19 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
     // sink come from `Ctx`, supplied to dispatch rather than hardcoded.
     ctx.notifications_changed()
         .subscribe(cfg.notification_sink.clone());
-    // `Ctx` wraps the runtime in `Arc` internally; clone out the same `Arc` so
-    // the pump shares the same instance without an extra allocation.
     let runtime_arc = Arc::clone(ctx.runtime_arc());
-    // The pump dispatches per-surface through the same registry a subscribe
-    // command registers client sinks into.
-    let registry = Arc::clone(ctx.surface_sinks());
+    let registry = Arc::clone(ctx.domain_channel_sinks());
 
     tokio::spawn(
-        SurfaceStream {
+        SurfaceChannelStream {
             runtime: runtime_arc,
             registry,
         }
-        .run(),
+        .handle(),
     );
 
-    // Follow the runtime logs directory; appended lines fan out per service to the
-    // same registry a `SubscribeLogs` command registers client sinks into.
     let logs_dir = tillerd_paths::logging::logs_dir_in(&cfg.log_dir);
-    tokio::spawn(LogFollower::new(logs_dir, Arc::clone(ctx.log_sinks())).run());
+    tokio::spawn(LogFollower::new(logs_dir, Arc::clone(ctx.domain_channel_sinks())).run());
 
     Ok(Bus::new(ctx))
 }

@@ -1,9 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { LogStreamHandle } from "@tillerd/client-bindings";
+import type { LogChannelHandle } from "@tillerd/client-bindings";
 
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { query, subscribe, subscribeLogs, useEventSub } from "@tillerd/client-bindings";
+import { query, logChannel, subscribe, useEventSub } from "@tillerd/client-bindings";
 import React from "react";
 
 import type { LogRecord } from "~/lib/logs/log-record";
@@ -89,22 +89,24 @@ function logBacklogQuery(qc: QueryClient, windowBytes: number, enabled: boolean)
 async function startLiveTail(
   qc: QueryClient,
   cancelled: { current: boolean },
-  handlesRef: React.RefObject<LogStreamHandle[]>,
+  handlesRef: React.RefObject<LogChannelHandle[]>,
   append: (record: LogRecord) => void,
 ): Promise<void> {
   const files = await qc.fetchQuery(query("logList"));
   if (cancelled.current) return;
   const services = [...new Set(files.map((file) => servicePrefix(file.name)))];
+  const decoder = new TextDecoder();
   const handles = await Promise.all(
     services.map((service) =>
-      subscribeLogs(service, (line) => {
+      logChannel({ service }, (bytes) => {
+        const line = decoder.decode(bytes);
         const record = parseRecord(line);
         if (record) append(record);
       }),
     ),
   );
   if (cancelled.current) {
-    for (const handle of handles) void handle.teardown();
+    for (const handle of handles) void handle.close();
     return;
   }
   handlesRef.current = handles;
@@ -128,7 +130,7 @@ export function LogViewer({ initialService }: LogViewerProps) {
     setPrevService(initialService);
     setFilter((f) => ({ ...f, service: initialService }));
   }
-  const handlesRef = React.useRef<LogStreamHandle[]>([]);
+  const handlesRef = React.useRef<LogChannelHandle[]>([]);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const stickRef = React.useRef(true);
 
@@ -149,7 +151,7 @@ export function LogViewer({ initialService }: LogViewerProps) {
     run(startLiveTail(qc, cancelled, handlesRef, append));
     return () => {
       cancelled.current = true;
-      for (const handle of handlesRef.current) void handle.teardown();
+      for (const handle of handlesRef.current) void handle.close();
       handlesRef.current = [];
     };
   }, [qc, append, desktop]);

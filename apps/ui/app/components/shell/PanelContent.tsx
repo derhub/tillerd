@@ -57,7 +57,7 @@ export function PanelContent() {
   const handleClose = React.useCallback(
     (leaf: PanelLeaf) => {
       if (leaf.content.type === "terminal" && sessionId) {
-        surfaceClose.mutate({ sessionId, placement: leaf.content.placement });
+        surfaceClose.mutate({ id: leaf.content.placement });
       }
       close(leaf.id);
     },

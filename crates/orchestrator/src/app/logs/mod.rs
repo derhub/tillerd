@@ -8,7 +8,7 @@
 pub(crate) mod follow;
 mod list_log_files;
 mod parse;
-pub mod subscribe;
+pub mod sink;
 mod tail_log;
 mod view;
 
@@ -18,11 +18,6 @@ pub(crate) mod test_util;
 pub use follow::LogFollower;
 pub use list_log_files::ListLogFiles;
 pub use parse::parse_record;
-pub use subscribe::{SubscribeLogs, UnsubscribeLogs};
+pub use sink::{CloseLogChannel, LogLine, LogSink, OpenLogChannel};
 pub use tail_log::TailLog;
 pub use view::{LogFileView, LogRecordView, LogTailView};
-
-// The host's tauri transport implements `LogSink` and registers a per-service
-// sink via `SubscribeLogs`. Both speak the primitive service key, so the host
-// never reaches the infra layer.
-pub use crate::events::log::{LogLine, LogSink};

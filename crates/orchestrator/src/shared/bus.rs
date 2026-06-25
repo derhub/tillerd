@@ -653,8 +653,9 @@ mod tests {
     /// -- proving the assertion is the off-bus routing, not a dead layer.
     #[tokio::test]
     async fn surface_input_reaches_the_runtime_without_entering_the_layered_path() {
-        use crate::app::surface::send_surface_input;
+        use crate::app::surface::SurfaceClientMsg;
         use crate::infra::daemon_pty_api::{FakeRuntime, Runtime, RuntimeCall};
+        use crate::shared::domain_channel::DomainChannelMessage;
         use crate::shared::kv::SqliteKv;
         use crate::Ctx;
         use sqlx::sqlite::SqlitePoolOptions;
@@ -678,7 +679,12 @@ mod tests {
             Runtime::Fake(Arc::clone(&runtime)),
         );
 
-        send_surface_input(&cx, "sf_1", b"ls\n").await.unwrap();
+        SurfaceClientMsg::Input {
+            bytes: b"ls\n".to_vec(),
+        }
+        .handle(&cx, "sf_1")
+        .await
+        .unwrap();
 
         assert_eq!(
             runtime.calls(),

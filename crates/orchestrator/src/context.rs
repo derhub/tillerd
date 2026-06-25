@@ -3,11 +3,10 @@ use std::sync::Arc;
 
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
-use crate::events::log::LogSink;
-use crate::events::notification::NotificationSink;
-use crate::events::surface::SurfaceSink;
+use crate::app::notification::NotificationSink;
 use crate::infra::daemon_pty_api::Runtime;
 use crate::shared::bus::{Broadcast, Registry};
+use crate::shared::domain_channel::DomainChannelSink;
 use crate::shared::kv::SqliteKv;
 use crate::shared::Result;
 
@@ -19,8 +18,7 @@ struct CtxInner {
     fs_root: PathBuf,
     runtime: Arc<Runtime>,
     notifications_changed: Broadcast<dyn NotificationSink>,
-    surface_sinks: Arc<Registry<dyn SurfaceSink>>,
-    log_sinks: Arc<Registry<dyn LogSink>>,
+    domain_channel_sinks: Arc<Registry<dyn DomainChannelSink>>,
 }
 
 #[derive(Clone)]
@@ -34,8 +32,7 @@ impl Ctx {
             fs_root,
             runtime: Arc::new(runtime),
             notifications_changed: Broadcast::default(),
-            surface_sinks: Arc::default(),
-            log_sinks: Arc::default(),
+            domain_channel_sinks: Arc::default(),
         }))
     }
 
@@ -66,19 +63,10 @@ impl Ctx {
         &self.0.notifications_changed
     }
 
-    /// The key-scoped registry of surface sinks. A subscribe command registers a
-    /// client sink under a surface id; the pump dispatches each frame to the
-    /// sinks for that id. Cloned out as an `Arc` so the pump shares the instance.
-    pub fn surface_sinks(&self) -> &Arc<Registry<dyn SurfaceSink>> {
-        &self.0.surface_sinks
-    }
-
-    /// The key-scoped registry of log sinks. A `SubscribeLogs` command registers
-    /// a client sink under a service key (the file-name prefix); the log follower
-    /// dispatches each appended line to the sinks for that key. Cloned out as an
-    /// `Arc` so the follower shares the instance.
-    pub fn log_sinks(&self) -> &Arc<Registry<dyn LogSink>> {
-        &self.0.log_sinks
+    /// The key-scoped registry of domain channels. Duplex and stream channels
+    /// are registered here under URI-like keys (e.g., surface://<id> or logs://<service>).
+    pub fn domain_channel_sinks(&self) -> &Arc<Registry<dyn DomainChannelSink>> {
+        &self.0.domain_channel_sinks
     }
 
     /// Opt-in unit of work for a command that spans multiple writes. Begins a

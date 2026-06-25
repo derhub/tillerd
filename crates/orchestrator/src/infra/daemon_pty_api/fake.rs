@@ -106,6 +106,10 @@ impl FakeRuntime {
         self.state.lock().unwrap().calls.clone()
     }
 
+    pub fn clear_calls(&self) {
+        self.state.lock().unwrap().calls.clear();
+    }
+
     fn record(&self, call: RuntimeCall) {
         self.state.lock().unwrap().calls.push(call);
     }

@@ -1,46 +1,11 @@
+use orchestrator::app::logs::{ListLogFiles, LogFileView, LogTailView, TailLog};
 
-use std::sync::Arc;
+use crate::transport::macros::{domain_channel, transport_query};
 
-use orchestrator::app::logs::{
-    ListLogFiles, LogFileView, LogLine, LogSink, LogTailView, SubscribeLogs, TailLog,
-    UnsubscribeLogs,
-};
-use tauri::{ipc::Channel, State};
-
-use crate::transport::Bus;
-use crate::transport::macros::{transport_command, transport_query};
-
-
-pub struct LogChannelSink {
-    channel: Channel<String>,
+domain_channel! {
+    pub open log_channel(orchestrator::app::logs::OpenLogChannel),
+    pub close log_channel_close(orchestrator::app::logs::CloseLogChannel)
 }
-
-impl LogChannelSink {
-    pub fn for_channel(channel: Channel<String>) -> Self {
-        Self { channel }
-    }
-}
-
-impl LogSink for LogChannelSink {
-    fn emit(&self, _service: &str, line: &LogLine<'_>) {
-        let _ = self.channel.send(line.0.to_owned());
-    }
-}
-
-
-#[tauri::command]
-#[specta::specta]
-pub async fn log_subscribe(
-    bus: State<'_, Bus>,
-    channel: Channel<String>,
-    service: String,
-) -> Result<(), String> {
-    let sink: Arc<dyn LogSink> = Arc::new(LogChannelSink::for_channel(channel));
-    bus.execute(SubscribeLogs { service, sink })
-        .await
-        .map_err(|e| e.to_string())
-}
-
 
 transport_query!(
     log_list() -> Vec<LogFileView>
@@ -54,36 +19,75 @@ transport_query!(
         |view| view
 );
 
-transport_command!(log_unsubscribe(service: String) => UnsubscribeLogs { service });
-
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
-    use super::*;
+    use orchestrator::app::logs::{CloseLogChannel, OpenLogChannel};
+    use orchestrator::boot::test_ctx;
+    use orchestrator::shared::domain_channel::{
+        CloseDomainChannel, DomainChannelEvent, DomainChannelSink, OpenDomainChannel,
+    };
 
-
-    fn recording_line_channel() -> (tauri::ipc::Channel<String>, Arc<Mutex<Vec<String>>>) {
-        let received = Arc::new(Mutex::new(Vec::new()));
-        let sink = received.clone();
-        let channel = tauri::ipc::Channel::new(move |body| {
-            if let tauri::ipc::InvokeResponseBody::Json(json) = body {
-                let line: String = serde_json::from_str(&json).unwrap_or_default();
-                sink.lock().unwrap().push(line);
+    struct Recorder(Arc<Mutex<Vec<String>>>);
+    impl DomainChannelSink for Recorder {
+        fn emit(&self, event: &DomainChannelEvent<'_>) {
+            if let DomainChannelEvent::Bytes(b) = event {
+                self.0
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(b).into_owned());
             }
-            Ok(())
-        });
-        (channel, received)
+        }
     }
 
+    #[tokio::test]
+    async fn open_log_channel_registers_sink_in_registry() {
+        let cx = test_ctx().await.unwrap();
+        let seen = Arc::new(Mutex::new(Vec::new()));
 
-    #[test]
-    fn log_sink_sends_each_line_to_the_channel() {
-        let (channel, received) = recording_line_channel();
-        let sink = LogChannelSink::for_channel(channel);
+        let open_cmd = OpenLogChannel {
+            service: "tillerd-daemon".to_owned(),
+        };
 
-        sink.emit("tillerd-daemon", &LogLine("a line"));
+        open_cmd
+            .handle(&cx, Arc::new(Recorder(seen.clone())))
+            .await
+            .unwrap();
 
-        assert_eq!(received.lock().unwrap().as_slice(), ["a line".to_owned()]);
+        cx.domain_channel_sinks()
+            .dispatch("logs://tillerd-daemon", |s| {
+                s.emit(&DomainChannelEvent::Bytes(b"log-line"))
+            });
+
+        assert_eq!(seen.lock().unwrap().as_slice(), &["log-line".to_owned()]);
+    }
+
+    #[tokio::test]
+    async fn close_log_channel_removes_sink_from_registry() {
+        let cx = test_ctx().await.unwrap();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+
+        let open_cmd = OpenLogChannel {
+            service: "tillerd-daemon".to_owned(),
+        };
+
+        open_cmd
+            .handle(&cx, Arc::new(Recorder(seen.clone())))
+            .await
+            .unwrap();
+
+        let close_cmd = CloseLogChannel {
+            service: "tillerd-daemon".to_owned(),
+        };
+
+        close_cmd.handle(&cx).await.unwrap();
+
+        cx.domain_channel_sinks()
+            .dispatch("logs://tillerd-daemon", |s| {
+                s.emit(&DomainChannelEvent::Bytes(b"log-line"))
+            });
+
+        assert!(seen.lock().unwrap().is_empty());
     }
 }

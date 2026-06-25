@@ -15,20 +15,19 @@
 //! converges the runtime to match on boot -- without attaching any stream.
 
 mod common;
-pub(crate) mod stream;
+pub mod resolve_or_spawn;
+pub mod surface_channel;
 mod view;
 
 pub mod close_surface;
 pub mod detach_surface;
 pub mod find_surface_by_placement;
 pub mod get_surface_by_id;
-pub mod io_channel;
 pub mod list_resumable_surfaces;
 pub mod list_surfaces_by_session;
 pub mod reconcile_surfaces;
 pub mod spawn_surface;
 pub mod stop_surface;
-pub mod subscribe;
 
 #[cfg(test)]
 pub(crate) mod test_util;
@@ -40,15 +39,10 @@ pub use get_surface_by_id::GetSurfaceById;
 pub use list_resumable_surfaces::ListResumableSurfaces;
 pub use list_surfaces_by_session::ListSurfacesBySession;
 pub use reconcile_surfaces::ReconcileSurfaces;
+pub use resolve_or_spawn::ResolveOrSpawnSurface;
 pub use spawn_surface::SpawnSurface;
 pub use stop_surface::StopSurface;
-pub use subscribe::{SubscribeSurface, UnsubscribeSurface};
+pub use surface_channel::{
+    CloseSurfaceChannel, OpenSurfaceChannel, SurfaceChannelStream, SurfaceClientMsg,
+};
 pub use view::SurfaceView;
-
-pub use common::{attach_surface, resize_surface, send_surface_input};
-
-// The host's tauri transport implements `SurfaceSink` and registers a
-// per-surface sink via `SubscribeSurface`. Both speak primitive surface ids,
-// so the host never reaches the domain newtype or the infra layer.
-pub use crate::events::surface::{SurfaceEvent, SurfaceSink};
-pub use stream::SurfaceStream;

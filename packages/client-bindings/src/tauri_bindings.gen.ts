@@ -23,13 +23,15 @@ export const commands = {
 	windowClose: (args: { label: string }) => typedError<null, string>(__TAURI_INVOKE("window_close", args)),
 	/**  Rebind the native leader accelerator. No-op until the leader item is installed. */
 	commandCenterSetLeader: (args: { accelerator: string }) => typedError<null, string>(__TAURI_INVOKE("command_center_set_leader", args)),
-	surfaceChannel: (args: { channel: Channel<number[]>; sessionId: string; placement: string; cols: number; rows: number; cwd: string | null }) => typedError<string, string>(__TAURI_INVOKE("surface_channel", args)),
+	surfaceResolveOrSpawn: (args: { session: string; placement: string; cwd: string | null; cols: number | null; rows: number | null }) => typedError<SurfaceView, string>(__TAURI_INVOKE("surface_resolve_or_spawn", args)),
+	surfaceChannel: (args: { channel: Channel<number[]>; req: OpenSurfaceChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_channel", args)),
 	surfaceChannelSend: (args: { key: string; msg: SurfaceClientMsg }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_send", args)),
+	surfaceChannelClose: (args: { req: CloseSurfaceChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_close", args)),
 	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
 	surfaceClose: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
-	logSubscribe: (args: { channel: Channel<string>; service: string }) => typedError<null, string>(__TAURI_INVOKE("log_subscribe", args)),
-	logUnsubscribe: (args: { service: string }) => typedError<null, string>(__TAURI_INVOKE("log_unsubscribe", args)),
+	logChannel: (args: { channel: Channel<number[]>; req: OpenLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel", args)),
+	logChannelClose: (args: { req: CloseLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel_close", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),
@@ -208,12 +210,17 @@ export const events = {
 	menuNavigate: makeEvent<MenuNavigate>("menu:navigate"),
 	notificationEvent: makeEvent<NotificationWire>("notification://event"),
 	orchestratorStatus: makeEvent<StatusWire>("orchestrator://status"),
-	surfaceExit: makeEvent<SurfaceExitPayload>("surface://exit"),
-	surfaceStatus: makeEvent<SurfaceStatusPayload>("surface://status"),
-	surfaceError: makeEvent<SurfaceErrorPayload>("surface:error"),
 };
 
 /* Types */
+export type CloseLogChannel = {
+	service: string,
+};
+
+export type CloseSurfaceChannel = {
+	surfaceId: string,
+};
+
 export type CommandCenterOpen = string;
 
 export type CommandRef = ({ library_ref: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { library_ref?: never };
@@ -362,6 +369,14 @@ export type NotificationWire = {
 	surfaceId: string | null,
 };
 
+export type OpenLogChannel = {
+	service: string,
+};
+
+export type OpenSurfaceChannel = {
+	surfaceId: string,
+};
+
 /**  A stored profile: id, name, and a map of setting overrides. */
 export type Profile = {
 	id: string,
@@ -432,22 +447,7 @@ export type SettingView = {
 /**  The boot lifecycle status as seen on the wire. Unchanged from the prior host. */
 export type StatusWire = { state: "booting" } | { state: "openingStore" } | { state: "supervising" } | { state: "ready" } | { state: "failed"; reason: string };
 
-export type SurfaceClientMsg = { kind: "input"; bytes: number[] } | { kind: "resize"; cols: number; rows: number } | { kind: "close" };
-
-export type SurfaceErrorPayload = {
-	surfaceId: string,
-	reason: string,
-};
-
-export type SurfaceExitPayload = {
-	surfaceId: string,
-	qualifier: string,
-};
-
-export type SurfaceStatusPayload = {
-	surfaceId: string,
-	status: string,
-};
+export type SurfaceClientMsg = { kind: "input"; bytes: number[] } | { kind: "resize"; cols: number; rows: number };
 
 /**
  *  Flat read model for a surface row. Serializes to the surface wire shape

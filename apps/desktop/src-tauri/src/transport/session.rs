@@ -1,11 +1,9 @@
-
 use orchestrator::app::session::LaunchSpecView;
 use orchestrator::app::session::{
     ApplyLaunchSpec, ArchiveSession, ArrangePanels, DiscardSession, DuplicateSession,
     GetLaunchSpec, GetPanelTree, GetSessionById, LaunchSession, ListAllSessions,
-    ListSessionsByProject, MoveSession, NewSessionCmd, PinSession, RenameSession,
-    ReorderSession, RestoreSession, SearchSessions, SessionView, StopSessionSurfaces,
-    UnpinSession,
+    ListSessionsByProject, MoveSession, NewSessionCmd, PinSession, RenameSession, ReorderSession,
+    RestoreSession, SearchSessions, SessionView, StopSessionSurfaces, UnpinSession,
 };
 use tauri::State;
 use uuid::Uuid;
@@ -13,7 +11,7 @@ use uuid::Uuid;
 use crate::transport::macros::{transport_command, transport_query};
 use crate::transport::Bus;
 
-    // Omitted project_id lists all sessions.
+// Omitted project_id lists all sessions.
 #[tauri::command]
 #[specta::specta]
 pub async fn session_list(

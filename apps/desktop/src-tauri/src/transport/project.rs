@@ -1,4 +1,3 @@
-
 use orchestrator::app::project::{
     ArchiveProject, DiscardProject, DuplicateProject, GetProjectById, ListProjectsByWorkspace,
     MoveProject, NewProjectCmd, PinProject, ProjectView, RenameProject, ReorderProject,

@@ -14,15 +14,15 @@ use std::sync::Arc;
 
 use notify::{Event, RecursiveMode, Watcher};
 
-use crate::events::log::{LogLine, LogSink};
 use crate::shared::bus::Registry;
+use crate::shared::domain_channel::{DomainChannelEvent, DomainChannelSink};
 use crate::shared::fs;
 
 /// Window read per append event. A single tracing record line is far smaller; a
 /// burst between events is drained over successive reads from the carried offset.
 const READ_WINDOW: u64 = 1 << 20;
 
-/// Tracks per-file byte offsets and dispatches appended lines to the log-sink
+/// Tracks per-file byte offsets and dispatches appended lines to the domain channel
 /// registry, keyed by the service prefix derived from each file name.
 ///
 /// `read_appended` is the deterministic core: given a path it has a tracked
@@ -31,7 +31,7 @@ const READ_WINDOW: u64 = 1 << 20;
 /// [`run`] only decides *when* to call it.
 pub struct LogFollower {
     dir: PathBuf,
-    registry: Arc<Registry<dyn LogSink>>,
+    registry: Arc<Registry<dyn DomainChannelSink>>,
     offsets: HashMap<PathBuf, u64>,
 }
 
@@ -51,7 +51,7 @@ pub(crate) fn service_of(path: &Path) -> Option<String> {
 }
 
 impl LogFollower {
-    pub fn new(dir: PathBuf, registry: Arc<Registry<dyn LogSink>>) -> Self {
+    pub fn new(dir: PathBuf, registry: Arc<Registry<dyn DomainChannelSink>>) -> Self {
         Self {
             dir,
             registry,
@@ -76,8 +76,9 @@ impl LogFollower {
             return;
         };
         for line in &tail.lines {
+            let event = DomainChannelEvent::Bytes(line.as_bytes());
             self.registry
-                .dispatch(&service, |s| s.emit(&service, &LogLine(line)));
+                .dispatch(&format!("logs://{}", service), |s| s.emit(&event));
         }
         self.offsets.insert(path.to_owned(), tail.end);
     }
@@ -136,25 +137,37 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::events::log::{LogLine, LogSink};
 
     type Captured = Arc<Mutex<Vec<(String, String)>>>;
 
-    /// A sink that records `(service, line)` pairs it is emitted.
-    struct Recorder(Captured);
-    impl LogSink for Recorder {
-        fn emit(&self, service: &str, line: &LogLine<'_>) {
-            self.0
-                .lock()
-                .unwrap()
-                .push((service.to_owned(), line.0.to_owned()));
+    /// A sink that records `(service, line)` pairs it receives.
+    struct Recorder {
+        captured: Captured,
+        service: String,
+    }
+
+    impl DomainChannelSink for Recorder {
+        fn emit(&self, event: &DomainChannelEvent<'_>) {
+            if let DomainChannelEvent::Bytes(bytes) = event {
+                let line = std::str::from_utf8(bytes).unwrap().to_owned();
+                self.captured
+                    .lock()
+                    .unwrap()
+                    .push((self.service.clone(), line));
+            }
         }
     }
 
     fn follower_with_sink(dir: &Path, key: &str) -> (LogFollower, Captured) {
         let log: Captured = Arc::default();
-        let registry: Arc<Registry<dyn LogSink>> = Arc::default();
-        registry.register(key, Arc::new(Recorder(Arc::clone(&log))));
+        let registry: Arc<Registry<dyn DomainChannelSink>> = Arc::default();
+        registry.register(
+            &format!("logs://{}", key),
+            Arc::new(Recorder {
+                captured: Arc::clone(&log),
+                service: key.to_owned(),
+            }),
+        );
         (LogFollower::new(dir.to_owned(), registry), log)
     }
 

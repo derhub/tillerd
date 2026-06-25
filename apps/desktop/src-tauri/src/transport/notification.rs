@@ -1,4 +1,3 @@
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use orchestrator::app::notification::{
@@ -83,7 +82,6 @@ impl<R: Runtime> NotificationSink for NotificationForwarder<R> {
         );
     }
 }
-
 
 transport_query!(
     notification_list_unread(limit: Option<u32>, offset: Option<u32>, after: Option<String>) -> orchestrator::shared::pagination::Listing<NotificationView>
