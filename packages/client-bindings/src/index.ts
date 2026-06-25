@@ -30,3 +30,4 @@ export {
   type NotificationChannelHandle,
   type LogsChangedChannelHandle,
 } from "./subscribe";
+export { openChannel, type ChannelHandle } from "./channel";

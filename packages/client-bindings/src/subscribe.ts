@@ -1,7 +1,6 @@
-import { Channel } from "@tauri-apps/api/core";
-
 import type { NotificationWire, StatusWire } from "./tauri_bindings.gen";
 
+import { openChannel } from "./channel";
 import { ensureResult } from "./readiness";
 import { commands } from "./tauri_bindings.gen";
 
@@ -44,25 +43,29 @@ export async function surfaceChannel(
   params: { surfaceId: string },
   callback: (event: SurfaceChannelEvent) => void,
 ): Promise<SurfaceChannelHandle> {
-  const channel = new Channel<number[]>();
-  channel.onmessage = (data) => {
-    callback(decodeSurfaceEvent(new Uint8Array(data)));
-  };
-
-  await commands
-    .surfaceChannel({ channel, req: { surfaceId: params.surfaceId } })
-    .then(ensureResult);
+  const handle = await openChannel<
+    { kind: "input"; bytes: number[] } | { kind: "resize"; cols: number; rows: number }
+  >(
+    (channel) =>
+      commands.surfaceChannel({ channel, req: { surfaceId: params.surfaceId } }).then(ensureResult),
+    (bytes) => {
+      callback(decodeSurfaceEvent(bytes));
+    },
+    {
+      send: async (msg) => {
+        await commands.surfaceChannelSend({ key: params.surfaceId, msg }).then(ensureResult);
+      },
+      close: async () => {
+        await commands
+          .surfaceChannelClose({ req: { surfaceId: params.surfaceId } })
+          .then(ensureResult);
+      },
+    },
+  );
 
   return {
-    async send(msg) {
-      await commands.surfaceChannelSend({ key: params.surfaceId, msg }).then(ensureResult);
-    },
-    async close() {
-      channel.onmessage = () => {};
-      await commands
-        .surfaceChannelClose({ req: { surfaceId: params.surfaceId } })
-        .then(ensureResult);
-    },
+    send: (msg) => handle.send!(msg),
+    close: () => handle.close(),
   };
 }
 
@@ -74,22 +77,20 @@ export async function logChannel(
   params: { service: string },
   callback: (bytes: Uint8Array) => void,
 ): Promise<LogChannelHandle> {
-  const channel = new Channel<number[]>();
-  channel.onmessage = (data) => {
-    const bytes = new Uint8Array(data);
-    if (bytes[0] === 0x00) {
-      callback(bytes.subarray(1));
-    }
-  };
-
-  await commands.logChannel({ channel, req: { service: params.service } }).then(ensureResult);
-
-  return {
-    async close() {
-      channel.onmessage = () => {};
-      await commands.logChannelClose({ req: { service: params.service } }).then(ensureResult);
+  return openChannel(
+    (channel) =>
+      commands.logChannel({ channel, req: { service: params.service } }).then(ensureResult),
+    (bytes) => {
+      if (bytes[0] === 0x00) {
+        callback(bytes.subarray(1));
+      }
     },
-  };
+    {
+      close: async () => {
+        await commands.logChannelClose({ req: { service: params.service } }).then(ensureResult);
+      },
+    },
+  );
 }
 
 export type NotificationChannelHandle = {
@@ -122,24 +123,21 @@ function randomId(): string {
 export async function notificationChannel(
   callback: (event: NotificationWire) => void,
 ): Promise<NotificationChannelHandle> {
-  const channel = new Channel<number[]>();
   const channelId = randomId();
-  channel.onmessage = (data) => {
-    const bytes = new Uint8Array(data);
-    if (bytes[0] === 0x00) {
-      const json = new TextDecoder().decode(bytes.subarray(1));
-      callback(JSON.parse(json));
-    }
-  };
-
-  await commands.notificationChannel({ channel, req: { channelId } }).then(ensureResult);
-
-  return {
-    async close() {
-      channel.onmessage = () => {};
-      await commands.notificationChannelClose({ req: { channelId } }).then(ensureResult);
+  return openChannel(
+    (channel) => commands.notificationChannel({ channel, req: { channelId } }).then(ensureResult),
+    (bytes) => {
+      if (bytes[0] === 0x00) {
+        const json = new TextDecoder().decode(bytes.subarray(1));
+        callback(JSON.parse(json));
+      }
     },
-  };
+    {
+      close: async () => {
+        await commands.notificationChannelClose({ req: { channelId } }).then(ensureResult);
+      },
+    },
+  );
 }
 
 export type LogsChangedChannelHandle = {
@@ -147,18 +145,16 @@ export type LogsChangedChannelHandle = {
 };
 
 export async function logsChangedChannel(callback: () => void): Promise<LogsChangedChannelHandle> {
-  const channel = new Channel<number[]>();
   const channelId = randomId();
-  channel.onmessage = () => {
-    callback();
-  };
-
-  await commands.logsChangedChannel({ channel, req: { channelId } }).then(ensureResult);
-
-  return {
-    async close() {
-      channel.onmessage = () => {};
-      await commands.logsChangedChannelClose({ req: { channelId } }).then(ensureResult);
+  return openChannel(
+    (channel) => commands.logsChangedChannel({ channel, req: { channelId } }).then(ensureResult),
+    () => {
+      callback();
     },
-  };
+    {
+      close: async () => {
+        await commands.logsChangedChannelClose({ req: { channelId } }).then(ensureResult);
+      },
+    },
+  );
 }
