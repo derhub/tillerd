@@ -15,7 +15,58 @@ use orchestrator::Ctx;
 use tauri::State;
 
 use crate::notification_host;
+use crate::transport::channel::{surface_channel_send, transport_channel, SurfaceClientMsg};
 use crate::transport::macros::transport_subscribe;
+
+transport_channel! {
+    /// Open a surface duplex channel: spawn a surface at a session + placement,
+    /// register the renderer's receive sink, and return the surface id (the send
+    /// key). Output frames flow over `channel`; client->backend messages go to
+    /// `surface_channel_send`.
+    pub surface_channel(
+        session_id: String,
+        placement: String,
+        cols: u16,
+        rows: u16,
+        cwd: Option<String>,
+    ) -> String,
+    bus = bus,
+    sink = mint_sink,
+    open = {
+        bus.execute(SpawnSurface {
+            session: session_id.clone(),
+            kind: "terminal".to_string(),
+            cwd,
+            placement: Some(placement.clone()),
+            cols: Some(cols),
+            rows: Some(rows),
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        let surface = bus
+            .query(FindSurfaceByPlacement {
+                session: session_id,
+                placement,
+            })
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "surface vanished after spawn".to_string())?;
+
+        let id = surface.id;
+        bus.execute(SubscribeSurface {
+            surface_id: id.clone(),
+            sink: mint_sink(),
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        let _ = attach_surface(bus.cx(), &id).await;
+        Ok(id)
+    },
+    /// Send a client->backend surface message: `Input`/`Resize` write straight to
+    /// the runtime port (off telemetry), `Close` unsubscribes through the bus.
+    send = surface_channel_send_cmd(SurfaceClientMsg) via surface_channel_send,
+}
 
 transport_subscribe! {
     /// Create (or revisit) a surface at a session + placement. On revisit, a fresh

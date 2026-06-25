@@ -5589,6 +5589,8 @@ dependencies = [
  "tillerd-paths",
  "tillerd-process-launch",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 

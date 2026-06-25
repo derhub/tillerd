@@ -182,6 +182,8 @@ macro_rules! collect_transport {
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
             $crate::surface_host::surface_create,
+            $crate::surface_host::surface_channel,
+            $crate::surface_host::surface_channel_send_cmd,
             $crate::surface_host::surface_spawn,
             $crate::surface_host::surface_close,
             $crate::surface_host::surface_input,

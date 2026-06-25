@@ -11,6 +11,7 @@
 //! through `collect_transport!`. Tauri keeps per-command ACL and argument typing; the
 //! wire (command name, argument shape, response JSON, error string) is unchanged.
 
+pub mod channel;
 pub mod domain;
 pub mod macros;
 pub mod sink;

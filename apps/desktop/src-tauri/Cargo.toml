@@ -51,6 +51,9 @@ tempfile.workspace = true
 serial_test = "3"
 # `tauri::test` mock runtime for the IPC command-contract test.
 tauri = { version = "2", features = ["test"] }
+# Span-counting layer proving the off-telemetry channel send opens no bus span.
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
