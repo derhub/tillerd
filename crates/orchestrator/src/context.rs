@@ -1,72 +1,63 @@
-//! The orchestrator context: the real resources every operation runs against --
-//! the `SqlitePool`, the `SqliteKv`, the user-config root, and the surface runtime.
-//! `Ctx` is cheap to clone and `Send + Sync`, so it survives `.await` and
-//! Tauri's `manage`. It holds no pre-built repo aggregate: repos take whatever
-//! executor they are handed (`cx.db()` or `&mut *tx`), so nothing is bound to a
-//! single connection.
-//!
-//! Queries and single-statement commands use `db()` directly; a command that spans
-//! multiple writes opts into `transaction(|tx| ...)`, which commits on `Ok` and
-//! explicitly, awaited-rolls-back on `Err` (sqlx rolls back on `Drop`, but `Drop`
-//! cannot `.await` and reports no failure -- the helper gives deterministic timing
-//! and a loggable result).
-
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
+use crate::events::notification::NotificationSink;
 use crate::infra::daemon_pty_api::Runtime;
+use crate::shared::bus::Broadcast;
 use crate::shared::kv::SqliteKv;
 use crate::shared::Result;
 
-/// A sqlite transaction over the orchestrator pool, handed to a
-/// [`Ctx::transaction`] closure.
 pub type SqliteTx<'c> = Transaction<'c, Sqlite>;
 
-/// The resources an operation runs against. Cloning shares the underlying pool and
-/// runtime (`Arc`); the config root is a cheap `PathBuf` clone.
-#[derive(Clone)]
-pub struct Ctx {
+struct CtxInner {
     db: SqlitePool,
-    kv: Arc<SqliteKv>,
+    kv: SqliteKv,
     fs_root: PathBuf,
     runtime: Arc<Runtime>,
+    notifications_changed: Broadcast<dyn NotificationSink>,
 }
 
+#[derive(Clone)]
+pub struct Ctx(Arc<CtxInner>);
+
 impl Ctx {
-    /// Build a context over its resources.
     pub fn new(db: SqlitePool, kv: SqliteKv, fs_root: PathBuf, runtime: Runtime) -> Self {
-        Ctx {
+        Ctx(Arc::new(CtxInner {
             db,
-            kv: Arc::new(kv),
+            kv,
             fs_root,
             runtime: Arc::new(runtime),
-        }
+            notifications_changed: Broadcast::default(),
+        }))
     }
 
-    /// The connection pool, for queries and single-statement commands.
     pub fn db(&self) -> &SqlitePool {
-        &self.db
+        &self.0.db
     }
 
     pub fn kv(&self) -> &SqliteKv {
-        &self.kv
+        &self.0.kv
     }
 
-    /// The user-config root for `shared::fs`-backed config.
     pub fn fs_root(&self) -> &Path {
-        &self.fs_root
+        &self.0.fs_root
     }
 
     pub fn runtime(&self) -> &Runtime {
-        &self.runtime
+        &self.0.runtime
     }
 
-    /// The `Arc` wrapping the surface runtime, for callers that need a cloneable
-    /// handle (e.g. the output pump spawned at boot).
     pub fn runtime_arc(&self) -> &Arc<Runtime> {
-        &self.runtime
+        &self.0.runtime
+    }
+
+    /// The notifications-changed fan-out. The recording layer announces each
+    /// persisted notification here; the host subscribes a sink to push it to the
+    /// renderer.
+    pub fn notifications_changed(&self) -> &Broadcast<dyn NotificationSink> {
+        &self.0.notifications_changed
     }
 
     /// Opt-in unit of work for a command that spans multiple writes. Begins a
@@ -77,7 +68,7 @@ impl Ctx {
     where
         F: AsyncFnOnce(&mut SqliteTx<'_>) -> Result<T>,
     {
-        let mut tx = self.db.begin().await?;
+        let mut tx = self.db().begin().await?;
         match f(&mut tx).await {
             Ok(value) => {
                 tx.commit().await?;
