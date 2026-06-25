@@ -1,4 +1,4 @@
-import { commands, events, type StatusWire } from "@tillerd/client-bindings";
+import { orchestratorStatus, subscribe, type StatusWire } from "@tillerd/client-bindings";
 
 export type { StatusWire };
 
@@ -9,7 +9,7 @@ export interface SimpleOrchestratorClient {
 
 export function createDesktopOrchestratorClient(): SimpleOrchestratorClient {
   return {
-    subscribe: (handler) => events.orchestratorStatus.listen((e) => handler(e.payload)),
-    status: () => commands.orchestratorStatus(),
+    subscribe: (handler) => subscribe("orchestratorStatus").listen((e) => handler(e.payload)),
+    status: () => orchestratorStatus(),
   };
 }

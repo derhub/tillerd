@@ -15,7 +15,7 @@ import {
   useLeaderBinding,
   useResolvedBindings,
 } from "~/lib/commands/useKeybindings";
-import { commands as ipc, ensureResult, events } from "@tillerd/client-bindings";
+import { runCommand, subscribe as eventSub } from "@tillerd/client-bindings";
 
 import { subscribe } from "~/lib/subscribe";
 
@@ -24,8 +24,8 @@ const isMac =
 
 async function mountLeaderKey(leader: string, onActivate: () => void): Promise<() => void> {
   const [, unlisten] = await Promise.all([
-    ipc.commandCenterSetLeader({ accelerator: leader }).then(ensureResult),
-    events.commandCenterOpen.listen(() => onActivate()),
+    runCommand("commandCenterSetLeader", { accelerator: leader }),
+    eventSub("commandCenterOpen").listen(() => onActivate()),
   ]);
   return unlisten;
 }

@@ -4,7 +4,7 @@ import type { SettingView } from "@tillerd/client-bindings";
 import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
-import { commands, ensureResult } from "@tillerd/client-bindings";
+import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
 
 import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
@@ -29,13 +29,16 @@ export function _resetForTests(): void {
 }
 
 function persist(key: string, value: unknown): void {
-  void commands
-    .settingSet({ scope: "global", projectId: null, key, valueJson: JSON.stringify(value) })
-    .then(ensureResult);
+  void runCommand("settingSet", {
+    scope: "global",
+    projectId: null,
+    key,
+    valueJson: JSON.stringify(value),
+  });
 }
 
 function defaultResolve(): Promise<SettingView[]> {
-  return commands.settingList({ scope: "global", projectId: null }).then(ensureResult);
+  return getQueryClient().ensureQueryData(query("settingList", { scope: "global", projectId: null }));
 }
 
 export async function hydrateSettings(

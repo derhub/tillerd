@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
-import { commands, ensureResult, events } from "@tillerd/client-bindings";
+import { getQueryClient, query, subscribe } from "@tillerd/client-bindings";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
 import { boundedPrepend, MAX_ITEMS } from "./store";
@@ -34,7 +34,7 @@ export function startNotifications(
   let unsub: (() => void) | undefined;
   void (async () => {
     const banner = await resolveBanner();
-    unsub = await events.notificationEvent.listen((e) => {
+    unsub = await subscribe("notificationEvent").listen((e) => {
       if (disposed) return;
       recordNotification(e.payload);
       if (banner) void raiseBanner(e.payload, banner);
@@ -43,7 +43,7 @@ export function startNotifications(
       unsub();
       return;
     }
-    const history = await commands.notificationsList().then(ensureResult);
+    const history = await getQueryClient().ensureQueryData(query("notificationsList"));
     if (disposed) {
       unsub();
       return;

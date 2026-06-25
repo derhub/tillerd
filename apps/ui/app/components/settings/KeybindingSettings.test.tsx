@@ -11,19 +11,15 @@ import { KeybindingSettings } from "./KeybindingSettings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 
-mock.module("@tillerd/client-bindings", () => ({
-  commands: {
-    settingSet: (args: { scope: string; projectId: null; key: string; valueJson: string }) => {
-      settingSetCalls.push(args);
-      return Promise.resolve({ status: "ok", data: null });
-    },
-    settingList: () => Promise.resolve({ status: "ok", data: [] }),
-    settingGet: () => Promise.resolve({ status: "ok", data: null }),
+void mock.module("@tillerd/client-bindings", () => ({
+  runCommand: (key: string, args: { scope: string; projectId: null; key: string; valueJson: string }) => {
+    if (key === "settingSet") settingSetCalls.push(args);
+    return Promise.resolve(null);
   },
-  ensureResult: (r: { status: string; data: unknown } | { status: string; error: unknown }) => {
-    if (r.status === "ok") return (r as { status: string; data: unknown }).data;
-    throw new Error(String((r as { status: string; error: unknown }).error));
-  },
+  query: () => ({ queryFn: async () => [] }),
+  getQueryClient: () => ({
+    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+  }),
 }));
 
 afterEach(() => {

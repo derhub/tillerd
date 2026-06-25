@@ -1,5 +1,5 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { commands, ensureResult, whenReady } from "@tillerd/client-bindings";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { query, runCommand } from "@tillerd/client-bindings";
 import React from "react";
 
 import {
@@ -16,11 +16,7 @@ import {
 } from "./panelTree";
 
 export function sessionLayoutQuery(id: string) {
-  return queryOptions({
-    queryKey: ["sessions", "layout", id] as const,
-    queryFn: () =>
-      whenReady().then((ok) => (ok ? commands.sessionLayoutGet({ id }).then(ensureResult) : null)),
-  });
+  return query("sessionLayoutGet", { id });
 }
 
 const LEGACY_STORAGE_KEY = "tillerd:panel-tree";
@@ -67,7 +63,7 @@ export function usePanelTree(sessionId?: string | null) {
       if (!sessionId) return;
       const layoutJson = serializeLayout(next);
       queryClient.setQueryData(sessionLayoutQuery(sessionId).queryKey, layoutJson);
-      void commands.sessionLayoutSet({ id: sessionId, layoutJson }).catch(() => {
+      void runCommand("sessionLayoutSet", { id: sessionId, layoutJson }).catch(() => {
         // non-fatal; layout re-persists on next mutation
       });
     },

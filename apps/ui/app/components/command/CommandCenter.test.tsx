@@ -5,21 +5,21 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
 
-// Capture the handler registered via events.commandCenterOpen.listen so openPalette() can fire it.
+// Capture the handler registered via subscribe("commandCenterOpen").listen so openPalette() can
+// fire it. The component consumes the client-bindings `subscribe`/`runCommand` wrappers, so the mock
+// targets that layer (a sibling suite's partial mock of the same module must not clobber it).
 let activateHandler: (() => void) | null = null;
 
-void mock.module("@tauri-apps/api/event", () => ({
-  listen: (_event: string, cb: (e: unknown) => void) => {
-    activateHandler = () => cb({});
-    return Promise.resolve(() => {});
-  },
-}));
-
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async () => null,
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
+const actualBindings = await import("@tillerd/client-bindings");
+void mock.module("@tillerd/client-bindings", () => ({
+  ...actualBindings,
+  runCommand: async () => null,
+  subscribe: () => ({
+    listen: (cb: (e: unknown) => void) => {
+      activateHandler = () => cb({});
+      return Promise.resolve(() => {});
+    },
+  }),
 }));
 
 const { CommandCenter } = await import("./CommandCenter");

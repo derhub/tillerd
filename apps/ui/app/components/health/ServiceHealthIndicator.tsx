@@ -2,7 +2,7 @@ import type { ServiceHealthWire } from "@tillerd/client-bindings";
 
 import React from "react";
 
-import { commands } from "@tillerd/client-bindings";
+import { getQueryClient, query } from "@tillerd/client-bindings";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { aggregateHealthState, type AggregateState } from "~/lib/health/aggregate";
@@ -16,7 +16,7 @@ async function fetchHealthSnapshot(
   setServices: (s: ServiceHealthWire[]) => void,
 ): Promise<void> {
   try {
-    const snapshot = await commands.serviceHealth();
+    const snapshot = await getQueryClient().ensureQueryData(query("serviceHealth"));
     if (!cancelled.current) setServices(snapshot);
   } catch {
     // Keep the prior snapshot; indicator degrades gracefully on fetch failure.

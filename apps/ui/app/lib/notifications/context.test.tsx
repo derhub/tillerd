@@ -21,23 +21,18 @@ let listenHandler: ((e: { payload: NotificationWire }) => void) | null = null;
 let historyData: NotificationWire[] = [];
 
 void mock.module("@tillerd/client-bindings", () => ({
-  commands: {
-    notificationsList: async () => ({ status: "ok", data: historyData }),
-  },
-  ensureResult: (r: { status: "ok"; data: unknown } | { status: "error"; error: unknown }) => {
-    if (r.status === "ok") return r.data;
-    throw new Error(String((r as { status: "error"; error: unknown }).error));
-  },
-  events: {
-    notificationEvent: {
-      listen: async (cb: (e: { payload: NotificationWire }) => void) => {
-        listenHandler = cb;
-        return () => {
-          listenHandler = null;
-        };
-      },
+  query: () => ({ queryFn: async () => historyData }),
+  getQueryClient: () => ({
+    ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
+  }),
+  subscribe: () => ({
+    listen: async (cb: (e: { payload: NotificationWire }) => void) => {
+      listenHandler = cb;
+      return () => {
+        listenHandler = null;
+      };
     },
-  },
+  }),
 }));
 
 // -----------------------------------------------------------------------------------------
