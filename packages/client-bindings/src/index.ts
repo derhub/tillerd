@@ -19,4 +19,12 @@ export {
 } from "./client.query";
 export { setReady, whenReady, ensureResult } from "./readiness";
 export { setQueryClient } from "./query-client";
-export { useEventSub, makeSurfaceChannel, makeStreamChannel, type StreamHandle } from "./subscribe";
+export {
+  useEventSub,
+  makeSurfaceChannel,
+  makeStreamChannel,
+  openSurfaceChannel,
+  type StreamHandle,
+  type ChannelHandle,
+  type SurfaceChannelParams,
+} from "./subscribe";

@@ -3,6 +3,9 @@ import type { EventCallback } from "@tauri-apps/api/event";
 import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
+import { commands } from "./tauri_bindings.gen";
+import { ensureResult } from "./readiness";
+
 type TauriEvent<T> = { listen: (cb: EventCallback<T>) => Promise<() => void> };
 
 // Subscribe to a Tauri event in a React component. Cleans up on unmount. The callback is held in a
@@ -38,4 +41,59 @@ export function makeStreamChannel<T>(onmessage: (frame: T) => void): StreamHandl
 /** Create a typed Channel for PTY byte streams (pass to commands.surfaceCreate). */
 export function makeSurfaceChannel(): Channel<number[]> {
   return new Channel<number[]>();
+}
+
+export type ChannelHandle = {
+  readonly surfaceId: string;
+  set onmessage(fn: (frame: number[]) => void);
+  send(bytes: Uint8Array): Promise<void>;
+  resize(cols: number, rows: number): Promise<void>;
+  close(): Promise<void>;
+};
+
+export type SurfaceChannelParams = {
+  sessionId: string;
+  placement: string;
+  cols: number;
+  rows: number;
+  cwd?: string | null;
+};
+
+export async function openSurfaceChannel(params: SurfaceChannelParams): Promise<ChannelHandle> {
+  const channel = new Channel<number[]>();
+  const surfaceId = ensureResult(
+    await commands.surfaceCreate({
+      channel,
+      sessionId: params.sessionId,
+      placement: params.placement,
+      cols: params.cols,
+      rows: params.rows,
+      cwd: params.cwd ?? null,
+    }),
+  );
+  return {
+    surfaceId,
+    set onmessage(fn: (frame: number[]) => void) {
+      channel.onmessage = fn;
+    },
+    send(bytes: Uint8Array): Promise<void> {
+      return commands
+        .surfaceInput({ surfaceId, bytes: Array.from(bytes) })
+        .then(ensureResult)
+        .then(() => undefined);
+    },
+    resize(cols: number, rows: number): Promise<void> {
+      return commands
+        .surfaceResize({ surfaceId, cols, rows })
+        .then(ensureResult)
+        .then(() => undefined);
+    },
+    close(): Promise<void> {
+      channel.onmessage = () => undefined;
+      return commands
+        .surfaceClose({ sessionId: params.sessionId, placement: params.placement })
+        .then(ensureResult)
+        .then(() => undefined);
+    },
+  };
 }
