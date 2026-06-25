@@ -4,8 +4,9 @@ use std::sync::Arc;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
 use crate::events::notification::NotificationSink;
+use crate::events::surface::SurfaceSink;
 use crate::infra::daemon_pty_api::Runtime;
-use crate::shared::bus::Broadcast;
+use crate::shared::bus::{Broadcast, Registry};
 use crate::shared::kv::SqliteKv;
 use crate::shared::Result;
 
@@ -17,6 +18,7 @@ struct CtxInner {
     fs_root: PathBuf,
     runtime: Arc<Runtime>,
     notifications_changed: Broadcast<dyn NotificationSink>,
+    surface_sinks: Arc<Registry<dyn SurfaceSink>>,
 }
 
 #[derive(Clone)]
@@ -30,6 +32,7 @@ impl Ctx {
             fs_root,
             runtime: Arc::new(runtime),
             notifications_changed: Broadcast::default(),
+            surface_sinks: Arc::default(),
         }))
     }
 
@@ -58,6 +61,13 @@ impl Ctx {
     /// renderer.
     pub fn notifications_changed(&self) -> &Broadcast<dyn NotificationSink> {
         &self.0.notifications_changed
+    }
+
+    /// The key-scoped registry of surface sinks. A subscribe command registers a
+    /// client sink under a surface id; the pump dispatches each frame to the
+    /// sinks for that id. Cloned out as an `Arc` so the pump shares the instance.
+    pub fn surface_sinks(&self) -> &Arc<Registry<dyn SurfaceSink>> {
+        &self.0.surface_sinks
     }
 
     /// Opt-in unit of work for a command that spans multiple writes. Begins a

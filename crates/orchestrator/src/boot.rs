@@ -2,12 +2,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::app::notification::NotificationSink;
-use crate::app::surface::{SurfaceSink, SurfaceStream};
+use crate::app::surface::SurfaceStream;
 use crate::context::Ctx;
 use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime};
 use crate::infra::migrate;
 use crate::shared;
-use crate::shared::bus::{Broadcast, Bus};
+use crate::shared::bus::Bus;
 use crate::shared::kv::SqliteKv;
 
 /// Configuration for [`build_bus`]. All paths are resolved by the caller; there
@@ -22,9 +22,6 @@ pub struct Config {
     /// Directory where rolling `*.log` files are written. Sub-directory `logs/`
     /// is created automatically by the tracing initializer.
     pub log_dir: PathBuf,
-    /// Surface output sink. The tauri transport implements this with a per-surface
-    /// `ipc::Channel` registry. Receives PTY bytes, status, and exit frames.
-    pub sink: Arc<dyn SurfaceSink>,
     /// Notifications-changed sink. The host subscribes to push each recorded
     /// notification to the renderer; the recording layer announces them here.
     pub notification_sink: Arc<dyn NotificationSink>,
@@ -55,9 +52,6 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
     let pool = migrate::open_file(&cfg.db_path).await?;
     let kv = SqliteKv::new(pool.clone());
 
-    let fanout: Arc<Broadcast<dyn SurfaceSink>> = Arc::default();
-    fanout.subscribe(cfg.sink.clone());
-
     let runtime = Runtime::Daemon(DaemonPtyApi::new(cfg.socket.clone()));
     let ctx = Ctx::new(pool, kv, cfg.fs_root.clone(), runtime);
 
@@ -69,11 +63,14 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
     // `Ctx` wraps the runtime in `Arc` internally; clone out the same `Arc` so
     // the pump shares the same instance without an extra allocation.
     let runtime_arc = Arc::clone(ctx.runtime_arc());
+    // The pump dispatches per-surface through the same registry a subscribe
+    // command registers client sinks into.
+    let registry = Arc::clone(ctx.surface_sinks());
 
     tokio::spawn(
         SurfaceStream {
             runtime: runtime_arc,
-            fanout,
+            registry,
         }
         .run(),
     );
@@ -137,11 +134,6 @@ mod tests {
         }
     }
 
-    struct NoopSink;
-    impl crate::app::surface::SurfaceSink for NoopSink {
-        fn emit(&self, _surface: &str, _event: &crate::app::surface::SurfaceEvent<'_>) {}
-    }
-
     struct NoopNotificationSink;
     impl crate::app::notification::NotificationSink for NoopNotificationSink {
         fn emit(&self, _notification: &crate::app::notification::RecordNotification) {}
@@ -178,7 +170,6 @@ mod tests {
             socket: dir.path().join("daemon.sock"),
             fs_root: dir.path().join("config"),
             log_dir: dir.path().to_owned(),
-            sink: Arc::new(NoopSink),
             notification_sink: Arc::new(NoopNotificationSink),
         };
 
@@ -207,7 +198,6 @@ mod tests {
             socket: dir.path().join("daemon.sock"),
             fs_root: dir.path().join("config"),
             log_dir: dir.path().to_owned(),
-            sink: Arc::new(NoopSink),
             notification_sink: Arc::new(CountingSink(announced.clone())),
         };
         let bus = build_bus(&cfg).await.unwrap();

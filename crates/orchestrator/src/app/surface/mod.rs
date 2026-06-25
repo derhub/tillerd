@@ -28,6 +28,7 @@ pub mod list_surfaces_by_session;
 pub mod reconcile_surfaces;
 pub mod spawn_surface;
 pub mod stop_surface;
+pub mod subscribe;
 
 #[cfg(test)]
 pub(crate) mod test_util;
@@ -41,12 +42,13 @@ pub use list_surfaces_by_session::ListSurfacesBySession;
 pub use reconcile_surfaces::ReconcileSurfaces;
 pub use spawn_surface::SpawnSurface;
 pub use stop_surface::StopSurface;
+pub use subscribe::{SubscribeSurface, UnsubscribeSurface};
 pub use view::SurfaceView;
 
 pub use common::{attach_surface, resize_surface, send_surface_input};
 
-// The host's tauri transport implements `SurfaceSink` and registers it via
-// `boot::Config.sink`. Both speak primitive surface ids, so the host never
-// reaches the domain newtype or the infra layer.
+// The host's tauri transport implements `SurfaceSink` and registers a
+// per-surface sink via `SubscribeSurface`. Both speak primitive surface ids,
+// so the host never reaches the domain newtype or the infra layer.
 pub use crate::events::surface::{SurfaceEvent, SurfaceSink};
 pub use stream::SurfaceStream;

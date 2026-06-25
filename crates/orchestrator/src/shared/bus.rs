@@ -14,8 +14,10 @@
 //! no telemetry, and no CQS contract -- it is only a thread-safe subscriber list
 //! with synchronous, borrow-and-forward iteration.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
@@ -69,6 +71,83 @@ impl<S: ?Sized> Broadcast<S> {
     pub fn dispatch(&self, f: impl Fn(&S)) {
         for s in self.subs.read().unwrap_or_else(|e| e.into_inner()).iter() {
             f(&**s);
+        }
+    }
+}
+
+/// Handle to one registration in a [`Registry`]. Pass it to
+/// [`Registry::remove`] to tear down exactly that sink.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct SinkId(u64);
+
+/// Thread-safe, synchronous, key-scoped 1:N event fan-out.
+///
+/// Like [`Broadcast`] but partitioned by a `String` key: `register` adds an
+/// `Arc<S>` sink under a key and returns a [`SinkId`]; `dispatch` calls a
+/// closure over only the sinks registered for one key, forwarding the borrowed
+/// event payload zero-copy; `remove` drops a single sink by its handle without
+/// affecting the others. Registration and removal are safe concurrently with an
+/// in-flight dispatch.
+type KeyedSinks<S> = HashMap<String, Vec<(SinkId, Arc<S>)>>;
+
+pub struct Registry<S: ?Sized> {
+    sinks: RwLock<KeyedSinks<S>>,
+    next: AtomicU64,
+}
+
+impl<S: ?Sized> Default for Registry<S> {
+    fn default() -> Self {
+        Self {
+            sinks: RwLock::new(HashMap::new()),
+            next: AtomicU64::new(0),
+        }
+    }
+}
+
+impl<S: ?Sized> Registry<S> {
+    /// Register `sink` under `key`. Sinks under one key are called in
+    /// registration order. The returned [`SinkId`] tears this sink down.
+    pub fn register(&self, key: &str, sink: Arc<S>) -> SinkId {
+        let id = SinkId(self.next.fetch_add(1, Ordering::Relaxed));
+        self.sinks
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .entry(key.to_owned())
+            .or_default()
+            .push((id, sink));
+        id
+    }
+
+    /// Remove the sink registered under `key` with handle `id`. No-op when the
+    /// key or handle is unknown.
+    pub fn remove(&self, key: &str, id: SinkId) {
+        let mut sinks = self.sinks.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(entries) = sinks.get_mut(key) {
+            entries.retain(|(existing, _)| *existing != id);
+            if entries.is_empty() {
+                sinks.remove(key);
+            }
+        }
+    }
+
+    /// Remove every sink registered under `key`. No-op when the key is unknown.
+    /// Used when one client owns the whole key (one channel per surface) and
+    /// teardown drops the key wholesale.
+    pub fn remove_key(&self, key: &str) {
+        self.sinks
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(key);
+    }
+
+    /// Synchronously call `f` for every sink registered under `key`. No-op when
+    /// the key has no sinks; the read lock is held for the full iteration.
+    pub fn dispatch(&self, key: &str, f: impl Fn(&S)) {
+        let sinks = self.sinks.read().unwrap_or_else(|e| e.into_inner());
+        if let Some(entries) = sinks.get(key) {
+            for (_, s) in entries {
+                f(&**s);
+            }
         }
     }
 }
@@ -233,6 +312,114 @@ mod tests {
         let bc: Broadcast<dyn Counter> = Broadcast::default();
         // Must not panic and must not call anything (nothing to call).
         bc.dispatch(|s| s.increment());
+    }
+
+    /// A sink that records its own label whenever it is invoked.
+    struct Tag(&'static str, Arc<Mutex<Vec<&'static str>>>);
+    impl Counter for Tag {
+        fn increment(&self) {
+            self.1.lock().unwrap().push(self.0);
+        }
+    }
+
+    #[test]
+    fn registry_dispatch_reaches_only_the_keys_sinks() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Registry<dyn Counter> = Registry::default();
+
+        reg.register("A", Arc::new(Tag("a", Arc::clone(&log))));
+        reg.register("B", Arc::new(Tag("b", Arc::clone(&log))));
+
+        reg.dispatch("A", |s| s.increment());
+
+        assert_eq!(*log.lock().unwrap(), ["a"]);
+    }
+
+    #[test]
+    fn registry_removed_sink_receives_no_further_events() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Registry<dyn Counter> = Registry::default();
+
+        let id = reg.register("A", Arc::new(Tag("a", Arc::clone(&log))));
+        reg.remove("A", id);
+
+        reg.dispatch("A", |s| s.increment());
+
+        assert!(log.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn registry_removing_one_sink_leaves_others_under_the_same_key() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Registry<dyn Counter> = Registry::default();
+
+        let id = reg.register("A", Arc::new(Tag("first", Arc::clone(&log))));
+        reg.register("A", Arc::new(Tag("second", Arc::clone(&log))));
+        reg.remove("A", id);
+
+        reg.dispatch("A", |s| s.increment());
+
+        assert_eq!(*log.lock().unwrap(), ["second"]);
+    }
+
+    #[test]
+    fn registry_remove_key_drops_every_sink_under_that_key() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Registry<dyn Counter> = Registry::default();
+
+        reg.register("A", Arc::new(Tag("first", Arc::clone(&log))));
+        reg.register("A", Arc::new(Tag("second", Arc::clone(&log))));
+        reg.remove_key("A");
+
+        reg.dispatch("A", |s| s.increment());
+
+        assert!(log.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn registry_remove_key_leaves_other_keys_intact() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Registry<dyn Counter> = Registry::default();
+
+        reg.register("A", Arc::new(Tag("a", Arc::clone(&log))));
+        reg.register("B", Arc::new(Tag("b", Arc::clone(&log))));
+        reg.remove_key("A");
+
+        reg.dispatch("A", |s| s.increment());
+        reg.dispatch("B", |s| s.increment());
+
+        assert_eq!(*log.lock().unwrap(), ["b"]);
+    }
+
+    #[test]
+    fn registry_register_and_remove_are_safe_during_an_in_flight_dispatch() {
+        let log: Arc<Mutex<Vec<&'static str>>> = Arc::default();
+        let reg: Arc<Registry<dyn Counter>> = Arc::default();
+
+        reg.register("A", Arc::new(Tag("a", Arc::clone(&log))));
+
+        // Hammer register/remove from a second thread while the main thread
+        // dispatches in a tight loop. Neither must panic.
+        let mutator = {
+            let reg = Arc::clone(&reg);
+            let log = Arc::clone(&log);
+            std::thread::spawn(move || {
+                for _ in 0..1_000 {
+                    let id = reg.register("B", Arc::new(Tag("b", Arc::clone(&log))));
+                    reg.remove("B", id);
+                }
+            })
+        };
+        for _ in 0..1_000 {
+            reg.dispatch("A", |s| s.increment());
+        }
+        mutator.join().unwrap();
+
+        // A registration made after the race takes effect on the next dispatch.
+        log.lock().unwrap().clear();
+        reg.register("B", Arc::new(Tag("b", Arc::clone(&log))));
+        reg.dispatch("B", |s| s.increment());
+        assert_eq!(*log.lock().unwrap(), ["b"]);
     }
 
     struct Out;
