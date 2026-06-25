@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 
+import { delegatingQuery } from "~/lib/test/real-bindings";
+
 import { NotificationsProvider, notificationsStore, useNotifications } from "./context";
 
 // Shared module store reset before AND after each test: sibling suite failures that record
@@ -26,7 +28,7 @@ let historyData: NotificationWire[] = [];
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: () => ({ queryFn: async () => historyData }),
+  query: delegatingQuery({ notificationsList: () => ({ queryFn: async () => historyData }) }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
   }),

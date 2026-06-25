@@ -5,6 +5,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 
+import { delegatingQuery } from "~/lib/test/real-bindings";
+
 let desktop = true;
 let files: { name: string; path: string; size: number }[] = [];
 let recordsByPath: Record<string, unknown[]> = {};
@@ -19,12 +21,14 @@ void mock.module("~/lib/transport", () => ({
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: (key: string, args?: { path?: string }) => ({
-    queryKey: [key, args ?? null],
-    queryFn: () => {
-      if (key === "logList") return Promise.resolve(files);
-      const path = args?.path ?? "";
-      return Promise.resolve({ records: recordsByPath[path] ?? [], start: 0, end: 0 });
+  query: delegatingQuery({
+    logList: () => ({ queryKey: ["logList", null], queryFn: () => Promise.resolve(files) }),
+    logTail: (args?: unknown) => {
+      const path = (args as { path?: string } | undefined)?.path ?? "";
+      return {
+        queryKey: ["logTail", args ?? null],
+        queryFn: () => Promise.resolve({ records: recordsByPath[path] ?? [], start: 0, end: 0 }),
+      };
     },
   }),
   subscribe: () => ({ listen: () => Promise.resolve(() => {}) }),

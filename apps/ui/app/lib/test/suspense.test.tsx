@@ -41,6 +41,9 @@ function Probe() {
 }
 
 test("a suspense read shows the fallback until the client is ready, then the content", async () => {
+  // The shared test preload defaults every test to ready; this suite drives the not-ready -> ready
+  // transition, so reset to not-ready before rendering.
+  setReady(false);
   fakeWorkspaces = [{ id: "ws-1", name: "Default" }];
 
   renderWithSuspense(<Probe />);

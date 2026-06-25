@@ -4,11 +4,14 @@ import type { ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 
+import { delegatingQuery } from "~/lib/test/real-bindings";
+
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 
 // Spread the real module so non-overridden exports stay intact: mock.module is process-global
 // and persists across files, so a partial replacement would clobber sibling suites that use the
-// real query/command wrappers. afterAll restores so this override does not leak past this file.
+// real query/command wrappers. query() delegates unowned keys to the captured realQuery so sibling
+// suites keep their real query()/whenReady() path under any file order.
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
@@ -19,7 +22,7 @@ void mock.module("@tillerd/client-bindings", () => ({
     if (key === "settingSet") settingSetCalls.push(args);
     return Promise.resolve(null);
   },
-  query: () => ({ queryFn: async () => [] }),
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
   }),
