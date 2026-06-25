@@ -236,6 +236,10 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
             }
         };
 
+        // Manage the bus immediately so that any early IPC calls from the frontend do not panic.
+        app.manage(bus);
+        let bus = app.state::<crate::transport::Bus>();
+
         emit_status(&app, &status, StatusWire::Supervising);
         let mut supervisor = build_supervisor();
         let services = match supervisor.ensure_all() {
@@ -273,9 +277,6 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
             reason: None,
             ts: notification_host::now_ms(),
         }));
-
-        // Manage the bus; it must exist before any IPC fires.
-        app.manage(bus);
 
         // Keep the boot runtime alive for the process lifetime so the daemon proxy
         // tasks it spawned continue to run.
