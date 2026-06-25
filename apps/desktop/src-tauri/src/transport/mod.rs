@@ -11,10 +11,16 @@
 //! through `collect_transport!`. Tauri keeps per-command ACL and argument typing; the
 //! wire (command name, argument shape, response JSON, error string) is unchanged.
 
-pub mod channel;
-pub mod domain;
+pub mod command;
+pub mod logs;
 pub mod macros;
-pub mod sink;
+pub mod notification;
+pub mod project;
+pub mod session;
+pub mod settings;
+pub mod surface;
+pub mod template;
+pub mod workspace;
 
 /// The managed bus the shims dispatch through. The core is transport-agnostic; this
 /// alias binds it to the desktop `Ctx` so the macros need no orchestrator import.

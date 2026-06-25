@@ -39,7 +39,7 @@ export function CommandCenter() {
 
   useGlobalShortcuts(bindings);
 
-  // In-renderer open signal — uniform across hosts and reachable from tests / e2e.
+  // In-renderer open signal - uniform across hosts and reachable from tests / e2e.
   useWindowEvent("command-center:open", () => setOpen(true));
 
   React.useEffect(() => subscribe(mountLeaderKey(leader, () => setOpen(true))), [leader]);

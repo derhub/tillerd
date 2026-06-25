@@ -143,7 +143,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "channel": channel, "sessionId": "contract", "placement": "p", "cols": 80, "rows": 24, "cwd": null }),
         ),
         (
-            "surface_channel_send_cmd",
+            "surface_channel_send",
             serde_json::json!({ "key": "contract", "msg": { "kind": "input", "bytes": [1u8] } }),
         ),
         (
@@ -152,11 +152,11 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         (
             "surface_close",
-            serde_json::json!({ "sessionId": "contract", "placement": "p" }),
+            serde_json::json!({ "id": "contract" }),
         ),
         (
             "surface_detach",
-            serde_json::json!({ "surfaceId": "contract" }),
+            serde_json::json!({ "id": "contract" }),
         ),
         (
             "window_open",

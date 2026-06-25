@@ -23,40 +23,12 @@ export const commands = {
 	windowClose: (args: { label: string }) => typedError<null, string>(__TAURI_INVOKE("window_close", args)),
 	/**  Rebind the native leader accelerator. No-op until the leader item is installed. */
 	commandCenterSetLeader: (args: { accelerator: string }) => typedError<null, string>(__TAURI_INVOKE("command_center_set_leader", args)),
-	/**
-	 *  Open a surface duplex channel at a session + placement: revisit the existing
-	 *  surface (re-attach, replaying scrollback) or spawn a fresh one, register the
-	 *  renderer's receive sink, and return the surface id (the send key). Output
-	 *  frames flow over `channel`; client->backend messages go to
-	 *  `surface_channel_send`.
-	 */
 	surfaceChannel: (args: { channel: Channel<number[]>; sessionId: string; placement: string; cols: number; rows: number; cwd: string | null }) => typedError<string, string>(__TAURI_INVOKE("surface_channel", args)),
-	/**
-	 *  Send a client->backend surface message: `Input`/`Resize` write straight to
-	 *  the runtime port (off telemetry), `Close` unsubscribes through the bus.
-	 */
-	surfaceChannelSendCmd: (args: { key: string; msg: SurfaceClientMsg }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_send_cmd", args)),
-	/**  Spawn a surface in a session with a minted placement. Returns the surface id. */
+	surfaceChannelSend: (args: { key: string; msg: SurfaceClientMsg }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_send", args)),
 	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
-	/**
-	 *  Close the surface bound to a session + placement: drop its subscription and
-	 *  remove its runtime proxy + record.
-	 */
-	surfaceClose: (args: { sessionId: string; placement: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
-	/**
-	 *  Detach a surface's proxy stream; the PTY keeps running in the daemon. Drops the
-	 *  subscription so the stream goes quiet.
-	 */
-	surfaceDetach: (args: { surfaceId: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
-	/**
-	 *  Register the renderer's channel as a live sink for `service`'s appended log
-	 *  lines. Subsequent lines arrive on `channel` until `log_unsubscribe`.
-	 */
+	surfaceClose: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
+	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	logSubscribe: (args: { channel: Channel<string>; service: string }) => typedError<null, string>(__TAURI_INVOKE("log_subscribe", args)),
-	/**
-	 *  Tear down the live log subscription for `service`: drop every sink registered
-	 *  under the service key so the stream goes quiet.
-	 */
 	logUnsubscribe: (args: { service: string }) => typedError<null, string>(__TAURI_INVOKE("log_unsubscribe", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
@@ -378,7 +350,6 @@ export type NotificationView = {
 	surfaceId: string | null,
 };
 
-/**  One notification on the wire. Field names match the SDK `NotificationEvent`. */
 export type NotificationWire = {
 	id: string,
 	category: string,
@@ -461,11 +432,6 @@ export type SettingView = {
 /**  The boot lifecycle status as seen on the wire. Unchanged from the prior host. */
 export type StatusWire = { state: "booting" } | { state: "openingStore" } | { state: "supervising" } | { state: "ready" } | { state: "failed"; reason: string };
 
-/**
- *  A client->backend message on a surface channel. `Input` carries raw key bytes;
- *  `Resize` carries the new geometry; `Close` tears the subscription down. The
- *  tagged shape is the wire contract the renderer's `send`/`resize`/`close` map to.
- */
 export type SurfaceClientMsg = { kind: "input"; bytes: number[] } | { kind: "resize"; cols: number; rows: number } | { kind: "close" };
 
 export type SurfaceErrorPayload = {

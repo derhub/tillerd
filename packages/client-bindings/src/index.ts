@@ -23,8 +23,8 @@ export { getQueryClient, setQueryClient } from "./query-client";
 export {
   useEventSub,
   orchestratorStatus,
-  makeSurfaceChannel,
-  makeStreamChannel,
+  openStream,
+  openChannel,
   openSurfaceChannel,
   subscribeLogs,
   type StreamHandle,

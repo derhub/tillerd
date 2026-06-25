@@ -16,7 +16,7 @@ use process_launch::LaunchError;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::notification_host;
+use crate::transport::notification;
 use tillerd_paths::{
     daemon_socket, daemon_socket_in, data_root, gate_socket_in, manifest_in, resolve_daemon_bin,
     resolve_gate_bin, runtime_dir,
@@ -190,7 +190,7 @@ fn boot_config(app: AppHandle) -> Config {
         socket: daemon_socket(),
         fs_root: data_root().join("config"),
         log_dir: runtime_dir(),
-        notification_sink: Arc::new(notification_host::NotificationForwarder::new(app)),
+        notification_sink: Arc::new(notification::NotificationForwarder::new(app)),
     }
 }
 
@@ -256,7 +256,7 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
                 let _ = runtime.block_on(bus.execute_notable(OrchestratorStatus {
                     ready: false,
                     reason: Some(reason.clone()),
-                    ts: notification_host::now_ms(),
+                    ts: notification::now_ms(),
                 }));
                 eprintln!("orchestrator boot failed (supervision): {reason}");
                 return;
@@ -275,7 +275,7 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
         let _ = runtime.block_on(bus.execute_notable(OrchestratorStatus {
             ready: true,
             reason: None,
-            ts: notification_host::now_ms(),
+            ts: notification::now_ms(),
         }));
 
         // Keep the boot runtime alive for the process lifetime so the daemon proxy
