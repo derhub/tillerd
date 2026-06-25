@@ -1,24 +1,20 @@
-//! User-facing notification feed (roadmap 0.0.10). Derives notifications from the lifecycle
-//! signals the desktop host already receives, persists them in the orchestrator store,
-//! and pushes them to the renderer over [`NOTIFICATION_EVENT`]. Additive: no
-//! orchestrator-core boundary changes. The builders are pure so the derivation is unit-tested
-//! without a running app.
+//! User-facing notification feed (roadmap 0.0.10). Lifecycle signals are recorded
+//! by the orchestrator's notification-recording layer (the single recording
+//! point); this host forwards each recorded notification to the renderer over
+//! [`NOTIFICATION_EVENT`] and serves the durable history for boot hydration.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use orchestrator::app::notification::{
-    ListNotifications, NotificationView, PruneNotifications, RecordNotification,
+    ListNotifications, NotificationSink, NotificationView, RecordNotification,
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 
 /// Renderer event carrying one notification. Mirrors the SDK `NOTIFICATION_EVENT`.
 pub const NOTIFICATION_EVENT: &str = "notification://event";
-
-/// Durable-history retention: keep the most recent N, prune older on each insert.
-const MAX_HISTORY: u32 = 500;
 
 /// How many notifications the renderer hydrates on boot (most recent first).
 const HISTORY_LOAD: u32 = 200;
@@ -42,44 +38,17 @@ pub struct NotificationWire {
 }
 
 impl NotificationWire {
-    fn new(category: &str, severity: &str, title: &str, message: String, ts: i64) -> Self {
+    fn from_record(n: &RecordNotification) -> Self {
         Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            category: category.to_string(),
-            severity: severity.to_string(),
-            title: Some(title.to_string()),
-            message,
-            detail: None,
-            ts,
-            session_id: None,
-            surface_id: None,
-        }
-    }
-
-    fn with_session(mut self, session_id: Option<String>) -> Self {
-        self.session_id = session_id;
-        self
-    }
-
-    fn with_surface(mut self, surface_id: &str) -> Self {
-        self.surface_id = Some(surface_id.to_string());
-        self
-    }
-
-    fn to_record_cmd(&self) -> RecordNotification {
-        RecordNotification {
-            id: self.id.clone(),
-            category: self.category.clone(),
-            severity: self.severity.clone(),
-            title: self.title.clone(),
-            message: self.message.clone(),
-            detail: self.detail.clone(),
-            ts: self.ts,
-            session_id: self.session_id.clone(),
-            surface_id: self.surface_id.clone(),
-            actions_json: None,
-            read: false,
-            snooze_until: None,
+            id: n.id.clone(),
+            category: n.category.clone(),
+            severity: n.severity.clone(),
+            title: n.title.clone(),
+            message: n.message.clone(),
+            detail: n.detail.clone(),
+            ts: n.ts,
+            session_id: n.session_id.clone(),
+            surface_id: n.surface_id.clone(),
         }
     }
 
@@ -105,80 +74,25 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-pub fn surface_started(surface_id: &str, session_id: &str, ts: i64) -> NotificationWire {
-    NotificationWire::new(
-        "surface-started",
-        "info",
-        "Terminal started",
-        "A terminal started".to_string(),
-        ts,
-    )
-    .with_surface(surface_id)
-    .with_session(Some(session_id.to_string()))
+/// Forwards each notification the recording layer persists to the renderer. The
+/// orchestrator records (off an `AppHandle`); this sink only emits the live push,
+/// so a notification is never recorded twice.
+pub struct NotificationForwarder<R: Runtime> {
+    app: AppHandle<R>,
 }
 
-/// An orchestrator-status notification for the user-relevant terminal states only
-/// (ready / failed); intermediate boot phases are not surfaced.
-pub fn orchestrator_status(ready: bool, reason: Option<&str>, ts: i64) -> NotificationWire {
-    if ready {
-        NotificationWire::new(
-            "orchestrator-status",
-            "info",
-            "Ready",
-            "All services are ready".to_string(),
-            ts,
-        )
-    } else {
-        NotificationWire::new(
-            "orchestrator-status",
-            "error",
-            "Startup failed",
-            reason
-                .map(|r| format!("Startup failed: {r}"))
-                .unwrap_or_else(|| "Startup failed".to_string()),
-            ts,
-        )
+impl<R: Runtime> NotificationForwarder<R> {
+    pub fn new(app: AppHandle<R>) -> Self {
+        Self { app }
     }
 }
 
-/// Persist a notification (pruning to [`MAX_HISTORY`]) and push it to the renderer.
-/// Best-effort: a store or emit error never blocks the originating lifecycle event.
-async fn record<R: tauri::Runtime>(app: &AppHandle<R>, bus: &Bus<Ctx>, wire: NotificationWire) {
-    let _ = bus.execute(wire.to_record_cmd()).await;
-    let _ = bus.execute(PruneNotifications { keep: MAX_HISTORY }).await;
-    let _ = app.emit(NOTIFICATION_EVENT, wire);
-}
-
-/// Fire-and-forget handle to the bootstrap recorder task. Cloneable; lives in managed state.
-#[derive(Clone)]
-pub struct NotificationRecorder {
-    tx: tokio::sync::mpsc::UnboundedSender<NotificationWire>,
-}
-
-impl NotificationRecorder {
-    /// Queue a notification for persist + emit. Drops on a closed channel; never blocks
-    /// or awaits the bus on the caller's path.
-    pub fn notify(&self, wire: NotificationWire) {
-        let _ = self.tx.send(wire);
+impl<R: Runtime> NotificationSink for NotificationForwarder<R> {
+    fn emit(&self, notification: &RecordNotification) {
+        let _ = self
+            .app
+            .emit(NOTIFICATION_EVENT, NotificationWire::from_record(notification));
     }
-}
-
-/// Spawn the single long-lived recorder task on the current runtime, draining queued
-/// notifications through [`record`] off the producers' path. Returns the send handle.
-pub fn spawn_recorder(app: AppHandle, bus: Bus<Ctx>) -> NotificationRecorder {
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<NotificationWire>();
-    tokio::spawn(async move {
-        while let Some(wire) = rx.recv().await {
-            record(&app, &bus, wire).await;
-        }
-    });
-    NotificationRecorder { tx }
-}
-
-/// Push a notification to the renderer without persisting it. For the boot-failure case,
-/// where the store may be unavailable; the live session still sees it.
-pub fn emit_only<R: tauri::Runtime>(app: &AppHandle<R>, wire: NotificationWire) {
-    let _ = app.emit(NOTIFICATION_EVENT, wire);
 }
 
 /// Durable notification history (most recent first) for the renderer to hydrate on boot.
@@ -205,26 +119,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn surface_started_carries_session_and_surface() {
-        let n = surface_started("surf-1", "sess-1", 7);
-        assert_eq!(n.category, "surface-started");
-        assert_eq!(n.severity, "info");
-        assert_eq!(n.session_id.as_deref(), Some("sess-1"));
-        assert_eq!(n.surface_id.as_deref(), Some("surf-1"));
-        assert_eq!(n.ts, 7);
-    }
+    fn from_record_carries_session_and_surface() {
+        let record = RecordNotification {
+            id: "n1".to_owned(),
+            category: "surface-started".to_owned(),
+            severity: "info".to_owned(),
+            title: Some("Terminal started".to_owned()),
+            message: "A terminal started".to_owned(),
+            detail: None,
+            ts: 7,
+            session_id: Some("sess-1".to_owned()),
+            surface_id: Some("surf-1".to_owned()),
+            actions_json: None,
+            read: false,
+            snooze_until: None,
+        };
 
-    #[test]
-    fn orchestrator_status_ready_is_info() {
-        let n = orchestrator_status(true, None, 1);
-        assert_eq!(n.category, "orchestrator-status");
-        assert_eq!(n.severity, "info");
-    }
+        let wire = NotificationWire::from_record(&record);
 
-    #[test]
-    fn orchestrator_status_failure_carries_reason() {
-        let n = orchestrator_status(false, Some("boom"), 1);
-        assert_eq!(n.severity, "error");
-        assert!(n.message.contains("boom"));
+        assert_eq!(wire.category, "surface-started");
+        assert_eq!(wire.severity, "info");
+        assert_eq!(wire.session_id.as_deref(), Some("sess-1"));
+        assert_eq!(wire.surface_id.as_deref(), Some("surf-1"));
+        assert_eq!(wire.ts, 7);
     }
 }

@@ -4,13 +4,14 @@
 //! `ipc::Channel` registry is shared with the runtime's `ChannelSink`. The wire --
 //! command names and argument shapes -- is unchanged.
 
+use orchestrator::app::notification::SurfaceStarted;
 use orchestrator::app::surface::{
     attach_surface, resize_surface, send_surface_input, CloseSurface, DetachSurface,
     FindSurfaceByPlacement, SpawnSurface,
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::notification_host;
 use crate::transport::sink::{register_channel, unregister_channel, SurfaceChannels};
@@ -22,7 +23,7 @@ use crate::transport::sink::{register_channel, unregister_channel, SurfaceChanne
 #[tauri::command]
 #[specta::specta]
 pub async fn surface_create<R: tauri::Runtime>(
-    app: AppHandle<R>,
+    _app: AppHandle<R>,
     bus: State<'_, Bus<Ctx>>,
     channels: State<'_, SurfaceChannels>,
     channel: tauri::ipc::Channel<Vec<u8>>,
@@ -83,13 +84,13 @@ pub async fn surface_create<R: tauri::Runtime>(
     register_channel(&channels, &id, channel);
     let _ = attach_surface(bus.cx(), &id).await;
 
-    if let Some(recorder) = app.try_state::<notification_host::NotificationRecorder>() {
-        recorder.notify(notification_host::surface_started(
-            &id,
-            &session_id,
-            notification_host::now_ms(),
-        ));
-    }
+    let _ = bus
+        .execute_notable(SurfaceStarted {
+            surface_id: id.clone(),
+            session_id: session_id.clone(),
+            ts: notification_host::now_ms(),
+        })
+        .await;
     Ok(id)
 }
 

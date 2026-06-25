@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use orchestrator::app::command::SeedCommands;
+use orchestrator::app::notification::OrchestratorStatus;
 use orchestrator::app::surface::ReconcileSurfaces;
 use orchestrator::supervision::{
     all_available, ProcessSupervisor, ServiceSpec, SpawnFn, SpawnTiming, Supervise,
@@ -184,13 +185,14 @@ fn build_supervisor() -> ProcessSupervisor {
 }
 
 /// The orchestrator core configuration, resolved from the runtime directory.
-fn boot_config(sink: Arc<ChannelSink<tauri::Wry>>) -> Config {
+fn boot_config(sink: Arc<ChannelSink<tauri::Wry>>, app: AppHandle) -> Config {
     Config {
         db_path: data_root().join("domain.db"),
         socket: daemon_socket(),
         fs_root: data_root().join("config"),
         log_dir: runtime_dir(),
         sink: sink as Arc<dyn orchestrator::app::surface::SurfaceSink>,
+        notification_sink: Arc::new(notification_host::NotificationForwarder::new(app)),
     }
 }
 
@@ -223,23 +225,17 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
         let sink = Arc::new(ChannelSink::new(channels.clone(), app.clone()));
 
         emit_status(&app, &status, StatusWire::OpeningStore);
-        let bus = match runtime.block_on(build_bus(&boot_config(sink))) {
+        let bus = match runtime.block_on(build_bus(&boot_config(sink, app.clone()))) {
             Ok(bus) => bus,
             Err(error) => {
+                // Store open failed: there is no bus to record through, so only the
+                // boot-progress status surfaces the failure.
                 emit_status(
                     &app,
                     &status,
                     StatusWire::Failed {
                         reason: error.to_string(),
                     },
-                );
-                notification_host::emit_only(
-                    &app,
-                    notification_host::orchestrator_status(
-                        false,
-                        Some(&error.to_string()),
-                        notification_host::now_ms(),
-                    ),
                 );
                 eprintln!("orchestrator boot failed (open store): {error}");
                 return;
@@ -259,14 +255,11 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
                         reason: reason.clone(),
                     },
                 );
-                notification_host::emit_only(
-                    &app,
-                    notification_host::orchestrator_status(
-                        false,
-                        Some(&reason),
-                        notification_host::now_ms(),
-                    ),
-                );
+                let _ = runtime.block_on(bus.execute_notable(OrchestratorStatus {
+                    ready: false,
+                    reason: Some(reason.clone()),
+                    ts: notification_host::now_ms(),
+                }));
                 eprintln!("orchestrator boot failed (supervision): {reason}");
                 return;
             }
@@ -281,19 +274,14 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
 
         emit_status(&app, &status, StatusWire::Ready);
 
-        // One long-lived recorder task drains queued notifications off the producers' path.
-        let recorder = runtime.block_on(async {
-            notification_host::spawn_recorder(app.clone(), orchestrator::shared::Bus::new(bus.cx().clone()))
-        });
-        recorder.notify(notification_host::orchestrator_status(
-            true,
-            None,
-            notification_host::now_ms(),
-        ));
+        let _ = runtime.block_on(bus.execute_notable(OrchestratorStatus {
+            ready: true,
+            reason: None,
+            ts: notification_host::now_ms(),
+        }));
 
-        // Manage the bus, recorder, and channel registry; all must exist before any IPC fires.
+        // Manage the bus and channel registry; both must exist before any IPC fires.
         app.manage(channels);
-        app.manage(recorder);
         app.manage(bus);
 
         // Keep the boot runtime alive for the process lifetime so the daemon proxy
