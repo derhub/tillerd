@@ -12,9 +12,7 @@ mod fake;
 mod transport;
 
 pub use daemon::{DaemonPtyApi, ResolvedCommand};
-pub use fake::FakeRuntime;
-#[cfg(test)]
-pub use fake::RuntimeCall;
+pub use fake::{FakeRuntime, RuntimeCall};
 
 use std::sync::Arc;
 

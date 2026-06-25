@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::app::notification::NotificationSink;
 use crate::app::surface::SurfaceStream;
 use crate::context::Ctx;
-use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime};
+use crate::infra::daemon_pty_api::{DaemonPtyApi, FakeRuntime, Runtime, RuntimeCall};
 use crate::infra::migrate;
 use crate::shared;
 use crate::shared::bus::Bus;
@@ -84,15 +84,58 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
 /// every command over -- so the host never reaches into `infra::migrate` /
 /// `infra::daemon_pty_api` itself.
 pub async fn test_ctx() -> shared::Result<Ctx> {
+    Ok(test_ctx_with_probe().await?.0)
+}
+
+/// An app-owned probe over a test `Ctx`'s in-memory runtime. Exposes the off-bus
+/// runtime writes (`input`/`resize`) a host command shim performs as primitives,
+/// so a host-side test asserts them without naming an infra/entities type.
+pub struct TestRuntimeProbe(Arc<FakeRuntime>);
+
+impl TestRuntimeProbe {
+    /// Recorded `input` writes as `(surface_id, bytes)`, in call order.
+    pub fn inputs(&self) -> Vec<(String, Vec<u8>)> {
+        self.0
+            .calls()
+            .into_iter()
+            .filter_map(|call| match call {
+                RuntimeCall::Input { surface, bytes } => Some((surface.as_str().to_owned(), bytes)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Recorded `resize` writes as `(surface_id, cols, rows)`, in call order.
+    pub fn resizes(&self) -> Vec<(String, u16, u16)> {
+        self.0
+            .calls()
+            .into_iter()
+            .filter_map(|call| match call {
+                RuntimeCall::Resize {
+                    surface,
+                    cols,
+                    rows,
+                } => Some((surface.as_str().to_owned(), cols, rows)),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// Like [`test_ctx`] but also returns a [`TestRuntimeProbe`] over the in-memory
+/// runtime wired into the `Ctx`, so a host-side test can assert the off-bus
+/// runtime writes a command shim performs without a live daemon.
+pub async fn test_ctx_with_probe() -> shared::Result<(Ctx, TestRuntimeProbe)> {
     let pool = migrate::open_memory().await?;
     let kv = SqliteKv::new(pool.clone());
-    let runtime = Runtime::Fake(Arc::new(FakeRuntime::new()));
-    Ok(Ctx::new(
+    let runtime = Arc::new(FakeRuntime::new());
+    let cx = Ctx::new(
         pool,
         kv,
         PathBuf::from("/tmp/tillerd-test-ctx"),
-        runtime,
-    ))
+        Runtime::Fake(runtime.clone()),
+    );
+    Ok((cx, TestRuntimeProbe(runtime)))
 }
 
 #[cfg(test)]
