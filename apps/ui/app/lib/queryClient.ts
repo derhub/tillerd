@@ -2,7 +2,7 @@ import { MutationCache, QueryClient } from "@tanstack/react-query";
 
 import { broadcastInvalidate } from "./crossWindowSync";
 import { recordNotification } from "./notifications/context";
-import { randomId } from "./transport/web-crypto";
+import { uuid } from "./transport/web-crypto";
 
 // Each window creates its own QueryClient so caches do not leak across windows.
 export function makeQueryClient(): QueryClient {
@@ -20,7 +20,7 @@ export function makeQueryClient(): QueryClient {
     // Optimistic mutations roll back via their own onError; this is the separate user-facing signal.
     onError: (error) => {
       recordNotification({
-        id: randomId(),
+        id: uuid(),
         category: "mutation-error",
         severity: "error",
         title: null,

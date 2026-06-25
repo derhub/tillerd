@@ -97,33 +97,10 @@ export type NotificationChannelHandle = {
   close(): Promise<void>;
 };
 
-function randomId(): string {
-  const c =
-    typeof globalThis !== "undefined" ? (globalThis.crypto as Crypto | undefined) : undefined;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID();
-  if (c && typeof c.getRandomValues === "function") {
-    const bytes = c.getRandomValues(new Uint8Array(16));
-    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-    const hex = Array.from(bytes, (n) => n.toString(16).padStart(2, "0"));
-    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex
-      .slice(6, 8)
-      .join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
-  }
-  const hex = Array.from({ length: 16 }, () =>
-    Math.floor(Math.random() * 256)
-      .toString(16)
-      .padStart(2, "0"),
-  );
-  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex
-    .slice(6, 8)
-    .join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
-}
-
 export async function notificationChannel(
   callback: (event: NotificationWire) => void,
 ): Promise<NotificationChannelHandle> {
-  const channelId = randomId();
+  const channelId = crypto.randomUUID();
   return openChannel(
     (channel) => commands.notificationChannel({ channel, req: { channelId } }).then(ensureResult),
     (bytes) => {
@@ -145,7 +122,7 @@ export type LogsChangedChannelHandle = {
 };
 
 export async function logsChangedChannel(callback: () => void): Promise<LogsChangedChannelHandle> {
-  const channelId = randomId();
+  const channelId = crypto.randomUUID();
   return openChannel(
     (channel) => commands.logsChangedChannel({ channel, req: { channelId } }).then(ensureResult),
     () => {

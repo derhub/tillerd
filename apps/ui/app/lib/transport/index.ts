@@ -6,6 +6,6 @@ export { TauriAppData } from "./app-data";
 export type { RegistryEntry } from "./app-data";
 export { bindSessionToTerminal } from "./terminal-bind";
 export type { TerminalLike } from "./terminal-bind";
-export { randomId, hasSecureCrypto } from "./web-crypto";
+export { uuid, hasSecureCrypto } from "./web-crypto";
 export { isDesktopHost, loadTauriCore } from "./core";
 export type { TauriCore, TauriChannelLike } from "./tauri";
