@@ -42,9 +42,9 @@ impl ProfileStore {
         self.profiles_dir().join("active.json")
     }
 
-    fn ensure_dir(path: &Path) -> Result<()> {
+    async fn ensure_dir(path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         Ok(())
     }
@@ -63,7 +63,7 @@ impl ProfileStore {
     /// Save (create or overwrite) a profile.
     pub async fn save(&self, profile: &Profile) -> Result<()> {
         let path = self.profile_path(&profile.id);
-        Self::ensure_dir(&path)?;
+        Self::ensure_dir(&path).await?;
         let s = serde_json::to_string_pretty(profile)?;
         fs::write_string(&path, &s).await
     }
@@ -120,7 +120,7 @@ impl ProfileStore {
     /// Set the active profile by id.
     pub async fn set_active(&self, id: &str) -> Result<()> {
         let path = self.active_path();
-        Self::ensure_dir(&path)?;
+        Self::ensure_dir(&path).await?;
         let v = ActiveFile {
             active: id.to_owned(),
         };

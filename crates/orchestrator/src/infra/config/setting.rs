@@ -44,7 +44,7 @@ impl SettingStore {
 
     async fn ensure_parent(path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         Ok(())
     }

@@ -51,9 +51,9 @@ impl ThemeStore {
         self.themes_dir().join("active.json")
     }
 
-    fn ensure_dir(path: &Path) -> Result<()> {
+    async fn ensure_dir(path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         Ok(())
     }
@@ -61,7 +61,7 @@ impl ThemeStore {
     /// Import (register) a theme. For prebuilt themes use `ThemeOrigin::Prebuilt`.
     pub async fn import(&self, theme: &Theme) -> Result<()> {
         let path = self.theme_path(&theme.id);
-        Self::ensure_dir(&path)?;
+        Self::ensure_dir(&path).await?;
         let s = serde_json::to_string_pretty(theme)?;
         fs::write_string(&path, &s).await
     }
@@ -115,7 +115,7 @@ impl ThemeStore {
     /// Set the active theme by id.
     pub async fn set_active(&self, id: &str) -> Result<()> {
         let path = self.active_path();
-        Self::ensure_dir(&path)?;
+        Self::ensure_dir(&path).await?;
         let v = ActiveFile {
             active: id.to_owned(),
         };

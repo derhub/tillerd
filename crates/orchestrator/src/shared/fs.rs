@@ -1,22 +1,17 @@
 //! Atomic file read/write/list/delete utilities for user-config (settings, profiles,
 //! themes, keybindings). Provides common operations with proper error handling.
 
-use std::fs;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use super::errors::Error;
 
-/// Read the entire contents of a file as a string.
 pub async fn read_string(path: impl AsRef<Path>) -> Result<String, Error> {
-    let path = path.as_ref();
-    fs::read_to_string(path).map_err(Error::from)
+    tokio::fs::read_to_string(path).await.map_err(Error::from)
 }
 
-/// Read the entire contents of a file as bytes.
 pub async fn read_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
-    let path = path.as_ref();
-    fs::read(path).map_err(Error::from)
+    tokio::fs::read(path).await.map_err(Error::from)
 }
 
 /// A window of complete lines from a file, bounded by absolute byte offsets.
@@ -43,7 +38,14 @@ pub async fn tail(
     max_bytes: u64,
     align: bool,
 ) -> Result<Tail, Error> {
-    let mut file = match fs::File::open(path.as_ref()) {
+    let path = path.as_ref().to_path_buf();
+    tokio::task::spawn_blocking(move || tail_sync(&path, from, max_bytes, align))
+        .await
+        .map_err(|e| Error::from(std::io::Error::other(e)))?
+}
+
+fn tail_sync(path: &Path, from: u64, max_bytes: u64, align: bool) -> Result<Tail, Error> {
+    let mut file = match std::fs::File::open(path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             return Ok(Tail { lines: Vec::new(), start: from, end: from });
@@ -90,20 +92,17 @@ pub async fn tail(
 
 /// Write a string to a file, creating or truncating it. Parent directory must exist.
 pub async fn write_string(path: impl AsRef<Path>, content: &str) -> Result<(), Error> {
-    let path = path.as_ref();
-    fs::write(path, content).map_err(Error::from)
+    tokio::fs::write(path, content).await.map_err(Error::from)
 }
 
 /// Write bytes to a file, creating or truncating it. Parent directory must exist.
 pub async fn write_bytes(path: impl AsRef<Path>, content: &[u8]) -> Result<(), Error> {
-    let path = path.as_ref();
-    fs::write(path, content).map_err(Error::from)
+    tokio::fs::write(path, content).await.map_err(Error::from)
 }
 
 /// Delete a file if it exists. Returns `Ok(())` whether the file was deleted or not found.
 pub async fn delete(path: impl AsRef<Path>) -> Result<(), Error> {
-    let path = path.as_ref();
-    match fs::remove_file(path) {
+    match tokio::fs::remove_file(path).await {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(Error::from(e)),
@@ -112,24 +111,22 @@ pub async fn delete(path: impl AsRef<Path>) -> Result<(), Error> {
 
 /// List all entries in a directory. Returns `Ok(vec![])` if the directory does not exist.
 pub async fn list_entries(path: impl AsRef<Path>) -> Result<Vec<PathBuf>, Error> {
-    let path = path.as_ref();
-    match fs::read_dir(path) {
-        Ok(entries) => {
-            let mut result = Vec::new();
-            for entry in entries {
-                let entry = entry?;
-                result.push(entry.path());
-            }
-            Ok(result)
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![]),
-        Err(e) => Err(Error::from(e)),
+    let mut dir = match tokio::fs::read_dir(path).await {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(Error::from(e)),
+    };
+    let mut result = Vec::new();
+    while let Some(entry) = dir.next_entry().await? {
+        result.push(entry.path());
     }
+    Ok(result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::fs as std_fs;
     use tempfile::TempDir;
 
