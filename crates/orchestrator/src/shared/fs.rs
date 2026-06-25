@@ -48,7 +48,11 @@ fn tail_sync(path: &Path, from: u64, max_bytes: u64, align: bool) -> Result<Tail
     let mut file = match std::fs::File::open(path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(Tail { lines: Vec::new(), start: from, end: from });
+            return Ok(Tail {
+                lines: Vec::new(),
+                start: from,
+                end: from,
+            });
         }
         Err(e) => return Err(Error::from(e)),
     };
@@ -64,7 +68,11 @@ fn tail_sync(path: &Path, from: u64, max_bytes: u64, align: bool) -> Result<Tail
     if align && from > 0 {
         let n = reader.read_until(b'\n', &mut line).map_err(Error::from)?;
         if line.last() != Some(&b'\n') {
-            return Ok(Tail { lines: Vec::new(), start: from, end: from });
+            return Ok(Tail {
+                lines: Vec::new(),
+                start: from,
+                end: from,
+            });
         }
         consumed += n as u64;
         line.clear();
@@ -315,7 +323,9 @@ mod tests {
     #[tokio::test]
     async fn tail_absent_file_is_empty() {
         let dir = TempDir::new().unwrap();
-        let t = tail(dir.path().join("missing.log"), 0, 1024, false).await.unwrap();
+        let t = tail(dir.path().join("missing.log"), 0, 1024, false)
+            .await
+            .unwrap();
 
         assert!(t.lines.is_empty());
         assert_eq!(t.end, 0);

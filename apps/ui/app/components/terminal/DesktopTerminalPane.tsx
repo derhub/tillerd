@@ -1,8 +1,8 @@
 import type { ChannelHandle } from "@tillerd/client-bindings";
 import type { Terminal } from "@xterm/xterm";
 
-import { command, openSurfaceChannel, subscribe } from "@tillerd/client-bindings";
 import { useMutation } from "@tanstack/react-query";
+import { command, openSurfaceChannel, subscribe } from "@tillerd/client-bindings";
 import "@xterm/xterm/css/xterm.css";
 import React from "react";
 

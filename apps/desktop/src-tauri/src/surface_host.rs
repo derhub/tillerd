@@ -187,10 +187,7 @@ pub async fn surface_close(
 /// subscription so the stream goes quiet.
 #[tauri::command]
 #[specta::specta]
-pub async fn surface_detach(
-    bus: State<'_, Bus<Ctx>>,
-    surface_id: String,
-) -> Result<(), String> {
+pub async fn surface_detach(bus: State<'_, Bus<Ctx>>, surface_id: String) -> Result<(), String> {
     let _ = bus
         .execute(UnsubscribeSurface {
             surface_id: surface_id.clone(),

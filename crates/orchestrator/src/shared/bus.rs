@@ -725,7 +725,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(*observed.lock().unwrap(), vec!["surface-started".to_owned()]);
+        assert_eq!(
+            *observed.lock().unwrap(),
+            vec!["surface-started".to_owned()]
+        );
     }
 
     /// 3.3: one `Notable` signal records exactly one notification, and the single

@@ -1,11 +1,12 @@
 import type { EventCallback } from "@tauri-apps/api/event";
-import type { StatusWire } from "./tauri_bindings.gen";
 
 import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
-import { commands } from "./tauri_bindings.gen";
+import type { StatusWire } from "./tauri_bindings.gen";
+
 import { ensureResult } from "./readiness";
+import { commands } from "./tauri_bindings.gen";
 
 type TauriEvent<T> = { listen: (cb: EventCallback<T>) => Promise<() => void> };
 
@@ -42,7 +43,12 @@ export type StreamHandle<T> = {
 export function makeStreamChannel<T>(onmessage: (frame: T) => void): StreamHandle<T> {
   const channel = new Channel<T>();
   channel.onmessage = onmessage;
-  return { channel, teardown: () => { channel.onmessage = () => undefined; } };
+  return {
+    channel,
+    teardown: () => {
+      channel.onmessage = () => undefined;
+    },
+  };
 }
 
 /** Create a typed Channel for PTY byte streams (pass to commands.surfaceChannel). */

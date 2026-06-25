@@ -2,9 +2,8 @@ import type { NotificationWire } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
 import { Store, useSelector } from "@tanstack/react-store";
-import React from "react";
-
 import { getQueryClient, query, subscribe } from "@tillerd/client-bindings";
+import React from "react";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
 import { boundedPrepend, MAX_ITEMS } from "./store";

@@ -82,9 +82,10 @@ impl<R: Runtime> NotificationForwarder<R> {
 
 impl<R: Runtime> NotificationSink for NotificationForwarder<R> {
     fn emit(&self, notification: &RecordNotification) {
-        let _ = self
-            .app
-            .emit(NOTIFICATION_EVENT, NotificationWire::from_record(notification));
+        let _ = self.app.emit(
+            NOTIFICATION_EVENT,
+            NotificationWire::from_record(notification),
+        );
     }
 }
 

@@ -1,5 +1,5 @@
-import { command } from "@tillerd/client-bindings";
 import { useMutation } from "@tanstack/react-query";
+import { command } from "@tillerd/client-bindings";
 import React from "react";
 
 import type { PanelLeaf } from "~/lib/panelTree";

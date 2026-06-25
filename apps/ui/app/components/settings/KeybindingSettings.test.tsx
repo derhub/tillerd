@@ -12,7 +12,10 @@ import { KeybindingSettings } from "./KeybindingSettings";
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 
 void mock.module("@tillerd/client-bindings", () => ({
-  runCommand: (key: string, args: { scope: string; projectId: null; key: string; valueJson: string }) => {
+  runCommand: (
+    key: string,
+    args: { scope: string; projectId: null; key: string; valueJson: string },
+  ) => {
     if (key === "settingSet") settingSetCalls.push(args);
     return Promise.resolve(null);
   },
@@ -48,9 +51,7 @@ describe("KeybindingSettings", () => {
     const select = (await screen.findByLabelText("Keybinding preset")) as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "vscode" } });
     await waitFor(() =>
-      expect(
-        sets.find((s) => s.key === "keybindings.preset"),
-      ).toEqual(
+      expect(sets.find((s) => s.key === "keybindings.preset")).toEqual(
         expect.objectContaining({ key: "keybindings.preset", valueJson: JSON.stringify("vscode") }),
       ),
     );
@@ -67,7 +68,9 @@ describe("KeybindingSettings", () => {
       const written = settingSetCalls.findLast((s) => s.key === "keybindings.overrides");
       expect(written).toBeDefined();
       // valueJson is JSON.stringify(value) where value is itself the JSON-encoded overrides string.
-      expect(JSON.parse(JSON.parse(written!.valueJson))[ACTION.surfaceClose]).toBe("CmdOrCtrl+Shift+W");
+      expect(JSON.parse(JSON.parse(written!.valueJson))[ACTION.surfaceClose]).toBe(
+        "CmdOrCtrl+Shift+W",
+      );
     });
   });
 

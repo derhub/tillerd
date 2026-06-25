@@ -1,8 +1,7 @@
 import type { ServiceHealthWire } from "@tillerd/client-bindings";
 
-import React from "react";
-
 import { getQueryClient, query } from "@tillerd/client-bindings";
+import React from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { aggregateHealthState, type AggregateState } from "~/lib/health/aggregate";

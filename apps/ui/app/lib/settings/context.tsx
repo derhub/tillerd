@@ -1,10 +1,9 @@
-import type { ReactNode } from "react";
 import type { SettingView } from "@tillerd/client-bindings";
+import type { ReactNode } from "react";
 
 import { Store, useSelector } from "@tanstack/react-store";
-import React from "react";
-
 import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
+import React from "react";
 
 import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
@@ -38,7 +37,9 @@ function persist(key: string, value: unknown): void {
 }
 
 function defaultResolve(): Promise<SettingView[]> {
-  return getQueryClient().ensureQueryData(query("settingList", { scope: "global", projectId: null }));
+  return getQueryClient().ensureQueryData(
+    query("settingList", { scope: "global", projectId: null }),
+  );
 }
 
 export async function hydrateSettings(

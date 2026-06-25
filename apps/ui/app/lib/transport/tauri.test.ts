@@ -79,7 +79,6 @@ describe("TauriDaemonTransport", () => {
   });
 });
 
-
 describe("TauriLogger", () => {
   test("forwards each level to the core", async () => {
     const core = new FakeCore();

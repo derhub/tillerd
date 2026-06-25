@@ -52,7 +52,11 @@ pub(crate) fn service_of(path: &Path) -> Option<String> {
 
 impl LogFollower {
     pub fn new(dir: PathBuf, registry: Arc<Registry<dyn LogSink>>) -> Self {
-        Self { dir, registry, offsets: HashMap::new() }
+        Self {
+            dir,
+            registry,
+            offsets: HashMap::new(),
+        }
     }
 
     /// Read the lines appended to `path` since its tracked offset and emit each
@@ -72,7 +76,8 @@ impl LogFollower {
             return;
         };
         for line in &tail.lines {
-            self.registry.dispatch(&service, |s| s.emit(&service, &LogLine(line)));
+            self.registry
+                .dispatch(&service, |s| s.emit(&service, &LogLine(line)));
         }
         self.offsets.insert(path.to_owned(), tail.end);
     }
@@ -139,7 +144,10 @@ mod tests {
     struct Recorder(Captured);
     impl LogSink for Recorder {
         fn emit(&self, service: &str, line: &LogLine<'_>) {
-            self.0.lock().unwrap().push((service.to_owned(), line.0.to_owned()));
+            self.0
+                .lock()
+                .unwrap()
+                .push((service.to_owned(), line.0.to_owned()));
         }
     }
 

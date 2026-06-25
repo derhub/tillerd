@@ -41,8 +41,8 @@ use orchestrator::app::settings::{
     ExportProfile, ExportTheme, GetActiveProfile, GetActiveTheme, GetSetting, ImportProfile,
     ImportTheme, KeybindingView, ListKeybindings, ListProfiles, ListSettings, ListThemes,
     NewProfile, ProfileView, RebindKey, ReloadConfig, RenameProfile, ResetKeybinding,
-    ResetKeybindings, ResetSetting, ResolveKeybinding, ResolveSetting, ResolveSettings, SettingView,
-    ThemeView,
+    ResetKeybindings, ResetSetting, ResolveKeybinding, ResolveSetting, ResolveSettings,
+    SettingView, ThemeView,
 };
 use orchestrator::app::surface::{
     FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces, ListSurfacesBySession,

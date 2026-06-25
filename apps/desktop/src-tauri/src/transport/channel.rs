@@ -184,7 +184,10 @@ mod tests {
         surface_channel_send(
             &bus,
             "sf_1".to_owned(),
-            SurfaceClientMsg::Resize { cols: 120, rows: 40 },
+            SurfaceClientMsg::Resize {
+                cols: 120,
+                rows: 40,
+            },
         )
         .await
         .unwrap();

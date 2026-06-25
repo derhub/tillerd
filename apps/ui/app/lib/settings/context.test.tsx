@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import type { SettingView } from "@tillerd/client-bindings";
+import type { ReactNode } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, mock, test } from "bun:test";
@@ -7,7 +7,10 @@ import { afterEach, expect, mock, test } from "bun:test";
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 
 void mock.module("@tillerd/client-bindings", () => ({
-  runCommand: (key: string, args: { scope: string; projectId: null; key: string; valueJson: string }) => {
+  runCommand: (
+    key: string,
+    args: { scope: string; projectId: null; key: string; valueJson: string },
+  ) => {
     if (key === "settingSet") settingSetCalls.push(args);
     return Promise.resolve(null);
   },

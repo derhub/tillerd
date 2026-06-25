@@ -11,7 +11,8 @@ import { renderWithSuspense } from "./suspense";
 // client signals ready, then resolve. Drive it through the REAL readiness module (un-mocked source
 // submodule, immune to sibling suites stubbing the `@tillerd/client-bindings` package specifier).
 // The data source is local so the assertion does not race a process-global `@tauri-apps/api/core` mock.
-const { whenReady, setReady } = await import("../../../../../packages/client-bindings/src/readiness");
+const { whenReady, setReady } =
+  await import("../../../../../packages/client-bindings/src/readiness");
 
 let fakeWorkspaces: Workspace[] = [];
 

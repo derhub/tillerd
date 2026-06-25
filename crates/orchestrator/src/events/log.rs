@@ -53,7 +53,10 @@ mod tests {
 
     impl LogSink for Recorder {
         fn emit(&self, service: &str, line: &LogLine<'_>) {
-            self.0.lock().unwrap().push((service.to_owned(), line.0.to_owned()));
+            self.0
+                .lock()
+                .unwrap()
+                .push((service.to_owned(), line.0.to_owned()));
         }
     }
 

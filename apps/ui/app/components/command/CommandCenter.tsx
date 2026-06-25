@@ -1,3 +1,4 @@
+import { runCommand, subscribe as eventSub } from "@tillerd/client-bindings";
 import React from "react";
 
 import {
@@ -15,8 +16,6 @@ import {
   useLeaderBinding,
   useResolvedBindings,
 } from "~/lib/commands/useKeybindings";
-import { runCommand, subscribe as eventSub } from "@tillerd/client-bindings";
-
 import { subscribe } from "~/lib/subscribe";
 
 const isMac =

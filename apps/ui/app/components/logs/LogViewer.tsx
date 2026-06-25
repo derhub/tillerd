@@ -2,8 +2,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { LogStreamHandle } from "@tillerd/client-bindings";
 
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
-import { query, subscribe, subscribeLogs, useEventSub } from "@tillerd/client-bindings";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { query, subscribe, subscribeLogs, useEventSub } from "@tillerd/client-bindings";
 import React from "react";
 
 import type { LogRecord } from "~/lib/logs/log-record";
