@@ -32,6 +32,8 @@ export const commands = {
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	logChannel: (args: { channel: Channel<number[]>; req: OpenLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel", args)),
 	logChannelClose: (args: { req: CloseLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel_close", args)),
+	notificationChannel: (args: { channel: Channel<number[]>; req: OpenNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel", args)),
+	notificationChannelClose: (args: { req: CloseNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel_close", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),
@@ -208,13 +210,16 @@ export const events = {
 	daemonLost: makeEvent<DaemonLost>("daemon-lost"),
 	logsChanged: makeEvent<LogsChanged>("logs://changed"),
 	menuNavigate: makeEvent<MenuNavigate>("menu:navigate"),
-	notificationEvent: makeEvent<NotificationWire>("notification://event"),
 	orchestratorStatus: makeEvent<StatusWire>("orchestrator://status"),
 };
 
 /* Types */
 export type CloseLogChannel = {
 	service: string,
+};
+
+export type CloseNotificationChannel = {
+	channelId: string,
 };
 
 export type CloseSurfaceChannel = {
@@ -371,6 +376,10 @@ export type NotificationWire = {
 
 export type OpenLogChannel = {
 	service: string,
+};
+
+export type OpenNotificationChannel = {
+	channelId: string,
 };
 
 export type OpenSurfaceChannel = {

@@ -3,7 +3,7 @@ import type { EventCallback } from "@tauri-apps/api/event";
 import { Channel } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 
-import type { StatusWire } from "./tauri_bindings.gen";
+import type { NotificationWire, StatusWire } from "./tauri_bindings.gen";
 
 import { ensureResult } from "./readiness";
 import { commands } from "./tauri_bindings.gen";
@@ -109,6 +109,56 @@ export async function logChannel(
     async close() {
       channel.onmessage = () => {};
       await commands.logChannelClose({ req: { service: params.service } }).then(ensureResult);
+    },
+  };
+}
+
+export type NotificationChannelHandle = {
+  close(): Promise<void>;
+};
+
+function randomId(): string {
+  const c =
+    typeof globalThis !== "undefined" ? (globalThis.crypto as Crypto | undefined) : undefined;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  if (c && typeof c.getRandomValues === "function") {
+    const bytes = c.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (n) => n.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex
+      .slice(6, 8)
+      .join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+  }
+  const hex = Array.from({ length: 16 }, () =>
+    Math.floor(Math.random() * 256)
+      .toString(16)
+      .padStart(2, "0"),
+  );
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex
+    .slice(6, 8)
+    .join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+}
+
+export async function notificationChannel(
+  callback: (event: NotificationWire) => void,
+): Promise<NotificationChannelHandle> {
+  const channel = new Channel<number[]>();
+  const channelId = randomId();
+  channel.onmessage = (data) => {
+    const bytes = new Uint8Array(data);
+    if (bytes[0] === 0x00) {
+      const json = new TextDecoder().decode(bytes.subarray(1));
+      callback(JSON.parse(json));
+    }
+  };
+
+  await commands.notificationChannel({ channel, req: { channelId } }).then(ensureResult);
+
+  return {
+    async close() {
+      channel.onmessage = () => {};
+      await commands.notificationChannelClose({ req: { channelId } }).then(ensureResult);
     },
   };
 }

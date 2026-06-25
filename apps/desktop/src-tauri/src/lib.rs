@@ -57,6 +57,8 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::surface::surface_detach,
             transport::logs::log_channel::<tauri::Wry>,
             transport::logs::log_channel_close,
+            transport::notification::notification_channel::<tauri::Wry>,
+            transport::notification::notification_channel_close,
             transport::settings::setting_get,
             transport::settings::setting_set,
             transport::settings::setting_list,
@@ -172,7 +174,6 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .events(tauri_specta::collect_events![
             orchestrator_host::StatusWire,
             orchestrator_host::LogsChanged,
-            transport::notification::NotificationWire,
             bridge::DaemonLost,
             menu::MenuNavigate,
             menu::CommandCenterOpen,

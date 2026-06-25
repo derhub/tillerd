@@ -27,6 +27,6 @@ pub use mark_all_notifications_read::MarkAllNotificationsRead;
 pub use mark_notification_read::MarkNotificationRead;
 pub use prune_notifications::PruneNotifications;
 pub use record_notification::RecordNotification;
-pub use sink::NotificationSink;
+pub use sink::{CloseNotificationChannel, NotificationSink, OpenNotificationChannel};
 pub use snooze_notification::SnoozeNotification;
 pub use view::NotificationView;

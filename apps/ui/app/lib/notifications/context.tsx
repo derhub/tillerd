@@ -1,15 +1,13 @@
-import type { NotificationWire } from "@tillerd/client-bindings";
+import type { NotificationChannelHandle, NotificationWire } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
 import { Store, useSelector } from "@tanstack/react-store";
-import { getQueryClient, query, subscribe } from "@tillerd/client-bindings";
+import { getQueryClient, notificationChannel, query } from "@tillerd/client-bindings";
 import React from "react";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
 import { boundedPrepend, MAX_ITEMS } from "./store";
 
-// TanStack Store owns shared client UI state.
-// Durable history hydrates on boot, live events prepend, indicator reads selector-scoped slices.
 interface NotificationsState {
   items: NotificationWire[];
   unread: number;
@@ -24,39 +22,40 @@ export function recordNotification(event: NotificationWire): void {
   }));
 }
 
-// Subscribe before hydrating durable history so no event arriving between the two reads is lost.
-// Async setup self-guards against resolving after disposal; no unmount race.
 export function startNotifications(
   resolveBanner: () => Promise<BannerDeps | null> = loadBannerDeps,
 ): () => void {
   let disposed = false;
-  let unsub: (() => void) | undefined;
+  let handle: NotificationChannelHandle | undefined;
   void (async () => {
-    const banner = await resolveBanner();
-    unsub = await subscribe("notificationEvent").listen((e) => {
-      if (disposed) return;
-      recordNotification(e.payload);
-      if (banner) void raiseBanner(e.payload, banner);
-    });
-    if (disposed) {
-      unsub();
-      return;
+    try {
+      const banner = await resolveBanner();
+      handle = await notificationChannel((wireEvent) => {
+        if (disposed) return;
+        recordNotification(wireEvent);
+        if (banner) void raiseBanner(wireEvent, banner);
+      });
+      if (disposed) {
+        void handle.close();
+        return;
+      }
+      const history = await getQueryClient().ensureQueryData(query("notificationsList"));
+      if (disposed) {
+        void handle.close();
+        return;
+      }
+      notificationsStore.setState((s) => {
+        const seen = new Set(s.items.map((i) => i.id));
+        const merged = [...s.items, ...history.filter((h) => !seen.has(h.id))];
+        return { ...s, items: merged.slice(0, MAX_ITEMS) };
+      });
+    } catch (err) {
+      console.error("startNotifications failed:", err);
     }
-    const history = await getQueryClient().ensureQueryData(query("notificationsList"));
-    if (disposed) {
-      unsub();
-      return;
-    }
-    // History is the durable baseline; keep any live events already received above it.
-    notificationsStore.setState((s) => {
-      const seen = new Set(s.items.map((i) => i.id));
-      const merged = [...s.items, ...history.filter((h) => !seen.has(h.id))];
-      return { ...s, items: merged.slice(0, MAX_ITEMS) };
-    });
   })();
   return () => {
     disposed = true;
-    unsub?.();
+    void handle?.close();
   };
 }
 

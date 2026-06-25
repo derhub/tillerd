@@ -21,15 +21,20 @@ export async function raiseBanner(event: NotificationWire, deps: BannerDeps): Pr
 }
 
 export async function loadBannerDeps(): Promise<BannerDeps | null> {
-  if (!isDesktopHost()) return null;
-  const [{ getCurrentWindow }, plugin] = await Promise.all([
-    import("@tauri-apps/api/window"),
-    import("@tauri-apps/plugin-notification"),
-  ]);
-  return {
-    isFocused: () => getCurrentWindow().isFocused(),
-    isPermissionGranted: () => plugin.isPermissionGranted(),
-    requestPermission: async () => (await plugin.requestPermission()) === "granted",
-    send: (title, body) => plugin.sendNotification({ title, body }),
-  };
+  try {
+    if (!isDesktopHost()) return null;
+    const [{ getCurrentWindow }, plugin] = await Promise.all([
+      import("@tauri-apps/api/window"),
+      import("@tauri-apps/plugin-notification"),
+    ]);
+    return {
+      isFocused: () => getCurrentWindow().isFocused(),
+      isPermissionGranted: () => plugin.isPermissionGranted(),
+      requestPermission: async () => (await plugin.requestPermission()) === "granted",
+      send: (title, body) => plugin.sendNotification({ title, body }),
+    };
+  } catch (err) {
+    console.warn("loadBannerDeps failed, falling back to no native banners:", err);
+    return null;
+  }
 }

@@ -8,8 +8,6 @@ import { delegatingQuery } from "~/lib/test/real-bindings";
 
 import { NotificationsProvider, notificationsStore, useNotifications } from "./context";
 
-// Shared module store reset before AND after each test: sibling suite failures that record
-// an error notification must not leak into these counts.
 const resetStore = () => notificationsStore.setState(() => ({ items: [], unread: 0 }));
 beforeEach(resetStore);
 afterEach(() => {
@@ -17,14 +15,9 @@ afterEach(() => {
   resetStore();
 });
 
-// -- module-level fakes (process-global; set up before the SUT imports) ----------------------
-
-let listenHandler: ((e: { payload: NotificationWire }) => void) | null = null;
+let notificationHandler: ((event: NotificationWire) => void) | null = null;
 let historyData: NotificationWire[] = [];
 
-// Spread the real module so non-overridden exports stay intact: mock.module is process-global
-// and persists across files, so a partial replacement would clobber sibling suites that use the
-// real query/command wrappers. afterAll restores so this override does not leak past this file.
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
@@ -32,26 +25,24 @@ void mock.module("@tillerd/client-bindings", () => ({
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
   }),
-  subscribe: () => ({
-    listen: async (cb: (e: { payload: NotificationWire }) => void) => {
-      listenHandler = cb;
-      return () => {
-        listenHandler = null;
-      };
-    },
-  }),
+  notificationChannel: async (cb: (event: NotificationWire) => void) => {
+    notificationHandler = cb;
+    return {
+      close: async () => {
+        notificationHandler = null;
+      },
+    };
+  },
 }));
 
 afterAll(() => mock.restore());
-
-// -----------------------------------------------------------------------------------------
 
 function ev(id: string): NotificationWire {
   return { id, category: "surface-stopped", severity: "info", message: `m${id}`, ts: Number(id) };
 }
 
 function fire(event: NotificationWire): void {
-  listenHandler?.({ payload: event });
+  notificationHandler?.(event);
 }
 
 function makeWrapper() {

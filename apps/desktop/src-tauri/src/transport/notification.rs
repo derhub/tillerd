@@ -6,14 +6,11 @@ use orchestrator::app::notification::{
     NotificationView, PruneNotifications, RecordNotification, SnoozeNotification,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 
-use crate::transport::macros::{transport_command, transport_query};
+use crate::transport::macros::{domain_channel, transport_command, transport_query};
 
-pub const NOTIFICATION_EVENT: &str = "notification://event";
-
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
-#[tauri_specta(event_name = "notification://event")]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationWire {
     pub id: String,
@@ -76,11 +73,23 @@ impl<R: Runtime> NotificationForwarder<R> {
 
 impl<R: Runtime> NotificationSink for NotificationForwarder<R> {
     fn emit(&self, notification: &RecordNotification) {
-        let _ = self.app.emit(
-            NOTIFICATION_EVENT,
-            NotificationWire::from_record(notification),
-        );
+        if let Some(bus) = self.app.try_state::<crate::transport::Bus>() {
+            let wire = NotificationWire::from_record(notification);
+            if let Ok(json) = serde_json::to_vec(&wire) {
+                let event = orchestrator::shared::domain_channel::DomainChannelEvent::Bytes(&json);
+                bus.cx()
+                    .domain_channel_sinks()
+                    .dispatch_prefix("notifications://", |sink| {
+                        sink.emit(&event);
+                    });
+            }
+        }
     }
+}
+
+domain_channel! {
+    pub open notification_channel(orchestrator::app::notification::OpenNotificationChannel),
+    pub close notification_channel_close(orchestrator::app::notification::CloseNotificationChannel)
 }
 
 transport_query!(

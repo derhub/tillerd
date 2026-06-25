@@ -1,13 +1,10 @@
 use orchestrator::app::surface::{
     CloseSurface, DetachSurface, FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces,
-    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, StopSurface,
-    SurfaceView,
+    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, StopSurface, SurfaceView,
 };
 use tauri::{AppHandle, Runtime};
 
-use crate::transport::macros::{
-    domain_channel, transport_command, transport_query,
-};
+use crate::transport::macros::{domain_channel, transport_command, transport_query};
 
 pub struct ChannelSink {
     channel: tauri::ipc::Channel<Vec<u8>>,
@@ -94,9 +91,9 @@ pub async fn surface_spawn(
     session_id: String,
     bus: tauri::State<'_, crate::transport::Bus>,
 ) -> ::std::result::Result<String, ::std::string::String> {
-    use orchestrator::app::surface::{SpawnSurface, FindSurfaceByPlacement};
-    use orchestrator::app::notification::SurfaceStarted;
     use crate::transport::notification::now_ms;
+    use orchestrator::app::notification::SurfaceStarted;
+    use orchestrator::app::surface::{FindSurfaceByPlacement, SpawnSurface};
 
     let placement = uuid::Uuid::new_v4().to_string();
     bus.execute(SpawnSurface {

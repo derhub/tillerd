@@ -23,7 +23,9 @@ export {
   orchestratorStatus,
   surfaceChannel,
   logChannel,
+  notificationChannel,
   type SurfaceChannelEvent,
   type SurfaceChannelHandle,
   type LogChannelHandle,
+  type NotificationChannelHandle,
 } from "./subscribe";

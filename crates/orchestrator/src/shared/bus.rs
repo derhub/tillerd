@@ -150,6 +150,17 @@ impl<S: ?Sized> Registry<S> {
             }
         }
     }
+
+    pub fn dispatch_prefix(&self, prefix: &str, f: impl Fn(&S)) {
+        let sinks = self.sinks.read().unwrap_or_else(|e| e.into_inner());
+        for (key, entries) in sinks.iter() {
+            if key.starts_with(prefix) {
+                for (_, s) in entries {
+                    f(&**s);
+                }
+            }
+        }
+    }
 }
 
 /// Dispatches commands and queries over a shared context, carrying only the
