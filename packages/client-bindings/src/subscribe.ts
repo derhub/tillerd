@@ -23,6 +23,18 @@ export function useEventSub<T>(evt: TauriEvent<T>, cb: EventCallback<T>): void {
   }, [evt]);
 }
 
+export type StreamHandle<T> = {
+  channel: Channel<T>;
+  teardown: () => void;
+};
+
+/** Create a typed Channel for any keyed stream; wire `onmessage` and return a teardown handle. */
+export function makeStreamChannel<T>(onmessage: (frame: T) => void): StreamHandle<T> {
+  const channel = new Channel<T>();
+  channel.onmessage = onmessage;
+  return { channel, teardown: () => { channel.onmessage = () => undefined; } };
+}
+
 /** Create a typed Channel for PTY byte streams (pass to commands.surfaceCreate). */
 export function makeSurfaceChannel(): Channel<number[]> {
   return new Channel<number[]>();
