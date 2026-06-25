@@ -342,7 +342,7 @@ export type LogsChanged = null;
 export type MenuNavigate = string;
 
 /**
- *  Flat read model for a notification row. Serializes to the SDK `NotificationEvent`
+ *  Flat read model for a notification row. Serializes to the SDK `NotificationView`
  *  wire shape -- the same camelCase JSON the host `NotificationWire` produced from a
  *  `NotificationRecord` (internal columns `actions_json`/`read`/`snooze_until` are
  *  not on the wire and so are omitted here).
