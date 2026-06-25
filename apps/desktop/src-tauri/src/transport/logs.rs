@@ -7,6 +7,11 @@ domain_channel! {
     pub close log_channel_close(orchestrator::app::logs::CloseLogChannel)
 }
 
+domain_channel! {
+    pub open logs_changed_channel(orchestrator::app::logs::OpenLogsChangedChannel),
+    pub close logs_changed_channel_close(orchestrator::app::logs::CloseLogsChangedChannel)
+}
+
 transport_query!(
     log_list() -> Vec<LogFileView>
         => ListLogFiles,

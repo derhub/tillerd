@@ -96,6 +96,8 @@ macro_rules! collect_transport {
             $crate::transport::surface::surface_detach,
             $crate::transport::logs::log_channel,
             $crate::transport::logs::log_channel_close,
+            $crate::transport::logs::logs_changed_channel,
+            $crate::transport::logs::logs_changed_channel_close,
             $crate::transport::notification::notification_channel,
             $crate::transport::notification::notification_channel_close,
             $crate::transport::project::project_create,

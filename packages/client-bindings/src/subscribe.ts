@@ -162,3 +162,24 @@ export async function notificationChannel(
     },
   };
 }
+
+export type LogsChangedChannelHandle = {
+  close(): Promise<void>;
+};
+
+export async function logsChangedChannel(callback: () => void): Promise<LogsChangedChannelHandle> {
+  const channel = new Channel<number[]>();
+  const channelId = randomId();
+  channel.onmessage = () => {
+    callback();
+  };
+
+  await commands.logsChangedChannel({ channel, req: { channelId } }).then(ensureResult);
+
+  return {
+    async close() {
+      channel.onmessage = () => {};
+      await commands.logsChangedChannelClose({ req: { channelId } }).then(ensureResult);
+    },
+  };
+}

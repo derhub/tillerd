@@ -1,9 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { LogChannelHandle } from "@tillerd/client-bindings";
+import type { LogChannelHandle, LogsChangedChannelHandle } from "@tillerd/client-bindings";
 
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { query, logChannel, subscribe, useEventSub } from "@tillerd/client-bindings";
+import { query, logChannel, logsChangedChannel } from "@tillerd/client-bindings";
 import React from "react";
 
 import type { LogRecord } from "~/lib/logs/log-record";
@@ -141,9 +141,27 @@ export function LogViewer({ initialService }: LogViewerProps) {
     });
   }, []);
 
-  useEventSub(subscribe("logsChanged"), () => {
-    void qc.invalidateQueries({ queryKey: ["logs"] });
-  });
+  React.useEffect(() => {
+    let closed = false;
+    let handle: LogsChangedChannelHandle | undefined;
+    void (async () => {
+      try {
+        handle = await logsChangedChannel(() => {
+          if (closed) return;
+          void qc.invalidateQueries({ queryKey: ["logs"] });
+        });
+        if (closed) {
+          void handle.close();
+        }
+      } catch (err) {
+        console.error("logsChangedChannel subscription failed:", err);
+      }
+    })();
+    return () => {
+      closed = true;
+      void handle?.close();
+    };
+  }, [qc]);
 
   React.useEffect(() => {
     if (!desktop) return;

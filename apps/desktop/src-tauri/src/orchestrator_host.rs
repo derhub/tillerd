@@ -24,13 +24,6 @@ use tillerd_paths::{
 
 pub const ORCHESTRATOR_STATUS_EVENT: &str = "orchestrator://status";
 
-pub const LOGS_CHANGED_EVENT: &str = "logs://changed";
-
-/// Nudge: the runtime logs directory changed; the renderer re-pulls via `log_list`/`log_tail`.
-#[derive(Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
-#[tauri_specta(event_name = "logs://changed")]
-pub struct LogsChanged;
-
 /// The boot lifecycle status as seen on the wire. Unchanged from the prior host.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 #[tauri_specta(event_name = "orchestrator://status")]
@@ -303,7 +296,18 @@ pub fn spawn_logs_watcher(app: AppHandle) {
                 let size = logs_dir_size(&dir).await;
                 if size != last {
                     last = size;
-                    let _ = app.emit(LOGS_CHANGED_EVENT, LogsChanged);
+                    if let Some(bus) = app.try_state::<crate::transport::Bus>() {
+                        let event =
+                            orchestrator::shared::domain_channel::DomainChannelEvent::Bytes(&[
+                                0x00, 110, 117, 108, 108,
+                            ]);
+                        bus.cx().domain_channel_sinks().dispatch_prefix(
+                            "logs://changed/",
+                            |sink| {
+                                sink.emit(&event);
+                            },
+                        );
+                    }
                 }
             }
         });

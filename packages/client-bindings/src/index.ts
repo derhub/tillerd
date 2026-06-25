@@ -24,8 +24,10 @@ export {
   surfaceChannel,
   logChannel,
   notificationChannel,
+  logsChangedChannel,
   type SurfaceChannelEvent,
   type SurfaceChannelHandle,
   type LogChannelHandle,
   type NotificationChannelHandle,
+  type LogsChangedChannelHandle,
 } from "./subscribe";

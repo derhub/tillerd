@@ -7,8 +7,8 @@
 
 pub(crate) mod follow;
 mod list_log_files;
+pub mod log_channel;
 mod parse;
-pub mod sink;
 mod tail_log;
 mod view;
 
@@ -17,7 +17,9 @@ pub(crate) mod test_util;
 
 pub use follow::LogFollower;
 pub use list_log_files::ListLogFiles;
+pub use log_channel::{
+    CloseLogChannel, CloseLogsChangedChannel, OpenLogChannel, OpenLogsChangedChannel,
+};
 pub use parse::parse_record;
-pub use sink::{CloseLogChannel, LogLine, LogSink, OpenLogChannel};
 pub use tail_log::TailLog;
 pub use view::{LogFileView, LogRecordView, LogTailView};

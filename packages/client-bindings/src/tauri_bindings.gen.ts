@@ -32,6 +32,8 @@ export const commands = {
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	logChannel: (args: { channel: Channel<number[]>; req: OpenLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel", args)),
 	logChannelClose: (args: { req: CloseLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel_close", args)),
+	logsChangedChannel: (args: { channel: Channel<number[]>; req: OpenLogsChangedChannel }) => typedError<null, string>(__TAURI_INVOKE("logs_changed_channel", args)),
+	logsChangedChannelClose: (args: { req: CloseLogsChangedChannel }) => typedError<null, string>(__TAURI_INVOKE("logs_changed_channel_close", args)),
 	notificationChannel: (args: { channel: Channel<number[]>; req: OpenNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel", args)),
 	notificationChannelClose: (args: { req: CloseNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel_close", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
@@ -208,7 +210,6 @@ export const commands = {
 export const events = {
 	commandCenterOpen: makeEvent<CommandCenterOpen>("command-center:open"),
 	daemonLost: makeEvent<DaemonLost>("daemon-lost"),
-	logsChanged: makeEvent<LogsChanged>("logs://changed"),
 	menuNavigate: makeEvent<MenuNavigate>("menu:navigate"),
 	orchestratorStatus: makeEvent<StatusWire>("orchestrator://status"),
 };
@@ -216,6 +217,10 @@ export const events = {
 /* Types */
 export type CloseLogChannel = {
 	service: string,
+};
+
+export type CloseLogsChangedChannel = {
+	channelId: string,
 };
 
 export type CloseNotificationChannel = {
@@ -336,9 +341,6 @@ export type LogTailView = {
 	end: number,
 };
 
-/**  Nudge: the runtime logs directory changed; the renderer re-pulls via `log_list`/`log_tail`. */
-export type LogsChanged = null;
-
 export type MenuNavigate = string;
 
 /**
@@ -376,6 +378,10 @@ export type NotificationWire = {
 
 export type OpenLogChannel = {
 	service: string,
+};
+
+export type OpenLogsChangedChannel = {
+	channelId: string,
 };
 
 export type OpenNotificationChannel = {
