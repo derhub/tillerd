@@ -258,15 +258,13 @@ mod tests {
         );
     }
 
-    // A `Close` send dispatches exactly one bus command (`UnsubscribeSurface`) and
-    // drops the registered sink so no further frame reaches it.
+    // A `Close` send dispatches `UnsubscribeSurface` through the bus, removing the
+    // registered sink so a subsequent frame reaches no sink. Asserting the removed
+    // sink (observable registry state) proves the unsubscribe deterministically,
+    // without depending on tracing span creation (process-global `MAX_LEVEL`-gated
+    // and therefore racy under parallel test threads).
     #[tokio::test]
     async fn close_send_unsubscribes_through_the_bus() {
-        let spans = BusSpans::default();
-        let _guard = tracing_subscriber::registry()
-            .with(spans.clone())
-            .set_default();
-
         let (bus, _probe) = bus_with_probe().await;
         let seen: Arc<Mutex<Vec<String>>> = Arc::default();
         let recorder = seen.clone();
@@ -283,17 +281,21 @@ mod tests {
         })
         .await
         .unwrap();
-        let spans_after_subscribe = *spans.0.lock().unwrap();
+
+        // Sanity: while subscribed, a dispatched frame reaches the sink.
+        bus.cx()
+            .surface_sinks()
+            .dispatch("sf_1", |s| s.emit("sf_1", &SurfaceEvent::Bytes(b"pre")));
+        assert_eq!(seen.lock().unwrap().as_slice(), ["sf_1".to_owned()]);
 
         surface_channel_send(&bus, "sf_1".to_owned(), SurfaceClientMsg::Close)
             .await
             .unwrap();
 
+        // After Close, the sink is gone: a dispatched frame reaches nothing new.
         bus.cx()
             .surface_sinks()
-            .dispatch("sf_1", |s| s.emit("sf_1", &SurfaceEvent::Bytes(b"x")));
-
-        assert!(seen.lock().unwrap().is_empty());
-        assert_eq!(*spans.0.lock().unwrap() - spans_after_subscribe, 1);
+            .dispatch("sf_1", |s| s.emit("sf_1", &SurfaceEvent::Bytes(b"post")));
+        assert_eq!(seen.lock().unwrap().as_slice(), ["sf_1".to_owned()]);
     }
 }

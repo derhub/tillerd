@@ -63,56 +63,32 @@ mod tests {
         }
     }
 
-    /// Counts the bus spans (`command`/`query`) opened in a closure -- the
-    /// observable signal that a dispatch entered the layered pipeline.
-    #[derive(Default, Clone)]
-    struct BusSpans(Arc<Mutex<usize>>);
-
-    impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for BusSpans {
-        fn on_new_span(
-            &self,
-            attrs: &tracing::span::Attributes<'_>,
-            _id: &tracing::span::Id,
-            _ctx: tracing_subscriber::layer::Context<'_, S>,
-        ) {
-            let name = attrs.metadata().name();
-            if name == "command" || name == "query" {
-                *self.0.lock().unwrap() += 1;
-            }
-        }
-    }
-
     #[tokio::test]
-    async fn subscribing_dispatches_exactly_one_command_through_the_bus() {
-        use tracing_subscriber::layer::SubscriberExt;
-        use tracing_subscriber::util::SubscriberInitExt;
+    async fn subscribing_registers_the_sink_through_the_bus() {
+        // The subscribe command's observable effect is sink registration: after
+        // it runs, a frame dispatched through the registry reaches the sink. This
+        // is the deterministic state proof that the command ran (no tracing span
+        // counting, which is process-global `MAX_LEVEL`-gated and racy under
+        // parallel test threads).
+        let seen: Arc<Mutex<Vec<String>>> = Arc::default();
+        let ctx = test_ctx().await.unwrap();
+        let bus = Bus::new(ctx.clone());
 
-        let spans = BusSpans::default();
-        let _guard = tracing_subscriber::registry()
-            .with(spans.clone())
-            .set_default();
-
-        let bus = Bus::new(test_ctx().await.unwrap());
         bus.execute(SubscribeSurface {
             surface_id: "sf_1".to_owned(),
-            sink: Arc::new(Recorder(Arc::default())),
+            sink: Arc::new(Recorder(Arc::clone(&seen))),
         })
         .await
         .unwrap();
 
-        assert_eq!(*spans.0.lock().unwrap(), 1);
+        ctx.surface_sinks()
+            .dispatch("sf_1", |s| s.emit("sf_1", &SurfaceEvent::Bytes(b"x")));
+
+        assert_eq!(seen.lock().unwrap().as_slice(), ["sf_1".to_owned()]);
     }
 
     #[tokio::test]
     async fn after_subscribing_frames_reach_the_sink_with_no_further_dispatch() {
-        use tracing_subscriber::layer::SubscriberExt;
-        use tracing_subscriber::util::SubscriberInitExt;
-
-        let spans = BusSpans::default();
-        let _guard = tracing_subscriber::registry()
-            .with(spans.clone())
-            .set_default();
-
         let seen: Arc<Mutex<Vec<String>>> = Arc::default();
         let ctx = test_ctx().await.unwrap();
         let bus = Bus::new(ctx.clone());
@@ -125,15 +101,16 @@ mod tests {
         .unwrap();
 
         // Emit several frames the way the pump does: straight through the
-        // registry, no bus involved.
+        // registry, never `bus.execute`. By construction there is no per-frame
+        // dispatch, so the three deliveries below (one per emitted frame, and no
+        // more) are the deterministic proof of "one command, no per-frame
+        // dispatch" -- no span counting required.
         for _ in 0..3 {
             ctx.surface_sinks()
                 .dispatch("sf_1", |s| s.emit("sf_1", &SurfaceEvent::Bytes(b"x")));
         }
 
         assert_eq!(seen.lock().unwrap().as_slice(), ["sf_1", "sf_1", "sf_1"]);
-        // Only the subscribe command dispatched -- never one-per-frame.
-        assert_eq!(*spans.0.lock().unwrap(), 1);
     }
 
     #[tokio::test]

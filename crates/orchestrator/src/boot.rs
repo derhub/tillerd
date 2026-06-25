@@ -36,17 +36,9 @@ static LOG_GUARD: std::sync::OnceLock<Box<dyn std::any::Any + Send + Sync>> =
 
 /// Install the process-global file-tracing subscriber on first boot.
 ///
-/// Gated to non-test builds: `init_file_tracing` calls `set_global_default`,
-/// which mutates the process-wide `tracing` `MAX_LEVEL` static. In the `--lib`
-/// unit-test binary that global write races, across threads, with the
-/// thread-local `set_default` guards the span-counting tests install; a parallel
-/// guard lowering `MAX_LEVEL` in the window where a measured `info_span!` reads
-/// it makes that span never get created, so its layer counts zero. Skipping the
-/// global install under `cfg(test)` leaves `MAX_LEVEL` governed solely by those
-/// thread-local guards (always TRACE while a guard is alive), so every span
-/// test's measured dispatch is observed deterministically regardless of order or
-/// parallelism.
-#[cfg(not(test))]
+/// Runs unconditionally in test and prod: span-observing tests assert registry
+/// and handler state rather than span creation, so the `MAX_LEVEL` global that
+/// `init_file_tracing`'s `set_global_default` mutates cannot perturb them.
 fn init_tracing(log_dir: &std::path::Path) {
     let (guard, _root) = tillerd_paths::logging::init_file_tracing(
         "orchestrator",
@@ -54,12 +46,6 @@ fn init_tracing(log_dir: &std::path::Path) {
         log_dir,
     );
     let _ = LOG_GUARD.set(Box::new(guard));
-}
-
-#[cfg(test)]
-fn init_tracing(_log_dir: &std::path::Path) {
-    // No-op in the unit-test binary: see the `cfg(not(test))` variant above.
-    let _ = &LOG_GUARD;
 }
 
 /// Build the transport-agnostic core: open the pool, run migrations, construct

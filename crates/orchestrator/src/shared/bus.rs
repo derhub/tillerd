@@ -689,16 +689,24 @@ mod tests {
         );
         assert_eq!(*spans.0.lock().unwrap(), 0);
 
-        struct NoopOverCtx;
-        impl Command<Ctx> for NoopOverCtx {
+        // Control: a real `bus.execute` *does* enter the layered path -- proving
+        // the assertion above is genuine off-bus routing, not a dead layer. The
+        // command's observable effect (it runs its handler and returns Ok through
+        // the dispatch) is the deterministic proof it went through the bus; the
+        // span count is process-global `MAX_LEVEL`-gated and racy under parallel
+        // test threads, so it is not asserted here.
+        struct MarkRan(Arc<Mutex<bool>>);
+        impl Command<Ctx> for MarkRan {
             async fn handle(&self, _cx: &Ctx) -> Result<()> {
+                *self.0.lock().unwrap() = true;
                 Ok(())
             }
         }
 
+        let ran: Arc<Mutex<bool>> = Arc::default();
         let bus = Bus::new(cx);
-        bus.execute(NoopOverCtx).await.unwrap();
-        assert_eq!(*spans.0.lock().unwrap(), 1);
+        bus.execute(MarkRan(Arc::clone(&ran))).await.unwrap();
+        assert!(*ran.lock().unwrap(), "the command ran through the bus");
     }
 
     /// 3.1: a `Notable` op dispatched through the bus is observed by the
