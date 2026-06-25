@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::app::logs::LogFollower;
 use crate::app::notification::NotificationSink;
 use crate::app::surface::SurfaceStream;
 use crate::context::Ctx;
@@ -74,6 +75,11 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
         }
         .run(),
     );
+
+    // Follow the runtime logs directory; appended lines fan out per service to the
+    // same registry a `SubscribeLogs` command registers client sinks into.
+    let logs_dir = tillerd_paths::logging::logs_dir_in(&cfg.log_dir);
+    tokio::spawn(LogFollower::new(logs_dir, Arc::clone(ctx.log_sinks())).run());
 
     Ok(Bus::new(ctx))
 }

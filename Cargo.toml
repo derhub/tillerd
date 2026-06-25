@@ -41,6 +41,8 @@ tracing-subscriber = "0.3"
 uuid = { version = "1", features = ["v4"] }
 # platform
 nix = "0.31"
+# filesystem watch (vetted cross-platform watcher; see non-blocking-io memory)
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 # mcp
 rmcp = "1.7"
 # typed tauri bindings (RC toolchain -- pinned exact; build-time only, output committed + drift-guarded)
