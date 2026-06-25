@@ -2,16 +2,18 @@ import type { SettingView } from "@tillerd/client-bindings";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
 import { ACTION } from "~/lib/commands/ids";
-import { _resetForTests, SettingsProvider } from "~/lib/settings/context";
-
-import { KeybindingSettings } from "./KeybindingSettings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 
+// Spread the real module so non-overridden exports stay intact: mock.module is process-global
+// and persists across files, so a partial replacement would clobber sibling suites that use the
+// real query/command wrappers. afterAll restores so this override does not leak past this file.
+const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
+  ...actualBindings,
   runCommand: (
     key: string,
     args: { scope: string; projectId: null; key: string; valueJson: string },
@@ -25,11 +27,16 @@ void mock.module("@tillerd/client-bindings", () => ({
   }),
 }));
 
+const { _resetForTests, SettingsProvider } = await import("~/lib/settings/context");
+const { KeybindingSettings } = await import("./KeybindingSettings");
+
 afterEach(() => {
   cleanup();
   _resetForTests();
   settingSetCalls.length = 0;
 });
+
+afterAll(() => mock.restore());
 
 function listFrom(initial: Record<string, unknown>): SettingView[] {
   return Object.entries(initial).map(([key, value]) => ({ key, value }));

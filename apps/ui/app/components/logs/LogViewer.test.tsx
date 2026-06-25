@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
 
 let desktop = true;
 let files: { name: string; path: string; size: number }[] = [];
@@ -13,7 +13,12 @@ void mock.module("~/lib/transport", () => ({
   isDesktopHost: () => desktop,
 }));
 
+// Spread the real module so non-overridden exports stay intact: mock.module is process-global
+// and persists across files, so a partial replacement would clobber sibling suites that use the
+// real query/command wrappers. afterAll restores so this override does not leak past this file.
+const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
+  ...actualBindings,
   query: (key: string, args?: { path?: string }) => ({
     queryKey: [key, args ?? null],
     queryFn: () => {
@@ -27,7 +32,7 @@ void mock.module("@tillerd/client-bindings", () => ({
   useEventSub: () => {},
 }));
 
-import { LogViewer } from "./LogViewer";
+const { LogViewer } = await import("./LogViewer");
 
 afterEach(() => {
   cleanup();
@@ -35,6 +40,8 @@ afterEach(() => {
   files = [];
   recordsByPath = {};
 });
+
+afterAll(() => mock.restore());
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

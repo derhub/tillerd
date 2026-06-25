@@ -2,7 +2,7 @@ import type { NotificationWire } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 
 import { NotificationsProvider, notificationsStore, useNotifications } from "./context";
 
@@ -20,7 +20,12 @@ afterEach(() => {
 let listenHandler: ((e: { payload: NotificationWire }) => void) | null = null;
 let historyData: NotificationWire[] = [];
 
+// Spread the real module so non-overridden exports stay intact: mock.module is process-global
+// and persists across files, so a partial replacement would clobber sibling suites that use the
+// real query/command wrappers. afterAll restores so this override does not leak past this file.
+const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
+  ...actualBindings,
   query: () => ({ queryFn: async () => historyData }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
@@ -34,6 +39,8 @@ void mock.module("@tillerd/client-bindings", () => ({
     },
   }),
 }));
+
+afterAll(() => mock.restore());
 
 // -----------------------------------------------------------------------------------------
 

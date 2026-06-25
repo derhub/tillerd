@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
@@ -25,6 +25,7 @@ void mock.module("@tillerd/client-bindings", () => ({
 const { CommandCenter } = await import("./CommandCenter");
 
 afterEach(cleanup);
+afterAll(() => mock.restore());
 
 function renderWith(commands: Command[]) {
   return render(
