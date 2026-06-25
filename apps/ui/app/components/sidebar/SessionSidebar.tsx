@@ -19,6 +19,7 @@ import {
 } from "~/lib/commands/ids";
 import { useRegisterCommands, type Command } from "~/lib/commands/registry";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
+import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import {
@@ -39,11 +40,18 @@ const newSessionArgs = (projectId: string) => ({
 
 export function SessionSidebar({
   activeWorkspaceId,
-  activeProjectId,
+  activeProjectId: propActiveProjectId,
 }: { activeWorkspaceId?: string; activeProjectId?: string } = {}) {
   const isDesktop = useDesktopHost().status === "ready";
   const navigate = useNavigate();
-  const { projects } = useSidebarData(activeWorkspaceId, activeProjectId);
+
+  const storeActiveProjectId = useActiveProject();
+  const activeProjectId = propActiveProjectId ?? storeActiveProjectId;
+  const { projects } = useSidebarData(activeWorkspaceId, propActiveProjectId);
+
+  if (propActiveProjectId && storeActiveProjectId !== propActiveProjectId) {
+    setActiveProject(propActiveProjectId);
+  }
 
   const createProject = useMutation(command("projectCreate"));
   const createSession = useMutation(command("sessionCreate"));
@@ -101,7 +109,10 @@ export function SessionSidebar({
         onSuccess: (proj) => {
           void navigate({ to: "/" } as never);
           createSession.mutate(newSessionArgs(proj.id), {
-            onSuccess: (sess) => void navigate({ to: `/session/${sess.id}` } as never),
+            onSuccess: (sess) => {
+              setActiveProject(proj.id);
+              void navigate({ to: `/session/${sess.id}` } as never);
+            },
           });
         },
       },
@@ -112,7 +123,10 @@ export function SessionSidebar({
     (projectId: string) => {
       if (!isDesktop) return;
       createSession.mutate(newSessionArgs(projectId), {
-        onSuccess: (sess) => void navigate({ to: `/session/${sess.id}` } as never),
+        onSuccess: (sess) => {
+          setActiveProject(projectId);
+          void navigate({ to: `/session/${sess.id}` } as never);
+        },
       });
     },
     [isDesktop, navigate, createSession],
@@ -215,7 +229,6 @@ export function SessionSidebar({
   const treeHandlers: ProjectTreeHandlers = {
     isDesktop,
     editingId,
-    expandedProjectId: activeProjectId ?? null,
     isDetached: (id) => detachedProjects.has(id),
     onStartEdit: setEditingId,
     onStartEditSession: setEditingId,

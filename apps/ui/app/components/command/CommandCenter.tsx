@@ -16,7 +16,9 @@ import {
   useLeaderBinding,
   useResolvedBindings,
 } from "~/lib/commands/useKeybindings";
+import { useCommandCenterOpen } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
+import { useWindowEvent } from "~/lib/useWindowEvent";
 
 const isMac =
   typeof navigator !== "undefined" && /mac/i.test(navigator.platform || navigator.userAgent);
@@ -30,12 +32,15 @@ async function mountLeaderKey(leader: string, onActivate: () => void): Promise<(
 }
 
 export function CommandCenter() {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useCommandCenterOpen();
   const commands = useCommands();
   const bindings = useResolvedBindings();
   const leader = useLeaderBinding();
 
   useGlobalShortcuts(bindings);
+
+  // In-renderer open signal — uniform across hosts and reachable from tests / e2e.
+  useWindowEvent("command-center:open", () => setOpen(true));
 
   React.useEffect(() => subscribe(mountLeaderKey(leader, () => setOpen(true))), [leader]);
 

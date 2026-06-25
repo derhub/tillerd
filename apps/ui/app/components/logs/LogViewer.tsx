@@ -140,7 +140,7 @@ export function LogViewer({ initialService }: LogViewerProps) {
   }, []);
 
   useEventSub(subscribe("logsChanged"), () => {
-    void qc.invalidateQueries({ queryKey: ["logs", "backlog"] });
+    void qc.invalidateQueries({ queryKey: ["logs"] });
   });
 
   React.useEffect(() => {

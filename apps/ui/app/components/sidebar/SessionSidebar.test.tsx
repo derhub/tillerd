@@ -15,6 +15,7 @@ import { afterEach, expect, test, describe, mock } from "bun:test";
 import React, { type ReactNode } from "react";
 
 import { CommandRegistryProvider } from "~/lib/commands/registry";
+import { resetUiStore } from "~/lib/store";
 
 // Renders real useSidebarData/ProjectRow through the data layer (mocked invoke + Query cache),
 // inside a real router + Suspense boundary so no global mocks leak into sibling test files.
@@ -32,7 +33,14 @@ const sessionListedFor: string[] = [];
 // So invoke must return the RAW data (not a typedError shape).
 void mock.module("@tauri-apps/api/core", () => ({
   invoke: async (cmd: string, args?: Record<string, unknown>) => {
-    if (cmd === "project_list") return fakeProjects;
+    if (cmd === "project_list") {
+      const wsId = args?.["workspaceId"] as string | null;
+      return wsId ? fakeProjects.filter((p) => p.workspaceId === wsId) : fakeProjects;
+    }
+    if (cmd === "project_get") {
+      const id = args?.["id"] as string;
+      return fakeProjects.find((p) => p.id === id) ?? null;
+    }
     if (cmd === "session_list") {
       const projectId = args?.["projectId"] as string | null;
       const offset = (args?.["offset"] as number | null) ?? 0;
@@ -88,6 +96,7 @@ afterEach(() => {
   fakeSessions = [];
   sessionListedFor.length = 0;
   setReady(false);
+  resetUiStore();
 });
 
 describe("workspace scoping", () => {

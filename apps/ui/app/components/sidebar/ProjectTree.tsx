@@ -6,8 +6,6 @@ import { DEFAULT_WORKSPACE_ID, UNFILED_ID } from "~/components/sidebar/sidebar-d
 export interface ProjectTreeHandlers {
   isDesktop: boolean;
   editingId: string | null;
-  // Other rows start collapsed and fetch nothing until expanded.
-  expandedProjectId: string | null;
   isDetached: (projectId: string) => boolean;
   onStartEdit: (id: string) => void;
   onStartEditSession: (sessionId: string) => void;
@@ -49,7 +47,6 @@ export function ProjectTree({
       project={project}
       isDesktop={handlers.isDesktop}
       detached={handlers.isDetached(project.id)}
-      defaultExpanded={handlers.expandedProjectId === project.id}
       editingId={handlers.editingId}
       projectIds={projectIds}
       onStartEdit={() => handlers.onStartEdit(project.id)}

@@ -8,6 +8,7 @@ import { ProjectContextMenu } from "~/components/sidebar/ProjectContextMenu";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { reorderByDrop } from "~/lib/reorder";
+import { useProjectExpanded } from "~/lib/store";
 import { cn } from "~/lib/utils";
 
 // ProjectSessions mounts ONLY while expanded -- a collapsed project fetches nothing.
@@ -15,7 +16,6 @@ export function ProjectRow({
   project,
   isDesktop,
   detached,
-  defaultExpanded,
   editingId,
   onStartEdit,
   onStartEditSession,
@@ -35,7 +35,6 @@ export function ProjectRow({
   project: Project;
   isDesktop: boolean;
   detached: boolean;
-  defaultExpanded: boolean;
   editingId: string | null;
   onStartEdit: () => void;
   onStartEditSession: (sessionId: string) => void;
@@ -54,7 +53,8 @@ export function ProjectRow({
 }) {
   const [menuAt, setMenuAt] = React.useState<{ x: number; y: number } | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
-  const [expanded, setExpanded] = React.useState(defaultExpanded);
+  const [expanded, setExpanded] = useProjectExpanded(project.id);
+
   const isUnfiled = project.id === UNFILED_ID;
   const isEditing = editingId === project.id;
   // Unfiled is pinned last and cannot be dragged or dropped onto.
@@ -107,7 +107,7 @@ export function ProjectRow({
       >
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
           data-testid="project-expand"

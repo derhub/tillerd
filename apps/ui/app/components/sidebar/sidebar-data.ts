@@ -10,18 +10,16 @@ export const DRAG_SESSION = "application/x-tillerd-session";
 
 // Sessions are not fetched here -- each project loads its own page lazily on expand.
 export function useSidebarData(activeWorkspaceId?: string, activeProjectId?: string) {
-  const { data: allProjects } = useSuspenseQuery(query("projectList", { workspaceId: null }));
+  const queryOpts = activeProjectId
+    ? query("projectGet", { id: activeProjectId })
+    : query("projectList", { workspaceId: activeWorkspaceId ?? null });
 
-  // Stable reference required -- downstream command builders re-register on every new array, causing an infinite loop.
-  const projects = React.useMemo(
-    () =>
-      activeProjectId
-        ? allProjects.filter((p) => p.id === activeProjectId)
-        : activeWorkspaceId
-          ? allProjects.filter((p) => p.workspaceId === activeWorkspaceId)
-          : allProjects,
-    [allProjects, activeWorkspaceId, activeProjectId],
-  );
+  const { data } = useSuspenseQuery(queryOpts as any);
+
+  const projects = React.useMemo(() => {
+    if (!data) return [];
+    return Array.isArray(data) ? data : [data];
+  }, [data]);
 
   return { projects };
 }
