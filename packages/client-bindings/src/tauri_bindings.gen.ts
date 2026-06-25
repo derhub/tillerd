@@ -32,15 +32,15 @@ export const commands = {
 	/**  Rebind the native leader accelerator. No-op until the leader item is installed. */
 	commandCenterSetLeader: (args: { accelerator: string }) => typedError<null, string>(__TAURI_INVOKE("command_center_set_leader", args)),
 	/**
-	 *  Create (or revisit) a surface at a session + placement. On revisit, the existing
-	 *  surface's output channel is re-registered and its proxy re-attached (replaying
+	 *  Create (or revisit) a surface at a session + placement. On revisit, a fresh
+	 *  per-surface sink is registered and the proxy re-attached (replaying
 	 *  scrollback); otherwise a fresh surface is spawned. Returns the surface id.
 	 */
 	surfaceCreate: (args: { channel: Channel<number[]>; sessionId: string; placement: string; cols: number; rows: number; cwd: string | null }) => typedError<string, string>(__TAURI_INVOKE("surface_create", args)),
 	/**  Spawn a surface in a session with a minted placement. Returns the surface id. */
 	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
 	/**
-	 *  Close the surface bound to a session + placement: drop its output channel and
+	 *  Close the surface bound to a session + placement: drop its subscription and
 	 *  remove its runtime proxy + record.
 	 */
 	surfaceClose: (args: { sessionId: string; placement: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
@@ -50,7 +50,7 @@ export const commands = {
 	surfaceResize: (args: { surfaceId: string; cols: number; rows: number }) => typedError<null, string>(__TAURI_INVOKE("surface_resize", args)),
 	/**
 	 *  Detach a surface's proxy stream; the PTY keeps running in the daemon. Drops the
-	 *  output channel so the stream goes quiet.
+	 *  subscription so the stream goes quiet.
 	 */
 	surfaceDetach: (args: { surfaceId: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),

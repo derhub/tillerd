@@ -1,23 +1,16 @@
-//! The tauri implementation of the surface output sink. Bytes for each surface are
-//! written to a per-surface `tauri::ipc::Channel<Vec<u8>>` the renderer registers;
-//! status/exit/error are forwarded as tauri events. A future web transport
-//! implements the same `SurfaceSink` port with SSE/WebSocket.
+//! The tauri implementation of the surface output sink. Each surface subscription
+//! owns one `ChannelSink`: bytes are written to the per-surface
+//! `tauri::ipc::Channel<Vec<u8>>` the renderer provided; status/exit/error are
+//! forwarded as tauri events. The orchestrator registry keys sinks by surface id,
+//! so this sink ignores the routing arg and serves its single channel. A future
+//! web transport implements the same `SurfaceSink` port with SSE/WebSocket.
 //!
 //! Keystroke input never flows through this sink -- it carries daemon -> renderer
 //! output only (see the off-bus input endpoints), so no payload is ever logged here.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
 use orchestrator::app::surface::{SurfaceEvent, SurfaceSink};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Runtime};
-
-/// The per-surface output channels, keyed by surface id. The renderer creates a
-/// `Channel` per surface and registers it (at spawn/attach); the sink looks it up by
-/// id to deliver bytes. Shared (`Arc`) so the registering command and the sink see the
-/// same map.
-pub type SurfaceChannels = Arc<Mutex<HashMap<String, tauri::ipc::Channel<Vec<u8>>>>>;
 
 /// The status event name (surface lifecycle: live/idle/failed).
 pub const STATUS_EVENT: &str = "surface://status";
@@ -50,18 +43,21 @@ pub struct SurfaceErrorPayload {
     pub reason: String,
 }
 
-/// Bridges runtime output to the renderer over tauri IPC. Generic over the runtime so
-/// it works under both `Wry` and the `tauri::test` mock runtime.
+/// Bridges one surface's runtime output to the renderer over tauri IPC. Bytes go
+/// to the renderer-provided `Channel`; lifecycle frames are emitted as events.
+/// Generic over the runtime so it works under both `Wry` and the `tauri::test`
+/// mock runtime. The registry owns key-scoping, so `emit`'s surface arg is used
+/// only to address the lifecycle event payloads, never to route bytes.
 pub struct ChannelSink<R: Runtime> {
-    channels: SurfaceChannels,
+    channel: tauri::ipc::Channel<Vec<u8>>,
     app: AppHandle<R>,
 }
 
 impl<R: Runtime> ChannelSink<R> {
-    /// Build a sink over a shared channel registry and the app handle it emits events
+    /// Build a sink over one renderer channel and the app handle it emits events
     /// through.
-    pub fn new(channels: SurfaceChannels, app: AppHandle<R>) -> Self {
-        Self { channels, app }
+    pub fn for_channel(channel: tauri::ipc::Channel<Vec<u8>>, app: AppHandle<R>) -> Self {
+        Self { channel, app }
     }
 }
 
@@ -69,7 +65,7 @@ impl<R: Runtime> SurfaceSink for ChannelSink<R> {
     fn emit(&self, surface: &str, event: &SurfaceEvent<'_>) {
         match event {
             SurfaceEvent::Bytes(bytes) => {
-                deliver(&self.channels, surface, bytes);
+                let _ = self.channel.send(bytes.to_vec());
             }
             SurfaceEvent::Status(status) => {
                 let _ = self.app.emit(
@@ -82,10 +78,6 @@ impl<R: Runtime> SurfaceSink for ChannelSink<R> {
                     EXIT_EVENT,
                     serde_json::json!({ "surfaceId": surface, "qualifier": qualifier }),
                 );
-                self.channels
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner())
-                    .remove(surface);
             }
             SurfaceEvent::Error(reason) => {
                 let _ = self.app.emit(
@@ -97,38 +89,6 @@ impl<R: Runtime> SurfaceSink for ChannelSink<R> {
     }
 }
 
-/// Deliver bytes to a surface's registered output channel, if any. A surface with no
-/// registered channel (never attached, or already detached) silently drops its bytes --
-/// there is nowhere to stream.
-fn deliver(channels: &SurfaceChannels, surface: &str, bytes: &[u8]) {
-    let channels = channels.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(channel) = channels.get(surface) {
-        let _ = channel.send(bytes.to_vec());
-    }
-}
-
-/// Register a surface's output channel so the sink can deliver its bytes. The renderer
-/// calls this (via a thin command) before attach/spawn so no initial output is lost.
-pub fn register_channel(
-    channels: &SurfaceChannels,
-    surface: &str,
-    channel: tauri::ipc::Channel<Vec<u8>>,
-) {
-    channels
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(surface.to_owned(), channel);
-}
-
-/// Drop a surface's output channel (on detach/close); the sink then has nowhere to
-/// deliver, so its bytes are discarded.
-pub fn unregister_channel(channels: &SurfaceChannels, surface: &str) {
-    channels
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .remove(surface);
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -138,14 +98,14 @@ mod tests {
     /// Captured payloads delivered to a recording channel, shared with the test.
     type Recorded = Arc<Mutex<Vec<Vec<u8>>>>;
 
-    /// A `Channel` that records every payload it receives, so a test can assert what
-    /// the sink delivered without a running tauri app.
+    /// A `Channel` that records every payload it receives, so a test can assert
+    /// what the sink delivered without a running tauri app.
     fn recording_channel() -> (tauri::ipc::Channel<Vec<u8>>, Recorded) {
         let received = Arc::new(Mutex::new(Vec::new()));
         let sink = received.clone();
         let channel = tauri::ipc::Channel::new(move |body| {
-            // `Channel::send(Vec<u8>)` serializes through the blanket `Serialize` path,
-            // so the body is a JSON array of byte values.
+            // `Channel::send(Vec<u8>)` serializes through the blanket `Serialize`
+            // path, so the body is a JSON array of byte values.
             if let tauri::ipc::InvokeResponseBody::Json(json) = body {
                 let bytes: Vec<u8> = serde_json::from_str(&json).unwrap_or_default();
                 sink.lock().unwrap().push(bytes);
@@ -155,40 +115,33 @@ mod tests {
         (channel, received)
     }
 
-    fn channels() -> SurfaceChannels {
-        Arc::new(Mutex::new(HashMap::new()))
-    }
-
-    // A registered channel receives the bytes delivered for its surface.
+    // A `Bytes` event is delivered to the sink's own channel.
     #[test]
-    fn deliver_sends_bytes_to_the_registered_channel() {
-        let channels = channels();
+    fn emit_sends_bytes_to_the_channel() {
         let (channel, received) = recording_channel();
-        register_channel(&channels, "surf-1", channel);
+        let sink = sink_over(channel);
 
-        deliver(&channels, "surf-1", b"hello");
+        sink.emit("surf-1", &SurfaceEvent::Bytes(b"hello"));
 
         assert_eq!(received.lock().unwrap().as_slice(), [b"hello".to_vec()]);
     }
 
-    // A surface with no registered channel silently drops its bytes.
+    // Lifecycle frames are emitted as events, not pushed to the byte channel.
     #[test]
-    fn deliver_drops_bytes_for_an_unregistered_surface() {
-        let channels = channels();
-        // no panic, no delivery
-        deliver(&channels, "surf-unknown", b"hello");
-    }
-
-    // After unregister, further bytes are dropped -- the stream went quiet.
-    #[test]
-    fn deliver_drops_bytes_after_unregister() {
-        let channels = channels();
+    fn emit_does_not_push_lifecycle_frames_to_the_channel() {
         let (channel, received) = recording_channel();
-        register_channel(&channels, "surf-1", channel);
-        unregister_channel(&channels, "surf-1");
+        let sink = sink_over(channel);
 
-        deliver(&channels, "surf-1", b"after-detach");
+        sink.emit("surf-1", &SurfaceEvent::Status("live"));
+        sink.emit("surf-1", &SurfaceEvent::Exit("0"));
+        sink.emit("surf-1", &SurfaceEvent::Error("boom"));
 
         assert!(received.lock().unwrap().is_empty());
+    }
+
+    /// Build a sink over a recording channel using the `tauri::test` mock app.
+    fn sink_over(channel: tauri::ipc::Channel<Vec<u8>>) -> ChannelSink<tauri::test::MockRuntime> {
+        let app = tauri::test::mock_app();
+        ChannelSink::for_channel(channel, app.handle().clone())
     }
 }

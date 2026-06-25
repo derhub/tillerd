@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::notification_host;
-use crate::transport::sink::{ChannelSink, SurfaceChannels};
 use tillerd_paths::{
     daemon_socket, daemon_socket_in, data_root, gate_socket_in, manifest_in, resolve_daemon_bin,
     resolve_gate_bin, runtime_dir,
@@ -185,13 +184,12 @@ fn build_supervisor() -> ProcessSupervisor {
 }
 
 /// The orchestrator core configuration, resolved from the runtime directory.
-fn boot_config(sink: Arc<ChannelSink<tauri::Wry>>, app: AppHandle) -> Config {
+fn boot_config(app: AppHandle) -> Config {
     Config {
         db_path: data_root().join("domain.db"),
         socket: daemon_socket(),
         fs_root: data_root().join("config"),
         log_dir: runtime_dir(),
-        sink: sink as Arc<dyn orchestrator::app::surface::SurfaceSink>,
         notification_sink: Arc::new(notification_host::NotificationForwarder::new(app)),
     }
 }
@@ -206,8 +204,9 @@ fn emit_status<R: tauri::Runtime>(
 }
 
 /// Build the orchestrator core (bus over the sqlite pool + daemon runtime), supervise
-/// the gate/daemon services, then manage the bus and surface-channel registry so IPC
-/// commands can dispatch. Boot phases stream to the renderer over
+/// the gate/daemon services, then manage the bus so IPC commands can dispatch.
+/// Surface streams register their own per-channel sinks via `SubscribeSurface`.
+/// Boot phases stream to the renderer over
 /// `orchestrator://status`. Runs on a dedicated thread with its own tokio runtime.
 pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
     let status = state.status.clone();
@@ -219,13 +218,8 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
 
         emit_status(&app, &status, StatusWire::Booting);
 
-        // Surface output port: per-surface ipc::Channel registry shared with the
-        // off-bus attach endpoint and the sink the daemon runtime pushes to.
-        let channels: SurfaceChannels = Default::default();
-        let sink = Arc::new(ChannelSink::new(channels.clone(), app.clone()));
-
         emit_status(&app, &status, StatusWire::OpeningStore);
-        let bus = match runtime.block_on(build_bus(&boot_config(sink, app.clone()))) {
+        let bus = match runtime.block_on(build_bus(&boot_config(app.clone()))) {
             Ok(bus) => bus,
             Err(error) => {
                 // Store open failed: there is no bus to record through, so only the
@@ -280,8 +274,7 @@ pub fn spawn_boot(app: AppHandle, state: &OrchestratorState) {
             ts: notification_host::now_ms(),
         }));
 
-        // Manage the bus and channel registry; both must exist before any IPC fires.
-        app.manage(channels);
+        // Manage the bus; it must exist before any IPC fires.
         app.manage(bus);
 
         // Keep the boot runtime alive for the process lifetime so the daemon proxy

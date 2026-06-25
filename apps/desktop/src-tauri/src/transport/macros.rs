@@ -102,6 +102,43 @@ macro_rules! transport_create {
     };
 }
 
+/// Generate a `#[tauri::command]` shim for a client stream subscription. Takes the
+/// renderer-provided `tauri::ipc::Channel<Vec<u8>>` plus wire params and exposes a
+/// `$mk` closure that mints a per-stream `ChannelSink` (the host adapter over the
+/// registry) bound to the channel + app handle. The body wires that sink into a
+/// subscribe command through the bus. The bus binding (`bus = $bus`) and the wire
+/// params are in scope. Generic over the tauri runtime because it threads an `AppHandle`
+/// for the lifecycle events the sink emits. `$mk` may be called more than once (it
+/// clones the channel + app handle per sink), so a revisit-then-respawn path can
+/// register a fresh sink each time.
+macro_rules! transport_subscribe {
+    (
+        $(#[$meta:meta])*
+        $vis:vis $name:ident ( $( $param:ident : $ty:ty ),* $(,)? ) -> $ret:ty,
+            bus = $bus:ident,
+            sink = $mk:ident,
+            $body:block
+    ) => {
+        $(#[$meta])*
+        #[tauri::command]
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        $vis async fn $name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            $bus: tauri::State<'_, $crate::transport::Bus>,
+            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
+            $( $param: $ty, )*
+        ) -> ::std::result::Result<$ret, ::std::string::String> {
+            let $mk = || -> ::std::sync::Arc<dyn ::orchestrator::app::surface::SurfaceSink> {
+                ::std::sync::Arc::new(
+                    $crate::transport::sink::ChannelSink::for_channel(channel.clone(), app.clone()),
+                )
+            };
+            $body
+        }
+    };
+}
+
 /// Expand to the `tauri_specta::collect_commands![...]` array of every desktop IPC command.
 /// Declarative (not `inventory`): tauri needs the handler idents at compile time. Lists
 /// the macro-generated domain shims (`transport::domain`) alongside the hand-written
@@ -266,4 +303,6 @@ macro_rules! collect_transport {
     };
 }
 
-pub(crate) use {collect_transport, transport_command, transport_create, transport_query};
+pub(crate) use {
+    collect_transport, transport_command, transport_create, transport_query, transport_subscribe,
+};

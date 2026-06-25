@@ -1,97 +1,110 @@
 //! Tauri bridge for surfaces. Bus commands (`spawn`/`close`) persist and coordinate
 //! through the managed `Bus<Ctx>`; the off-bus I/O channel (`input`/`resize`/
-//! `attach`/`detach`) forwards to the runtime port. The per-surface output
-//! `ipc::Channel` registry is shared with the runtime's `ChannelSink`. The wire --
-//! command names and argument shapes -- is unchanged.
+//! `attach`/`detach`) forwards to the runtime port. Each subscription registers a
+//! per-surface `ChannelSink` into the orchestrator's surface-sink registry, keyed by
+//! surface id; teardown drops it via `UnsubscribeSurface`. The wire -- command names
+//! and argument shapes -- is unchanged.
 
 use orchestrator::app::notification::SurfaceStarted;
 use orchestrator::app::surface::{
     attach_surface, resize_surface, send_surface_input, CloseSurface, DetachSurface,
-    FindSurfaceByPlacement, SpawnSurface,
+    FindSurfaceByPlacement, SpawnSurface, SubscribeSurface, UnsubscribeSurface,
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use crate::notification_host;
-use crate::transport::sink::{register_channel, unregister_channel, SurfaceChannels};
+use crate::transport::macros::transport_subscribe;
 
-/// Create (or revisit) a surface at a session + placement. On revisit, the existing
-/// surface's output channel is re-registered and its proxy re-attached (replaying
-/// scrollback); otherwise a fresh surface is spawned. Returns the surface id.
-#[allow(clippy::too_many_arguments)]
-#[tauri::command]
-#[specta::specta]
-pub async fn surface_create<R: tauri::Runtime>(
-    _app: AppHandle<R>,
-    bus: State<'_, Bus<Ctx>>,
-    channels: State<'_, SurfaceChannels>,
-    channel: tauri::ipc::Channel<Vec<u8>>,
-    session_id: String,
-    placement: String,
-    cols: u16,
-    rows: u16,
-    cwd: Option<String>,
-) -> Result<String, String> {
-    // Revisit: re-attach to the session's existing surface at this placement.
-    if let Some(existing) = bus
-        .query(FindSurfaceByPlacement {
-            session: session_id.clone(),
-            placement: placement.clone(),
-        })
-        .await
-        .map_err(|e| e.to_string())?
+transport_subscribe! {
+    /// Create (or revisit) a surface at a session + placement. On revisit, a fresh
+    /// per-surface sink is registered and the proxy re-attached (replaying
+    /// scrollback); otherwise a fresh surface is spawned. Returns the surface id.
+    pub surface_create(
+        session_id: String,
+        placement: String,
+        cols: u16,
+        rows: u16,
+        cwd: Option<String>,
+    ) -> String,
+    bus = bus,
+    sink = mint_sink,
     {
-        register_channel(&channels, &existing.id, channel.clone());
-        // Drop any lingering proxy first so attach does a fresh subscribe (replays
-        // scrollback) instead of an idempotent no-op.
-        let _ = bus
-            .execute(DetachSurface {
-                id: existing.id.clone(),
+        // Revisit: re-attach to the session's existing surface at this placement.
+        if let Some(existing) = bus
+            .query(FindSurfaceByPlacement {
+                session: session_id.clone(),
+                placement: placement.clone(),
             })
-            .await;
-        match attach_surface(bus.cx(), &existing.id).await {
-            Ok(()) => return Ok(existing.id),
-            Err(_) => {
-                unregister_channel(&channels, &existing.id);
-                let _ = bus.execute(CloseSurface { id: existing.id }).await;
+            .await
+            .map_err(|e| e.to_string())?
+        {
+            bus.execute(SubscribeSurface {
+                surface_id: existing.id.clone(),
+                sink: mint_sink(),
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+            // Drop any lingering proxy first so attach does a fresh subscribe
+            // (replays scrollback) instead of an idempotent no-op.
+            let _ = bus
+                .execute(DetachSurface {
+                    id: existing.id.clone(),
+                })
+                .await;
+            match attach_surface(bus.cx(), &existing.id).await {
+                Ok(()) => return Ok(existing.id),
+                Err(_) => {
+                    let _ = bus
+                        .execute(UnsubscribeSurface {
+                            surface_id: existing.id.clone(),
+                        })
+                        .await;
+                    let _ = bus.execute(CloseSurface { id: existing.id }).await;
+                }
             }
         }
-    }
 
-    // Spawn a fresh surface at this placement.
-    bus.execute(SpawnSurface {
-        session: session_id.clone(),
-        kind: "terminal".to_string(),
-        cwd,
-        placement: Some(placement.clone()),
-        cols: Some(cols),
-        rows: Some(rows),
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let surface = bus
-        .query(FindSurfaceByPlacement {
+        // Spawn a fresh surface at this placement.
+        bus.execute(SpawnSurface {
             session: session_id.clone(),
-            placement,
+            kind: "terminal".to_string(),
+            cwd,
+            placement: Some(placement.clone()),
+            cols: Some(cols),
+            rows: Some(rows),
         })
         .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "surface vanished after spawn".to_string())?;
+        .map_err(|e| e.to_string())?;
 
-    let id = surface.id;
-    register_channel(&channels, &id, channel);
-    let _ = attach_surface(bus.cx(), &id).await;
+        let surface = bus
+            .query(FindSurfaceByPlacement {
+                session: session_id.clone(),
+                placement,
+            })
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "surface vanished after spawn".to_string())?;
 
-    let _ = bus
-        .execute_notable(SurfaceStarted {
+        let id = surface.id;
+        bus.execute(SubscribeSurface {
             surface_id: id.clone(),
-            session_id: session_id.clone(),
-            ts: notification_host::now_ms(),
+            sink: mint_sink(),
         })
-        .await;
-    Ok(id)
+        .await
+        .map_err(|e| e.to_string())?;
+        let _ = attach_surface(bus.cx(), &id).await;
+
+        let _ = bus
+            .execute_notable(SurfaceStarted {
+                surface_id: id.clone(),
+                session_id: session_id.clone(),
+                ts: notification_host::now_ms(),
+            })
+            .await;
+        Ok(id)
+    }
 }
 
 /// Spawn a surface in a session with a minted placement. Returns the surface id.
@@ -120,13 +133,12 @@ pub async fn surface_spawn(bus: State<'_, Bus<Ctx>>, session_id: String) -> Resu
     Ok(surface.id)
 }
 
-/// Close the surface bound to a session + placement: drop its output channel and
+/// Close the surface bound to a session + placement: drop its subscription and
 /// remove its runtime proxy + record.
 #[tauri::command]
 #[specta::specta]
 pub async fn surface_close(
     bus: State<'_, Bus<Ctx>>,
-    channels: State<'_, SurfaceChannels>,
     session_id: String,
     placement: String,
 ) -> Result<(), String> {
@@ -140,7 +152,11 @@ pub async fn surface_close(
     else {
         return Ok(());
     };
-    unregister_channel(&channels, &surface.id);
+    let _ = bus
+        .execute(UnsubscribeSurface {
+            surface_id: surface.id.clone(),
+        })
+        .await;
     bus.execute(CloseSurface { id: surface.id })
         .await
         .map_err(|e| e.to_string())
@@ -174,15 +190,18 @@ pub async fn surface_resize(
 }
 
 /// Detach a surface's proxy stream; the PTY keeps running in the daemon. Drops the
-/// output channel so the stream goes quiet.
+/// subscription so the stream goes quiet.
 #[tauri::command]
 #[specta::specta]
 pub async fn surface_detach(
     bus: State<'_, Bus<Ctx>>,
-    channels: State<'_, SurfaceChannels>,
     surface_id: String,
 ) -> Result<(), String> {
-    unregister_channel(&channels, &surface_id);
+    let _ = bus
+        .execute(UnsubscribeSurface {
+            surface_id: surface_id.clone(),
+        })
+        .await;
     bus.execute(DetachSurface { id: surface_id })
         .await
         .map_err(|e| e.to_string())

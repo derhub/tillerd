@@ -20,7 +20,6 @@ use tauri::{Manager, WebviewWindow};
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::transport::macros::collect_transport;
-use crate::transport::sink::SurfaceChannels;
 use crate::{bridge, store, supervisor};
 
 /// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
@@ -46,7 +45,6 @@ fn contract_app() -> tauri::App<MockRuntime> {
 
     mock_builder()
         .manage(bus)
-        .manage(SurfaceChannels::default())
         .manage(bridge::BridgeState::default())
         .manage(store::StoreState::load())
         .manage(supervisor::SupervisorState::default())
