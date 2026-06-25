@@ -1,30 +1,9 @@
-import type { EventCallback } from "@tauri-apps/api/event";
-
 import { Channel } from "@tauri-apps/api/core";
-import { useEffect, useRef } from "react";
 
 import type { NotificationWire, StatusWire } from "./tauri_bindings.gen";
 
 import { ensureResult } from "./readiness";
 import { commands } from "./tauri_bindings.gen";
-
-type TauriEvent<T> = { listen: (cb: EventCallback<T>) => Promise<() => void> };
-
-export function useEventSub<T>(evt: TauriEvent<T>, cb: EventCallback<T>): void {
-  const ref = useRef(cb);
-  ref.current = cb;
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void evt
-      .listen((e) => ref.current(e))
-      .then((u) => {
-        unlisten = u;
-      });
-    return () => {
-      unlisten?.();
-    };
-  }, [evt]);
-}
 
 export function orchestratorStatus(): Promise<StatusWire> {
   return commands.orchestratorStatus();

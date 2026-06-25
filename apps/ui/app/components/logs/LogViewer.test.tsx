@@ -31,9 +31,9 @@ void mock.module("@tillerd/client-bindings", () => ({
       };
     },
   }),
-  subscribe: () => ({ listen: () => Promise.resolve(() => {}) }),
-  subscribeLogs: () => Promise.resolve({ teardown: () => Promise.resolve() }),
-  useEventSub: () => {},
+  logsChangedChannel: async () => ({
+    close: async () => {},
+  }),
 }));
 
 const { LogViewer } = await import("./LogViewer");

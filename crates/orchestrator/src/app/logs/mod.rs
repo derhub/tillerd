@@ -1,9 +1,9 @@
 //! The file-backed logs domain. Queries (`ListLogFiles`/`TailLog`) compose
 //! `shared::fs::tail` over the runtime `.log` files and parse each line into a
 //! `LogRecordView`; no store, no SQL. The live side (`LogFollower` +
-//! `SubscribeLogs`/`UnsubscribeLogs`) follows the logs directory with `notify`
-//! and fans appended lines, borrowed and keyed by service, to registered
-//! `LogSink`s.
+//! `OpenLogChannel`/`CloseLogChannel`) follows the logs directory with `notify`
+//! and fans appended lines, borrowed and keyed by service, to domain channel
+//! subscribers.
 
 pub(crate) mod follow;
 mod list_log_files;

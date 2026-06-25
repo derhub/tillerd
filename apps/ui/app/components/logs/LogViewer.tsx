@@ -20,7 +20,7 @@ import { run } from "~/lib/subscribe";
 import { isDesktopHost } from "~/lib/transport";
 import { cn } from "~/lib/utils";
 
-// Last window pulled per file on backlog; live tail then arrives via subscribeLogs. "Load older"
+// Last window pulled per file on backlog; live tail then arrives via logChannel. "Load older"
 // widens the window by one step.
 const BACKFILL_BYTES = 256 * 1024;
 const OLDER_STEP_BYTES = 256 * 1024;

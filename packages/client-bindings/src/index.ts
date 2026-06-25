@@ -19,7 +19,6 @@ export {
 export { setReady, whenReady, ensureResult } from "./readiness";
 export { getQueryClient, setQueryClient } from "./query-client";
 export {
-  useEventSub,
   orchestratorStatus,
   surfaceChannel,
   logChannel,
