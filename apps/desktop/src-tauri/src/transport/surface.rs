@@ -1,12 +1,12 @@
 use orchestrator::app::surface::{
     CloseSurface, DetachSurface, FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces,
-    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, SpawnSurface, StopSurface,
+    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, StopSurface,
     SurfaceView,
 };
 use tauri::{AppHandle, Runtime};
 
 use crate::transport::macros::{
-    domain_channel, transport_command, transport_create, transport_query,
+    domain_channel, transport_command, transport_query,
 };
 
 pub struct ChannelSink {
@@ -88,25 +88,48 @@ transport_command!(surface_stop(id: String) => StopSurface { id });
 
 transport_command!(surface_reconcile() => ReconcileSurfaces);
 
-transport_create!(
-    surface_spawn(session_id: String) -> String {
-        let placement = uuid::Uuid::new_v4().to_string();
-        execute: SpawnSurface {
+#[tauri::command]
+#[specta::specta]
+pub async fn surface_spawn(
+    session_id: String,
+    bus: tauri::State<'_, crate::transport::Bus>,
+) -> ::std::result::Result<String, ::std::string::String> {
+    use orchestrator::app::surface::{SpawnSurface, FindSurfaceByPlacement};
+    use orchestrator::app::notification::SurfaceStarted;
+    use crate::transport::notification::now_ms;
+
+    let placement = uuid::Uuid::new_v4().to_string();
+    bus.execute(SpawnSurface {
+        session: session_id.clone(),
+        kind: "terminal".to_string(),
+        cwd: None,
+        placement: Some(placement.clone()),
+        cols: None,
+        rows: None,
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let surface = bus
+        .query(FindSurfaceByPlacement {
             session: session_id.clone(),
-            kind: "terminal".to_string(),
-            cwd: None,
-            placement: Some(placement.clone()),
-            cols: None,
-            rows: None,
-        },
-        read_back: FindSurfaceByPlacement {
-            session: session_id,
             placement,
-        },
-        map: |surface| surface.id,
-        missing: "surface vanished after spawn",
-    }
-);
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "surface vanished after spawn".to_string())?;
+
+    let id = surface.id;
+    let _ = bus
+        .execute_notable(SurfaceStarted {
+            surface_id: id.clone(),
+            session_id,
+            ts: now_ms(),
+        })
+        .await;
+
+    Ok(id)
+}
 
 transport_command!(surface_close(id: String) => CloseSurface { id });
 transport_command!(surface_detach(id: String) => DetachSurface { id });

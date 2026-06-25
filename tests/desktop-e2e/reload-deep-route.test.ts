@@ -23,10 +23,19 @@ test("a deep session route survives a window reload", async () => {
       timeout: 20_000,
       timeoutMsg: "deep route was lost after reload — Tauri index.html fallback missing?",
     });
-    await b.waitUntil(async () => (await b.$("body").getText()).includes(project), {
-      timeout: 20_000,
-      timeoutMsg: "shell did not re-render after reloading at the deep route",
-    });
+    await b.waitUntil(
+      async () => {
+        try {
+          return (await b.$("body").getText()).includes(project);
+        } catch {
+          return false;
+        }
+      },
+      {
+        timeout: 20_000,
+        timeoutMsg: "shell did not re-render after reloading at the deep route",
+      },
+    );
     expect(await b.$("body").getText()).toContain(project);
   } finally {
     await b.deleteSession();
