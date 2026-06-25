@@ -47,10 +47,10 @@ pub async fn surface_channel_send(
 
 /// Generate the two `#[tauri::command]` shims of a duplex channel endpoint.
 ///
-/// `open`: `$name(channel, ...params) -> $ret`. Mirrors [`transport_subscribe!`] --
-/// generic over the tauri runtime, builds a per-channel `ChannelSink` via the `$mk`
-/// closure, and runs `$body` (which `bus.execute`s the session-open command(s) that
-/// register the sink, returning the session key).
+/// `open`: `$name(channel, ...params) -> $ret`. Generic over the tauri runtime,
+/// builds a per-channel `ChannelSink` via the `$mk` closure, and runs `$body` (which
+/// `bus.execute`s the session-open command(s) that register the sink, returning the
+/// session key).
 ///
 /// `send`: `${name}_send(key, msg)`. Forwards to `$dispatch(bus, key, msg)` -- the
 /// caller-provided off-telemetry router (`Input`/`Resize` -> runtime port; `Close`

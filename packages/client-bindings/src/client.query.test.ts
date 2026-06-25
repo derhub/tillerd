@@ -31,7 +31,7 @@ describe("entityKey overlap classification", () => {
     ["launchTemplateCreate", "launchTemplates"],
     ["templateList", "templates"],
     ["sessionRename", "sessions"],
-    ["surfaceCreate", "surfaces"],
+    ["surfaceChannel", "surfaces"],
   ] as const)("%s -> %s", (name, expected) => {
     expect(entityKey(name)).toBe(expected);
   });

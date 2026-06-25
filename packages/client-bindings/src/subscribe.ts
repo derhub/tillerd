@@ -38,7 +38,7 @@ export function makeStreamChannel<T>(onmessage: (frame: T) => void): StreamHandl
   return { channel, teardown: () => { channel.onmessage = () => undefined; } };
 }
 
-/** Create a typed Channel for PTY byte streams (pass to commands.surfaceCreate). */
+/** Create a typed Channel for PTY byte streams (pass to commands.surfaceChannel). */
 export function makeSurfaceChannel(): Channel<number[]> {
   return new Channel<number[]>();
 }
@@ -62,7 +62,7 @@ export type SurfaceChannelParams = {
 export async function openSurfaceChannel(params: SurfaceChannelParams): Promise<ChannelHandle> {
   const channel = new Channel<number[]>();
   const surfaceId = ensureResult(
-    await commands.surfaceCreate({
+    await commands.surfaceChannel({
       channel,
       sessionId: params.sessionId,
       placement: params.placement,
@@ -78,20 +78,20 @@ export async function openSurfaceChannel(params: SurfaceChannelParams): Promise<
     },
     send(bytes: Uint8Array): Promise<void> {
       return commands
-        .surfaceInput({ surfaceId, bytes: Array.from(bytes) })
+        .surfaceChannelSendCmd({ key: surfaceId, msg: { kind: "input", bytes: Array.from(bytes) } })
         .then(ensureResult)
         .then(() => undefined);
     },
     resize(cols: number, rows: number): Promise<void> {
       return commands
-        .surfaceResize({ surfaceId, cols, rows })
+        .surfaceChannelSendCmd({ key: surfaceId, msg: { kind: "resize", cols, rows } })
         .then(ensureResult)
         .then(() => undefined);
     },
     close(): Promise<void> {
       channel.onmessage = () => undefined;
       return commands
-        .surfaceClose({ sessionId: params.sessionId, placement: params.placement })
+        .surfaceChannelSendCmd({ key: surfaceId, msg: { kind: "close" } })
         .then(ensureResult)
         .then(() => undefined);
     },

@@ -37,8 +37,6 @@ const ENTITY: ReadonlyArray<readonly [string, string]> = [
   ["notification", "notifications"],
   ["orchestrator", "orchestrator"],
   ["serviceHealth", "serviceHealth"],
-  ["listLogFiles", "logs"],
-  ["fileSize", "files"],
   ["keybinding", "keybindings"],
   ["workspace", "workspaces"],
   ["settings", "settings"],

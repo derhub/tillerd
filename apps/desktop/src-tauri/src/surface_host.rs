@@ -1,14 +1,15 @@
-//! Tauri bridge for surfaces. Bus commands (`spawn`/`close`) persist and coordinate
-//! through the managed `Bus<Ctx>`; the off-bus I/O channel (`input`/`resize`/
-//! `attach`/`detach`) forwards to the runtime port. Each subscription registers a
-//! per-surface `ChannelSink` into the orchestrator's surface-sink registry, keyed by
-//! surface id; teardown drops it via `UnsubscribeSurface`. The wire -- command names
-//! and argument shapes -- is unchanged.
+//! Tauri bridge for surfaces. Bus commands (`spawn`/`close`/`detach`) persist and
+//! coordinate through the managed `Bus<Ctx>`; the duplex `surface_channel` opens the
+//! per-surface stream and `surface_channel_send_cmd` forwards client messages
+//! (`input`/`resize` to the runtime port off the bus, `close` via the bus). Each
+//! subscription registers a per-surface `ChannelSink` into the orchestrator's
+//! surface-sink registry, keyed by surface id; teardown drops it via
+//! `UnsubscribeSurface`.
 
 use orchestrator::app::notification::SurfaceStarted;
 use orchestrator::app::surface::{
-    attach_surface, resize_surface, send_surface_input, CloseSurface, DetachSurface,
-    FindSurfaceByPlacement, SpawnSurface, SubscribeSurface, UnsubscribeSurface,
+    attach_surface, CloseSurface, DetachSurface, FindSurfaceByPlacement, SpawnSurface,
+    SubscribeSurface, UnsubscribeSurface,
 };
 use orchestrator::shared::Bus;
 use orchestrator::Ctx;
@@ -16,7 +17,6 @@ use tauri::State;
 
 use crate::notification_host;
 use crate::transport::channel::{surface_channel_send, transport_channel, SurfaceClientMsg};
-use crate::transport::macros::transport_subscribe;
 
 transport_channel! {
     /// Open a surface duplex channel at a session + placement: revisit the existing
@@ -44,9 +44,8 @@ transport_channel! {
 
 /// Open (or revisit) a surface at a session + placement, registering a fresh
 /// per-surface sink each time. On revisit, the existing surface's proxy is
-/// re-attached (replaying scrollback) rather than respawned -- behavioral parity
-/// with `surface_create`'s open path. `mint_sink` is called once per registered
-/// sink (a revisit-then-respawn fallthrough registers twice).
+/// re-attached (replaying scrollback) rather than respawned. `mint_sink` is called
+/// once per registered sink (a revisit-then-respawn fallthrough registers twice).
 async fn surface_channel_open(
     bus: &Bus<Ctx>,
     mint_sink: impl Fn() -> std::sync::Arc<dyn orchestrator::app::surface::SurfaceSink>,
@@ -129,96 +128,6 @@ async fn surface_channel_open(
     Ok(id)
 }
 
-transport_subscribe! {
-    /// Create (or revisit) a surface at a session + placement. On revisit, a fresh
-    /// per-surface sink is registered and the proxy re-attached (replaying
-    /// scrollback); otherwise a fresh surface is spawned. Returns the surface id.
-    pub surface_create(
-        session_id: String,
-        placement: String,
-        cols: u16,
-        rows: u16,
-        cwd: Option<String>,
-    ) -> String,
-    bus = bus,
-    sink = mint_sink,
-    {
-        // Revisit: re-attach to the session's existing surface at this placement.
-        if let Some(existing) = bus
-            .query(FindSurfaceByPlacement {
-                session: session_id.clone(),
-                placement: placement.clone(),
-            })
-            .await
-            .map_err(|e| e.to_string())?
-        {
-            bus.execute(SubscribeSurface {
-                surface_id: existing.id.clone(),
-                sink: mint_sink(),
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-            // Drop any lingering proxy first so attach does a fresh subscribe
-            // (replays scrollback) instead of an idempotent no-op.
-            let _ = bus
-                .execute(DetachSurface {
-                    id: existing.id.clone(),
-                })
-                .await;
-            match attach_surface(bus.cx(), &existing.id).await {
-                Ok(()) => return Ok(existing.id),
-                Err(_) => {
-                    let _ = bus
-                        .execute(UnsubscribeSurface {
-                            surface_id: existing.id.clone(),
-                        })
-                        .await;
-                    let _ = bus.execute(CloseSurface { id: existing.id }).await;
-                }
-            }
-        }
-
-        // Spawn a fresh surface at this placement.
-        bus.execute(SpawnSurface {
-            session: session_id.clone(),
-            kind: "terminal".to_string(),
-            cwd,
-            placement: Some(placement.clone()),
-            cols: Some(cols),
-            rows: Some(rows),
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-
-        let surface = bus
-            .query(FindSurfaceByPlacement {
-                session: session_id.clone(),
-                placement,
-            })
-            .await
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "surface vanished after spawn".to_string())?;
-
-        let id = surface.id;
-        bus.execute(SubscribeSurface {
-            surface_id: id.clone(),
-            sink: mint_sink(),
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-        let _ = attach_surface(bus.cx(), &id).await;
-
-        let _ = bus
-            .execute_notable(SurfaceStarted {
-                surface_id: id.clone(),
-                session_id: session_id.clone(),
-                ts: notification_host::now_ms(),
-            })
-            .await;
-        Ok(id)
-    }
-}
-
 /// Spawn a surface in a session with a minted placement. Returns the surface id.
 #[tauri::command]
 #[specta::specta]
@@ -270,33 +179,6 @@ pub async fn surface_close(
         })
         .await;
     bus.execute(CloseSurface { id: surface.id })
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// Send raw input bytes to a surface's PTY. Off the bus; the payload is never logged.
-#[tauri::command]
-#[specta::specta]
-pub async fn surface_input(
-    bus: State<'_, Bus<Ctx>>,
-    surface_id: String,
-    bytes: Vec<u8>,
-) -> Result<(), String> {
-    send_surface_input(bus.cx(), &surface_id, &bytes)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// Resize a surface's PTY. Off the bus (high-frequency pass-through).
-#[tauri::command]
-#[specta::specta]
-pub async fn surface_resize(
-    bus: State<'_, Bus<Ctx>>,
-    surface_id: String,
-    cols: u16,
-    rows: u16,
-) -> Result<(), String> {
-    resize_surface(bus.cx(), &surface_id, cols, rows)
         .await
         .map_err(|e| e.to_string())
 }
@@ -375,7 +257,7 @@ mod tests {
     }
 
     // The revisit open attaches the existing surface's proxy -- the orchestrator
-    // replays scrollback over that attach, the parity behavior with `surface_create`.
+    // replays scrollback over that attach.
     #[tokio::test]
     async fn revisit_attaches_the_existing_surface() {
         let (bus, probe) = bus_with_probe().await;

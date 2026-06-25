@@ -114,14 +114,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ("daemon_send", serde_json::json!({ "bytes": [0u8, 1, 2] })),
         ("daemon_disconnect", serde_json::json!({})),
         (
-            "file_size",
-            serde_json::json!({ "path": "/no/such/contract/file" }),
-        ),
-        (
-            "file_read",
-            serde_json::json!({ "path": "/no/such/contract/file", "offset": 0, "length": 16 }),
-        ),
-        (
             "log_forward",
             serde_json::json!({ "level": "info", "msg": "contract", "extra": null }),
         ),
@@ -147,8 +139,12 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ("orchestrator_status", serde_json::json!({})),
         ("service_health", serde_json::json!({})),
         (
-            "surface_create",
+            "surface_channel",
             serde_json::json!({ "channel": channel, "sessionId": "contract", "placement": "p", "cols": 80, "rows": 24, "cwd": null }),
+        ),
+        (
+            "surface_channel_send_cmd",
+            serde_json::json!({ "key": "contract", "msg": { "kind": "input", "bytes": [1u8] } }),
         ),
         (
             "surface_spawn",
@@ -157,14 +153,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         (
             "surface_close",
             serde_json::json!({ "sessionId": "contract", "placement": "p" }),
-        ),
-        (
-            "surface_input",
-            serde_json::json!({ "surfaceId": "contract", "bytes": [1u8] }),
-        ),
-        (
-            "surface_resize",
-            serde_json::json!({ "surfaceId": "contract", "cols": 80, "rows": 24 }),
         ),
         (
             "surface_detach",

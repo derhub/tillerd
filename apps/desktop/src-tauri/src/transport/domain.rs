@@ -19,7 +19,7 @@ use orchestrator::app::command::{
 };
 use orchestrator::app::logs::{ListLogFiles, LogFileView, LogTailView, TailLog};
 use orchestrator::app::notification::{
-    CountUnreadNotifications, DisregardAllNotifications, DisregardNotification,
+    CountUnreadNotifications, DisregardAllNotifications, DisregardNotification, ListNotifications,
     ListUnreadNotifications, MarkAllNotificationsRead, MarkNotificationRead, NotificationView,
     PruneNotifications, RecordNotification, SnoozeNotification,
 };
@@ -167,26 +167,21 @@ transport_command!(notification_snooze(id: String, snooze_until: Option<i64>) =>
 
 transport_command!(notification_prune(keep: u32) => PruneNotifications { keep });
 
-/// Hand-written instead of `transport_command!` because the 12-arg signature
-/// exceeds specta's 10-parameter `SpectaFn` limit. Wire shape is unchanged.
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn notification_record(
-    id: String,
-    category: String,
-    severity: String,
-    title: Option<String>,
-    message: String,
-    detail: Option<String>,
-    ts: i64,
-    session_id: Option<String>,
-    surface_id: Option<String>,
-    actions_json: Option<String>,
-    read: bool,
-    snooze_until: Option<i64>,
-    bus: tauri::State<'_, Bus>,
-) -> Result<(), String> {
-    bus.execute(RecordNotification {
+transport_command!(
+    notification_record(
+        id: String,
+        category: String,
+        severity: String,
+        title: Option<String>,
+        message: String,
+        detail: Option<String>,
+        ts: i64,
+        session_id: Option<String>,
+        surface_id: Option<String>,
+        actions_json: Option<String>,
+        read: bool,
+        snooze_until: Option<i64>,
+    ) => RecordNotification {
         id,
         category,
         severity,
@@ -199,10 +194,19 @@ pub async fn notification_record(
         actions_json,
         read,
         snooze_until,
-    })
-    .await
-    .map_err(|e| e.to_string())
-}
+    }
+);
+
+// Durable notification history (most recent first) for the renderer to hydrate on boot.
+transport_query!(
+    notifications_list() -> Vec<crate::notification_host::NotificationWire>
+        => ListNotifications { limit: Some(200), offset: Some(0), after: None },
+        |listing| listing
+            .items
+            .into_iter()
+            .map(crate::notification_host::NotificationWire::from_view)
+            .collect()
+);
 
 transport_command!(command_rename(id: String, name: String) => RenameCommand { id, name });
 

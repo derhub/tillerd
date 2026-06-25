@@ -10,14 +10,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 export const commands = {
 	daemonSend: (args: { bytes: number[] }) => typedError<null, string>(__TAURI_INVOKE("daemon_send", args)),
 	daemonDisconnect: () => typedError<null, string>(__TAURI_INVOKE("daemon_disconnect")),
-	/**  Byte length, or `None` (JS `null`) when the file is absent -- distinct from an empty file (0). */
-	fileSize: (args: { path: string }) => __TAURI_INVOKE<number | null>("file_size", args),
-	/**
-	 *  List the structured `.log` files under the runtime logs directory, sorted by
-	 *  name. Each entry carries the absolute path the renderer reads through
-	 *  `file_read` / `file_size`. Empty when the logs directory is absent.
-	 */
-	listLogFiles: () => __TAURI_INVOKE<LogFileEntry[]>("list_log_files"),
 	registryGet: (args: { sessionId: string }) => typedError<string | null, null>(__TAURI_INVOKE("registry_get", args)),
 	registrySet: (args: { sessionId: string; cwd: string }) => typedError<null, null>(__TAURI_INVOKE("registry_set", args)),
 	registryRemove: (args: { sessionId: string }) => typedError<null, null>(__TAURI_INVOKE("registry_remove", args)),
@@ -31,12 +23,6 @@ export const commands = {
 	windowClose: (args: { label: string }) => typedError<null, string>(__TAURI_INVOKE("window_close", args)),
 	/**  Rebind the native leader accelerator. No-op until the leader item is installed. */
 	commandCenterSetLeader: (args: { accelerator: string }) => typedError<null, string>(__TAURI_INVOKE("command_center_set_leader", args)),
-	/**
-	 *  Create (or revisit) a surface at a session + placement. On revisit, a fresh
-	 *  per-surface sink is registered and the proxy re-attached (replaying
-	 *  scrollback); otherwise a fresh surface is spawned. Returns the surface id.
-	 */
-	surfaceCreate: (args: { channel: Channel<number[]>; sessionId: string; placement: string; cols: number; rows: number; cwd: string | null }) => typedError<string, string>(__TAURI_INVOKE("surface_create", args)),
 	/**
 	 *  Open a surface duplex channel at a session + placement: revisit the existing
 	 *  surface (re-attach, replaying scrollback) or spawn a fresh one, register the
@@ -57,10 +43,6 @@ export const commands = {
 	 *  remove its runtime proxy + record.
 	 */
 	surfaceClose: (args: { sessionId: string; placement: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
-	/**  Send raw input bytes to a surface's PTY. Off the bus; the payload is never logged. */
-	surfaceInput: (args: { surfaceId: string; bytes: number[] }) => typedError<null, string>(__TAURI_INVOKE("surface_input", args)),
-	/**  Resize a surface's PTY. Off the bus (high-frequency pass-through). */
-	surfaceResize: (args: { surfaceId: string; cols: number; rows: number }) => typedError<null, string>(__TAURI_INVOKE("surface_resize", args)),
 	/**
 	 *  Detach a surface's proxy stream; the PTY keeps running in the daemon. Drops the
 	 *  subscription so the stream goes quiet.
@@ -72,7 +54,6 @@ export const commands = {
 	settingReset: (args: { scope: string; projectId: string | null; key: string }) => typedError<null, string>(__TAURI_INVOKE("setting_reset", args)),
 	settingResolve: (args: { projectId: string; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_resolve", args)),
 	settingsResolve: (args: { projectId: string }) => typedError<SettingView[], string>(__TAURI_INVOKE("settings_resolve", args)),
-	/**  Durable notification history (most recent first) for the renderer to hydrate on boot. */
 	notificationsList: () => typedError<NotificationWire[], string>(__TAURI_INVOKE("notifications_list")),
 	projectCreate: (args: { name: string | null; workspaceId: string | null }) => typedError<ProjectView, string>(__TAURI_INVOKE("project_create", args)),
 	projectList: (args: { workspaceId: string | null }) => typedError<ProjectView[], string>(__TAURI_INVOKE("project_list", args)),
@@ -335,16 +316,6 @@ export type Listing<T> = {
 	items: T[],
 	/**  The cursor for the next page, if more items exist after this page. */
 	next: string | null,
-};
-
-/**  One structured log file under the runtime logs directory. */
-export type LogFileEntry = {
-	/**  File name, e.g. `tillerd-daemon.2026-06-13.log`. */
-	name: string,
-	/**  Absolute path, passed back to `file_read` / `file_size`. */
-	path: string,
-	/**  Current byte size. */
-	size: number,
 };
 
 /**  One structured `.log` file under the runtime logs directory. */

@@ -17,7 +17,7 @@
 //!
 //! [`collect_transport!`] expands to the `generate_handler![...]` array -- declarative,
 //! not `inventory`, because tauri needs the handler idents at compile time. Host/shell
-//! and transport-resident shims (window/file/log/bridge/menu/supervisor/gate/store, the
+//! and transport-resident shims (window/log/bridge/menu/supervisor/gate/store, the
 //! surface I/O channel, and the few off-bus or non-mechanical domain shims) are NOT
 //! macro-generated and are listed alongside in `collect_transport!`.
 
@@ -102,43 +102,6 @@ macro_rules! transport_create {
     };
 }
 
-/// Generate a `#[tauri::command]` shim for a client stream subscription. Takes the
-/// renderer-provided `tauri::ipc::Channel<Vec<u8>>` plus wire params and exposes a
-/// `$mk` closure that mints a per-stream `ChannelSink` (the host adapter over the
-/// registry) bound to the channel + app handle. The body wires that sink into a
-/// subscribe command through the bus. The bus binding (`bus = $bus`) and the wire
-/// params are in scope. Generic over the tauri runtime because it threads an `AppHandle`
-/// for the lifecycle events the sink emits. `$mk` may be called more than once (it
-/// clones the channel + app handle per sink), so a revisit-then-respawn path can
-/// register a fresh sink each time.
-macro_rules! transport_subscribe {
-    (
-        $(#[$meta:meta])*
-        $vis:vis $name:ident ( $( $param:ident : $ty:ty ),* $(,)? ) -> $ret:ty,
-            bus = $bus:ident,
-            sink = $mk:ident,
-            $body:block
-    ) => {
-        $(#[$meta])*
-        #[tauri::command]
-        #[specta::specta]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
-        $vis async fn $name<R: tauri::Runtime>(
-            app: tauri::AppHandle<R>,
-            $bus: tauri::State<'_, $crate::transport::Bus>,
-            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
-            $( $param: $ty, )*
-        ) -> ::std::result::Result<$ret, ::std::string::String> {
-            let $mk = || -> ::std::sync::Arc<dyn ::orchestrator::app::surface::SurfaceSink> {
-                ::std::sync::Arc::new(
-                    $crate::transport::sink::ChannelSink::for_channel(channel.clone(), app.clone()),
-                )
-            };
-            $body
-        }
-    };
-}
-
 /// Expand to the `tauri_specta::collect_commands![...]` array of every desktop IPC command.
 /// Declarative (not `inventory`): tauri needs the handler idents at compile time. Lists
 /// the macro-generated domain shims (`transport::domain`) alongside the hand-written
@@ -150,23 +113,18 @@ macro_rules! transport_subscribe {
 /// - `collect_transport!()` in the command-contract test (omits `daemon_connect`).
 ///
 /// Stays hand-written (NOT macro-generated), listed here:
-/// - host/shell (no domain store): `window_host`, `files`, `diag`, `bridge`, `menu`,
+/// - host/shell (no domain store): `window_host`, `diag`, `bridge`, `menu`,
 ///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
 ///   session registry, off-bus).
-/// - transport-resident: every `surface_*` shim -- they register/attach a per-surface
-///   `tauri::ipc::Channel` and the off-bus input/resize endpoints write straight to the
+/// - transport-resident: the `surface_channel` shims register/attach a per-surface
+///   `tauri::ipc::Channel` and the off-bus client messages write straight to the
 ///   runtime port (a `Channel` is a tauri object that cannot live in the core).
-/// - non-mechanical domain: `notification_host::notifications_list` (fixed-page query that
-///   lives with the notification sink/builders).
 macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
             $( $runtime_cmd, )*
             $crate::bridge::daemon_send,
             $crate::bridge::daemon_disconnect,
-            $crate::files::file_size,
-            $crate::files::file_read,
-            $crate::files::list_log_files,
             $crate::diag::log_forward,
             $crate::store::pref_get,
             $crate::store::pref_set,
@@ -181,13 +139,10 @@ macro_rules! collect_transport {
             $crate::window_host::window_focus,
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
-            $crate::surface_host::surface_create,
             $crate::surface_host::surface_channel,
             $crate::surface_host::surface_channel_send_cmd,
             $crate::surface_host::surface_spawn,
             $crate::surface_host::surface_close,
-            $crate::surface_host::surface_input,
-            $crate::surface_host::surface_resize,
             $crate::surface_host::surface_detach,
             $crate::transport::domain::project_create,
             $crate::transport::domain::project_list,
@@ -277,7 +232,7 @@ macro_rules! collect_transport {
             $crate::transport::domain::keybinding_reset_all,
             $crate::transport::domain::keybinding_resolve,
             $crate::transport::domain::config_reload,
-            $crate::notification_host::notifications_list,
+            $crate::transport::domain::notifications_list,
             $crate::transport::domain::notification_list_unread,
             $crate::transport::domain::notification_count_unread,
             $crate::transport::domain::notification_mark_read,
@@ -305,6 +260,4 @@ macro_rules! collect_transport {
     };
 }
 
-pub(crate) use {
-    collect_transport, transport_command, transport_create, transport_query, transport_subscribe,
-};
+pub(crate) use {collect_transport, transport_command, transport_create, transport_query};

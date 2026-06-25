@@ -5,19 +5,12 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use orchestrator::app::notification::{
-    ListNotifications, NotificationSink, NotificationView, RecordNotification,
-};
-use orchestrator::shared::Bus;
-use orchestrator::Ctx;
+use orchestrator::app::notification::{NotificationSink, NotificationView, RecordNotification};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Runtime, State};
+use tauri::{AppHandle, Emitter, Runtime};
 
 /// Renderer event carrying one notification. Mirrors the SDK `NOTIFICATION_EVENT`.
 pub const NOTIFICATION_EVENT: &str = "notification://event";
-
-/// How many notifications the renderer hydrates on boot (most recent first).
-const HISTORY_LOAD: u32 = 200;
 
 /// One notification on the wire. Field names match the SDK `NotificationEvent`.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
@@ -52,7 +45,7 @@ impl NotificationWire {
         }
     }
 
-    fn from_view(view: NotificationView) -> Self {
+    pub fn from_view(view: NotificationView) -> Self {
         Self {
             id: view.id,
             category: view.category,
@@ -93,25 +86,6 @@ impl<R: Runtime> NotificationSink for NotificationForwarder<R> {
             .app
             .emit(NOTIFICATION_EVENT, NotificationWire::from_record(notification));
     }
-}
-
-/// Durable notification history (most recent first) for the renderer to hydrate on boot.
-#[tauri::command]
-#[specta::specta]
-pub async fn notifications_list(bus: State<'_, Bus<Ctx>>) -> Result<Vec<NotificationWire>, String> {
-    let listing = bus
-        .query(ListNotifications {
-            limit: Some(HISTORY_LOAD),
-            offset: Some(0),
-            after: None,
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(listing
-        .items
-        .into_iter()
-        .map(NotificationWire::from_view)
-        .collect())
 }
 
 #[cfg(test)]
