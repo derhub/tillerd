@@ -113,9 +113,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.102"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
+checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
 
 [[package]]
 name = "async-broadcast"
@@ -3982,9 +3982,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "1.7.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0810a9f717d9828f475fe1f629f4c305c8464b7f496c3a854b58d29e65f4058e"
+checksum = "d52d21e5b342699bc4de690e6104fc4e43255e4e8420ff0f2cbb963aac09da6f"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4016,9 +4016,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "1.7.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aefac48c364756e97f04c0401ba3231e8607882c7c1d92da0437dc16307904d"
+checksum = "6c68cec74c5b3ac73ff46375ae49e161637bda80bba70f0d5db641583bb308ee"
 dependencies = [
  "darling 0.23.0",
  "proc-macro2",
@@ -5041,9 +5041,9 @@ checksum = "591ef38edfb78ca4771ee32cf494cb8771944bee237a9b91fc9c1424ac4b777b"
 
 [[package]]
 name = "tauri"
-version = "2.11.3"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2616f96cb644bf2c5c456d9de4d5d5100e592d7424c74d8b55c5cb96e359e93"
+checksum = "766b7bd007abce1210b89d3b9cb36c09d0e4b258f52a77e1ca0874e86efae338"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5081,6 +5081,7 @@ dependencies = [
  "tauri-runtime-wry",
  "tauri-utils",
  "thiserror 2.0.18",
+ "time",
  "tokio",
  "tray-icon",
  "url",
@@ -5262,9 +5263,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime-wry"
-version = "2.11.3"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe41e015bf8fc4d6477ff4926a0ef769dc64ff34c7b0038b6f7cacae892acb5c"
+checksum = "4e6fac707727b7a2f48e4ded90976324267371073edbb415ffb73bb0458d203f"
 dependencies = [
  "gtk",
  "http",
@@ -6264,9 +6265,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.23.3"
+version = "1.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "144d6b123cef80b301b8f72a9e2ca4370ddec21950d0a103dd22c437006d2db7"
+checksum = "bf80a72845275afea99e7f2b434723d3bc7e38470fcd1c7ed39a599c73319a53"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",

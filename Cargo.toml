@@ -42,7 +42,7 @@ uuid = { version = "1", features = ["v4"] }
 # platform
 nix = "0.31"
 # mcp
-rmcp = "1.7"
+rmcp = "2.0"
 # testing
 tempfile = "3"
 sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
