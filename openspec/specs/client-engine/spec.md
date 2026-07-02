@@ -112,3 +112,52 @@ and one invalidation pass per receiver; a window SHALL ignore its own broadcast.
 - **WHEN** many mutations succeed within one coalesce window
 - **THEN** the declared keys are deduped and the broadcast emits at most once per window
 - **AND** each receiving window runs at most one invalidation pass over the unique key set
+
+### Requirement: The per-entity TanStack surface is generated, not hand-written
+
+The renderer's per-entity TanStack surface — query hooks (list/get, including infinite/paged), mutation hooks (create, rename, archive, delete, reorder, …), and event subscriptions — SHALL be consumed from the generated hook surface rather than hand-written one operation at a time. The generated hooks SHALL preserve the engine's existing semantics: query keys, declared `meta.invalidates`, optimistic snapshot/apply/rollback, and the global settle-invalidate handler.
+
+#### Scenario: The renderer uses generated query and mutation hooks
+
+- **WHEN** a component needs an entity's list or a create/rename/archive/delete/reorder mutation
+- **THEN** it imports the generated hook
+- **AND** no hand-written per-operation hook for that entity exists in the renderer
+
+#### Scenario: Generated hooks keep optimistic and invalidation behavior
+
+- **WHEN** a generated rename, reorder, or archive hook runs
+- **THEN** the cache updates optimistically and rolls back on error
+- **AND** on success only the declared `meta.invalidates` keys are invalidated through the global handler
+
+#### Scenario: Hook argument and result types come from the generated bindings
+
+- **WHEN** a generated hook is called
+- **THEN** its argument and result types originate from the generated bindings
+- **AND** a backend type change surfaces as a type error at the call site
+
+### Requirement: Render-as-you-fetch route data with Suspense
+
+Each data route SHALL kick off its reads in a `loader` via `context.queryClient.ensureQueryData(<the same queryOptions the component reads>)` WITHOUT awaiting (render-as-you-fetch); the route SHALL render immediately and route-critical reads SHALL be consumed with `useSuspenseQuery`, suspending into a pending fallback (a Suspense boundary) until ready. `await` in a loader SHALL be the last resort. Read query functions SHALL obtain the orchestrator client by awaiting a client-ready signal (resolving the client when the host is ready, or `null` on the web host) rather than gating with `enabled`, so a suspense read pends through both boot and fetch into one fallback. Composite views (e.g. the sidebar) SHALL be composed in the frontend from unscoped entity reads sliced client-side, NOT a server-side composed read; the loader kicks the reads off independently (non-awaited, not an awaited `Promise.all`). A server-side composed/optimized read is added only if profiling shows the client compose is too slow. Loader and component MUST use the same `queryOptions`. Realtime axes are unchanged: streams patch the cache (`setQueryData`/`invalidateQueries`) or feed their Store; the terminal byte stream stays outside Query.
+
+#### Scenario: A route renders immediately and suspends for its data
+
+- **WHEN** a data route is navigated to
+- **THEN** its loader kicks off the fetch without awaiting and the component renders, `useSuspenseQuery` suspending into the route `pendingComponent` until the data resolves (no blocking route transition)
+
+#### Scenario: Boot and fetch pend as one through the queryFn
+
+- **WHEN** the app loads before the orchestrator client is ready
+- **THEN** the read's queryFn awaits client readiness, the suspense read stays pending, and the pending fallback shows -- with no `enabled` flag and no separate boot gate
+
+#### Scenario: A composite view is composed in the frontend, not by a backend read
+
+- **WHEN** a route needs a tree/composite (e.g. the sidebar)
+- **THEN** the frontend reads the unscoped entity lists via `useSuspenseQuery` and slices them client-side; switching scope is an in-memory filter, not a refetch
+- **AND** no server-side composed read is added unless profiling shows the client compose is too slow
+
+#### Scenario: The web host renders without a client
+
+- **WHEN** the client-ready signal resolves `null` (web host)
+- **THEN** the route queryFns short-circuit to the web surface and no suspense query hangs
+
+
