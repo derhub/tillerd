@@ -8,10 +8,12 @@ use orchestrator::app::session::{
 use tauri::State;
 use uuid::Uuid;
 
-use crate::transport::macros::{transport_command, transport_query};
+use crate::transport::macros::{transport_command, transport_create, transport_query};
 use crate::transport::Bus;
 
-// Omitted project_id lists all sessions.
+// Omitted project_id lists all sessions. Hand-written, not `transport_query!`: it
+// dispatches between two queries (`ListSessionsByProject` / `ListAllSessions`) on the
+// optional project id -- dispatch logic, not boilerplate the macro abstracts.
 #[tauri::command]
 #[specta::specta]
 pub async fn session_list(
@@ -43,46 +45,36 @@ pub async fn session_list(
     Ok(listing.items)
 }
 
-/// Create a session, bring its launch spec to life. The `LaunchSession` tail is
-/// non-fatal (a spec-less session is valid), so this stays hand-written rather than
-/// using `transport_create!`.
-#[tauri::command]
-#[specta::specta]
-pub async fn session_create(
-    project_id: Option<String>,
-    title: Option<String>,
-    title_source: Option<String>,
-    template_id: Option<String>,
-    bus: State<'_, Bus>,
-) -> Result<SessionView, String> {
-    let id = Uuid::new_v4().to_string();
-
-    bus.execute(NewSessionCmd {
-        id: id.clone(),
-        project_id: project_id.or_else(|| Some(orchestrator::app::project::unfiled_project_id())),
-        title_source: title_source.unwrap_or_default(),
-        title,
-        template_id,
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    let created = bus
-        .query(GetSessionById { id: id.clone() })
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "session vanished after create".to_string())?;
-
-    // Bring the session's launch spec to life (a session with no spec launches
-    // nothing). Non-fatal: a runtime failure does not invalidate the created session.
-    let _ = bus
-        .execute(LaunchSession {
-            id: created.id.clone(),
-        })
-        .await;
-
-    Ok(created)
-}
+transport_create!(
+    /// Create a session, then bring its launch spec to life via the non-fatal tail
+    /// (a spec-less session is valid; a launch failure does not invalidate the create).
+    session_create(
+        project_id: Option<String>,
+        title: Option<String>,
+        title_source: Option<String>,
+        template_id: Option<String>,
+    ) -> SessionView {
+        let id = Uuid::new_v4().to_string();
+        execute: NewSessionCmd {
+            id: id.clone(),
+            project_id: project_id
+                .or_else(|| Some(orchestrator::app::project::unfiled_project_id())),
+            title_source: title_source.unwrap_or_default(),
+            title,
+            template_id,
+        },
+        read_back: GetSessionById { id },
+        map: |s| s,
+        missing: "session vanished after create",
+        tail: |created, bus| {
+            let _ = bus
+                .execute(LaunchSession {
+                    id: created.id.clone(),
+                })
+                .await;
+        },
+    }
+);
 
 transport_command!(session_rename(id: String, title: String) => RenameSession {
     id,

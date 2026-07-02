@@ -65,6 +65,44 @@ macro_rules! transport_create {
             ::std::result::Result::Ok($map)
         }
     };
+    // Create with a non-fatal tail: after the read-back, `tail` runs with the mapped value bound
+    // (and `bus` in scope) for follow-up dispatch whose failure must not invalidate the create
+    // (launch a spec, announce a notable). The tail block owns its own error handling.
+    (
+        $(#[$meta:meta])*
+        $name:ident ( $( $param:ident : $ty:ty ),* $(,)? ) -> $ret:ty {
+            let $bind:ident = $mint:expr;
+            execute: $cmd:expr,
+            read_back: $query:expr,
+            map: | $out:ident | $map:expr,
+            missing: $missing:expr,
+            tail: | $created:ident, $busid:ident | $tail:block $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[tauri::command]
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)]
+        pub async fn $name(
+            $( $param: $ty, )*
+            bus: tauri::State<'_, $crate::transport::Bus>,
+        ) -> ::std::result::Result<$ret, ::std::string::String> {
+            let $bind = $mint;
+            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            let $out = bus
+                .query($query)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| ($missing).to_string())?;
+            let result = $map;
+            {
+                let $created = &result;
+                let $busid = &bus;
+                $tail
+            }
+            ::std::result::Result::Ok(result)
+        }
+    };
 }
 
 macro_rules! collect_transport {
