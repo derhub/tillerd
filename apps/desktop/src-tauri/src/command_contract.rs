@@ -494,6 +494,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
 /// wiring contract: the context composes correctly (migrations applied, runtime injected)
 /// and the bus dispatches without panicking. Business logic is not exercised here.
 #[test]
+#[serial]
 fn memory_ctx_bus_is_managed_and_wired() {
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());

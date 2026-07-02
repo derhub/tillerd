@@ -97,7 +97,16 @@ SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME"
 TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail --preload "$SETUP" $SCENARIO_SPECS
 
 # Own-launch specs (own app against the shared TILLERD_DIR): restart-resume and deep-route reload.
+set +e
 TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD"
+TEST_EXIT=$?
+if [[ $TEST_EXIT -ne 0 ]]; then
+  echo "--- E2E TEST FAILED ---" >&2
+  echo "--- orchestrator logs ---" >&2
+  tail -n 100 "$TILLERD_DIR"/logs/*.log 2>/dev/null >&2 || true
+  exit $TEST_EXIT
+fi
+set -e
 
 # Bundled build: boot-to-ready only, via the same shared-app preload against the release binary.
 if [[ -n "$BUNDLED_BIN" ]]; then
