@@ -24,6 +24,6 @@
 
 ## 5. Gate
 
-- [ ] 5.1 `openspec validate` (or structural check) passes; `bun run verify` unaffected (no code);
+- [x] 5.1 `openspec validate` (or structural check) passes; `bun run verify` unaffected (no code);
   memory index/topic fixes proposed to the user separately (memory protocol: show, ask, then
   write).
