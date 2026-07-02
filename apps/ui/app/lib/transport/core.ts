@@ -3,7 +3,6 @@ export interface TauriChannelLike {
 }
 
 export interface TauriCore {
-  invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   createChannel(): TauriChannelLike;
   listen<T = unknown>(event: string, handler: (payload: T) => void): Promise<() => void>;
 }
@@ -13,10 +12,9 @@ export function isDesktopHost(): boolean {
 }
 
 export async function loadTauriCore(): Promise<TauriCore> {
-  const { invoke, Channel } = await import("@tauri-apps/api/core");
+  const { Channel } = await import("@tauri-apps/api/core");
   const { listen } = await import("@tauri-apps/api/event");
   return {
-    invoke: (cmd, args) => invoke(cmd, args),
     createChannel: () => new Channel() as unknown as TauriChannelLike,
     listen: <T>(event: string, handler: (payload: T) => void) =>
       listen<T>(event, (e) => handler(e.payload)),

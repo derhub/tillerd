@@ -28,3 +28,4 @@ export {
   type LogsChangedChannelHandle,
 } from "./subscribe";
 export { openChannel, type ChannelHandle } from "./channel";
+export { windowOpen, windowFocus, windowClose } from "./window";

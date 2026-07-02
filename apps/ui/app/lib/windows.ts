@@ -1,8 +1,10 @@
 // Child windows are webviews of the same app+backend; intent is carried in the URL query
 // (`?w=detached|project`) because the custom scheme has no SPA fallback for a deep route.
 
+import { windowClose, windowFocus, windowOpen } from "@tillerd/client-bindings";
+
 import { currentWindow, emitEvent, listenEvent } from "./tauriEvents";
-import { isDesktopHost, loadTauriCore } from "./transport/core";
+import { isDesktopHost } from "./transport/core";
 
 export type WindowIntent =
   | { kind: "main" }
@@ -60,23 +62,17 @@ export function parseWindowIntent(search: string): WindowIntent {
   }
 }
 
-async function invoke<T>(cmd: string, args: Record<string, unknown>): Promise<T | null> {
-  if (!isDesktopHost()) return null;
-  const core = await loadTauriCore();
-  return core.invoke(cmd, args) as Promise<T>;
-}
-
 export function openWindow(label: string, query: string): Promise<void | null> {
-  return invoke<void>("window_open", { label, query });
+  return isDesktopHost() ? windowOpen(label, query) : Promise.resolve(null);
 }
 
 export function focusWindow(label: string): Promise<void | null> {
-  return invoke<void>("window_focus", { label });
+  return isDesktopHost() ? windowFocus(label) : Promise.resolve(null);
 }
 
 // Closing a child via this call triggers armReattachOnClose on the child, which emits the re-attach event.
 export function closeWindow(label: string): Promise<void | null> {
-  return invoke<void>("window_close", { label });
+  return isDesktopHost() ? windowClose(label) : Promise.resolve(null);
 }
 
 const REATTACH_PANEL = "panel:reattach";
