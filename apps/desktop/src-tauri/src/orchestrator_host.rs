@@ -297,10 +297,11 @@ pub fn spawn_logs_watcher(app: AppHandle) {
                 if size != last {
                     last = size;
                     if let Some(bus) = app.try_state::<crate::transport::Bus>() {
-                        let event =
-                            orchestrator::shared::domain_channel::DomainChannelEvent::Bytes(&[
-                                0x00, 110, 117, 108, 108,
-                            ]);
+                        // The sink owns the wire tag; the payload is an opaque nudge the
+                        // logs-changed client ignores.
+                        let event = orchestrator::shared::domain_channel::DomainChannelEvent::Bytes(
+                            b"null",
+                        );
                         bus.cx().domain_channel_sinks().dispatch_prefix(
                             "logs://changed/",
                             |sink| {

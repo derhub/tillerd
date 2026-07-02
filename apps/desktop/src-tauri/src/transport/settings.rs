@@ -57,8 +57,10 @@ transport_query!(
         |profiles| profiles
 );
 
-/// Create a new profile with a caller-supplied id. Hand-written (no GetProfileById
-/// query): executes NewProfile then reads back via ListProfiles + id filter.
+/// Create a new profile with a caller-supplied id. Hand-written, not `transport_create!`:
+/// the macro's read-back step needs a by-id query and profiles have none (ListProfiles +
+/// id filter is the read-back); adding a GetProfileById solely for macro symmetry isn't
+/// worth the surface.
 #[tauri::command]
 #[specta::specta]
 pub async fn profile_create(
