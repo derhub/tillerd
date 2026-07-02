@@ -11,9 +11,6 @@ export {
   reorder,
   subscribe,
   entityKey,
-  dropById,
-  reorderByIds,
-  mergeById,
   type CommandKey,
 } from "./client.query";
 export { setReady, whenReady, ensureResult } from "./readiness";

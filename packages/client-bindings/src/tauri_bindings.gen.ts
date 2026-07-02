@@ -8,8 +8,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
-	daemonSend: (args: { bytes: number[] }) => typedError<null, string>(__TAURI_INVOKE("daemon_send", args)),
-	daemonDisconnect: () => typedError<null, string>(__TAURI_INVOKE("daemon_disconnect")),
 	registryGet: (args: { sessionId: string }) => typedError<string | null, null>(__TAURI_INVOKE("registry_get", args)),
 	registrySet: (args: { sessionId: string; cwd: string }) => typedError<null, null>(__TAURI_INVOKE("registry_set", args)),
 	registryRemove: (args: { sessionId: string }) => typedError<null, null>(__TAURI_INVOKE("registry_remove", args)),
@@ -209,7 +207,6 @@ export const commands = {
 /** Events */
 export const events = {
 	commandCenterOpen: makeEvent<CommandCenterOpen>("command-center:open"),
-	daemonLost: makeEvent<DaemonLost>("daemon-lost"),
 	menuNavigate: makeEvent<MenuNavigate>("menu:navigate"),
 	orchestratorStatus: makeEvent<StatusWire>("orchestrator://status"),
 };
@@ -258,9 +255,6 @@ export type CreateCommandRequest = {
 	args?: string[],
 	env?: { [key in string]: string },
 };
-
-/**  Unit payload for the daemon-lost event (connection dropped unexpectedly). */
-export type DaemonLost = null;
 
 export type EnsureResult = {
 	ownership: string,

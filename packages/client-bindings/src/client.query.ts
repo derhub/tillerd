@@ -171,20 +171,3 @@ export function reorder<K extends TypedKey>(key: K) {
 export function subscribe<K extends keyof typeof events>(key: K) {
   return events[key];
 }
-
-export const dropById =
-  <R extends { id: string }>(id: string) =>
-  (rows: R[]): R[] =>
-    rows.filter((r) => r.id !== id);
-
-export const reorderByIds =
-  <R extends { id: string }>(ids: string[]) =>
-  (rows: R[]): R[] => {
-    const rank = new Map(ids.map((x, i) => [x, i] as const));
-    return [...rows].sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
-  };
-
-export const mergeById =
-  <R extends { id: string }>(patch: Partial<R> & { id: string }) =>
-  (rows: R[]): R[] =>
-    rows.map((r) => (r.id === patch.id ? { ...r, ...patch } : r));
