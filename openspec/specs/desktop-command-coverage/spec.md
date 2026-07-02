@@ -19,18 +19,22 @@ Every orchestrator `app/` use-case handler (command or query) SHALL be reachable
 
 ### Requirement: Query and create commands carry a stable wire shape
 
-A query command SHALL return a `*View` DTO whose JSON key set is asserted against the `@tillerd/sdk` contract. A create command SHALL mint the entity id at the transport, execute the core command, and read the entity back by that id to return its `*View`. Argument shapes SHALL be primitive wire types (strings, numbers, primitive ids), never domain newtypes.
+A query command SHALL return a `*View` DTO whose JSON key set is asserted against the generated
+bindings contract (`@tillerd/client-bindings`, tauri-specta output). A create command SHALL mint the
+entity id at the transport, execute the core command, and read the entity back by that id to return
+its `*View`. Argument shapes SHALL be primitive wire types (strings, numbers, primitive ids), never
+domain newtypes.
 
-#### Scenario: A query response matches the SDK shape
+#### Scenario: A query response matches the generated bindings shape
 
 - **WHEN** a new query command returns a `*View`
-- **THEN** a shape test serializes the view and asserts the exact camelCase key set the SDK declares
+- **THEN** a shape test serializes the view and asserts the exact camelCase key set the generated
+  bindings declare
 
 #### Scenario: A create reads back by minted id
 
 - **WHEN** a create command runs
 - **THEN** the transport mints the id, executes the core create (which returns no data), and reads the entity back by that id to return its `*View`
-
 ### Requirement: Exposure is additive and needs no ACL change
 
 Exposing a command SHALL NOT change any existing command's name, argument shape, or response JSON, and SHALL NOT require a per-command entry in `capabilities/default.json` (the renderer's `tauri://localhost` local origin skips per-command ACL).
