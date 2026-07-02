@@ -112,6 +112,24 @@ async function startLiveTail(
   handlesRef.current = handles;
 }
 
+// Watch for log-directory changes and invalidate the "logs" queries. Kept as a plain async helper
+// (not a hook/component) so the await stays out of the render path; the effect drives it via run().
+async function startLogsChangedWatch(
+  qc: QueryClient,
+  cancelled: { current: boolean },
+  handleRef: React.RefObject<LogsChangedChannelHandle | undefined>,
+): Promise<void> {
+  const handle = await logsChangedChannel(() => {
+    if (cancelled.current) return;
+    void qc.invalidateQueries({ queryKey: ["logs"] });
+  });
+  if (cancelled.current) {
+    void handle.close();
+    return;
+  }
+  handleRef.current = handle;
+}
+
 export interface LogViewerProps {
   initialService?: string;
 }
@@ -131,6 +149,7 @@ export function LogViewer({ initialService }: LogViewerProps) {
     setFilter((f) => ({ ...f, service: initialService }));
   }
   const handlesRef = React.useRef<LogChannelHandle[]>([]);
+  const changedRef = React.useRef<LogsChangedChannelHandle | undefined>(undefined);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const stickRef = React.useRef(true);
 
@@ -142,24 +161,12 @@ export function LogViewer({ initialService }: LogViewerProps) {
   }, []);
 
   React.useEffect(() => {
-    let closed = false;
-    let handle: LogsChangedChannelHandle | undefined;
-    void (async () => {
-      try {
-        handle = await logsChangedChannel(() => {
-          if (closed) return;
-          void qc.invalidateQueries({ queryKey: ["logs"] });
-        });
-        if (closed) {
-          void handle.close();
-        }
-      } catch (err) {
-        console.error("logsChangedChannel subscription failed:", err);
-      }
-    })();
+    const cancelled = { current: false };
+    run(startLogsChangedWatch(qc, cancelled, changedRef));
     return () => {
-      closed = true;
-      void handle?.close();
+      cancelled.current = true;
+      void changedRef.current?.close();
+      changedRef.current = undefined;
     };
   }, [qc]);
 
