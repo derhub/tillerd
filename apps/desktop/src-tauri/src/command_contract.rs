@@ -20,7 +20,6 @@ use tauri::{Manager, WebviewWindow};
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::transport::macros::collect_transport;
-use crate::{store, supervisor};
 
 /// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
 /// orchestrator's app-owned test edge. This is the context `Bus<Ctx>` dispatches over;
@@ -45,8 +44,6 @@ fn contract_app() -> tauri::App<MockRuntime> {
 
     mock_builder()
         .manage(bus)
-        .manage(store::StoreState::load())
-        .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
         .manage(crate::menu::LeaderMenuState::default())
         .invoke_handler(collect_transport!())
@@ -88,10 +85,7 @@ fn invoke(
 #[test]
 #[serial] // mutates TILLERD_* env; serialized against the other env-sensitive command tests
 fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
-    // Hermetic runtime dir: store/registry writes and the daemon manifest read stay in a temp
-    // dir, and `daemon_ensure` resolves the daemon binary to `/dev/null` (exists, so it is
-    // chosen) whose `execve` fails instantly -- proving the command is reached without spawning a
-    // real daemon or waiting on reachability.
+    // Hermetic runtime dir: command side effects stay in a temp dir.
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());
     std::env::set_var(tillerd_paths::ENV_DAEMON_BIN, "/dev/null");
@@ -106,29 +100,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
     // fields are populated so a rename to a required field is caught; required fields must be
     // present or deserialization fails (which is exactly what this test asserts against).
     let cases: Vec<(&str, serde_json::Value)> = vec![
-        (
-            "log_forward",
-            serde_json::json!({ "level": "info", "msg": "contract", "extra": null }),
-        ),
-        ("pref_get", serde_json::json!({ "key": "contract" })),
-        (
-            "pref_set",
-            serde_json::json!({ "key": "contract", "value": 1 }),
-        ),
-        (
-            "registry_get",
-            serde_json::json!({ "sessionId": "contract" }),
-        ),
-        (
-            "registry_set",
-            serde_json::json!({ "sessionId": "contract", "cwd": "/tmp" }),
-        ),
-        (
-            "registry_remove",
-            serde_json::json!({ "sessionId": "contract" }),
-        ),
-        ("registry_list", serde_json::json!({})),
-        ("daemon_ensure", serde_json::json!({})),
         ("orchestrator_status", serde_json::json!({})),
         ("service_health", serde_json::json!({})),
         (
@@ -154,6 +125,27 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         (
             "log_channel_close",
             serde_json::json!({ "req": { "service": "contract" } }),
+        ),
+        (
+            "logs_changed_channel",
+            serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
+        ),
+        (
+            "logs_changed_channel_close",
+            serde_json::json!({ "req": { "channelId": "contract" } }),
+        ),
+        (
+            "notification_channel",
+            serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
+        ),
+        (
+            "notification_channel_close",
+            serde_json::json!({ "req": { "channelId": "contract" } }),
+        ),
+        ("log_list", serde_json::json!({})),
+        (
+            "log_tail",
+            serde_json::json!({ "path": "/dev/null", "from": 0, "maxBytes": 1, "align": false }),
         ),
         (
             "surface_spawn",
