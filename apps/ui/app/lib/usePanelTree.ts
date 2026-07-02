@@ -19,18 +19,6 @@ export function sessionLayoutQuery(id: string) {
   return query("sessionLayoutGet", { id });
 }
 
-const LEGACY_STORAGE_KEY = "tillerd:panel-tree";
-
-function discardLegacyLayout(): void {
-  try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
-    }
-  } catch {
-    // localStorage unavailable
-  }
-}
-
 function layoutToTree(blob: string | null | undefined): PanelNode {
   if (!blob) return DEFAULT_LAYOUT;
   try {
@@ -54,8 +42,6 @@ export function usePanelTree(sessionId?: string | null) {
     seededFor.current = key;
     setTree(layoutToTree(layoutQuery.data));
   }
-
-  React.useEffect(() => discardLegacyLayout(), []);
 
   const queryClient = useQueryClient();
   const persistLayout = React.useCallback(

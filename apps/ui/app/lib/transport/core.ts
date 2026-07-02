@@ -1,4 +1,12 @@
-import type { TauriCore, TauriChannelLike } from "./tauri";
+export interface TauriChannelLike {
+  onmessage: ((data: unknown) => void) | null;
+}
+
+export interface TauriCore {
+  invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T>;
+  createChannel(): TauriChannelLike;
+  listen<T = unknown>(event: string, handler: (payload: T) => void): Promise<() => void>;
+}
 
 export function isDesktopHost(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
