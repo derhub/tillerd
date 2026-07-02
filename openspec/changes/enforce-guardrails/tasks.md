@@ -32,8 +32,8 @@
 
 - [x] 5.1 Dedupe the `0x00` domain-channel byte tag: `spawn_logs_watcher` uses the sink-owned
   tag helper; the layout is declared once.
-- [x] 5.2 `profile_create`: adopt `transport_create!` or add the justifying comment (parity with
-  `session_create`).
+- [x] 5.2 `profile_create`: adopted `transport_create!` via a new `GetProfile` by-id query
+  (unit-tested); wire shape unchanged.
 
 ## 6. Fix-all gate
 

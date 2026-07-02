@@ -1,15 +1,13 @@
 use orchestrator::app::settings::{
     ActivateProfile, ActivateTheme, ApplySetting, DiscardProfile, DiscardTheme, DuplicateProfile,
-    ExportProfile, ExportTheme, GetActiveProfile, GetActiveTheme, GetSetting, ImportProfile,
-    ImportTheme, KeybindingView, ListKeybindings, ListProfiles, ListSettings, ListThemes,
-    NewProfile, ProfileView, RebindKey, ReloadConfig, RenameProfile, ResetKeybinding,
+    ExportProfile, ExportTheme, GetActiveProfile, GetActiveTheme, GetProfile, GetSetting,
+    ImportProfile, ImportTheme, KeybindingView, ListKeybindings, ListProfiles, ListSettings,
+    ListThemes, NewProfile, ProfileView, RebindKey, ReloadConfig, RenameProfile, ResetKeybinding,
     ResetKeybindings, ResetSetting, ResolveKeybinding, ResolveSetting, ResolveSettings,
     SettingView, ThemeView,
 };
-use tauri::State;
 
-use crate::transport::macros::{transport_command, transport_query};
-use crate::transport::Bus;
+use crate::transport::macros::{transport_command, transport_create, transport_query};
 
 transport_query!(
     setting_get(scope: String, project_id: Option<String>, key: String) -> Option<String>
@@ -57,29 +55,19 @@ transport_query!(
         |profiles| profiles
 );
 
-/// Create a new profile with a caller-supplied id. Hand-written, not `transport_create!`:
-/// the macro's read-back step needs a by-id query and profiles have none (ListProfiles +
-/// id filter is the read-back); adding a GetProfileById solely for macro symmetry isn't
-/// worth the surface.
-#[tauri::command]
-#[specta::specta]
-pub async fn profile_create(
-    id: String,
-    name: String,
-    bus: State<'_, Bus>,
-) -> Result<ProfileView, String> {
-    bus.execute(NewProfile {
-        id: id.clone(),
-        name,
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-    let profiles = bus.query(ListProfiles).await.map_err(|e| e.to_string())?;
-    profiles
-        .into_iter()
-        .find(|p| p.0.id == id)
-        .ok_or_else(|| "profile vanished after create".to_string())
-}
+transport_create!(
+    /// Create a new profile with a caller-supplied id (client-assigned identity).
+    profile_create(id: String, name: String) -> ProfileView {
+        let created = id;
+        execute: NewProfile {
+            id: created.clone(),
+            name,
+        },
+        read_back: GetProfile { id: created },
+        map: |p| p,
+        missing: "profile vanished after create",
+    }
+);
 
 transport_command!(profile_activate(id: String) => ActivateProfile { id });
 

@@ -139,12 +139,7 @@ export const commands = {
 	commandSeed: () => typedError<null, string>(__TAURI_INVOKE("command_seed")),
 	profileGetActive: () => typedError<Profile | null, string>(__TAURI_INVOKE("profile_get_active")),
 	profileList: () => typedError<ProfileView[], string>(__TAURI_INVOKE("profile_list")),
-	/**
-	 *  Create a new profile with a caller-supplied id. Hand-written, not `transport_create!`:
-	 *  the macro's read-back step needs a by-id query and profiles have none (ListProfiles +
-	 *  id filter is the read-back); adding a GetProfileById solely for macro symmetry isn't
-	 *  worth the surface.
-	 */
+	/**  Create a new profile with a caller-supplied id (client-assigned identity). */
 	profileCreate: (args: { id: string; name: string }) => typedError<ProfileView, string>(__TAURI_INVOKE("profile_create", args)),
 	profileActivate: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("profile_activate", args)),
 	profileRename: (args: { id: string; newName: string }) => typedError<null, string>(__TAURI_INVOKE("profile_rename", args)),
