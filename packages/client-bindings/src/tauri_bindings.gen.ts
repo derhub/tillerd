@@ -19,6 +19,10 @@ export const commands = {
 	surfaceChannel: (args: { channel: Channel<number[]>; req: OpenSurfaceChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_channel", args)),
 	surfaceChannelSend: (args: { key: string; msg: SurfaceClientMsg }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_send", args)),
 	surfaceChannelClose: (args: { req: CloseSurfaceChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_channel_close", args)),
+	/**
+	 *  Spawn a terminal surface: mint a placement, spawn, read the surface back by
+	 *  placement, then announce `SurfaceStarted` via the non-fatal notable tail.
+	 */
 	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
 	surfaceClose: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
@@ -91,9 +95,8 @@ export const commands = {
 	surfaceReconcile: () => typedError<null, string>(__TAURI_INVOKE("surface_reconcile")),
 	sessionList: (args: { projectId: string | null; limit: number | null; offset: number | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list", args)),
 	/**
-	 *  Create a session, bring its launch spec to life. The `LaunchSession` tail is
-	 *  non-fatal (a spec-less session is valid), so this stays hand-written rather than
-	 *  using `transport_create!`.
+	 *  Create a session, then bring its launch spec to life via the non-fatal tail
+	 *  (a spec-less session is valid; a launch failure does not invalidate the create).
 	 */
 	sessionCreate: (args: { projectId: string | null; title: string | null; titleSource: string | null; templateId: string | null }) => typedError<SessionView, string>(__TAURI_INVOKE("session_create", args)),
 	sessionRename: (args: { id: string; title: string }) => typedError<null, string>(__TAURI_INVOKE("session_rename", args)),
