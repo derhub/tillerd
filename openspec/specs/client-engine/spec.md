@@ -43,25 +43,30 @@ for unmatched non-asset paths), with no custom asset handler.
 
 ### Requirement: Server-state cache is the single sync axis
 
-Renderer reads of orchestrator data SHALL flow through the server-state query cache, keyed by the
-orchestrator read command and its arguments. The cache SHALL expose pending, error, and stale
-status for a read, and the renderer SHALL render from that status rather than from ad-hoc local
-loading flags. A renderer mutation SHALL settle by invalidating the affected query keys so the
-cache refetches; the renderer SHALL NOT call an imperative `refresh()` callback or a route
-revalidator to re-read data.
+All server-state reads SHALL resolve through the Query cache (`useQuery`/`useSuspenseQuery` over
+the generated `query()` factories); components SHALL NOT fetch in effects and mirror results into
+local state. Mutations SHALL refresh by invalidation. One exception is permitted: a
+**high-frequency stream** (terminal output, live log tail) MAY feed the render through a local
+bounded buffer, because patching the Query cache per record would re-render the world on every
+frame; the durable part of such a feature (backlog, file lists) still resolves through the cache
+and revalidates by invalidation.
 
 #### Scenario: A read resolves through the query cache
 
-- **WHEN** a component reads project/session data
-- **THEN** it subscribes to a query keyed by the orchestrator read command and its arguments
-- **AND** it observes the pending, error, and resolved states of that query
+- **WHEN** a component needs server state
+- **THEN** it reads via a Query hook over the `query()` factory and renders from the cache
 
 #### Scenario: A mutation refreshes by invalidation, not imperative refresh
 
-- **WHEN** the renderer performs a create/rename/delete mutation
-- **THEN** it invalidates the affected query keys and the cache refetches
-- **AND** no imperative `refresh()` callback or route revalidation is used to re-read the list
+- **WHEN** a mutation succeeds
+- **THEN** affected queries refresh via declared invalidation keys, never a hand-called refresh
 
+#### Scenario: A high-frequency stream renders from a bounded local buffer
+
+- **WHEN** a component renders a high-frequency stream (PTY bytes, live log records)
+- **THEN** records append to a bounded local buffer merged at render time
+- **AND** the feature's durable reads (backlog, lists) still resolve through the Query cache and
+  revalidate via invalidation
 ### Requirement: A reactive store holds shared client UI state
 
 Client UI state shared across components (e.g. the active workspace selection) SHALL live in a
