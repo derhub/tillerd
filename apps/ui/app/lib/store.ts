@@ -9,12 +9,65 @@ interface UiState {
   expandedProjectIds: Record<string, boolean>;
 }
 
-export const uiStore = new Store<UiState>({
-  activeWorkspaceId: null,
-  activeProjectId: null,
-  commandCenterOpen: false,
-  expandedProjectIds: {},
-});
+const LOCAL_STORAGE_KEY = "tillerd:ui-state";
+
+function getInitialState(): UiState {
+  const defaults: UiState = {
+    activeWorkspaceId: null,
+    activeProjectId: null,
+    commandCenterOpen: false,
+    expandedProjectIds: {},
+  };
+
+  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+    return defaults;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return {
+          ...defaults,
+          activeWorkspaceId:
+            typeof parsed.activeWorkspaceId === "string" ? parsed.activeWorkspaceId : null,
+          activeProjectId:
+            typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
+          expandedProjectIds:
+            parsed.expandedProjectIds && typeof parsed.expandedProjectIds === "object"
+              ? parsed.expandedProjectIds
+              : {},
+        };
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load uiStore state from localStorage", e);
+  }
+  return defaults;
+}
+
+const initialState = getInitialState();
+
+export const uiStore = new Store<UiState>(initialState);
+
+if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
+  uiStore.subscribe(() => {
+    try {
+      const state = uiStore.state;
+      window.localStorage.setItem(
+        LOCAL_STORAGE_KEY,
+        JSON.stringify({
+          activeWorkspaceId: state.activeWorkspaceId,
+          activeProjectId: state.activeProjectId,
+          expandedProjectIds: state.expandedProjectIds,
+        }),
+      );
+    } catch (e) {
+      console.error("Failed to save uiStore state to localStorage", e);
+    }
+  });
+}
 
 export function setActiveWorkspace(id: string | null): void {
   uiStore.setState((s) => ({ ...s, activeWorkspaceId: id }));

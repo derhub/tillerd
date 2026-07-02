@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { setQueryClient } from "@tillerd/client-bindings";
 import React from "react";
@@ -6,7 +7,14 @@ import React from "react";
 import { DefaultErrorBoundary } from "~/components/shell/DefaultErrorBoundary";
 import { DefaultNotFound } from "~/components/shell/DefaultNotFound";
 import { mountCrossWindowInvalidate } from "~/lib/crossWindowSync";
-import { makeQueryClient } from "~/lib/queryClient";
+import {
+  makeQueryClient,
+  onPersistRestored,
+  PERSIST_BUSTER,
+  PERSIST_MAX_AGE,
+  queryPersister,
+  shouldDehydrateQuery,
+} from "~/lib/queryClient";
 import { subscribe } from "~/lib/subscribe";
 
 import { routeTree } from "./routeTree.gen";
@@ -34,9 +42,27 @@ declare module "@tanstack/react-router" {
 
 export function AppRouter() {
   React.useEffect(() => subscribe(mountCrossWindowInvalidate(queryClient)), []);
+
+  const content = <RouterProvider router={router} />;
+
+  if (!queryPersister) {
+    return <QueryClientProvider client={queryClient}>{content}</QueryClientProvider>;
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: queryPersister,
+        maxAge: PERSIST_MAX_AGE,
+        buster: PERSIST_BUSTER,
+        dehydrateOptions: {
+          shouldDehydrateQuery,
+        },
+      }}
+      onSuccess={() => onPersistRestored(queryClient)}
+    >
+      {content}
+    </PersistQueryClientProvider>
   );
 }

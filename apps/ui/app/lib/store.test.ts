@@ -32,4 +32,13 @@ describe("uiStore activeWorkspaceId", () => {
     expect(seen).toContain("ws-2");
     expect(seen).not.toContain("ws-3");
   });
+
+  test("state updates are persisted to localStorage", () => {
+    localStorage.clear();
+    setActiveWorkspace("ws-persist-test");
+    const raw = localStorage.getItem("tillerd:ui-state");
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!);
+    expect(parsed.activeWorkspaceId).toBe("ws-persist-test");
+  });
 });

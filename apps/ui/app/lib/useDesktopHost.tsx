@@ -26,52 +26,42 @@ function toState(status: StatusWire): DesktopHostState {
   return { status: "booting" };
 }
 
-async function mountOrchestratorClient(
-  onState: (s: DesktopHostState) => void,
-  isCancelled: () => boolean,
-  setUnlisten: (u: () => void) => void,
-): Promise<void> {
-  try {
-    const client: SimpleOrchestratorClient = createDesktopOrchestratorClient();
-    const unlisten = await client.subscribe((status) => {
-      if (!isCancelled()) onState(toState(status));
-    });
-    setUnlisten(unlisten);
-    if (isCancelled()) {
-      unlisten();
-      return;
-    }
-    const current = await client.status();
-    if (!isCancelled()) onState(toState(current));
-  } catch (e) {
-    if (!isCancelled()) {
-      onState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
-    }
+// Global state to eagerly track the desktop host status and avoid deadlocks in router loaders
+let globalState: DesktopHostState = isDesktopHost() ? { status: "booting" } : { status: "web" };
+const listeners = new Set<(s: DesktopHostState) => void>();
+
+function setGlobalState(newState: DesktopHostState) {
+  globalState = newState;
+  for (const listener of listeners) {
+    listener(newState);
   }
 }
 
+if (isDesktopHost()) {
+  void (async () => {
+    try {
+      const client: SimpleOrchestratorClient = createDesktopOrchestratorClient();
+      const _unlisten = await client.subscribe((status) => {
+        setGlobalState(toState(status));
+      });
+      const current = await client.status();
+      setGlobalState(toState(current));
+    } catch (e) {
+      setGlobalState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
+    }
+  })();
+} else {
+  setReady(false);
+}
+
 export function DesktopHostProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<DesktopHostState>(() =>
-    isDesktopHost() ? { status: "booting" } : { status: "web" },
-  );
+  const [state, setState] = React.useState<DesktopHostState>(globalState);
 
   React.useEffect(() => {
-    if (!isDesktopHost()) {
-      setReady(false);
-      return;
-    }
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    void mountOrchestratorClient(
-      setState,
-      () => cancelled,
-      (u) => {
-        unlisten = u;
-      },
-    );
+    setState(globalState);
+    listeners.add(setState);
     return () => {
-      cancelled = true;
-      unlisten?.();
+      listeners.delete(setState);
     };
   }, []);
 
