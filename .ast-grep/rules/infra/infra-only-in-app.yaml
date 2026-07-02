@@ -1,6 +1,6 @@
 id: infra-only-in-app
 language: Rust
-severity: warning
+severity: error
 message: >-
   infra/ may be referenced only from app/ and the bootstrap (boot.rs, context.rs). Repositories,
   the surface runtime, and other adapters are invoked from app/ use cases and wired by the
@@ -10,8 +10,8 @@ note: |
   app/ invokes infra; the bootstrap (boot.rs, context.rs) wires it (`Ctx` holds the handles).
   Everywhere else, depend on an app-owned edge instead of naming `crate::infra`.
 
-  severity: warning until every reference outside app/ and the bootstrap is removed; then flip
-  to error. Tracked by ADR-0038.
+  Enforced at error since the last out-of-layer reference was removed (ADR-0038 exit
+  condition met).
 ignores:
   - "crates/orchestrator/src/app/**"
   - "crates/orchestrator/src/infra/**"

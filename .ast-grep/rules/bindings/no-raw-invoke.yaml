@@ -1,0 +1,41 @@
+id: no-raw-invoke
+language: Tsx
+severity: error
+message: >-
+  Raw `invoke` from "@tauri-apps/api/core" is banned outside the generated
+  bindings. Reach desktop IPC through the typed wrappers from
+  "@tillerd/client-bindings" (`query`, `command`, `subscribe`, channel helpers,
+  window helpers) so every command keeps a compile-time contract.
+note: |
+  tauri_bindings.gen.ts is the single sanctioned importer of the raw invoke
+  capability; it is regenerated from the Rust IPC layer, so a command rename
+  breaks the build instead of failing at runtime. A hand-written string invoke
+  bypasses that guarantee and is exactly how commands drift out of the typed
+  surface. Covers both the static import specifier and destructuring from a
+  dynamic `import("@tauri-apps/api/core")`. `Channel` and the event API are
+  unaffected.
+ignores:
+  - "**/tauri_bindings.gen.ts"
+rule:
+  any:
+    - kind: import_specifier
+      has:
+        field: name
+        regex: '^invoke$'
+      inside:
+        kind: import_statement
+        stopBy: end
+        has:
+          field: source
+          regex: '@tauri-apps/api/core'
+    - kind: shorthand_property_identifier_pattern
+      regex: '^invoke$'
+      inside:
+        kind: variable_declarator
+        stopBy: end
+        has:
+          kind: await_expression
+          field: value
+          has:
+            kind: call_expression
+            regex: 'import\("@tauri-apps/api/core"\)'

@@ -1,0 +1,74 @@
+id: no-raw-invoke
+snapshots:
+  const { invoke } = await import("@tauri-apps/api/core");:
+    labels:
+    - source: invoke
+      style: primary
+      start: 8
+      end: 14
+    - source: import("@tauri-apps/api/core")
+      style: secondary
+      start: 25
+      end: 55
+    - source: await import("@tauri-apps/api/core")
+      style: secondary
+      start: 19
+      end: 55
+    - source: '{ invoke } = await import("@tauri-apps/api/core")'
+      style: secondary
+      start: 6
+      end: 55
+  const { invoke, Channel } = await import("@tauri-apps/api/core");:
+    labels:
+    - source: invoke
+      style: primary
+      start: 8
+      end: 14
+    - source: import("@tauri-apps/api/core")
+      style: secondary
+      start: 34
+      end: 64
+    - source: await import("@tauri-apps/api/core")
+      style: secondary
+      start: 28
+      end: 64
+    - source: '{ invoke, Channel } = await import("@tauri-apps/api/core")'
+      style: secondary
+      start: 6
+      end: 64
+  import { invoke as tauriInvoke } from "@tauri-apps/api/core";:
+    labels:
+    - source: invoke as tauriInvoke
+      style: primary
+      start: 9
+      end: 30
+    - source: '"@tauri-apps/api/core"'
+      style: secondary
+      start: 38
+      end: 60
+    - source: import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+      style: secondary
+      start: 0
+      end: 61
+    - source: invoke
+      style: secondary
+      start: 9
+      end: 15
+  import { invoke } from "@tauri-apps/api/core";:
+    labels:
+    - source: invoke
+      style: primary
+      start: 9
+      end: 15
+    - source: '"@tauri-apps/api/core"'
+      style: secondary
+      start: 23
+      end: 45
+    - source: import { invoke } from "@tauri-apps/api/core";
+      style: secondary
+      start: 0
+      end: 46
+    - source: invoke
+      style: secondary
+      start: 9
+      end: 15
