@@ -82,14 +82,17 @@ details. Invalidation is cheap (in-process IPC), so coarse-by-entity is fine.
 snapshot) and `onError` (roll back from the snapshot). The global `MutationCache` handles the final
 invalidate. Don't reach for optimism everywhere — only where the user would otherwise see a flash.
 
-## Cross-window coherence — refetchOnWindowFocus, no custom event
+## Cross-window coherence — live invalidation broadcast, focus-refetch disabled
 
 Each window has its **own** `QueryClient`, so a mutation's invalidation only refreshes the window it
-ran in (correct and instant there). Other windows refresh via TanStack's default
-`refetchOnWindowFocus` when you focus them — eventual coherence, zero extra code. We deliberately do
-NOT run a custom cross-window "changed" event: optimistic + auto-invalidate covers the active window,
-and focus-refetch covers the rest. (If live side-by-side multi-window sync is ever required, add a
-Tauri-event broadcaster then — not before.)
+ran in. Cross-window coherence is a **live invalidation broadcast over the Tauri event bus**
+(`lib/crossWindowSync.ts`): on a successful mutation the global `MutationCache` broadcasts the
+declared `meta.invalidates` keys on a `query:invalidate` event; every other window's listener
+invalidates the matching queries and skips its own broadcast (no echo). A coalesce/dedupe guard
+(~80ms flush, both directions) bounds a mutation burst to one emit + one invalidation pass.
+`refetchOnWindowFocus` is **disabled** — the broadcast makes it redundant, and it would cause a
+refetch storm when many windows regain focus together. `BroadcastChannel` is unfit here: Tauri
+windows are separate OS webview processes.
 
 Other channels stay on their own paths, not Query: terminal **surface bytes** ride a per-surface
 `ipc::Channel` (raw stream, not cacheable state); orchestrator **status/health** and **notifications**
