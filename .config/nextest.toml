@@ -1,0 +1,9 @@
+# cargo-nextest profiles — https://nexte.st/docs/configuration/
+# Local: fail fast, no retries. CI: retry flaky, run everything.
+
+[profile.default]
+retries = 0
+
+[profile.ci]
+retries = 2
+fail-fast = false

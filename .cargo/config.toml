@@ -1,0 +1,11 @@
+# Build-speed configuration. See docs/adr/ for toolchain decisions.
+#
+# Do NOT set build.rustc-wrapper = "sccache" here — it forces
+# CARGO_INCREMENTAL=0, disabling incremental compilation, which is a net
+# loss for the interactive TDD loop. Use sccache only for cold rebuilds:
+#   CARGO_INCREMENTAL=0 RUSTC_WRAPPER=sccache cargo build
+
+[profile.dev]
+# macOS: skip dsymutil packing on every incremental build — large
+# incremental debug-build speedup, stable since Rust 1.51.
+split-debuginfo = "unpacked"
