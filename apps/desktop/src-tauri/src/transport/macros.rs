@@ -71,14 +71,6 @@ macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
             $( $runtime_cmd, )*
-            $crate::diag::log_forward,
-            $crate::store::pref_get,
-            $crate::store::pref_set,
-            $crate::store::registry_get,
-            $crate::store::registry_set,
-            $crate::store::registry_remove,
-            $crate::store::registry_list,
-            $crate::supervisor::daemon_ensure,
             $crate::orchestrator_host::orchestrator_status,
             $crate::orchestrator_host::service_health,
             $crate::window_host::window_open,

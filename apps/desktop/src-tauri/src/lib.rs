@@ -1,11 +1,8 @@
 #[cfg(test)]
 mod command_contract;
-mod diag;
 mod menu;
 mod orchestrator_host;
 mod specta_export;
-mod store;
-mod supervisor;
 mod transport;
 mod window_host;
 
@@ -14,8 +11,6 @@ use tauri::Manager;
 use transport::macros::collect_transport;
 
 use orchestrator_host::OrchestratorState;
-use store::StoreState;
-use supervisor::SupervisorState;
 
 /// Builds a tauri-specta Builder over the commands that support `specta::Type`.
 ///
@@ -28,11 +23,6 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
         .dangerously_cast_bigints_to_number()
         .commands(tauri_specta::collect_commands![
-            store::registry_get,
-            store::registry_set,
-            store::registry_remove,
-            store::registry_list,
-            supervisor::daemon_ensure,
             orchestrator_host::orchestrator_status,
             orchestrator_host::service_health,
             window_host::window_open::<tauri::Wry>,
@@ -212,8 +202,6 @@ pub fn run() {
         .expect("failed to export tauri bindings");
 
     builder
-        .manage(StoreState::load())
-        .manage(SupervisorState::default())
         .manage(OrchestratorState::default())
         .manage(menu::LeaderMenuState::default())
         .setup(|app| {
@@ -236,12 +224,5 @@ pub fn run() {
         .invoke_handler(collect_transport!())
         .build(app_context())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            // Shutdown is bound to app exit (ExitRequested fires only when the LAST window closes),
-            // never per-window-close -- so closing a parent window while a detached child remains
-            // open leaves the owned daemon running (roadmap 0.0.11, desktop-shell spec).
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                supervisor::shutdown_owned(&app_handle.state::<SupervisorState>());
-            }
-        });
+        .run(|_app_handle, _event| {});
 }

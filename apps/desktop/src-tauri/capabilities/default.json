@@ -1,8 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "App windows. The app's own #[tauri::command]s (log_forward, pref_*, registry_*, window_open/focus, and the domain transport commands) are allowed by default and need no permission string; domain-channel Channels ride core IPC covered by core:default. Child windows (detached-*, project-*, workspace-*) load the same renderer and need the same core IPC, plus core:window self-close/start-dragging for their own chrome.",
-  "windows": ["main", "detached-*", "project-*", "workspace-*"],
+  "description": "App windows. The app's own #[tauri::command]s (window_open/focus/close and the domain transport commands) are allowed by default and need no permission string; domain-channel Channels ride core IPC covered by core:default. Child windows (detached-*, project-*, workspace-*) load the same renderer and need the same core IPC, plus core:window self-close/start-dragging for their own chrome.",
+  "windows": [
+    "main",
+    "detached-*",
+    "project-*",
+    "workspace-*"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

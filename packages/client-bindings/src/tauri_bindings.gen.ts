@@ -8,12 +8,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
-	registryGet: (args: { sessionId: string }) => typedError<string | null, null>(__TAURI_INVOKE("registry_get", args)),
-	registrySet: (args: { sessionId: string; cwd: string }) => typedError<null, null>(__TAURI_INVOKE("registry_set", args)),
-	registryRemove: (args: { sessionId: string }) => typedError<null, null>(__TAURI_INVOKE("registry_remove", args)),
-	registryList: () => typedError<RegistryEntry[], null>(__TAURI_INVOKE("registry_list")),
-	/**  Adopt a live daemon recorded in the manifest, else spawn one and wait for reachability. */
-	daemonEnsure: () => typedError<EnsureResult, string>(__TAURI_INVOKE("daemon_ensure")),
 	orchestratorStatus: () => __TAURI_INVOKE<StatusWire>("orchestrator_status"),
 	serviceHealth: () => typedError<ServiceHealthWire[], string>(__TAURI_INVOKE("service_health")),
 	windowOpen: (args: { label: string; query: string }) => typedError<null, string>(__TAURI_INVOKE("window_open", args)),
@@ -146,8 +140,10 @@ export const commands = {
 	profileGetActive: () => typedError<Profile | null, string>(__TAURI_INVOKE("profile_get_active")),
 	profileList: () => typedError<ProfileView[], string>(__TAURI_INVOKE("profile_list")),
 	/**
-	 *  Create a new profile with a caller-supplied id. Hand-written (no GetProfileById
-	 *  query): executes NewProfile then reads back via ListProfiles + id filter.
+	 *  Create a new profile with a caller-supplied id. Hand-written, not `transport_create!`:
+	 *  the macro's read-back step needs a by-id query and profiles have none (ListProfiles +
+	 *  id filter is the read-back); adding a GetProfileById solely for macro symmetry isn't
+	 *  worth the surface.
 	 */
 	profileCreate: (args: { id: string; name: string }) => typedError<ProfileView, string>(__TAURI_INVOKE("profile_create", args)),
 	profileActivate: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("profile_activate", args)),
@@ -254,11 +250,6 @@ export type CreateCommandRequest = {
 	cli: string,
 	args?: string[],
 	env?: { [key in string]: string },
-};
-
-export type EnsureResult = {
-	ownership: string,
-	socket: string,
 };
 
 /**  A keybinding entry: action and its effective chord. */
@@ -407,11 +398,6 @@ export type ProjectView = {
 	sourceKind: string,
 	rootPath: string | null,
 	workspaceId: string,
-};
-
-export type RegistryEntry = {
-	sessionId: string,
-	cwd: string,
 };
 
 /**  One service's health on the wire. */
