@@ -1,7 +1,7 @@
 # launch-spec Specification
 
 ## Purpose
-TBD - created by archiving change launch-system. Update Purpose after archive.
+Versioned launch-spec schema (integer version plus an ordered list of launch items with target, placement, command, pre/post/auto_spawn hooks, and optional worktree step) and its lazy per-load migration engine that walks stored blobs from their version to current through pure per-version migration functions.
 ## Requirements
 ### Requirement: Versioned launch spec schema
 

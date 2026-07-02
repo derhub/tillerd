@@ -1,7 +1,7 @@
 # fs-listing-cache Specification
 
 ## Purpose
-TBD - created by archiving change fs-listing-cache. Update Purpose after archive.
+In-memory read-through cache for the fs backend's entity reads and listings: mtime revalidation before reuse, write-driven invalidation of cache and id-to-path index entries on the backend's own mutations, and lazy on-demand construction of the id-to-path index (except eager seeding of Default workspace/Unfiled project on an empty tree).
 ## Requirements
 ### Requirement: Read-through cache preserves read results
 

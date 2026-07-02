@@ -1,7 +1,7 @@
 # bus-middleware Specification
 
 ## Purpose
-TBD - created by archiving change tower-bus-middleware. Update Purpose after archive.
+Ordered stack of cross-cutting layers composed once at bootstrap around every command/query dispatch (error logging, lifecycle-signal observation, notification recording), added/removed/reordered without touching handlers or call sites. Covers routing surface-start and orchestrator-status lifecycle signals through the bus for single-point observation and recording, while raw surface input/resize/attach traffic stays off the layered dispatch path.
 ## Requirements
 ### Requirement: Command and query dispatch composes cross-cutting layers
 

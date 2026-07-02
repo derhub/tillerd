@@ -1,7 +1,7 @@
 # stream-subscription Specification
 
 ## Purpose
-TBD - created by archiving change bus-subscribe-streams. Update Purpose after archive.
+Stream subscription over the command bus: establishing a subscription is a dispatched command that registers a client-supplied, host-agnostic sink and returns before any data flows. After registration, frames are delivered directly to sinks scoped by subscription key, by borrow and with no per-frame dispatch, and a torn-down or closed sink stops receiving frames without blocking the source or other subscribers.
 ## Requirements
 ### Requirement: A subscription is established through the bus
 

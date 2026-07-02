@@ -1,7 +1,7 @@
 # duplex-channel Specification
 
 ## Purpose
-TBD - created by archiving change duplex-channel-verb. Update Purpose after archive.
+A `channel` transport verb providing a named bidirectional session -- open, send, receive, close -- behind a single client handle, with open dispatched through the bus and its middleware exactly once. Send-direction data messages bypass the telemetry path so payloads are never logged, the receive direction reuses zero-copy stream-subscription delivery, and surface (terminal) input/output are carried over one channel session in place of separate subscription and input commands.
 ## Requirements
 ### Requirement: A channel is a bidirectional session with an open/send/close lifecycle
 

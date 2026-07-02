@@ -1,7 +1,7 @@
 # template-instance Specification
 
 ## Purpose
-TBD - created by archiving change launch-system. Update Purpose after archive.
+Snapshotting a template's spec blob and version onto a session row at creation time, written atomically with the session. Covers session-template divergence after instantiation -- template updates do not affect existing sessions and session spec edits do not affect the template -- and sessions created without a template reference, which carry null spec fields and produce no launches.
 ## Requirements
 ### Requirement: Template snapshot written to session on instantiation
 

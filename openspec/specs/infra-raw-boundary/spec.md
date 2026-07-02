@@ -1,7 +1,7 @@
 # infra-raw-boundary Specification
 
 ## Purpose
-TBD - created by archiving change infra-raw-app-owns-domain. Update Purpose after archive.
+The raw/domain boundary between infra and app: infra exposes only raw I/O operations (statement execution, column mapping, socket and file I/O, wire encoding) as concrete types with no domain rules, guards, or multi-step load-apply-persist sequences; app owns all domain logic and is the sole integrator of entities and infra. The split is enforced by structural lint rules, with the composition root (`boot.rs`/`context.rs`) exempted.
 ## Requirements
 ### Requirement: Infra is a raw API
 

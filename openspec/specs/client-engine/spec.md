@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD — routing, state management, and cross-window coherence layer for the renderer, built on TanStack Router and TanStack Query.
+Renderer routing, server-state caching, and cross-window coherence, built on TanStack Router and TanStack Query. Covers window-intent resolution at the root layout with file-based child routes, the query cache as the single server-state sync axis (with a bounded local buffer as the sole exception for high-frequency streams), a reactive client store for shared UI state, per-window caches kept coherent across windows via a coalesced invalidation broadcast, generic typed query/command factories over the generated bindings, render-as-you-fetch loaders with Suspense, and client-side cache persistence for fast cold start.
 
 ## Requirements
 

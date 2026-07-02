@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD — Auto-generation of TypeScript bindings from Rust IPC shims.
+Build-time generation of the TypeScript desktop IPC surface (@tillerd/client-bindings) from the Rust command/event definitions, split into an import-free types module and a Tauri-coupled client module, keeping @tillerd/sdk free of the Tauri runtime dependency. A drift-guard test and a structural CI rule keep the bindings the single source of truth and the only sanctioned invoke path for renderer code.
 
 ## Requirements
 

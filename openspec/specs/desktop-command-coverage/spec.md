@@ -1,7 +1,7 @@
 # desktop-command-coverage Specification
 
 ## Purpose
-TBD - created by archiving change desktop-command-coverage. Update Purpose after archive.
+Contract ensuring every app-layer command/query is reachable from the desktop client as a registered tauri command listed in collect_transport!, with a contract test invoking each and asserting a stable wire shape (query *View DTOs, create-then-read-back). Exposure is additive: no existing command's name, args, or response changes, and no capabilities/default.json entry is required.
 ## Requirements
 ### Requirement: Every app command and query is a registered desktop command
 

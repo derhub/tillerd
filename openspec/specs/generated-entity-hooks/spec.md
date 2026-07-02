@@ -2,7 +2,10 @@
 
 ## Purpose
 
-TBD — Build-time generation of the TanStack hook surface from Tauri IPC bindings.
+Generic runtime factories over the generated Tauri bindings -- `query()`, `command()`/`runCommand()`,
+`subscribe()`, and the channel helpers -- as the renderer's only entity-access surface: fully typed
+from the bindings, zero per-entity hand-written wrappers, write mutations declaring
+`meta.invalidates` for the global settle-invalidation and cross-window broadcast.
 
 ## Requirements
 

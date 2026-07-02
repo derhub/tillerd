@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD - created by archiving change rust-pty-daemon. Update Purpose after archive.
+Benchmark harness that drives a daemon implementation through its real control-socket protocol -- spawn, streaming, subscribe, teardown -- to compare implementations under a fixed set of workloads (rapid spawn, sustained throughput, concurrent sessions, subscribe/snapshot latency, reconnect-replay). Emits a comparative report of resident memory, throughput, snapshot build time, and latency percentiles per workload and per daemon binary.
 
 ## Requirements
 

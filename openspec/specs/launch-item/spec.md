@@ -1,7 +1,7 @@
 # launch-item Specification
 
 ## Purpose
-TBD - created by archiving change launch-system. Update Purpose after archive.
+Sequential execution of launch items from a session spec: each item's pre-scripts, surface creation, and post-scripts run in order before the next item starts. Covers auto-spawn injection on attach and reattach, the best-effort failure model where a failed item is recorded as a typed error without blocking remaining items, and placement slot ids minted per spawn and recorded on the surface row.
 ## Requirements
 ### Requirement: Ordered item execution
 

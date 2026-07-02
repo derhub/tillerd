@@ -1,7 +1,7 @@
 # project-worktree Specification
 
 ## Purpose
-TBD - created by archiving change launch-system. Update Purpose after archive.
+Worktree rows track git worktrees created by a launch item's worktree step -- each row carries a project reference, absolute path, branch, and soft-delete (archive) timestamp. The worktree step creates the worktree on disk, writes its row, and sets it as the surface's working directory; a surface created from that step records the worktree reference, which is null otherwise.
 ## Requirements
 ### Requirement: Worktree row lifecycle
 

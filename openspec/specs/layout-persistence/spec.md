@@ -1,7 +1,7 @@
 # layout-persistence Specification
 
 ## Purpose
-TBD - created by archiving change projects-and-sessions-container. Update Purpose after archive.
+Server-side persistence of a session's panel-tree layout in the `layout_json` column, replacing browser local storage as the backend. Covers storing layout on request, restoring it (including empty-leaf and null-layout fallback) on session open, keeping it in sync after structural panel mutations, and discarding legacy local-storage layout keys on UI init.
 ## Requirements
 ### Requirement: Per-session layout stored in the product store
 

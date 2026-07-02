@@ -1,11 +1,11 @@
 # workspace-reorder Specification
 
 ## Purpose
-TBD - created by archiving change workspace-management. Update Purpose after archive.
+Drag-to-reorder for projects and sessions in the sidebar, with sort order persisted across app restarts. Covers per-project session ordering, the Unfiled group always sorting last, sessions confined to their parent project, and new sessions appearing at the end of their project's list.
 ## Requirements
 ### Requirement: Drag-to-reorder projects in sidebar
 
-Users can drag projects in the sidebar to reorder them. The order persists across app restarts.
+The sidebar SHALL support drag-to-reorder of projects, and the resulting order SHALL persist across app restarts.
 
 #### Scenario: Drag project to new position within the sidebar
 
@@ -27,7 +27,7 @@ Users can drag projects in the sidebar to reorder them. The order persists acros
 
 ### Requirement: Drag-to-reorder sessions within a project
 
-Users can drag sessions within their parent project to reorder them. The order persists across app restarts.
+The sidebar SHALL support drag-to-reorder of sessions within their parent project, and the resulting order SHALL persist across app restarts.
 
 #### Scenario: Drag session to new position within the project
 

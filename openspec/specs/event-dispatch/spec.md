@@ -1,7 +1,7 @@
 # event-dispatch Specification
 
 ## Purpose
-TBD - created by archiving change standardize-event-dispatch. Update Purpose after archive.
+A shared event-dispatch standard for streaming domain data out of the orchestrator: delivery is by borrow, synchronous on the producer's thread, and zero-copy, with fan-out to multiple subscribers and composable middleware layers in front of it. Events crossing to a host carry only primitive data, and subscribers may be registered and torn down per key without affecting others.
 ## Requirements
 ### Requirement: Borrowed event delivery
 
