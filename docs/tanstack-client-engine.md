@@ -169,6 +169,12 @@ Route-critical data follows render-as-you-fetch (ADR-0039 engine, `ui-route-load
   initial snapshot; live signals call `setQueryData` (merge) or `invalidateQueries` (refetch) on the
   same entry (the cross-window broadcast already is this). Terminal PTY bytes stay outside Query;
   orchestrator status is the readiness signal the queryFns await, not a cache entry.
+- **High-frequency streams render from a bounded local buffer** (client-engine spec scenario).
+  Terminal PTY bytes and the live log tail append to a bounded component-local buffer merged at
+  render time -- per-record `setQueryData` would re-render every cache subscriber on every line.
+  The feature's durable half (backlog windows, file lists) still resolves through the Query cache
+  and revalidates by invalidation. This is the one sanctioned exception to the single-sync-axis
+  rule.
 
 Test route-critical reads with `renderWithSuspense` (`lib/test/suspense.tsx`): a QueryClientProvider
 wrapped in a Suspense boundary, so a `useSuspenseQuery` throw is caught and the test awaits the

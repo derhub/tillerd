@@ -1,3 +1,4 @@
+import { Store, useSelector } from "@tanstack/react-store";
 import { setReady } from "@tillerd/client-bindings";
 import React from "react";
 
@@ -14,8 +15,6 @@ export type DesktopHostState =
   | { status: "ready" }
   | { status: "error"; error: Error };
 
-const DesktopHostContext = React.createContext<DesktopHostState>({ status: "web" });
-
 function toState(status: StatusWire): DesktopHostState {
   if (status.state === "ready") {
     setReady(true);
@@ -26,28 +25,27 @@ function toState(status: StatusWire): DesktopHostState {
   return { status: "booting" };
 }
 
-// Global state to eagerly track the desktop host status and avoid deadlocks in router loaders
-let globalState: DesktopHostState = isDesktopHost() ? { status: "booting" } : { status: "web" };
-const listeners = new Set<(s: DesktopHostState) => void>();
-
-function setGlobalState(newState: DesktopHostState) {
-  globalState = newState;
-  for (const listener of listeners) {
-    listener(newState);
-  }
-}
+// Module-level store so the boot status is tracked eagerly (before any component mounts) and
+// router loaders never deadlock waiting for a provider. TanStack Store is the one client-state
+// mechanism (client-engine spec); components subscribe via useSelector.
+export const desktopHostStore = new Store<DesktopHostState>(
+  isDesktopHost() ? { status: "booting" } : { status: "web" },
+);
 
 if (isDesktopHost()) {
   void (async () => {
     try {
       const client: SimpleOrchestratorClient = createDesktopOrchestratorClient();
-      const _unlisten = await client.subscribe((status) => {
-        setGlobalState(toState(status));
+      await client.subscribe((status) => {
+        desktopHostStore.setState(() => toState(status));
       });
       const current = await client.status();
-      setGlobalState(toState(current));
+      desktopHostStore.setState(() => toState(current));
     } catch (e) {
-      setGlobalState({ status: "error", error: e instanceof Error ? e : new Error(String(e)) });
+      desktopHostStore.setState(() => ({
+        status: "error",
+        error: e instanceof Error ? e : new Error(String(e)),
+      }));
     }
   })();
 } else {
@@ -55,19 +53,9 @@ if (isDesktopHost()) {
 }
 
 export function DesktopHostProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<DesktopHostState>(globalState);
-
-  React.useEffect(() => {
-    setState(globalState);
-    listeners.add(setState);
-    return () => {
-      listeners.delete(setState);
-    };
-  }, []);
-
-  return <DesktopHostContext.Provider value={state}>{children}</DesktopHostContext.Provider>;
+  return children;
 }
 
 export function useDesktopHost(): DesktopHostState {
-  return React.use(DesktopHostContext);
+  return useSelector(desktopHostStore, (s) => s);
 }

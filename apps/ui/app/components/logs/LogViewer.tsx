@@ -139,6 +139,10 @@ export function LogViewer({ initialService }: LogViewerProps) {
   const desktop = isDesktopHost();
   const [windowBytes, setWindowBytes] = React.useState(BACKFILL_BYTES);
   const backlog = useQuery(logBacklogQuery(qc, windowBytes, desktop));
+  // High-frequency-stream exception (client-engine spec: "A high-frequency stream renders from a
+  // bounded local buffer"): live records append to a bounded local buffer merged at render time --
+  // patching the Query cache per record would re-render every subscriber on every log line. The
+  // durable half (backlog, file list) stays on the Query cache and revalidates by invalidation.
   const [live, setLive] = React.useState<LogRecord[]>([]);
   const [filter, setFilter] = React.useState<LogFilter>(() =>
     initialService ? { service: initialService } : {},

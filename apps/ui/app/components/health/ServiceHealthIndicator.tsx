@@ -1,6 +1,5 @@
-import type { ServiceHealthWire } from "@tillerd/client-bindings";
-
-import { getQueryClient, query } from "@tillerd/client-bindings";
+import { useQuery } from "@tanstack/react-query";
+import { query } from "@tillerd/client-bindings";
 import React from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
@@ -9,18 +8,6 @@ import { useDesktopHost } from "~/lib/useDesktopHost";
 import { cn } from "~/lib/utils";
 
 import { ServiceHealthPanel } from "./ServiceHealthPanel";
-
-async function fetchHealthSnapshot(
-  cancelled: { current: boolean },
-  setServices: (s: ServiceHealthWire[]) => void,
-): Promise<void> {
-  try {
-    const snapshot = await getQueryClient().ensureQueryData(query("serviceHealth"));
-    if (!cancelled.current) setServices(snapshot);
-  } catch {
-    // Keep the prior snapshot; indicator degrades gracefully on fetch failure.
-  }
-}
 
 const DOT: Record<AggregateState, string> = {
   ready: "bg-emerald-500",
@@ -37,16 +24,11 @@ const TEXT: Record<AggregateState, string> = {
 export function ServiceHealthIndicator() {
   const host = useDesktopHost();
   const phase = host.status;
-  const [services, setServices] = React.useState<ServiceHealthWire[]>([]);
-
-  React.useEffect(() => {
-    if (phase === "web") return;
-    const cancelled = { current: false };
-    void fetchHealthSnapshot(cancelled, setServices);
-    return () => {
-      cancelled.current = true;
-    };
-  }, [phase]);
+  // Plain useQuery, not Suspense: shell chrome degrades gracefully (renders the "starting"
+  // aggregate with no data) instead of suspending; query data survives an error, so a failed
+  // refetch keeps the prior snapshot.
+  const health = useQuery({ ...query("serviceHealth"), enabled: phase !== "web" });
+  const services = health.data ?? [];
 
   if (phase === "web") return null;
 
