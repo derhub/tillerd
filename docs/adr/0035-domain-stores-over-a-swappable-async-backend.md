@@ -1,6 +1,6 @@
 # 0035. Domain stores over a swappable async backend (enum dispatch); hand-editable files + listing cache
 
-- Status: proposed
+- Status: superseded by ADR-0036
 - Date: 2026-06-19
 
 ## Context

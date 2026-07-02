@@ -1,6 +1,6 @@
 # 0042. Client-provided stream subscriptions: subscribe-as-command, host-agnostic sink port, zero-copy passthrough
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-06-25
 - Relates: ADR-0037 (zero-copy event dispatch), ADR-0041 (tower bus middleware spine)
 

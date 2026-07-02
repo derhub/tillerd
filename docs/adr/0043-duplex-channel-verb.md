@@ -1,6 +1,6 @@
 # 0043. The duplex `channel` verb: bidirectional session, off-telemetry send, host-mapped transport
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-06-25
 - Relates: ADR-0037 (zero-copy event dispatch), ADR-0041 (tower bus middleware), ADR-0042 (client-provided stream subscriptions)
 

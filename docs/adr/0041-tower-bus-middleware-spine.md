@@ -1,6 +1,6 @@
 # 0041. Tower as the bus middleware spine; lifecycle signals ride the bus for observation
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-06-25
 - Supersedes: ADR-0037 (bus-exclusivity clause only; the zero-copy byte-stream event-dispatch standard is retained)
 
