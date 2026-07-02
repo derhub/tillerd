@@ -2,7 +2,7 @@
 //! (`crate::app_context()` -- config + embedded frontend + resolved ACL) on the `tauri::test` mock
 //! runtime over a `:memory:` `Ctx` (migrations applied, `FakeRuntime`, `SqliteKv`), then each
 //! command registered in `run()` is invoked through the live IPC path with the argument shape
-//! `@tillerd/sdk` + the desktop bridge actually send. A command that is missing from the handler
+//! `@tillerd/client-bindings` actually sends. A command that is missing from the handler
 //! fails with "Command <name> not found"; a command whose argument struct drifts from its body
 //! fails with "invalid args `<field>`". Either is a contract break the assertions catch -- at
 //! unit-test speed, before a full desktop e2e cycle. Business errors (no daemon, store not ready)
@@ -20,7 +20,7 @@ use tauri::{Manager, WebviewWindow};
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::transport::macros::collect_transport;
-use crate::{bridge, store, supervisor};
+use crate::{store, supervisor};
 
 /// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
 /// orchestrator's app-owned test edge. This is the context `Bus<Ctx>` dispatches over;
@@ -45,14 +45,10 @@ fn contract_app() -> tauri::App<MockRuntime> {
 
     mock_builder()
         .manage(bus)
-        .manage(bridge::BridgeState::default())
         .manage(store::StoreState::load())
         .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
         .manage(crate::menu::LeaderMenuState::default())
-        // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
-        // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
-        // an IPC `Channel`, so there is no plain-data arg shape to drift.
         .invoke_handler(collect_transport!())
         .build(crate::app_context())
         .expect("app builds with the full command set + managed state")
@@ -106,13 +102,10 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
     // A channel arg is sent by the renderer as the string `__CHANNEL__:<id>`.
     let channel = serde_json::Value::String("__CHANNEL__:1".into());
 
-    // Each body mirrors what `@tillerd/sdk` + the desktop bridge send for that command. Optional
+    // Each body mirrors what `@tillerd/client-bindings` sends for that command. Optional
     // fields are populated so a rename to a required field is caught; required fields must be
     // present or deserialization fails (which is exactly what this test asserts against).
     let cases: Vec<(&str, serde_json::Value)> = vec![
-        // `daemon_connect` excluded -- see the handler list (concrete `AppHandle`, channel-only).
-        ("daemon_send", serde_json::json!({ "bytes": [0u8, 1, 2] })),
-        ("daemon_disconnect", serde_json::json!({})),
         (
             "log_forward",
             serde_json::json!({ "level": "info", "msg": "contract", "extra": null }),
@@ -336,23 +329,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "id": "contract", "snoozeUntil": null }),
         ),
         ("notification_prune", serde_json::json!({ "keep": 100 })),
-        (
-            "notification_record",
-            serde_json::json!({
-                "id": "contract",
-                "category": "test",
-                "severity": "info",
-                "title": null,
-                "message": "msg",
-                "detail": null,
-                "ts": 0,
-                "sessionId": null,
-                "surfaceId": null,
-                "actionsJson": null,
-                "read": false,
-                "snoozeUntil": null
-            }),
-        ),
         (
             "setting_get",
             serde_json::json!({ "scope": "global", "projectId": null, "key": "contract" }),

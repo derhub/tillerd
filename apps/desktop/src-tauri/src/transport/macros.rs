@@ -71,8 +71,6 @@ macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
             $( $runtime_cmd, )*
-            $crate::bridge::daemon_send,
-            $crate::bridge::daemon_disconnect,
             $crate::diag::log_forward,
             $crate::store::pref_get,
             $crate::store::pref_set,
@@ -197,7 +195,6 @@ macro_rules! collect_transport {
             $crate::transport::notification::notification_disregard_all,
             $crate::transport::notification::notification_snooze,
             $crate::transport::notification::notification_prune,
-            $crate::transport::notification::notification_record,
             $crate::transport::template::launch_template_create,
             $crate::transport::template::launch_template_list,
             $crate::transport::template::launch_template_get,

@@ -119,36 +119,6 @@ transport_command!(notification_snooze(id: String, snooze_until: Option<i64>) =>
 
 transport_command!(notification_prune(keep: u32) => PruneNotifications { keep });
 
-transport_command!(
-    notification_record(
-        id: String,
-        category: String,
-        severity: String,
-        title: Option<String>,
-        message: String,
-        detail: Option<String>,
-        ts: i64,
-        session_id: Option<String>,
-        surface_id: Option<String>,
-        actions_json: Option<String>,
-        read: bool,
-        snooze_until: Option<i64>,
-    ) => RecordNotification {
-        id,
-        category,
-        severity,
-        title,
-        message,
-        detail,
-        ts,
-        session_id,
-        surface_id,
-        actions_json,
-        read,
-        snooze_until,
-    }
-);
-
 transport_query!(
     notifications_list() -> Vec<NotificationWire>
         => ListNotifications { limit: Some(200), offset: Some(0), after: None },
@@ -169,7 +139,10 @@ mod tests {
         got.sort_unstable();
         let mut want = expected.to_vec();
         want.sort_unstable();
-        assert_eq!(got, want, "response keys drifted from the SDK contract");
+        assert_eq!(
+            got, want,
+            "response keys drifted from the bindings contract"
+        );
     }
 
     #[test]
