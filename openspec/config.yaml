@@ -9,12 +9,10 @@ context: |
   turbo monorepo. valibot is the standard validation library. node-pty v1.1.0 (pinned) is the
   PTY binding, confined to the engine. Platform scope: macOS/Linux for v1.
 
-  Packages (ports-and-adapters; deps point inward to sdk):
-    @tillerd/sdk                 contracts/types only, zero deps, zero impl
-    @tillerd/engine              the machinery (depends on sdk; never imports a specific adapter)
-    @tillerd/adapter-claude-code a hybrid AgentDefinition: config data + parse functions
-    apps/server                 composition root — injects adapter into engine; WebSocket + HTTP
-    apps/ui                     react-router SPA (depends on sdk types + network)
+  Packages:
+    @tillerd/logger              Logger/LogContext/Resource types + pino implementation
+    @tillerd/client-bindings     generated tauri-specta bindings + query/command/subscribe/channel client
+    apps/ui                     TanStack Router SPA (depends on client-bindings)
 
   Architecture: drive the agent via an interactive PTY, riding the user's own Claude login
   (no API key, no vendor SDK). The engine consumes lifecycle only as the HookEvent contract;
