@@ -222,6 +222,21 @@ impl Bus<Ctx> {
         };
         drive(op, Some(NotificationRecorder::new(self.cx.clone()))).await
     }
+
+    /// Run a user-initiated mutation with failure recording: on error the
+    /// recording layer records one `command-error` notification. The orchestrator
+    /// owns all notification recording — the renderer only displays what the
+    /// notification channel pushes.
+    pub async fn execute_recorded<C: Command<Ctx>>(&self, c: C) -> Result<()> {
+        let cx = self.cx.clone();
+        let op = Op {
+            action: std::any::type_name::<C>(),
+            kind: OpKind::Command,
+            notable: None,
+            fut: Box::pin(async move { c.handle(&cx).await }),
+        };
+        drive(op, Some(NotificationRecorder::new(self.cx.clone()))).await
+    }
 }
 
 /// Whether an envelope carries a mutation or a read. Layers branch their span

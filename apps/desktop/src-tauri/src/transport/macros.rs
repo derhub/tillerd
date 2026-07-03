@@ -11,7 +11,7 @@ macro_rules! transport_command {
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<(), ::std::string::String> {
-            bus.execute($build).await.map_err(|e| e.to_string())
+            bus.execute_recorded($build).await.map_err(|e| e.to_string())
         }
     };
 }
@@ -56,7 +56,7 @@ macro_rules! transport_create {
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<$ret, ::std::string::String> {
             let $bind = $mint;
-            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            bus.execute_recorded($cmd).await.map_err(|e| e.to_string())?;
             let $out = bus
                 .query($query)
                 .await
@@ -88,7 +88,7 @@ macro_rules! transport_create {
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<$ret, ::std::string::String> {
             let $bind = $mint;
-            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            bus.execute_recorded($cmd).await.map_err(|e| e.to_string())?;
             let $out = bus
                 .query($query)
                 .await

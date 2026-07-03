@@ -2,7 +2,6 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { MutationCache, QueryClient } from "@tanstack/react-query";
 
 import { broadcastInvalidate } from "./crossWindowSync";
-import { recordNotification } from "./notifications/context";
 
 export const PERSIST_KEY = "tillerd:query-cache";
 export const PERSIST_BUSTER = "1.0.0";
@@ -53,20 +52,10 @@ export function makeQueryClient(): QueryClient {
       keys?.forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
       if (keys?.length) broadcastInvalidate(keys);
     },
-    // Optimistic mutations roll back via their own onError; this is the separate user-facing signal.
-    onError: (error) => {
-      recordNotification({
-        id: crypto.randomUUID(),
-        category: "mutation-error",
-        severity: "error",
-        title: null,
-        message: error instanceof Error ? error.message : "Action failed",
-        detail: null,
-        ts: Date.now(),
-        sessionId: null,
-        surfaceId: null,
-      });
-    },
+    // No onError recording here: the orchestrator records every failed command as a
+    // `command-error` notification and pushes it over the notification channel — the
+    // renderer only displays, it never records. Optimistic mutations still roll back
+    // via their own onError.
   });
 
   const queryClient = new QueryClient({

@@ -4,7 +4,7 @@ use tower::{Layer, Service};
 
 use crate::app::notification::{PruneNotifications, RecordNotification};
 use crate::context::Ctx;
-use crate::shared::bus::{BoxFuture, Op};
+use crate::shared::bus::{BoxFuture, Op, OpKind};
 use crate::shared::message::Command;
 use crate::shared::Error;
 
@@ -41,9 +41,34 @@ impl NotificationRecorder {
     }
 }
 
-/// Turns an observed `Notable` signal into exactly one recorded notification.
-/// Ordinary commands and queries (where `Op::notable` is `None`, or no recorder
-/// is composed) pass straight through. This is the single recording point.
+/// Build the notification for a failed user-initiated mutation. Category
+/// `command-error`; the action's type name rides in `detail` for diagnosis.
+fn failure_notification(action: &'static str, error: &Error) -> RecordNotification {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+    RecordNotification {
+        id: uuid::Uuid::new_v4().to_string(),
+        category: "command-error".to_owned(),
+        severity: "error".to_owned(),
+        title: None,
+        message: error.to_string(),
+        detail: Some(action.to_owned()),
+        ts,
+        session_id: None,
+        surface_id: None,
+        actions_json: None,
+        read: false,
+        snooze_until: None,
+    }
+}
+
+/// Turns an observed `Notable` signal into exactly one recorded notification, and
+/// records a `command-error` notification when a recorder-composed mutation fails
+/// — the orchestrator is the sole recording point (the renderer never records).
+/// Ordinary commands and queries (where `Op::notable` is `None` and no recorder
+/// is composed) pass straight through.
 pub(crate) struct NotificationRecordingLayer {
     pub(crate) recorder: Option<NotificationRecorder>,
 }
@@ -79,17 +104,106 @@ where
     }
 
     fn call(&mut self, mut op: Op<T>) -> Self::Future {
-        let to_record = self
-            .recorder
-            .as_ref()
-            .and_then(|r| op.notable.take().map(|n| (r.clone(), n)));
+        let recorder = self.recorder.clone();
+        let notable = op.notable.take();
+        let action = op.action;
+        let is_command = matches!(op.kind, OpKind::Command);
         let fut = self.inner.call(op);
         Box::pin(async move {
-            let out = fut.await?;
-            if let Some((recorder, n)) = to_record {
-                recorder.record(n).await;
+            match fut.await {
+                Ok(out) => {
+                    if let (Some(recorder), Some(n)) = (recorder, notable) {
+                        recorder.record(n).await;
+                    }
+                    Ok(out)
+                }
+                Err(e) => {
+                    if let (Some(recorder), true) = (recorder, is_command) {
+                        recorder.record(failure_notification(action, &e)).await;
+                    }
+                    Err(e)
+                }
             }
-            Ok(out)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use crate::app::notification::{ListNotifications, NotificationSink, RecordNotification};
+    use crate::app::workspace::DiscardWorkspace;
+    use crate::shared::bus::Bus;
+    use crate::shared::message::Query;
+
+    // Scenario: A guard-rejected mutation is recorded by the orchestrator (the
+    // renderer never records) and announced on the notifications-changed sink.
+    #[tokio::test]
+    async fn failed_recorded_command_records_a_command_error_notification() {
+        let cx = crate::boot::test_ctx().await.unwrap();
+        let announced = Arc::new(AtomicUsize::new(0));
+        let seen = announced.clone();
+        cx.notifications_changed()
+            .subscribe(Arc::new(move |_: &RecordNotification| {
+                seen.fetch_add(1, Ordering::SeqCst);
+            }));
+        let bus = Bus::new(cx.clone());
+
+        // Discarding the Default workspace trips guard_not_default.
+        let result = bus
+            .execute_recorded(DiscardWorkspace {
+                id: crate::entities::WorkspaceId::DEFAULT.to_owned(),
+            })
+            .await;
+        assert!(result.is_err(), "the guard must reject the discard");
+
+        let listing = ListNotifications {
+            limit: Some(10),
+            offset: Some(0),
+            after: None,
+        }
+        .handle(&cx)
+        .await
+        .unwrap();
+        let recorded = listing
+            .items
+            .iter()
+            .find(|n| n.category == "command-error")
+            .expect("a command-error notification is persisted");
+        assert_eq!(recorded.severity, "error");
+        assert!(
+            recorded.detail.as_deref().unwrap_or("").contains("DiscardWorkspace"),
+            "detail names the failed action"
+        );
+        assert_eq!(announced.load(Ordering::SeqCst), 1, "announced exactly once");
+    }
+
+    // Scenario: A successful recorded mutation records nothing.
+    #[tokio::test]
+    async fn successful_recorded_command_records_nothing() {
+        let cx = crate::boot::test_ctx().await.unwrap();
+        let bus = Bus::new(cx.clone());
+
+        bus.execute_recorded(crate::app::workspace::NewWorkspaceCmd {
+            id: "ws-rec-ok".to_owned(),
+            name: "Ok".to_owned(),
+        })
+        .await
+        .unwrap();
+
+        let listing = ListNotifications {
+            limit: Some(10),
+            offset: Some(0),
+            after: None,
+        }
+        .handle(&cx)
+        .await
+        .unwrap();
+        assert!(
+            listing.items.iter().all(|n| n.category != "command-error"),
+            "no command-error notification for a success"
+        );
     }
 }
