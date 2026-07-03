@@ -17,11 +17,7 @@ import { TitleBar } from "~/components/shell/TitleBar";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { WorkspaceSwitcher } from "~/components/sidebar/WorkspaceSwitcher";
 import { DetachedWindow } from "~/components/terminal/DetachedWindow";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "~/components/ui/resizable";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { Skeleton } from "~/components/ui/skeleton";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
