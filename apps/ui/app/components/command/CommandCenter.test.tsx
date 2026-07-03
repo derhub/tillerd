@@ -4,7 +4,6 @@ import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
 import type { CommandHandler } from "~/lib/commands/types";
 
-import { resetContext, setContextKey } from "~/lib/commands/context";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 
@@ -27,15 +26,10 @@ void mock.module("@tillerd/client-bindings", () => ({
 
 const { CommandCenter } = await import("./CommandCenter");
 
-afterEach(() => {
-  cleanup();
-  resetContext();
-});
+afterEach(cleanup);
 afterAll(() => mock.restore());
 
 function renderWith(handlers: Record<string, CommandHandler>) {
-  // The panel/surface commands are gated on an active session.
-  setContextKey("hasActiveSession", true);
   return render(
     <CommandRegistryProvider>
       <RegisterHandlers handlers={handlers} />
@@ -90,12 +84,12 @@ describe("CommandCenter", () => {
     expect(ran).toBe(false);
   });
 
-  test("omits commands whose context is not satisfied", async () => {
-    // surface.detach is gated on an active session; clear the flag after render.
-    renderWith({ [ACTION.surfaceDetach]: () => {} });
-    resetContext();
+  test("omits a command that has no registered handler", async () => {
+    // Register one command's handler; another defined command stays inactive.
+    renderWith({ [ACTION.surfaceClose]: () => {} });
     openPalette();
     await waitFor(() => expect(screen.queryByTestId("command-center")).not.toBeNull());
+    expect(screen.queryByText("Close panel")).not.toBeNull();
     expect(screen.queryByText("Detach panel")).toBeNull();
   });
 });

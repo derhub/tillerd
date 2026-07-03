@@ -7,8 +7,10 @@ import type { CommandDef } from "./types";
 
 import { ACTION, SESSION_SEARCH_ACTION_ID, SESSION_SEARCH_TITLE } from "./ids";
 
-const IN_SESSION = ["hasActiveSession"] as const;
-
+// The panel/surface commands are scoped by handler presence: their handlers are
+// registered only while the panel host (PanelContent) is mounted, so they are
+// absent from every surface otherwise -- no `when` gate is needed or correct
+// (an active panel host is not the same as a URL session id).
 export const COMMAND_DEFS: readonly CommandDef[] = [
   {
     id: ACTION.projectNew,
@@ -26,7 +28,6 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: ACTION.surfaceSpawn,
     title: "New terminal",
     keywords: ["terminal", "surface", "spawn"],
-    when: IN_SESSION,
     defaultKeys: {
       default: "CmdOrCtrl+T",
       vscode: "CmdOrCtrl+Shift+`",
@@ -38,7 +39,6 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: ACTION.surfaceClose,
     title: "Close panel",
     keywords: ["close", "surface"],
-    when: IN_SESSION,
     defaultKeys: {
       default: "CmdOrCtrl+W",
       vscode: "CmdOrCtrl+W",
@@ -50,7 +50,6 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: ACTION.panelSplitH,
     title: "Split panel right",
     keywords: ["split", "horizontal", "right"],
-    when: IN_SESSION,
     defaultKeys: {
       default: "CmdOrCtrl+\\",
       vscode: "CmdOrCtrl+\\",
@@ -62,7 +61,6 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: ACTION.panelSplitV,
     title: "Split panel down",
     keywords: ["split", "vertical", "down"],
-    when: IN_SESSION,
     defaultKeys: {
       default: "CmdOrCtrl+Shift+\\",
       vim: "CmdOrCtrl+Alt+V",
@@ -73,7 +71,6 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: ACTION.surfaceDetach,
     title: "Detach panel",
     keywords: ["detach", "window"],
-    when: IN_SESSION,
     defaultKeys: { default: "CmdOrCtrl+Shift+D" },
   },
   {

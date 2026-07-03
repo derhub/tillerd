@@ -14,13 +14,11 @@ import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { WorkspaceSwitcher } from "~/components/sidebar/WorkspaceSwitcher";
 import { DetachedWindow } from "~/components/terminal/DetachedWindow";
 import { Skeleton } from "~/components/ui/skeleton";
-import { setContextKey } from "~/lib/commands/context";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { NotificationsProvider } from "~/lib/notifications/context";
 import { SessionContext } from "~/lib/sessionContext";
 import { SettingsProvider } from "~/lib/settings/context";
-import { isDesktopHost } from "~/lib/transport/core";
 import { DesktopHostProvider } from "~/lib/useDesktopHost";
 import { parseWindowIntent, type WindowIntent } from "~/lib/windows";
 import { closeSelf, emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
@@ -66,14 +64,6 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
     }),
     [navigate],
   );
-
-  React.useEffect(() => {
-    setContextKey("isDesktopHost", isDesktopHost());
-  }, []);
-
-  React.useEffect(() => {
-    setContextKey("hasActiveSession", Boolean(sessionId));
-  }, [sessionId]);
 
   return (
     <DesktopHostProvider>
