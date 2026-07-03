@@ -1,9 +1,9 @@
 ## 1. Context-key store and `when` evaluator
 
-- [ ] 1.1 Add `app/lib/commands/context.ts`: a reactive context-key store (`@tanstack/react-store` slice) with `setContextKey`/`useContextKey` and a `readContext()` snapshot.
-- [ ] 1.2 Add `app/lib/commands/when.ts`: `WhenExpr` (conjunction of key terms + negation) + `evaluateWhen(expr, ctx)`; absent expr = always true.
-- [ ] 1.3 Seed context keys: `terminalFocus` (from the existing capture-target/xterm-focus guard), `isDesktopHost`, `hasActiveSession`, `commandPaletteOpen`.
-- [ ] 1.4 Tests: evaluator truth table (key present/absent, negation, conjunction, empty expr); context store reactivity.
+- [x] 1.1 Add `app/lib/commands/context.ts`: a reactive context-key store (`@tanstack/react-store` slice) with `setContextKey`/`useContextKey` and a `readContext()` snapshot.
+- [x] 1.2 Add `app/lib/commands/when.ts`: `WhenExpr` (conjunction of key terms + negation) + `evaluateWhen(expr, ctx)`; absent expr = always true.
+- [x] 1.3 Seed context keys: `terminalFocus` (from the existing capture-target/xterm-focus guard), `isDesktopHost`, `hasActiveSession`, `commandPaletteOpen`.
+- [x] 1.4 Tests: evaluator truth table (key present/absent, negation, conjunction, empty expr); context store reactivity.
 
 ## 2. Command definition model
 
