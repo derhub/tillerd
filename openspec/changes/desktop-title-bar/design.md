@@ -27,7 +27,7 @@ The user explicitly chose the `tauri-controls` library for the window controls, 
 
 ### D6: Sidebar and docks are drag-resizable
 
-The shell body is a nested `react-resizable-panels` layout: a horizontal group (sidebar | center | right dock) whose center is a vertical group (content | bottom dock), with resize handles between regions. Sizes use unit strings (sidebar `224px`, right `256px`, bottom `200px`) with min/max bounds. A hidden region renders neither its panel nor its handle, so the remaining regions reclaim the space. Size is not persisted yet (see Non-Goals). Alternative rejected: fixed-width docks — the user wants to resize them; the panel library is already a dependency (terminal splits use it).
+The shell body is a nested `react-resizable-panels` layout: an outer vertical group whose top row is a horizontal group (sidebar | content | right dock) and whose bottom row is the full-width bottom dock, with resize handles between regions. The bottom dock spans the full window width (below the sidebar too), not just the content column. Sizes use unit strings (sidebar `224px`, right `256px`, bottom `200px`) with min/max bounds. A hidden region renders neither its panel nor its handle, so the remaining regions reclaim the space. Size is not persisted yet (see Non-Goals). Alternative rejected: fixed-width docks — the user wants to resize them; the panel library is already a dependency (terminal splits use it).
 
 ## Decisions
 
