@@ -16,22 +16,17 @@ On the desktop host the shell SHALL render a fixed-height title bar row spanning
 
 ### Requirement: OS window controls
 
-The title bar SHALL render native-looking OS window controls for minimize, maximize/restore, and close, positioned per the host platform's convention. Activating a control SHALL invoke the corresponding operation on the current window through the desktop window boundary.
+The desktop window SHALL present the operating system's native window controls (minimize, maximize/restore, close) in their platform-default position. The window SHALL be configured with an overlay title bar so the native controls render over the custom title bar; the shell SHALL NOT draw its own minimize/maximize/close buttons. The title bar SHALL reserve space for the native controls so the toolbar sits inline beside them.
 
-#### Scenario: Minimize control minimizes the window
+#### Scenario: Native controls are available on the desktop host
 
-- **WHEN** the user activates the minimize control
-- **THEN** the current window is minimized
+- **WHEN** the desktop window is shown
+- **THEN** the OS-native minimize, maximize/restore, and close controls are present in their platform-default position
 
-#### Scenario: Maximize control toggles maximization
+#### Scenario: The title bar draws no control buttons
 
-- **WHEN** the user activates the maximize control on a non-maximized window
-- **THEN** the window is maximized, and activating it again restores the previous size
-
-#### Scenario: Close control closes the window
-
-- **WHEN** the user activates the close control
-- **THEN** the current window closes
+- **WHEN** the title bar renders
+- **THEN** it renders no minimize/maximize/close buttons of its own; the operating system provides them
 
 ### Requirement: Panel toggle toolbar
 

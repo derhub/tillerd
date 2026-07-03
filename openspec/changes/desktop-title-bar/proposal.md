@@ -4,13 +4,13 @@ The desktop window is configured with `decorations: false` and a transparent tit
 
 ## What Changes
 
-- Add a custom title bar row spanning the top of the shell window, hosting native-looking OS window controls (minimize / maximize / close) via the `tauri-controls` library, and a draggable region for moving the window.
+- Add a custom title bar row spanning the top of the shell window, keeping the **OS-native** window controls (minimize / maximize / close) via window config (overlay title bar) — the shell draws no control buttons — plus a draggable region for moving the window.
 - Add a toolbar in the title bar with toggle buttons for: the left sidebar (existing), a new right dock region, a new bottom dock region, and the command palette (existing command center).
 - Introduce two new collapsible shell regions — a right dock and a bottom dock — with placeholder content, each with persisted visibility.
 - Make the existing left sidebar collapsible from the title bar, with persisted visibility.
-- Expose window-control and drag operations through the existing Tauri window boundary (`windows.ts` / `tauriEvents.ts`), guarded by the desktop-host check so the browser build no-ops.
+- Use the native `data-tauri-drag-region` attribute for window dragging (covered by `core:window:allow-start-dragging`); no JS window-op wrappers are needed since the OS owns minimize/maximize/close.
 - Register the panel and command toggles as command-center actions so they are also reachable from the palette and rebindable.
-- Grant the desktop capability the window permissions the controls require (`minimize`, `maximize`/`unmaximize`/`toggle-maximize`), and register `tauri-plugin-os` if `tauri-controls` requires it for platform detection.
+- Configure the desktop window for an overlay title bar (`titleBarStyle: "Overlay"`, decorations on, `hiddenTitle`) so the OS draws the controls; apply the same to child windows.
 
 ## Capabilities
 
@@ -26,13 +26,12 @@ The desktop window is configured with `decorations: false` and a transparent tit
 
 - **apps/ui** (React frontend):
   - `app/components/shell/RootLayout.tsx` — restructure `ShellChrome` into a vertical `title-bar row` + `body row`; body hosts left sidebar, content outlet, right dock, bottom dock.
-  - New `app/components/shell/TitleBar.tsx` (title bar + `tauri-controls` window controls + toggle toolbar).
+  - New `app/components/shell/TitleBar.tsx` (drag region + toggle toolbar; reserves space for the native controls, draws none).
   - New right/bottom dock region components (placeholder content).
   - `app/lib/store.ts` / `app/lib/settings/keys.ts` — panel-visibility state (durable settings, mirroring `sidebarExpandedKey`).
-  - `app/lib/windows.ts` / `app/lib/tauriEvents.ts` — `minimizeSelf` / `toggleMaximizeSelf` / `startDrag` wrappers.
-  - `app/lib/commands/ids.ts` + registrations — new toggle actions.
+  - `app/lib/commands/ids.ts` / `defs.ts` + a `useTitleBarCommands` hook — new toggle commands tagged for the `titlebar` surface.
 - **apps/desktop** (Rust / Tauri):
-  - `src-tauri/capabilities/default.json` — add `core:window:allow-minimize`, `allow-maximize`, `allow-unmaximize`, `allow-toggle-maximize` (and `os:` permissions if the OS plugin is added).
-  - `src-tauri/src/lib.rs` — register `tauri_plugin_os` only if `tauri-controls` requires it.
+  - `src-tauri/tauri.conf.json` — main window `titleBarStyle: "Overlay"` + `decorations: true` + `hiddenTitle: true` so the OS draws native controls over the custom title bar. No new `core:window` permissions beyond the existing `allow-start-dragging`.
+  - `src-tauri/src/window_host.rs` — apply the same overlay title bar to child windows (macOS).
 - **Dependencies**: none. The native OS window controls are kept via window config (`titleBarStyle`), so no controls library or plugin is added. (The `tauri-controls` library was evaluated and rejected — it crashes under React 19.)
 - **Risk**: low — the controls are OS-native; the main surface area is the shell layout restructure, covered by component tests and desktop e2e.
