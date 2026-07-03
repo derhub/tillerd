@@ -3,6 +3,8 @@
 // register by id at their feature sites (see registry `useCommand`). This table
 // replaces the split between `ids.ts` titles and `keybindings.ts` presets.
 
+import { Command, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
+
 import type { CommandDef } from "./types";
 
 import { ACTION, SESSION_SEARCH_ACTION_ID, SESSION_SEARCH_TITLE } from "./ids";
@@ -90,6 +92,49 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     title: "Settings",
     keywords: ["preferences", "theme", "keybindings"],
     defaultKeys: { default: "CmdOrCtrl+,", vscode: "CmdOrCtrl+," },
+  },
+  // Checked state is a straight read: useTitleBarCommands seeds these context
+  // keys with the live boolean every render, so no "unset means visible"
+  // special-casing is needed here.
+  {
+    id: ACTION.panelToggleLeft,
+    title: "Toggle left sidebar",
+    icon: PanelLeft,
+    surfaces: ["titlebar", "palette"],
+    group: "view",
+    keywords: ["sidebar", "left", "panel", "toggle"],
+    defaultKeys: { default: "CmdOrCtrl+B" },
+    toggle: (c) => Boolean(c.leftPanelVisible),
+  },
+  {
+    id: ACTION.panelToggleRight,
+    title: "Toggle right dock",
+    icon: PanelRight,
+    surfaces: ["titlebar", "palette"],
+    group: "view",
+    keywords: ["right", "dock", "panel", "toggle"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+B" },
+    toggle: (c) => Boolean(c.rightPanelVisible),
+  },
+  {
+    id: ACTION.panelToggleBottom,
+    title: "Toggle bottom dock",
+    icon: PanelBottom,
+    surfaces: ["titlebar", "palette"],
+    group: "view",
+    keywords: ["bottom", "dock", "panel", "toggle"],
+    defaultKeys: { default: "CmdOrCtrl+J" },
+    toggle: (c) => Boolean(c.bottomPanelVisible),
+  },
+  {
+    id: ACTION.commandToggle,
+    title: "Toggle command palette",
+    icon: Command,
+    surfaces: ["titlebar", "palette"],
+    group: "view",
+    keywords: ["command", "palette"],
+    defaultKeys: { default: "CmdOrCtrl+Shift+K" },
+    toggle: (c) => Boolean(c.commandPaletteOpen),
   },
   {
     id: SESSION_SEARCH_ACTION_ID,

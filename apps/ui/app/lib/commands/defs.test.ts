@@ -40,3 +40,34 @@ describe("command definitions", () => {
     }
   });
 });
+
+describe("title-bar toggle commands", () => {
+  const toggleIds = [
+    ACTION.panelToggleLeft,
+    ACTION.panelToggleRight,
+    ACTION.panelToggleBottom,
+    ACTION.commandToggle,
+  ];
+
+  test("are on both the titlebar and palette surfaces", () => {
+    for (const id of toggleIds) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(surfacesOf(def!)).toEqual(["titlebar", "palette"]);
+    }
+  });
+
+  test("each has a toggle selector reading its own context key", () => {
+    const expectations: Record<string, string> = {
+      [ACTION.panelToggleLeft]: "leftPanelVisible",
+      [ACTION.panelToggleRight]: "rightPanelVisible",
+      [ACTION.panelToggleBottom]: "bottomPanelVisible",
+      [ACTION.commandToggle]: "commandPaletteOpen",
+    };
+    for (const [id, key] of Object.entries(expectations)) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(def!.toggle!({ [key]: true })).toBe(true);
+      expect(def!.toggle!({ [key]: false })).toBe(false);
+      expect(def!.toggle!({})).toBe(false);
+    }
+  });
+});

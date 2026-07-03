@@ -17,6 +17,22 @@ export function sidebarExpandedKey(projectId: string): string {
   return `${SIDEBAR_EXPANDED_PREFIX}${projectId}`;
 }
 
+export type PanelSide = "left" | "right" | "bottom";
+
+export const PANEL_VISIBLE_PREFIX = "panel.visible.";
+
+export function panelVisibleKey(side: PanelSide): string {
+  return `${PANEL_VISIBLE_PREFIX}${side}`;
+}
+
+// Left is visible by default (primary navigation); the docks stay hidden until
+// the user opts in.
+export const PANEL_VISIBLE_DEFAULTS: Record<PanelSide, boolean> = {
+  left: true,
+  right: false,
+  bottom: false,
+};
+
 export const KEYBINDINGS_PRESET_KEY = "keybindings.preset";
 export const KEYBINDINGS_LEADER_KEY = "keybindings.leader";
 export const KEYBINDINGS_OVERRIDES_KEY = "keybindings.overrides";

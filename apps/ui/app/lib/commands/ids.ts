@@ -9,6 +9,10 @@ export const ACTION = {
   projectOpenNewWindow: "project.open-new-window",
   viewLogs: "view.logs",
   appSettings: "app.settings",
+  panelToggleLeft: "panel.toggle-left",
+  panelToggleRight: "panel.toggle-right",
+  panelToggleBottom: "panel.toggle-bottom",
+  commandToggle: "command.toggle",
 } as const;
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];

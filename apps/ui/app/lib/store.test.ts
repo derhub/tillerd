@@ -1,14 +1,17 @@
+import { act, cleanup, renderHook } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { _resetForTests, settingsStore } from "./settings/context";
-import { sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "./settings/keys";
+import { panelVisibleKey, sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "./settings/keys";
 import {
   resetUiStore,
   setActiveProject,
   setActiveWorkspace,
+  setPanelVisible,
   setProjectExpanded,
   uiStore,
+  usePanelVisible,
 } from "./store";
 
 // Pre-hydration writes buffer inside the settings bootstrap (no transport call),
@@ -20,6 +23,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   resetUiStore();
   settingsStore.setState(() => ({ values: {} }));
   _resetForTests();
@@ -74,5 +78,36 @@ describe("sidebar-expanded view pointer", () => {
     setActiveProject("p-2");
     expect(uiStore.state.activeProjectId).toBe("p-2");
     expect(settingsStore.state.values[sidebarExpandedKey("p-2")]).toBe(true);
+  });
+});
+
+describe("panel-visible view pointer", () => {
+  test("defaults: left visible, right and bottom hidden", () => {
+    expect(renderHook(() => usePanelVisible("left")).result.current[0]).toBe(true);
+    expect(renderHook(() => usePanelVisible("right")).result.current[0]).toBe(false);
+    expect(renderHook(() => usePanelVisible("bottom")).result.current[0]).toBe(false);
+  });
+
+  test("setPanelVisible writes a per-side settings key", () => {
+    setPanelVisible("right", true);
+    expect(settingsStore.state.values[panelVisibleKey("right")]).toBe(true);
+    setPanelVisible("right", false);
+    expect(settingsStore.state.values[panelVisibleKey("right")]).toBe(false);
+  });
+
+  test("usePanelVisible's setter toggles and persists", () => {
+    const { result } = renderHook(() => usePanelVisible("bottom"));
+    expect(result.current[0]).toBe(false);
+    act(() => result.current[1](true));
+    expect(result.current[0]).toBe(true);
+    expect(settingsStore.state.values[panelVisibleKey("bottom")]).toBe(true);
+  });
+
+  test("resetUiStore strips panel-visible keys", () => {
+    setPanelVisible("left", false);
+    setPanelVisible("right", true);
+    resetUiStore();
+    expect(settingsStore.state.values[panelVisibleKey("left")]).toBeUndefined();
+    expect(settingsStore.state.values[panelVisibleKey("right")]).toBeUndefined();
   });
 });
