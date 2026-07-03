@@ -1,0 +1,14 @@
+id: react-namespace-import
+snapshots:
+  import { use, useEffect } from "react":
+    labels:
+    - source: import { use, useEffect } from "react"
+      style: primary
+      start: 0
+      end: 38
+  import { useState } from 'react':
+    labels:
+    - source: import { useState } from 'react'
+      style: primary
+      start: 0
+      end: 32

@@ -8,4 +8,10 @@ const deps: CliDeps = {
   err: (line) => console.error(line),
 };
 
-run(process.argv.slice(2), deps).then((code) => process.exit(code));
+run(process.argv.slice(2), deps).then(
+  (code) => process.exit(code),
+  (err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  },
+);

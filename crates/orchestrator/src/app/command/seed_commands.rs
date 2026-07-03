@@ -25,8 +25,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: SeedCommands is idempotent ----------------------------------
-
     #[tokio::test]
     async fn seed_commands_is_idempotent() {
         let bus = Bus::new(ctx().await);

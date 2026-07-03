@@ -1,0 +1,8 @@
+id: comment-ascii-only-bash
+snapshots:
+  '# arrow → here':
+    labels:
+    - source: '# arrow → here'
+      style: primary
+      start: 0
+      end: 16

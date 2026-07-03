@@ -33,8 +33,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: query reads and does not mutate -----------------------------
-
     #[tokio::test]
     async fn get_command_by_id_returns_none_for_absent_id() {
         let bus = Bus::new(ctx().await);

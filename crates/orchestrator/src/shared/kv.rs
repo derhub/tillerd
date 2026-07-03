@@ -36,8 +36,6 @@ pub trait Kv: Send + Sync + 'static {
     fn get(&self, key: &str) -> impl std::future::Future<Output = Result<Option<Vec<u8>>>> + Send;
 }
 
-// -- SqliteKv -----------------------------------------------------------------
-
 /// Sqlite-backed key-value store. Requires a table created by the migration:
 ///
 /// ```sql
@@ -122,8 +120,6 @@ impl Kv for SqliteKv {
     }
 }
 
-// -- MemoryKv ------------------------------------------------------------------
-
 struct Entry {
     value: Vec<u8>,
     // unix millis; None = no expiry
@@ -181,8 +177,6 @@ impl Kv for MemoryKv {
 mod tests {
     use super::*;
 
-    // -- MemoryKv contract tests -----------------------------------------------
-
     // Scenario: round-trip by key
     #[tokio::test]
     async fn memory_kv_get_returns_stored_value() {
@@ -230,8 +224,6 @@ mod tests {
         let got = kv.get("k").await.unwrap();
         assert_eq!(got, Some(b"v".to_vec()));
     }
-
-    // -- SqliteKv contract tests -----------------------------------------------
 
     // Scenario: round-trip by key
     #[tokio::test]

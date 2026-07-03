@@ -1,26 +1,23 @@
 use serde::Serialize;
 
-/// Flat read model for a notification row. Serializes to the SDK `NotificationEvent`
+/// Flat read model for a notification row. Serializes to the SDK `NotificationView`
 /// wire shape -- the same camelCase JSON the host `NotificationWire` produced from a
 /// `NotificationRecord` (internal columns `actions_json`/`read`/`snooze_until` are
 /// not on the wire and so are omitted here).
 ///
-/// The `Option` fields carry `skip_serializing_if` so absent values drop out of the
-/// JSON exactly as the host struct did.
+/// Optionals serialize as null (not omitted) so serialize/deserialize stay symmetric and specta
+/// emits a single type rather than _Serialize/_Deserialize variants.
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationView {
     pub id: String,
     pub category: String,
     pub severity: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     pub ts: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub surface_id: Option<String>,
 }

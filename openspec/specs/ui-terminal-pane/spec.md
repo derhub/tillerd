@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the terminal pane that connects to a session over a WebSocket, renders raw agent output, propagates resize events, and surfaces connection status with a manual reconnect control.
+Terminal pane attached to a session's terminal surface over the host-mapped transport -- the duplex `channel` verb on desktop (Tauri IPC), a WebSocket on the server host -- rendering raw output, propagating resize, and surfacing connection status with a manual reconnect control.
 ## Requirements
 ### Requirement: Session-scoped terminal connection
 

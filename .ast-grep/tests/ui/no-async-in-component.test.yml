@@ -1,0 +1,32 @@
+id: no-async-in-component
+valid:
+  # data-layer helpers (exempt by ignores -- but naming also doesn't match hook/component)
+  - "async function fetchUser(id: string) { return fetch('/users/' + id); }"
+  - "const fetchItems = async () => fetch('/items');"
+  # async queryFn (lowercase name -- not hook or component)
+  - "const queryFn = async () => { const r = await fetch('/x'); return r.json(); }"
+  # useSuspenseQuery in a component -- no async needed, data is synchronous
+  - "function UserList() { const { data } = useSuspenseQuery(userListOptions()); return data.map(u => u.name); }"
+  # React.use(promise) in a component -- no async needed
+  - "function Panel({ p }: { p: Promise<string> }) { const v = use(p); return v; }"
+  # regular utility function (not a hook, not a component)
+  - "function helper() { return doWork(); }"
+  # .then on a standalone expression outside any hook/component
+  - "fetch('/x').then(r => r.json());"
+invalid:
+  # async hook
+  - "async function useMyData() { return fetch('/x'); }"
+  # async component
+  - "async function MyPanel() { return null; }"
+  # async arrow component
+  - "const MyComp = async () => { return null; };"
+  # async arrow hook
+  - "const useItems = async () => { return []; };"
+  # await inside a hook
+  - "function useData() { return (async () => { return await fetch('/x'); })(); }"
+  # await inside a component
+  - "function Panel() { void (async () => { const r = await fetch('/x'); })(); return null; }"
+  # .then inside a hook
+  - "function useResult() { fetch('/x').then(r => r.json()); }"
+  # .then inside a component handler
+  - "function Form() { const submit = () => { api.save().then(r => console.log(r)); }; return null; }"

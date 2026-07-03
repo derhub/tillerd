@@ -1,7 +1,7 @@
 # project-management Specification
 
 ## Purpose
-TBD - created by archiving change projects-and-sessions-container. Update Purpose after archive.
+Project lifecycle in the orchestrator: creation from a source kind (blank, local-dir, git-repo, git-worktree) with name inference, rename, listing (optionally scoped to a workspace), workspace membership and moves between workspaces, the non-deletable built-in Unfiled project, and soft-delete (archive) with cascade to sessions and surfaces followed by hard-delete of already-archived projects.
 ## Requirements
 ### Requirement: Project creation from source
 

@@ -10,7 +10,7 @@ use crate::probes::Probes;
 pub enum AdoptMiss {
     /// No manifest was present.
     NoManifest,
-    /// The manifest named a process that is no longer alive (stale manifest).
+    /// The manifest named a process that is dead (stale manifest).
     DeadPid {
         /// The dead pid recorded in the manifest.
         pid: u32,

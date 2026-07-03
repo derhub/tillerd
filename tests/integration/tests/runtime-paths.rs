@@ -10,8 +10,6 @@ use tillerd_paths::{
     daemon_socket_in, gate_socket_in, manifest_in, runtime_dir_or, store_in, ENV_TILLERD_DIR,
 };
 
-// -- Integration: Daemon uses the same runtime directory -----------------------
-
 /// When the daemon starts, it resolves the runtime directory from tillerd-paths.
 /// This ensures the daemon and all other services agree on where runtime files live.
 #[test]
@@ -26,8 +24,6 @@ fn daemon_gate_and_storage_all_use_same_runtime_directory() {
     assert_eq!(daemon_dir, gate_dir);
     assert_eq!(daemon_dir, PathBuf::from(&override_dir));
 }
-
-// -- Integration: Socket discovery across services ------------------------------
 
 /// When the daemon starts and the gate connects, they must agree on socket locations.
 /// The paths library ensures both use the same socket paths under the runtime directory.
@@ -47,8 +43,6 @@ fn daemon_socket_and_gate_socket_discoverable() {
     assert_eq!(gate_sock, PathBuf::from("/srv/tillerd/gate.sock"));
 }
 
-// -- Integration: Manifest and storage location consistency --------------------
-
 /// When services read/write the daemon manifest and product store, they must all
 /// reference the same files under the runtime directory.
 #[test]
@@ -65,8 +59,6 @@ fn manifest_and_store_paths_are_consistent() {
     // No duplication: only one manifest, one store
     assert_ne!(manifest_file, store_file);
 }
-
-// -- Integration: Environment override affects all lookups ---------------------
 
 /// When `TILLERD_DIR` is set, all services (daemon, gate, etc.) use it.
 /// The paths library ensures this propagates uniformly across the workspace.
@@ -85,8 +77,6 @@ fn environment_override_affects_all_path_resolutions() {
     assert!(daemon_sock.starts_with(override_dir));
     assert!(gate_sock.starts_with(override_dir));
 }
-
-// -- Integration: Multi-service startup coordination --------------------------
 
 /// During service startup, the host must ensure all services use consistent paths.
 /// This test verifies that the paths library provides deterministic answers.

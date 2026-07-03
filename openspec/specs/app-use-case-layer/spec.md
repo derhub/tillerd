@@ -1,7 +1,7 @@
 # app-use-case-layer Specification
 
 ## Purpose
-TBD - created by archiving change app-use-case-layer. Update Purpose after archive.
+App-layer use-case boundary between host controllers and the domain. Covers session creation with launch-template resolution, CQS command/query dispatch through a Bus over a lazy Ctx, per-command transaction scoping, side effects persisted as intent and reconciled on boot, transport-agnostic operations with generated per-transport shims, and lifecycle operations (archive/restore/duplicate/move, notifications, templates, config plane, session layout planes).
 ## Requirements
 ### Requirement: Session creation resolves a launch template
 

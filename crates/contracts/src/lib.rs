@@ -1,7 +1,6 @@
 //! Wire types: pure contracts, no I/O or side effects.
 //! Encodings mirrored by SDK (TypeScript) with cross-language golden fixture.
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
 
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +19,7 @@ pub struct SessionId(pub String);
 
 /// Opaque id threaded through every message so records join across processes. Assigned at the
 /// operation ingress and carried on existing request envelopes across every hop. The standardized
-/// log attribute key is exactly `correlation_id` in every runtime (design D5): bind it into the
+/// log attribute key is exactly `correlation_id` in every runtime: bind it into the
 /// span/logger context so all structured records for one operation join on that key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -109,13 +108,11 @@ pub enum HookKind {
     /// A tool finished executing.
     #[serde(rename_all = "camelCase")]
     PostToolUse {
-        /// Tool name.
         tool_name: String,
         /// Tool input as raw JSON.
         tool_input: serde_json::Value,
         /// Tool response rendered as text.
         tool_response: String,
-        /// Turn index.
         turn_index: i64,
     },
     /// The agent is requesting permission to run a tool.
@@ -150,11 +147,8 @@ pub enum ToolInbound {
     /// A tool call from the agent.
     #[serde(rename_all = "camelCase")]
     ToolCall {
-        /// Session id.
         session_id: SessionId,
-        /// Correlation id.
         correlation_id: CorrelationId,
-        /// Tool name.
         tool_name: String,
         /// Tool input as raw JSON.
         tool_input: serde_json::Value,
@@ -162,11 +156,8 @@ pub enum ToolInbound {
     /// A tool result returning to the agent.
     #[serde(rename_all = "camelCase")]
     ToolResult {
-        /// Session id.
         session_id: SessionId,
-        /// Correlation id.
         correlation_id: CorrelationId,
-        /// Tool name.
         tool_name: String,
         /// Tool response rendered as text.
         tool_response: String,

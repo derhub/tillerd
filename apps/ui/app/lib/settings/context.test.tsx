@@ -1,78 +1,111 @@
-import { afterEach, expect, test } from "bun:test";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import type { SettingView } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
-import type { SettingsSource } from "~/lib/transport/settings-source";
-import { SettingsProvider, useGlobalSetting, useTheme } from "./context";
-import { THEME_CACHE_KEY } from "./theme";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
+
+import { delegatingQuery } from "~/lib/test/real-bindings";
+
+const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+
+// Spread the real module so non-overridden exports stay intact: mock.module is process-global
+// and persists across files, so a partial replacement would clobber sibling suites that use the
+// real query/command wrappers. query() delegates unowned keys to the captured realQuery so sibling
+// suites keep their real query()/whenReady() path under any file order.
+const actualBindings = await import("@tillerd/client-bindings");
+void mock.module("@tillerd/client-bindings", () => ({
+  ...actualBindings,
+  runCommand: (
+    key: string,
+    args: { scope: string; projectId: null; key: string; valueJson: string },
+  ) => {
+    if (key === "settingSet") settingSetCalls.push(args);
+    return Promise.resolve(null);
+  },
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
+  getQueryClient: () => ({
+    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+  }),
+}));
+
+const {
+  SettingsProvider,
+  _resetForTests,
+  hydrateSettings,
+  setGlobalSetting,
+  settingsStore,
+  useGlobalSetting,
+  useTheme,
+} = await import("./context");
+const { THEME_CACHE_KEY } = await import("./theme");
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   document.documentElement.classList.remove("dark");
+  settingsStore.setState(() => ({ values: {} }));
+  _resetForTests();
+  settingSetCalls.length = 0;
 });
 
-function fakeSource(initial: Record<string, unknown> = {}): {
-  source: SettingsSource;
-  writes: { key: string; value: unknown }[];
-} {
-  const store = new Map(Object.entries(initial));
-  const writes: { key: string; value: unknown }[] = [];
-  const source: SettingsSource = {
-    getSetting: async ({ key }) => store.get(key) ?? null,
-    setSetting: async ({ key, value }) => {
-      store.set(key, value);
-      writes.push({ key, value });
-    },
-    listSettings: async () => [...store.entries()].map(([key, value]) => ({ key, value })),
-  };
-  return { source, writes };
+afterAll(() => mock.restore());
+
+function listFrom(initial: Record<string, unknown>): SettingView[] {
+  return Object.entries(initial).map(([key, value]) => ({ key, value }));
 }
 
-function wrapperFor(source: SettingsSource | null) {
+function wrapperFor(list: SettingView[]) {
   return ({ children }: { children: ReactNode }) => (
-    <SettingsProvider resolve={() => Promise.resolve(source)}>{children}</SettingsProvider>
+    <SettingsProvider resolve={() => Promise.resolve(list)}>{children}</SettingsProvider>
   );
 }
 
 test("a setting change propagates live to every consumer of the same key", async () => {
-  const { source } = fakeSource({ "terminal.scheme": "github-dark" });
-  // Two independent consumers of the same key (e.g. the panel and a mounted terminal).
+  const list = listFrom({ "terminal.scheme": "github-dark" });
   const { result } = renderHook(
     () => ({
       panel: useGlobalSetting("terminal.scheme", "github-dark"),
       terminal: useGlobalSetting("terminal.scheme", "github-dark"),
     }),
-    { wrapper: wrapperFor(source) },
+    { wrapper: wrapperFor(list) },
   );
 
   await waitFor(() => expect(result.current.terminal.value).toBe("github-dark"));
 
-  // The panel changes the scheme; the terminal consumer sees it without a remount.
   act(() => result.current.panel.setValue("github-light"));
   expect(result.current.terminal.value).toBe("github-light");
 });
 
 test("useGlobalSetting hydrates from the source and falls back before then", async () => {
-  const { source } = fakeSource({ "terminal.scheme": "github-light" });
+  const list = listFrom({ "terminal.scheme": "github-light" });
   const { result } = renderHook(() => useGlobalSetting("terminal.scheme", "github-dark"), {
-    wrapper: wrapperFor(source),
+    wrapper: wrapperFor(list),
   });
   await waitFor(() => expect(result.current.value).toBe("github-light"));
 });
 
+test("a write fired before hydration reaches the source once it resolves", async () => {
+  setGlobalSetting("keybindings.preset", "vscode");
+  expect(settingSetCalls).toHaveLength(0);
+
+  await hydrateSettings(() => Promise.resolve([]));
+
+  expect(settingSetCalls).toContainEqual(
+    expect.objectContaining({ key: "keybindings.preset", valueJson: JSON.stringify("vscode") }),
+  );
+  expect(settingsStore.state.values["keybindings.preset"]).toBe("vscode");
+});
+
 test("useGlobalSetting uses the fallback with no source (off the desktop host)", async () => {
   const { result } = renderHook(() => useGlobalSetting("terminal.scheme", "github-dark"), {
-    wrapper: wrapperFor(null),
+    wrapper: wrapperFor([]),
   });
   expect(result.current.value).toBe("github-dark");
 });
 
 test("setTheme applies the class, caches it, and persists to the source", async () => {
-  // Seed a non-default durable theme so hydrating to it proves the source has resolved before
-  // the write (otherwise setValue would persist against a not-yet-resolved source).
-  const { source, writes } = fakeSource({ theme: "light" });
-  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(source) });
+  const list = listFrom({ theme: "light" });
+  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(list) });
   await waitFor(() => expect(result.current.theme).toBe("light"));
 
   act(() => result.current.setTheme("dark"));
@@ -80,12 +113,16 @@ test("setTheme applies the class, caches it, and persists to the source", async 
   expect(result.current.theme).toBe("dark");
   expect(document.documentElement.classList.contains("dark")).toBe(true);
   expect(localStorage.getItem(THEME_CACHE_KEY)).toBe("dark");
-  await waitFor(() => expect(writes).toContainEqual({ key: "theme", value: "dark" }));
+  await waitFor(() =>
+    expect(settingSetCalls).toContainEqual(
+      expect.objectContaining({ key: "theme", valueJson: JSON.stringify("dark") }),
+    ),
+  );
 });
 
 test("the provider applies the hydrated durable theme to the document", async () => {
-  const { source } = fakeSource({ theme: "light" });
-  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(source) });
+  const list = listFrom({ theme: "light" });
+  const { result } = renderHook(() => useTheme(), { wrapper: wrapperFor(list) });
 
   await waitFor(() => expect(result.current.theme).toBe("light"));
   expect(document.documentElement.classList.contains("dark")).toBe(false);

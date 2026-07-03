@@ -1,0 +1,15 @@
+id: react19-use-context
+language: Tsx
+severity: error
+files:
+  - "apps/ui/**"
+message: "Prefer use(Context) over useContext(Context) in React 19 -- use() also reads promises and may be called conditionally."
+note: "Do: const value = React.use(MyContext) instead of React.useContext(MyContext)."
+rule:
+  any:
+    - pattern: useContext($$$A)
+    - pattern: React.useContext($$$A)
+# Both call forms rewrite to React.use (the codebase's namespace style; React is in
+# scope). Opt-in via `ast-grep scan --fix`; pair with the react-namespace-import fix
+# if the file still uses a named useContext import.
+fix: React.use($$$A)

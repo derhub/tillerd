@@ -1,7 +1,7 @@
 # surface-runtime Specification
 
 ## Purpose
-TBD - created by archiving change terminal-surface-e2e. Update Purpose after archive.
+One PTY proxy per terminal surface, owned by the surface-runtime and reachable only through the orchestrator -- the renderer never connects to the daemon directly. Covers raw-byte output streaming and ordered input delivery with backpressure, resize propagation, terminal-status emission, reconnect and resume by `(session, placement)`, the detach-vs-removal lifecycle distinction, kind-dispatched surface creation, and placement/worktree references recorded on the surface row.
 ## Requirements
 ### Requirement: One PTY proxy per surface
 

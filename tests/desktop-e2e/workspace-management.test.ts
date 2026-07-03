@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+
 import { createProject, type Browser, uniqueName } from "./helpers";
 import { getApp } from "./shared-app";
 
@@ -73,8 +74,6 @@ async function mousedownBody(b: Browser) {
   });
 }
 
-// -- Inline Rename ----------------------------------------------------------
-
 test("rename project by double-clicking and pressing Enter", async () => {
   const b = getApp();
   const projectName = uniqueName("Project");
@@ -118,8 +117,6 @@ test("cancel project rename by pressing Escape", async () => {
   });
 }, 120_000);
 
-// -- Context Menu -----------------------------------------------------------
-
 test("right-click project opens context menu", async () => {
   const b = getApp();
   const projectName = uniqueName("Project");
@@ -136,8 +133,6 @@ test("right-click project opens context menu", async () => {
   expect(menuText).toMatch(/rename/i);
   expect(menuText).toMatch(/delete/i);
 }, 120_000);
-
-// -- Delete -----------------------------------------------------------------
 
 test("delete project after confirming dialog", async () => {
   const b = getApp();
@@ -199,8 +194,6 @@ test("cancel project deletion leaves the project in place", async () => {
     timeoutMsg: "project vanished after cancelling deletion",
   });
 }, 120_000);
-
-// -- Session inline rename / context menu ------------------------------------
 
 test("rename session by double-clicking and pressing Enter", async () => {
   const b = getApp();

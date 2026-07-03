@@ -73,8 +73,6 @@ mod tests {
             .collect()
     }
 
-    // -- schema presence --------------------------------------------------------
-
     #[tokio::test]
     async fn all_domain_tables_exist_after_migration() {
         let pool = memory_pool().await;
@@ -107,8 +105,6 @@ mod tests {
         sorted.dedup();
         assert_eq!(tables.len(), sorted.len());
     }
-
-    // -- seed data -------------------------------------------------------------
 
     #[tokio::test]
     async fn default_workspace_is_seeded() {
@@ -149,8 +145,6 @@ mod tests {
         .expect("login-shell command must be seeded");
         assert_eq!(name, "login-shell");
     }
-
-    // -- column presence: new fields required by task 0b -----------------------
 
     #[tokio::test]
     async fn workspace_has_sort_order_pinned_archived_at() {
@@ -295,8 +289,6 @@ mod tests {
         .await
         .expect("command must accept sort_order and pinned");
     }
-
-    // -- behavioral contracts ----------------------------------------------------
 
     #[tokio::test]
     async fn pinned_items_sort_before_unpinned() {

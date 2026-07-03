@@ -21,7 +21,6 @@ pub fn rules() -> &'static [Rule] {
             group: g,
         };
         vec![
-            // --- labeled key/value: redact the value, keep the key ---
             mk(
                 r#"(?i)([a-z0-9_]*(?:api[_-]?key|secret|token|password|passwd|pwd|auth)[a-z0-9_]*\s*[=:]\s*)([^\s,;"']+)"#,
                 2,
@@ -34,7 +33,6 @@ pub fn rules() -> &'static [Rule] {
                 r#"(?i)(authorization\s*:\s*(?:bearer\s+|basic\s+)?)([A-Za-z0-9._~+/=-]+)"#,
                 2,
             ),
-            // --- bare credential shapes ---
             mk(r"\b(?:ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{20,}\b", 0),
             mk(r"\bAKIA[0-9A-Z]{16}\b", 0),
             mk(r"\bsk-(?:ant|proj)?-?[A-Za-z0-9_-]{20,}\b", 0),
@@ -45,7 +43,6 @@ pub fn rules() -> &'static [Rule] {
                 r"(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
                 0,
             ),
-            // --- structured PII ---
             mk(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", 0), // email
             mk(
                 r"\b(?:25[0-5]|2[0-4]\d|[01]?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d?\d)){3}\b",
@@ -53,7 +50,7 @@ pub fn rules() -> &'static [Rule] {
             ), // ipv4
             mk(r"\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b", 0), // ipv6
             mk(r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b", 0),  // mac
-            mk(r"\b\d{3}-\d{2}-\d{4}\b", 0),                        // us-ssn
+            mk(r"\b\d{3}-\d{2}-\d{4}\b", 0),                        // ssn
             mk(r"\b[A-Z]{2}\d{2}[A-Za-z0-9]{11,30}\b", 0),          // iban (compact)
         ]
     })

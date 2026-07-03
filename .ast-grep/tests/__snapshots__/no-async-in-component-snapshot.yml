@@ -1,0 +1,106 @@
+id: no-async-in-component
+snapshots:
+  async function MyPanel() { return null; }:
+    labels:
+    - source: async function MyPanel() { return null; }
+      style: primary
+      start: 0
+      end: 41
+    - source: MyPanel
+      style: secondary
+      start: 15
+      end: 22
+  async function useMyData() { return fetch('/x'); }:
+    labels:
+    - source: async function useMyData() { return fetch('/x'); }
+      style: primary
+      start: 0
+      end: 50
+    - source: useMyData
+      style: secondary
+      start: 15
+      end: 24
+  const MyComp = async () => { return null; };:
+    labels:
+    - source: async () => { return null; }
+      style: primary
+      start: 15
+      end: 43
+    - source: MyComp
+      style: secondary
+      start: 6
+      end: 12
+    - source: MyComp = async () => { return null; }
+      style: secondary
+      start: 6
+      end: 43
+  const useItems = async () => { return []; };:
+    labels:
+    - source: async () => { return []; }
+      style: primary
+      start: 17
+      end: 43
+    - source: useItems
+      style: secondary
+      start: 6
+      end: 14
+    - source: useItems = async () => { return []; }
+      style: secondary
+      start: 6
+      end: 43
+  function Form() { const submit = () => { api.save().then(r => console.log(r)); }; return null; }:
+    labels:
+    - source: api.save().then(r => console.log(r))
+      style: primary
+      start: 41
+      end: 77
+    - source: Form
+      style: secondary
+      start: 9
+      end: 13
+    - source: function Form() { const submit = () => { api.save().then(r => console.log(r)); }; return null; }
+      style: secondary
+      start: 0
+      end: 96
+  function Panel() { void (async () => { const r = await fetch('/x'); })(); return null; }:
+    labels:
+    - source: await fetch('/x')
+      style: primary
+      start: 49
+      end: 66
+    - source: Panel
+      style: secondary
+      start: 9
+      end: 14
+    - source: function Panel() { void (async () => { const r = await fetch('/x'); })(); return null; }
+      style: secondary
+      start: 0
+      end: 88
+  function useData() { return (async () => { return await fetch('/x'); })(); }:
+    labels:
+    - source: await fetch('/x')
+      style: primary
+      start: 50
+      end: 67
+    - source: useData
+      style: secondary
+      start: 9
+      end: 16
+    - source: function useData() { return (async () => { return await fetch('/x'); })(); }
+      style: secondary
+      start: 0
+      end: 76
+  function useResult() { fetch('/x').then(r => r.json()); }:
+    labels:
+    - source: fetch('/x').then(r => r.json())
+      style: primary
+      start: 23
+      end: 54
+    - source: useResult
+      style: secondary
+      start: 9
+      end: 18
+    - source: function useResult() { fetch('/x').then(r => r.json()); }
+      style: secondary
+      start: 0
+      end: 57

@@ -1,53 +1,51 @@
-import { useEffect, useState, use, useRef, useMemo } from "react";
-import { API_BASE } from "~/lib/serverUrl";
+import type { FileDiffMetadata } from "@pierre/diffs/react";
+
+import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
+import { useQuery } from "@tanstack/react-query";
 import { Columns2, AlignJustify } from "lucide-react";
+import React from "react";
+
 import { Skeleton } from "~/components/ui/skeleton";
+import { lazyDiffsReact } from "~/lib/lazy";
+import { API_BASE } from "~/lib/serverUrl";
 import { SessionContext } from "~/lib/sessionContext";
 import { cn } from "~/lib/utils";
-import type { FileDiffMetadata } from "@pierre/diffs/react";
-import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
-
-type DiffState =
-  | { phase: "idle" }
-  | { phase: "loading" }
-  | { phase: "done"; files: FileDiffMetadata[] }
-  | { phase: "error"; message: string };
 
 type ViewMode = "stacked" | "split";
 
+async function fetchSessionDiff(sessionId: string): Promise<FileDiffMetadata[]> {
+  const r = await fetch(`${API_BASE}/api/sessions/${sessionId}/diff`);
+  const patch = await r.text();
+  if (!patch.trim()) return [];
+  const { parsePatchFiles } = await import("@pierre/diffs");
+  const parsed = parsePatchFiles(patch) as Array<{ files: FileDiffMetadata[] }>;
+  return parsed.flatMap((p) => p.files);
+}
+
 export function DiffPanel({ sessionId }: { sessionId: string | null }) {
-  const { status } = use(SessionContext);
-  const [diff, setDiff] = useState<DiffState>({ phase: "idle" });
-  const [viewMode, setViewMode] = useState<ViewMode>("stacked");
+  const { status } = React.use(SessionContext);
+  const [viewMode, setViewMode] = React.useState<ViewMode>("stacked");
 
-  useEffect(() => {
-    if (!sessionId) return;
-    if (status !== "IDLE" && status !== "DONE") return;
-
-    setDiff({ phase: "loading" });
-    fetch(`${API_BASE}/api/sessions/${sessionId}/diff`)
-      .then(async (r) => {
-        const patch = await r.text();
-        if (!patch.trim()) {
-          setDiff({ phase: "done", files: [] });
-          return;
-        }
-        const { parsePatchFiles } = await import("@pierre/diffs");
-        const parsed = parsePatchFiles(patch) as Array<{ files: FileDiffMetadata[] }>;
-        const files = parsed.flatMap((p) => p.files);
-        setDiff({ phase: "done", files });
-      })
-      .catch((err: unknown) =>
-        setDiff({ phase: "error", message: err instanceof Error ? err.message : "fetch failed" }),
-      );
-  }, [sessionId, status]);
+  // Defer until the session settles -- a running session has no final diff yet.
+  const enabled = !!sessionId && (status === "IDLE" || status === "DONE");
+  const {
+    data: files,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["diff", sessionId],
+    queryFn: () => fetchSessionDiff(sessionId as string),
+    enabled,
+  });
 
   if (!sessionId) return <DiffPlaceholder message="No active session" />;
-  if (diff.phase === "idle")
-    return <DiffPlaceholder message="Waiting for session to complete..." />;
-  if (diff.phase === "error") return <DiffPlaceholder message={diff.message} error />;
-
-  if (diff.phase === "loading") {
+  if (!enabled) return <DiffPlaceholder message="Waiting for session to complete..." />;
+  if (isError)
+    return (
+      <DiffPlaceholder message={error instanceof Error ? error.message : "fetch failed"} error />
+    );
+  if (isLoading || !files) {
     return (
       <div className="flex flex-col gap-2 p-3">
         <Skeleton className="h-4 w-3/4" />
@@ -56,8 +54,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
       </div>
     );
   }
-
-  if (diff.files.length === 0) return <DiffPlaceholder message="No changes detected" />;
+  if (files.length === 0) return <DiffPlaceholder message="No changes detected" />;
 
   return (
     <div className="flex flex-col h-full">
@@ -66,7 +63,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
         style={{ height: "var(--toolbar-height, 2.333rem)" }}
       >
         <span className="text-[0.917rem] text-muted-foreground flex-1">
-          {diff.files.length} file{diff.files.length !== 1 ? "s" : ""}
+          {files.length} file{files.length !== 1 ? "s" : ""}
         </span>
         <button
           type="button"
@@ -81,7 +78,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
-        <DiffView files={diff.files} viewMode={viewMode} />
+        <DiffView files={files} viewMode={viewMode} />
       </div>
     </div>
   );
@@ -104,29 +101,34 @@ function DiffPlaceholder({ message, error }: { message: string; error?: boolean 
 type RendererComponent = React.ComponentType<{ files: FileDiffMetadata[]; viewMode: ViewMode }>;
 
 function DiffView({ files, viewMode }: { files: FileDiffMetadata[]; viewMode: ViewMode }) {
-  const rendererRef = useRef<RendererComponent | null>(null);
-  const [Renderer, setRenderer] = useState<RendererComponent | null>(null);
-  const poolSize = useMemo(
+  const rendererRef = React.useRef<RendererComponent | null>(null);
+  const [Renderer, setRenderer] = React.useState<RendererComponent | null>(null);
+  const poolSize = React.useMemo(
     () => Math.max(2, Math.min(6, Math.floor((navigator.hardwareConcurrency || 4) / 2))),
     [],
   );
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (rendererRef.current) {
       setRenderer(() => rendererRef.current);
       return;
     }
-    (async () => {
-      const { FileDiff, Virtualizer, WorkerPoolContextProvider } =
-        await import("@pierre/diffs/react");
-      const comp = makeDiffRenderer(FileDiff, Virtualizer, WorkerPoolContextProvider, poolSize);
-      rendererRef.current = comp;
-      setRenderer(() => comp);
-    })();
+    void loadDiffRenderer(poolSize, rendererRef, (comp) => setRenderer(() => comp));
   }, [poolSize]);
 
   if (!Renderer) return null;
   return <Renderer files={files} viewMode={viewMode} />;
+}
+
+async function loadDiffRenderer(
+  poolSize: number,
+  rendererRef: React.RefObject<RendererComponent | null>,
+  setRenderer: (r: RendererComponent) => void,
+): Promise<void> {
+  const { FileDiff, Virtualizer, WorkerPoolContextProvider } = await lazyDiffsReact();
+  const comp = makeDiffRenderer(FileDiff, Virtualizer, WorkerPoolContextProvider, poolSize);
+  rendererRef.current = comp;
+  setRenderer(comp);
 }
 
 function makeDiffRenderer(

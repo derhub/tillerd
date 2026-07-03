@@ -1,0 +1,8 @@
+id: no-inline-dynamic-import
+valid:
+  - "export const lazyX = () => import('y');"
+  - "async function load() { await import('y'); }"
+  - "function useTyped() { const r: import('y').T = z; return r; }"
+invalid:
+  - "function useThing() { void (async () => { await import('y'); })(); }"
+  - "const Comp = () => { void (async () => { await import('y'); })(); return null; };"

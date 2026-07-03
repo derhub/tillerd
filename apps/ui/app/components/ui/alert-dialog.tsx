@@ -60,7 +60,6 @@ function AlertDialogCancel({ className, ...props }: AlertDialogPrimitive.Close.P
   );
 }
 
-// The confirm button runs its handler; the dialog is dismissed by the caller's controlled state.
 function AlertDialogAction({ className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button

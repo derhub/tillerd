@@ -37,8 +37,8 @@ fn is_fence(line: &str) -> bool {
     t.starts_with("```") || t.starts_with("~~~")
 }
 
-/// Meaningful body length: characters in non-heading, non-blank lines. Used to
-/// drop bare-heading or empty sections.
+/// Meaningful body length: characters in non-heading, non-blank lines. Drives
+/// filtering of bare-heading or empty sections.
 fn body_chars(lines: &[&str]) -> usize {
     lines
         .iter()

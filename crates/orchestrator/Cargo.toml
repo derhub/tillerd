@@ -18,14 +18,19 @@ service-host.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+notify.workspace = true
+tower = { version = "0.5", default-features = false, features = ["util"] }
 tracing.workspace = true
 uuid.workspace = true
 sqlx.workspace = true
+specta = { workspace = true, optional = true }
+specta-typescript = { workspace = true, optional = true }
 tillerd-custom-macro = { path = "../custom-macro" }
 tokio = { version = "1", features = [
   "rt-multi-thread",
   "net",
   "io-util",
+  "fs",
   "sync",
   "macros",
   "time",
@@ -42,6 +47,11 @@ tokio = { version = "1", features = [
   "macros",
   "time",
 ] }
+
+[features]
+# Derive specta::Type on the wire-facing *View read DTOs so the desktop build can
+# generate typed TS bindings. Off by default -- non-desktop consumers compile untouched.
+specta = ["dep:specta", "dep:specta-typescript"]
 
 [lints]
 workspace = true

@@ -27,8 +27,12 @@ libc = "0.2"
 tillerd-paths.workspace = true
 contracts.workspace = true
 process-launch.workspace = true
-orchestrator.workspace = true
+orchestrator = { workspace = true, features = ["specta"] }
 uuid.workspace = true
+# Typed IPC bindings generation (build-time; export gated behind the `specta` feature).
+specta.workspace = true
+specta-typescript.workspace = true
+tauri-specta.workspace = true
 # Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
 tauri-plugin-notification = "2"
 # Enabled by the `webdriver` feature for the desktop e2e harness; off in normal/release builds.
@@ -47,6 +51,9 @@ tempfile.workspace = true
 serial_test = "3"
 # `tauri::test` mock runtime for the IPC command-contract test.
 tauri = { version = "2", features = ["test"] }
+# Span-counting layer proving the off-telemetry channel send opens no bus span.
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

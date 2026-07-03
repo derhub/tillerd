@@ -1,11 +1,11 @@
 # project-session-delete Specification
 
 ## Purpose
-TBD - created by archiving change workspace-management. Update Purpose after archive.
+Hard-deleting projects and sessions from the sidebar context menu: a confirmation dialog warns of cascading removal (sessions and surfaces under a project, surfaces under a session, all PTYs terminated), the sidebar updates in real time on confirm, and navigation falls back to the home/empty state when the currently viewed project or session is deleted.
 ## Requirements
 ### Requirement: Delete project via context menu with confirmation
 
-Users can hard-delete a project by right-clicking and selecting "Delete" from the context menu. A confirmation dialog warns of cascading deletion of sessions and surfaces.
+The sidebar SHALL let the user hard-delete a project from its row's context menu, behind a confirmation dialog that warns of the cascading deletion of the project's sessions and surfaces.
 
 #### Scenario: Delete project after confirming dialog
 
@@ -35,7 +35,7 @@ Users can hard-delete a project by right-clicking and selecting "Delete" from th
 
 ### Requirement: Delete session via context menu with confirmation
 
-Users can hard-delete a session by right-clicking and selecting "Delete" from the context menu. A confirmation dialog warns of surface termination.
+The sidebar SHALL let the user hard-delete a session from its row's context menu, behind a confirmation dialog that warns that the session's surfaces terminate.
 
 #### Scenario: Delete session after confirming dialog
 

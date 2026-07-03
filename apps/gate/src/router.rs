@@ -13,7 +13,7 @@ use crate::{Ctx, Flow, Kind, Reject, Token};
 /// An untrusted inbound from a transport face. Its correlation id is optional;
 /// the router assigns one when absent.
 pub struct Inbound {
-    /// The inbound kind, used to select the route.
+    /// The inbound kind that selects the route.
     pub kind: Kind,
     /// The session this inbound is attributed to.
     pub session: SessionId,

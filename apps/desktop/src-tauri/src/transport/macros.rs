@@ -1,32 +1,3 @@
-//! Declarative shim macros for the tauri transport. Each domain operation is a pure
-//! `app/` CQS command/query value; these macros generate the mechanical
-//! `#[tauri::command]` shim that deserializes the wire arguments, dispatches through the
-//! managed `Bus<Ctx>`, and maps `shared::Error` to the wire string -- so adding an op is
-//! one listing line. The wire (command name, argument shape, response JSON, error
-//! string) is byte-identical to a hand-written shim: the generated fn takes the same
-//! snake_case params (tauri converts the renderer's camelCase natively) and tauri keeps
-//! routing, argument typing, and per-command ACL.
-//!
-//! Three forms cover the mechanical surface:
-//! - [`transport_command!`] -- build a command, `bus.execute`, return `()`.
-//! - [`transport_query!`] -- `bus.query`, map the output to the curated wire DTO.
-//! - [`transport_create!`] -- the pure-CQS create pattern: build the command (with a
-//!   transport-minted id), `bus.execute`, then `bus.query` the entity back by id and map
-//!   it to the wire DTO. Minting lives here, in one place, because the core command
-//!   returns `()` (CQS stays pure).
-//!
-//! [`collect_transport!`] expands to the `generate_handler![...]` array -- declarative,
-//! not `inventory`, because tauri needs the handler idents at compile time. Host/shell
-//! and transport-resident shims (window/file/log/bridge/menu/supervisor/gate/store, the
-//! surface I/O channel, and the few off-bus or non-mechanical domain shims) are NOT
-//! macro-generated and are listed alongside in `collect_transport!`.
-
-/// Generate a `#[tauri::command]` shim for a command (mutation returning `()`).
-///
-/// `$param: $ty = $build` declares one wire argument and how it maps into the core
-/// field: `$build` is an expression in scope of the param binding (e.g. an id-newtype
-/// constructor). The `=> Core { field: expr, .. }` clause is the core command value the
-/// bus executes.
 macro_rules! transport_command {
     (
         $(#[$meta:meta])*
@@ -34,7 +5,8 @@ macro_rules! transport_command {
     ) => {
         $(#[$meta])*
         #[tauri::command]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -44,8 +16,6 @@ macro_rules! transport_command {
     };
 }
 
-/// Generate a `#[tauri::command]` shim for a query. `=> $query` is the core query value;
-/// `|$out| $map` maps its output to the wire response (Vec/Option/DTO/passthrough).
 macro_rules! transport_query {
     (
         $(#[$meta:meta])*
@@ -54,7 +24,8 @@ macro_rules! transport_query {
     ) => {
         $(#[$meta])*
         #[tauri::command]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -65,10 +36,6 @@ macro_rules! transport_query {
     };
 }
 
-/// Generate a `#[tauri::command]` shim for a create: build the command (typically with a
-/// transport-minted id captured before `=>`), execute it, then query the entity back by
-/// id and map it to the wire DTO. `let $bind = $mint;` runs first so the same id flows
-/// into both the command and the read-back query.
 macro_rules! transport_create {
     (
         $(#[$meta:meta])*
@@ -82,7 +49,8 @@ macro_rules! transport_create {
     ) => {
         $(#[$meta])*
         #[tauri::command]
-        #[allow(clippy::too_many_arguments)] // generated transport shim; arg count mirrors the wire command
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)]
         pub async fn $name(
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
@@ -97,181 +65,258 @@ macro_rules! transport_create {
             ::std::result::Result::Ok($map)
         }
     };
+    // Create with a non-fatal tail: after the read-back, `tail` runs with the mapped value bound
+    // (and `bus` in scope) for follow-up dispatch whose failure must not invalidate the create
+    // (launch a spec, announce a notable). The tail block owns its own error handling.
+    (
+        $(#[$meta:meta])*
+        $name:ident ( $( $param:ident : $ty:ty ),* $(,)? ) -> $ret:ty {
+            let $bind:ident = $mint:expr;
+            execute: $cmd:expr,
+            read_back: $query:expr,
+            map: | $out:ident | $map:expr,
+            missing: $missing:expr,
+            tail: | $created:ident, $busid:ident | $tail:block $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[tauri::command]
+        #[specta::specta]
+        #[allow(clippy::too_many_arguments)]
+        pub async fn $name(
+            $( $param: $ty, )*
+            bus: tauri::State<'_, $crate::transport::Bus>,
+        ) -> ::std::result::Result<$ret, ::std::string::String> {
+            let $bind = $mint;
+            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            let $out = bus
+                .query($query)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| ($missing).to_string())?;
+            let result = $map;
+            {
+                let $created = &result;
+                let $busid = &bus;
+                $tail
+            }
+            ::std::result::Result::Ok(result)
+        }
+    };
 }
 
-/// Expand to the `tauri::generate_handler![...]` array of every desktop IPC command.
-/// Declarative (not `inventory`): tauri needs the handler idents at compile time. Lists
-/// the macro-generated domain shims (`transport::domain`) alongside the hand-written
-/// host/shell and transport-resident shims.
-///
-/// Accepts optional runtime-specific commands as arguments -- handlers that cannot be
-/// registered on the test `MockRuntime`. Pass them positionally:
-/// - `collect_transport!($crate::bridge::daemon_connect)` in production (`lib.rs`).
-/// - `collect_transport!()` in the command-contract test (omits `daemon_connect`).
-///
-/// Stays hand-written (NOT macro-generated), listed here:
-/// - host/shell (no domain store): `window_host`, `files`, `diag`, `bridge`, `menu`,
-///   `supervisor`, `orchestrator_host` status/health, `store` (file-backed prefs +
-///   session registry, design D6 / off-bus).
-/// - transport-resident: every `surface_*` shim -- they register/attach a per-surface
-///   `tauri::ipc::Channel` and the off-bus input/resize endpoints write straight to the
-///   runtime port (a `Channel` is a tauri object that cannot live in the core).
-/// - non-mechanical domain: `settings_host::*` (wire `scope`+`projectId` -> `SettingScope`
-///   parse and JSON value <-> string conversion) and `notification_host::notifications_list`
-///   (fixed-page query that lives with the notification sink/builders).
 macro_rules! collect_transport {
     ( $( $runtime_cmd:path ),* $(,)? ) => {
         tauri::generate_handler![
-            // -- runtime-specific (e.g. daemon_connect takes AppHandle<Wry>, excluded from test) --
             $( $runtime_cmd, )*
-            // -- host / shell (out of CQS scope) --
-            $crate::bridge::daemon_send,
-            $crate::bridge::daemon_disconnect,
-            $crate::files::file_size,
-            $crate::files::file_read,
-            $crate::files::list_log_files,
-            $crate::diag::log_forward,
-            $crate::store::pref_get,
-            $crate::store::pref_set,
-            $crate::store::registry_get,
-            $crate::store::registry_set,
-            $crate::store::registry_remove,
-            $crate::store::registry_list,
-            $crate::supervisor::daemon_ensure,
             $crate::orchestrator_host::orchestrator_status,
             $crate::orchestrator_host::service_health,
             $crate::window_host::window_open,
             $crate::window_host::window_focus,
             $crate::window_host::window_close,
             $crate::menu::command_center_set_leader,
-            // -- surface I/O (transport-resident: ipc::Channel + off-bus runtime) --
-            $crate::surface_host::surface_create,
-            $crate::surface_host::surface_spawn,
-            $crate::surface_host::surface_close,
-            $crate::surface_host::surface_input,
-            $crate::surface_host::surface_resize,
-            $crate::surface_host::surface_detach,
-            // -- domain --
-            $crate::transport::domain::project_create,
-            $crate::transport::domain::project_list,
-            $crate::transport::domain::project_rename,
-            $crate::transport::domain::project_archive,
-            $crate::transport::domain::project_delete,
-            $crate::transport::domain::project_reorder,
-            $crate::transport::domain::project_move,
-            $crate::transport::domain::project_get,
-            $crate::transport::domain::project_search,
-            $crate::transport::domain::project_restore,
-            $crate::transport::domain::project_duplicate,
-            $crate::transport::domain::project_pin,
-            $crate::transport::domain::project_unpin,
-            $crate::transport::domain::project_stop_surfaces,
-            $crate::transport::domain::workspace_create,
-            $crate::transport::domain::workspace_list,
-            $crate::transport::domain::workspace_rename,
-            $crate::transport::domain::workspace_reorder,
-            $crate::transport::domain::workspace_delete,
-            $crate::transport::domain::workspace_get,
-            $crate::transport::domain::workspace_archive,
-            $crate::transport::domain::workspace_restore,
-            $crate::transport::domain::workspace_pin,
-            $crate::transport::domain::workspace_unpin,
-            $crate::transport::domain::workspace_stop_surfaces,
-            $crate::transport::domain::surface_get,
-            $crate::transport::domain::surface_list_by_session,
-            $crate::transport::domain::surface_list_resumable,
-            $crate::transport::domain::surface_find_by_placement,
-            $crate::transport::domain::surface_stop,
-            $crate::transport::domain::surface_reconcile,
-            $crate::transport::domain::session_list,
-            $crate::transport::domain::session_create,
-            $crate::transport::domain::session_rename,
-            $crate::transport::domain::session_archive,
-            $crate::transport::domain::session_delete,
-            $crate::transport::domain::session_reorder,
-            $crate::transport::domain::session_layout_set,
-            $crate::transport::domain::session_layout_get,
-            $crate::transport::domain::session_get,
-            $crate::transport::domain::session_list_all,
-            $crate::transport::domain::session_get_launch_spec,
-            $crate::transport::domain::session_search,
-            $crate::transport::domain::session_launch,
-            $crate::transport::domain::session_apply_launch_spec,
-            $crate::transport::domain::session_move,
-            $crate::transport::domain::session_duplicate,
-            $crate::transport::domain::session_pin,
-            $crate::transport::domain::session_unpin,
-            $crate::transport::domain::session_restore,
-            $crate::transport::domain::session_stop_surfaces,
-            $crate::transport::domain::command_list,
-            $crate::transport::domain::command_create,
-            $crate::transport::domain::command_get,
-            $crate::transport::domain::command_delete,
-            $crate::transport::domain::command_rename,
-            $crate::transport::domain::command_edit,
-            $crate::transport::domain::command_pin,
-            $crate::transport::domain::command_unpin,
-            $crate::transport::domain::command_duplicate,
-            $crate::transport::domain::command_seed,
-            // -- settings: scope-sensitive (scope+projectId parse, value<->string) --
-            $crate::settings_host::setting_get,
-            $crate::settings_host::setting_set,
-            $crate::settings_host::setting_list,
-            $crate::settings_host::setting_reset,
-            $crate::settings_host::setting_resolve,
-            $crate::settings_host::settings_resolve,
-            // -- settings: profiles --
-            $crate::transport::domain::profile_get_active,
-            $crate::transport::domain::profile_list,
-            $crate::transport::domain::profile_create,
-            $crate::transport::domain::profile_activate,
-            $crate::transport::domain::profile_rename,
-            $crate::transport::domain::profile_duplicate,
-            $crate::transport::domain::profile_discard,
-            $crate::transport::domain::profile_export,
-            $crate::transport::domain::profile_import,
-            // -- settings: themes --
-            $crate::transport::domain::theme_get_active,
-            $crate::transport::domain::theme_list,
-            $crate::transport::domain::theme_activate,
-            $crate::transport::domain::theme_discard,
-            $crate::transport::domain::theme_export,
-            $crate::transport::domain::theme_import,
-            // -- settings: keybindings --
-            $crate::transport::domain::keybinding_list,
-            $crate::transport::domain::keybinding_rebind,
-            $crate::transport::domain::keybinding_reset,
-            $crate::transport::domain::keybinding_reset_all,
-            $crate::transport::domain::keybinding_resolve,
-            // -- settings: config --
-            $crate::transport::domain::config_reload,
-            // -- notifications (fixed-page query beside the notification sink) --
-            $crate::notification_host::notifications_list,
-            $crate::transport::domain::notification_list_unread,
-            $crate::transport::domain::notification_count_unread,
-            $crate::transport::domain::notification_mark_read,
-            $crate::transport::domain::notification_mark_all_read,
-            $crate::transport::domain::notification_disregard,
-            $crate::transport::domain::notification_disregard_all,
-            $crate::transport::domain::notification_snooze,
-            $crate::transport::domain::notification_prune,
-            $crate::transport::domain::notification_record,
-            // -- template: launch templates (project-bound) --
-            $crate::transport::domain::launch_template_create,
-            $crate::transport::domain::launch_template_list,
-            $crate::transport::domain::launch_template_get,
-            $crate::transport::domain::launch_template_discard,
-            $crate::transport::domain::launch_template_apply_spec,
-            // -- template: portable library --
-            $crate::transport::domain::template_list,
-            $crate::transport::domain::template_get,
-            $crate::transport::domain::template_import,
-            $crate::transport::domain::template_export,
-            $crate::transport::domain::template_discard,
-            $crate::transport::domain::template_pin,
-            $crate::transport::domain::template_unpin,
+            $crate::transport::surface::surface_resolve_or_spawn,
+            $crate::transport::surface::surface_channel,
+            $crate::transport::surface::surface_channel_send,
+            $crate::transport::surface::surface_channel_close,
+            $crate::transport::surface::surface_spawn,
+            $crate::transport::surface::surface_close,
+            $crate::transport::surface::surface_detach,
+            $crate::transport::logs::log_channel,
+            $crate::transport::logs::log_channel_close,
+            $crate::transport::logs::logs_changed_channel,
+            $crate::transport::logs::logs_changed_channel_close,
+            $crate::transport::notification::notification_channel,
+            $crate::transport::notification::notification_channel_close,
+            $crate::transport::project::project_create,
+            $crate::transport::project::project_list,
+            $crate::transport::project::project_rename,
+            $crate::transport::project::project_archive,
+            $crate::transport::project::project_delete,
+            $crate::transport::project::project_reorder,
+            $crate::transport::project::project_move,
+            $crate::transport::project::project_get,
+            $crate::transport::project::project_search,
+            $crate::transport::project::project_restore,
+            $crate::transport::project::project_duplicate,
+            $crate::transport::project::project_pin,
+            $crate::transport::project::project_unpin,
+            $crate::transport::project::project_stop_surfaces,
+            $crate::transport::workspace::workspace_create,
+            $crate::transport::workspace::workspace_list,
+            $crate::transport::workspace::workspace_rename,
+            $crate::transport::workspace::workspace_reorder,
+            $crate::transport::workspace::workspace_delete,
+            $crate::transport::workspace::workspace_get,
+            $crate::transport::workspace::workspace_archive,
+            $crate::transport::workspace::workspace_restore,
+            $crate::transport::workspace::workspace_pin,
+            $crate::transport::workspace::workspace_unpin,
+            $crate::transport::workspace::workspace_stop_surfaces,
+            $crate::transport::surface::surface_get,
+            $crate::transport::surface::surface_list_by_session,
+            $crate::transport::surface::surface_list_resumable,
+            $crate::transport::surface::surface_find_by_placement,
+            $crate::transport::surface::surface_stop,
+            $crate::transport::surface::surface_reconcile,
+            $crate::transport::session::session_list,
+            $crate::transport::session::session_create,
+            $crate::transport::session::session_rename,
+            $crate::transport::session::session_archive,
+            $crate::transport::session::session_delete,
+            $crate::transport::session::session_reorder,
+            $crate::transport::session::session_layout_set,
+            $crate::transport::session::session_layout_get,
+            $crate::transport::session::session_get,
+            $crate::transport::session::session_list_all,
+            $crate::transport::session::session_get_launch_spec,
+            $crate::transport::session::session_search,
+            $crate::transport::session::session_launch,
+            $crate::transport::session::session_apply_launch_spec,
+            $crate::transport::session::session_move,
+            $crate::transport::session::session_duplicate,
+            $crate::transport::session::session_pin,
+            $crate::transport::session::session_unpin,
+            $crate::transport::session::session_restore,
+            $crate::transport::session::session_stop_surfaces,
+            $crate::transport::command::command_list,
+            $crate::transport::command::command_create,
+            $crate::transport::command::command_get,
+            $crate::transport::command::command_delete,
+            $crate::transport::command::command_rename,
+            $crate::transport::command::command_edit,
+            $crate::transport::command::command_pin,
+            $crate::transport::command::command_unpin,
+            $crate::transport::command::command_duplicate,
+            $crate::transport::command::command_seed,
+            $crate::transport::settings::setting_get,
+            $crate::transport::settings::setting_set,
+            $crate::transport::settings::setting_list,
+            $crate::transport::settings::setting_reset,
+            $crate::transport::settings::setting_resolve,
+            $crate::transport::settings::settings_resolve,
+            $crate::transport::settings::profile_get_active,
+            $crate::transport::settings::profile_list,
+            $crate::transport::settings::profile_create,
+            $crate::transport::settings::profile_activate,
+            $crate::transport::settings::profile_rename,
+            $crate::transport::settings::profile_duplicate,
+            $crate::transport::settings::profile_discard,
+            $crate::transport::settings::profile_export,
+            $crate::transport::settings::profile_import,
+            $crate::transport::settings::theme_get_active,
+            $crate::transport::settings::theme_list,
+            $crate::transport::settings::theme_activate,
+            $crate::transport::settings::theme_discard,
+            $crate::transport::settings::theme_export,
+            $crate::transport::settings::theme_import,
+            $crate::transport::settings::keybinding_list,
+            $crate::transport::settings::keybinding_rebind,
+            $crate::transport::settings::keybinding_reset,
+            $crate::transport::settings::keybinding_reset_all,
+            $crate::transport::settings::keybinding_resolve,
+            $crate::transport::settings::config_reload,
+            $crate::transport::notification::notifications_list,
+            $crate::transport::notification::notification_list_unread,
+            $crate::transport::notification::notification_count_unread,
+            $crate::transport::notification::notification_mark_read,
+            $crate::transport::notification::notification_mark_all_read,
+            $crate::transport::notification::notification_disregard,
+            $crate::transport::notification::notification_disregard_all,
+            $crate::transport::notification::notification_snooze,
+            $crate::transport::notification::notification_prune,
+            $crate::transport::template::launch_template_create,
+            $crate::transport::template::launch_template_list,
+            $crate::transport::template::launch_template_get,
+            $crate::transport::template::launch_template_discard,
+            $crate::transport::template::launch_template_apply_spec,
+            $crate::transport::template::template_list,
+            $crate::transport::template::template_get,
+            $crate::transport::template::template_import,
+            $crate::transport::template::template_export,
+            $crate::transport::template::template_discard,
+            $crate::transport::template::template_pin,
+            $crate::transport::template::template_unpin,
+            $crate::transport::logs::log_list,
+            $crate::transport::logs::log_tail,
         ]
     };
 }
 
-pub(crate) use {collect_transport, transport_command, transport_create, transport_query};
+macro_rules! domain_channel {
+    (
+        pub open $open_name:ident ( $req_ty:ty ),
+        pub send $send_name:ident ( $msg_ty:ty ),
+        pub close $close_name:ident ( $close_ty:ty )
+    ) => {
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $open_name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
+            req: $req_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::OpenDomainChannel;
+            let sink = ::std::sync::Arc::new($crate::transport::surface::ChannelSink::for_channel(
+                channel, app,
+            ));
+            req.handle(bus.cx(), sink).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $send_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            key: ::std::string::String,
+            msg: $msg_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::DomainChannelMessage;
+            msg.handle(bus.cx(), &key).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $close_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            req: $close_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::CloseDomainChannel;
+            req.handle(bus.cx()).await.map_err(|e| e.to_string())
+        }
+    };
+
+    (
+        pub open $open_name:ident ( $req_ty:ty ),
+        pub close $close_name:ident ( $close_ty:ty )
+    ) => {
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $open_name<R: tauri::Runtime>(
+            app: tauri::AppHandle<R>,
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            channel: tauri::ipc::Channel<::std::vec::Vec<u8>>,
+            req: $req_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::OpenDomainChannel;
+            let sink = ::std::sync::Arc::new($crate::transport::surface::ChannelSink::for_channel(
+                channel, app,
+            ));
+            req.handle(bus.cx(), sink).await.map_err(|e| e.to_string())
+        }
+
+        #[tauri::command]
+        #[specta::specta]
+        pub async fn $close_name(
+            bus: tauri::State<'_, $crate::transport::Bus>,
+            req: $close_ty,
+        ) -> ::std::result::Result<(), ::std::string::String> {
+            use orchestrator::shared::domain_channel::CloseDomainChannel;
+            req.handle(bus.cx()).await.map_err(|e| e.to_string())
+        }
+    };
+}
+
+pub(crate) use {
+    collect_transport, domain_channel, transport_command, transport_create, transport_query,
+};

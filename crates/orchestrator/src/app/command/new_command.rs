@@ -46,8 +46,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: command mutates and returns nothing -------------------------
-
     #[tokio::test]
     async fn new_command_creates_a_custom_command_that_get_query_resolves() {
         let bus = Bus::new(ctx().await);

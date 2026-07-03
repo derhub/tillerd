@@ -1,9 +1,10 @@
+import type { NotificationWire } from "@tillerd/client-bindings";
+
 import { expect, test } from "bun:test";
-import type { NotificationEvent } from "@tillerd/sdk/orchestrator";
 
 import { boundedPrepend, notificationHeading } from "./store";
 
-function ev(id: string, over: Partial<NotificationEvent> = {}): NotificationEvent {
+function ev(id: string, over: Partial<NotificationWire> = {}): NotificationWire {
   return {
     id,
     category: "surface-stopped",

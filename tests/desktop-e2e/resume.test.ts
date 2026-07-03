@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+
 import { createProject, launchReadyApp } from "./helpers";
 
 // Resume-after-restart: workspace state created in one app run survives a full restart. The app is

@@ -2,7 +2,7 @@
 //! (`crate::app_context()` -- config + embedded frontend + resolved ACL) on the `tauri::test` mock
 //! runtime over a `:memory:` `Ctx` (migrations applied, `FakeRuntime`, `SqliteKv`), then each
 //! command registered in `run()` is invoked through the live IPC path with the argument shape
-//! `@tillerd/sdk` + the desktop bridge actually send. A command that is missing from the handler
+//! `@tillerd/client-bindings` actually sends. A command that is missing from the handler
 //! fails with "Command <name> not found"; a command whose argument struct drifts from its body
 //! fails with "invalid args `<field>`". Either is a contract break the assertions catch -- at
 //! unit-test speed, before a full desktop e2e cycle. Business errors (no daemon, store not ready)
@@ -20,8 +20,6 @@ use tauri::{Manager, WebviewWindow};
 
 use crate::orchestrator_host::OrchestratorState;
 use crate::transport::macros::collect_transport;
-use crate::transport::sink::SurfaceChannels;
-use crate::{bridge, store, supervisor};
 
 /// Build a `:memory:` `Ctx` with migrations applied and a `FakeRuntime`, via the
 /// orchestrator's app-owned test edge. This is the context `Bus<Ctx>` dispatches over;
@@ -46,15 +44,8 @@ fn contract_app() -> tauri::App<MockRuntime> {
 
     mock_builder()
         .manage(bus)
-        .manage(SurfaceChannels::default())
-        .manage(bridge::BridgeState::default())
-        .manage(store::StoreState::load())
-        .manage(supervisor::SupervisorState::default())
         .manage(OrchestratorState::default())
         .manage(crate::menu::LeaderMenuState::default())
-        // `daemon_connect` is omitted: it takes a concrete `AppHandle` (= `AppHandle<Wry>`),
-        // which `tauri::test`'s `MockRuntime` handler cannot register. Its only data argument is
-        // an IPC `Channel`, so there is no plain-data arg shape to drift.
         .invoke_handler(collect_transport!())
         .build(crate::app_context())
         .expect("app builds with the full command set + managed state")
@@ -94,10 +85,7 @@ fn invoke(
 #[test]
 #[serial] // mutates TILLERD_* env; serialized against the other env-sensitive command tests
 fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
-    // Hermetic runtime dir: store/registry writes and the daemon manifest read stay in a temp
-    // dir, and `daemon_ensure` resolves the daemon binary to `/dev/null` (exists, so it is
-    // chosen) whose `execve` fails instantly -- proving the command is reached without spawning a
-    // real daemon or waiting on reachability.
+    // Hermetic runtime dir: command side effects stay in a temp dir.
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());
     std::env::set_var(tillerd_paths::ENV_DAEMON_BIN, "/dev/null");
@@ -108,70 +96,63 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
     // A channel arg is sent by the renderer as the string `__CHANNEL__:<id>`.
     let channel = serde_json::Value::String("__CHANNEL__:1".into());
 
-    // Each body mirrors what `@tillerd/sdk` + the desktop bridge send for that command. Optional
+    // Each body mirrors what `@tillerd/client-bindings` sends for that command. Optional
     // fields are populated so a rename to a required field is caught; required fields must be
     // present or deserialization fails (which is exactly what this test asserts against).
     let cases: Vec<(&str, serde_json::Value)> = vec![
-        // `daemon_connect` excluded -- see the handler list (concrete `AppHandle`, channel-only).
-        ("daemon_send", serde_json::json!({ "bytes": [0u8, 1, 2] })),
-        ("daemon_disconnect", serde_json::json!({})),
-        (
-            "file_size",
-            serde_json::json!({ "path": "/no/such/contract/file" }),
-        ),
-        (
-            "file_read",
-            serde_json::json!({ "path": "/no/such/contract/file", "offset": 0, "length": 16 }),
-        ),
-        (
-            "log_forward",
-            serde_json::json!({ "level": "info", "msg": "contract", "extra": null }),
-        ),
-        ("pref_get", serde_json::json!({ "key": "contract" })),
-        (
-            "pref_set",
-            serde_json::json!({ "key": "contract", "value": 1 }),
-        ),
-        (
-            "registry_get",
-            serde_json::json!({ "sessionId": "contract" }),
-        ),
-        (
-            "registry_set",
-            serde_json::json!({ "sessionId": "contract", "cwd": "/tmp" }),
-        ),
-        (
-            "registry_remove",
-            serde_json::json!({ "sessionId": "contract" }),
-        ),
-        ("registry_list", serde_json::json!({})),
-        ("daemon_ensure", serde_json::json!({})),
         ("orchestrator_status", serde_json::json!({})),
         ("service_health", serde_json::json!({})),
         (
-            "surface_create",
-            serde_json::json!({ "channel": channel, "sessionId": "contract", "placement": "p", "cols": 80, "rows": 24, "cwd": null }),
+            "surface_resolve_or_spawn",
+            serde_json::json!({ "session": "contract", "placement": "p", "cwd": null, "cols": 80, "rows": 24 }),
+        ),
+        (
+            "surface_channel",
+            serde_json::json!({ "channel": channel, "req": { "surfaceId": "contract" } }),
+        ),
+        (
+            "surface_channel_send",
+            serde_json::json!({ "key": "contract", "msg": { "kind": "input", "bytes": [1u8] } }),
+        ),
+        (
+            "surface_channel_close",
+            serde_json::json!({ "req": { "surfaceId": "contract" } }),
+        ),
+        (
+            "log_channel",
+            serde_json::json!({ "channel": channel, "req": { "service": "contract" } }),
+        ),
+        (
+            "log_channel_close",
+            serde_json::json!({ "req": { "service": "contract" } }),
+        ),
+        (
+            "logs_changed_channel",
+            serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
+        ),
+        (
+            "logs_changed_channel_close",
+            serde_json::json!({ "req": { "channelId": "contract" } }),
+        ),
+        (
+            "notification_channel",
+            serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
+        ),
+        (
+            "notification_channel_close",
+            serde_json::json!({ "req": { "channelId": "contract" } }),
+        ),
+        ("log_list", serde_json::json!({})),
+        (
+            "log_tail",
+            serde_json::json!({ "path": "/dev/null", "from": 0, "maxBytes": 1, "align": false }),
         ),
         (
             "surface_spawn",
             serde_json::json!({ "sessionId": "contract" }),
         ),
-        (
-            "surface_close",
-            serde_json::json!({ "sessionId": "contract", "placement": "p" }),
-        ),
-        (
-            "surface_input",
-            serde_json::json!({ "surfaceId": "contract", "bytes": [1u8] }),
-        ),
-        (
-            "surface_resize",
-            serde_json::json!({ "surfaceId": "contract", "cols": 80, "rows": 24 }),
-        ),
-        (
-            "surface_detach",
-            serde_json::json!({ "surfaceId": "contract" }),
-        ),
+        ("surface_close", serde_json::json!({ "id": "contract" })),
+        ("surface_detach", serde_json::json!({ "id": "contract" })),
         (
             "window_open",
             serde_json::json!({ "label": "detached-contract", "query": "?w=detached&session=s&placement=p" }),
@@ -245,7 +226,10 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         ("surface_stop", serde_json::json!({ "id": "contract" })),
         ("surface_reconcile", serde_json::json!({})),
-        ("session_list", serde_json::json!({ "projectId": null })),
+        (
+            "session_list",
+            serde_json::json!({ "projectId": null, "limit": null, "offset": null }),
+        ),
         (
             "session_create",
             serde_json::json!({ "projectId": null, "title": "x", "titleSource": "agentTitle", "templateId": null }),
@@ -338,29 +322,12 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         ("notification_prune", serde_json::json!({ "keep": 100 })),
         (
-            "notification_record",
-            serde_json::json!({
-                "id": "contract",
-                "category": "test",
-                "severity": "info",
-                "title": null,
-                "message": "msg",
-                "detail": null,
-                "ts": 0,
-                "sessionId": null,
-                "surfaceId": null,
-                "actionsJson": null,
-                "read": false,
-                "snoozeUntil": null
-            }),
-        ),
-        (
             "setting_get",
             serde_json::json!({ "scope": "global", "projectId": null, "key": "contract" }),
         ),
         (
             "setting_set",
-            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract", "value": 1 }),
+            serde_json::json!({ "scope": "global", "projectId": null, "key": "contract", "valueJson": "1" }),
         ),
         (
             "setting_list",
@@ -434,7 +401,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "command_center_set_leader",
             serde_json::json!({ "accelerator": "CmdOrCtrl+K" }),
         ),
-        // -- template: launch templates --
         (
             "launch_template_create",
             serde_json::json!({ "projectId": "contract", "specVersion": 1, "specJson": "{}" }),
@@ -455,7 +421,6 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             "launch_template_apply_spec",
             serde_json::json!({ "id": "contract", "specVersion": 1, "specJson": "{}" }),
         ),
-        // -- template: portable library --
         ("template_list", serde_json::json!({})),
         ("template_get", serde_json::json!({ "id": "contract" })),
         (
@@ -497,6 +462,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
 /// wiring contract: the context composes correctly (migrations applied, runtime injected)
 /// and the bus dispatches without panicking. Business logic is not exercised here.
 #[test]
+#[serial]
 fn memory_ctx_bus_is_managed_and_wired() {
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(tillerd_paths::ENV_TILLERD_DIR, tmp.path());
@@ -509,4 +475,37 @@ fn memory_ctx_bus_is_managed_and_wired() {
 
     std::env::remove_var(tillerd_paths::ENV_TILLERD_DIR);
     std::env::remove_var(tillerd_paths::ENV_DAEMON_BIN);
+}
+
+/// Generate the TypeScript bindings for the tauri commands. Runs the specta
+/// export without launching a full app. The output path is fixed at build time
+/// via `CARGO_MANIFEST_DIR`.
+#[test]
+fn export_tauri_bindings() {
+    let out = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../packages/client-bindings/src/tauri_bindings.gen.ts"
+    );
+    // Run on a thread with an expanded stack to avoid overflow during specta
+    // type traversal across the large command surface.
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(move || {
+            crate::specta_builder()
+                .export(
+                    crate::specta_export::ObjectParamTs(
+                        specta_typescript::Typescript::default().header(crate::GEN_HEADER),
+                    ),
+                    out,
+                )
+                .expect("tauri bindings export succeeded");
+        })
+        .expect("spawn export thread")
+        .join()
+        .expect("export thread joined");
+
+    assert!(
+        std::path::Path::new(out).exists(),
+        "tauri_bindings.ts was written to {out}"
+    );
 }

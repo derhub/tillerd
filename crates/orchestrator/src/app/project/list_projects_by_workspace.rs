@@ -90,7 +90,7 @@ impl Query<Ctx> for ListProjectsByWorkspace {
             Page::Cursor { after, limit } => {
                 // Cursor format: "{pinned}:{sort_order}:{id}"
                 // Rows strictly after the cursor position in (pinned DESC, sort_order, id) order.
-                // `pinned`/`sort_order` ride along so we can mint the next cursor.
+                // `pinned`/`sort_order` ride along to mint the next cursor.
                 let fetch = (limit as i64) + 1;
                 let rows: Vec<CursorRow> = if let Some(cursor) = &after {
                     let (c_pinned, c_sort, c_id) = parse_cursor(cursor)?;
@@ -212,8 +212,6 @@ mod tests {
         assert!(!ids.contains(&"p-ws2"), "other-ws project must not appear");
     }
 
-    // -- Scenario: A pinned item sorts ahead of unpinned -----------------------
-
     #[tokio::test]
     async fn list_returns_pinned_before_unpinned() {
         let (ctx, bus) = ctx().await;
@@ -247,8 +245,6 @@ mod tests {
 
         assert_eq!(names, vec!["Pinned", "Unpinned"]);
     }
-
-    // -- Scenario: A bounded page returns a continuation cursor ----------------
 
     #[tokio::test]
     async fn offset_pagination_returns_cursor_when_more_remain() {

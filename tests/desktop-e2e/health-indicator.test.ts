@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+
 import { type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
@@ -19,7 +20,7 @@ async function expectLogsFilteredTo(b: Browser, service: string) {
     timeoutMsg: `${service} logs link did not navigate`,
   });
   await (await b.$('[data-testid="log-viewer"]')).waitForExist({ timeout: 10_000 });
-  // Wait for this service's rows so we never read stale rows from the prior navigation.
+  // Wait for this service's rows to avoid stale rows from the prior navigation.
   await b.waitUntil(
     () => b.execute((s) => document.querySelectorAll(`[data-service="${s}"]`).length > 0, service),
     { timeout: 15_000, timeoutMsg: `no ${service} rows appeared` },

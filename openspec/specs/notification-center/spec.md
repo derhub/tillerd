@@ -69,10 +69,10 @@ when present. The list SHALL be read-only and never block the rest of the app.
 
 ### Requirement: Rich content and actions
 
-A notification MAY carry an optional title, an optional longer detail, a severity, and a
-list of actions (each a label and an in-app target). The center SHALL render these when
-present and SHALL degrade gracefully when they are absent or when the category is one it does
-not specifically recognise.
+The center SHALL render a notification's rich content when present -- an optional title, an
+optional longer detail, a severity, and a list of actions (each a label and an in-app
+target) -- and SHALL degrade gracefully when they are absent or when the category is one it
+does not specifically recognise.
 
 #### Scenario: Title, detail, and severity render when present
 

@@ -9,6 +9,7 @@ use serde::Serialize;
 /// `#[sqlx(rename = ..., json)]` decodes them straight into the built-in collections,
 /// mirroring the `Command` entity's `#[sqlx(json)]` fields.
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CommandView {
     pub id: String,

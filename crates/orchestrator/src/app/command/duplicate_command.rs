@@ -46,8 +46,6 @@ mod tests {
     use crate::app::command::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: duplicate prebuilt yields editable custom ------------------
-
     #[tokio::test]
     async fn duplicate_command_makes_editable_custom_copy_of_prebuilt() {
         let bus = Bus::new(ctx().await);
@@ -97,8 +95,6 @@ mod tests {
         .await
         .unwrap();
     }
-
-    // -- Scenario: duplicate custom yields independent copy --------------------
 
     #[tokio::test]
     async fn duplicate_custom_command_is_independent_of_source() {

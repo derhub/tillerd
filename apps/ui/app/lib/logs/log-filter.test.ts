@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { distinctAttribute, distinctService, filterRecords } from "./log-filter";
 import type { LogRecord } from "./log-record";
+
+import { distinctAttribute, distinctService, filterRecords } from "./log-filter";
 
 function record(
   level: string,

@@ -1,4 +1,5 @@
 import { test } from "bun:test";
+
 import { type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
@@ -50,7 +51,7 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
   // Fuzzy filter to the logs action, then invoke it -- the same handler View > Logs runs.
   const input = await b.$('[data-testid="command-center-input"]');
   await input.click();
-  await b.keys([..."logs"]);
+  await b.keys(Array.from("logs"));
   await b.waitUntil(
     async () => {
       const items = await b.$$('[data-slot="command-item"]');
@@ -89,26 +90,35 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   // The renderer persists settings fire-and-forget (`void source.setSetting`), so confirm the
   // write actually landed in the orchestrator before reloading -- otherwise the reload races
   // the async persist and the preset is lost (the source of this test's flakiness).
-  await b.waitUntil(
-    async () =>
-      // tauri v2 always injects the IPC bridge (`@tauri-apps/api` calls it under the hood);
-      // bare-specifier imports do not resolve in the raw webview. `executeAsync` resolves the
-      // invoke promise through the done callback (plain `execute` would not await it).
-      (await b.executeAsync((done: (v: unknown) => void) => {
-        (
-          window as unknown as {
+  //
+  // `execute` returns null for an async browser function under tauri-webdriver, so the read
+  // cannot be awaited inline. Each poll fires the invoke (fire-and-forget) into a window slot
+  // and returns the slot's prior value synchronously; the slot reaches "vscode" once the write
+  // is visible.
+  try {
+    await b.waitUntil(
+      async () =>
+        (await b.execute(() => {
+          const w = window as unknown as {
             __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
-          }
-        ).__TAURI_INTERNALS__
-          .invoke("setting_get", {
-            scope: "global",
-            key: "keybindings.preset",
-          })
-          .then(done)
-          .catch(() => done(null));
-      })) === "vscode",
-    { timeout: 10_000, timeoutMsg: "preset did not persist to the orchestrator before reload" },
-  );
+            __presetPersisted?: unknown;
+          };
+          void w.__TAURI_INTERNALS__
+            .invoke("setting_get", { scope: "global", projectId: null, key: "keybindings.preset" })
+            .then((v) => {
+              w.__presetPersisted = typeof v === "string" ? JSON.parse(v) : v;
+            })
+            .catch((err) => {
+              w.__presetPersisted = "ERROR: " + (err?.message || err || "unknown");
+            });
+          return w.__presetPersisted ?? null;
+        })) === "vscode",
+      { timeout: 10_000 },
+    );
+  } catch {
+    const val = await b.execute(() => (window as any).__presetPersisted);
+    throw new Error(`preset did not persist to the orchestrator before reload. Last value: ${val}`);
+  }
 
   // Reload the webview and confirm the preset re-applies after re-hydration.
   await b.execute(() => window.location.reload());

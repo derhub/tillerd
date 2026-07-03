@@ -1,0 +1,6 @@
+id: react19-no-forwardref
+valid:
+  - "function Input({ ref, ...p }){ return <input ref={ref} {...p}/> }"
+invalid:
+  - "const Input = forwardRef((p, ref) => <input ref={ref} {...p}/>)"
+  - "const Input = forwardRef<HTMLInputElement, P>((p, ref) => <input ref={ref}/>)"

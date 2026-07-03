@@ -203,8 +203,6 @@ mod tests {
         }
     }
 
-    // -- Scenario: Unbounded listing is explicit -------------------------------
-
     #[tokio::test]
     async fn list_all_returns_every_row_for_project() {
         let dir = tempfile::TempDir::new().unwrap();
@@ -224,8 +222,6 @@ mod tests {
         assert_eq!(listing.items.len(), 3);
         assert!(listing.next.is_none());
     }
-
-    // -- Scenario: A bounded offset page returns a continuation cursor ---------
 
     #[tokio::test]
     async fn offset_pagination_has_next_when_more_remain() {
@@ -266,8 +262,6 @@ mod tests {
 
         assert!(listing.next.is_none());
     }
-
-    // -- Scenario: Cursor pages continue from a last-seen id -------------------
 
     #[tokio::test]
     async fn cursor_pagination_second_page_completes_the_listing() {

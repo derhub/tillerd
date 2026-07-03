@@ -1,6 +1,6 @@
-import index from "./build/client/index.html" with { type: "file" };
+import index from "./dist/index.html" with { type: "file" };
 
-const root = `${import.meta.dir}/build/client`;
+const root = `${import.meta.dir}/dist`;
 const port = Number(process.env.PORT ?? 3001);
 
 Bun.serve({

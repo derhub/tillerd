@@ -203,7 +203,7 @@ mod tests {
     #[tokio::test]
     async fn cursor_continues_from_returned_cursor() {
         let cx = ctx().await;
-        // Default workspace seeded. Add two more so we have 3 total.
+        // Default workspace seeded. Add two more for 3 total.
         insert_workspace(&cx, "ws-seq-2", "W2").await;
         insert_workspace(&cx, "ws-seq-3", "W3").await;
 
@@ -250,7 +250,7 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(page.items.len(), 2);
-        // Next cursor is present because there are 3 rows and we took 2.
+        // Next cursor is present because there are 3 rows and only 2 were taken.
         assert!(page.next.is_some());
 
         let page2 = ListWorkspaces {

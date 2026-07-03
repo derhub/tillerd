@@ -1,11 +1,11 @@
 # project-session-inline-rename Specification
 
 ## Purpose
-TBD - created by archiving change workspace-management. Update Purpose after archive.
+Inline rename of project and session names in the sidebar via double-click, with Enter confirming and Escape canceling without saving. An empty project name is rejected and the original is restored; an empty session name is accepted and falls back to the first 8 characters of the session id when displayed.
 ## Requirements
 ### Requirement: Double-click project name to rename inline
 
-Users can edit a project name by double-clicking it in the sidebar. The name field becomes an editable text input. Enter confirms the change; Escape cancels without saving.
+Double-clicking a project name in the sidebar SHALL turn it into an editable text input; Enter confirms the change and Escape cancels without saving.
 
 #### Scenario: Rename project by double-clicking and pressing Enter
 
@@ -33,7 +33,7 @@ Users can edit a project name by double-clicking it in the sidebar. The name fie
 
 ### Requirement: Double-click session name to rename inline
 
-Users can edit a session name by double-clicking it in the sidebar. The name field becomes an editable text input. Enter confirms the change; Escape cancels.
+Double-clicking a session name in the sidebar SHALL turn it into an editable text input; Enter confirms the change and Escape cancels.
 
 #### Scenario: Rename session by double-clicking and pressing Enter
 

@@ -1,9 +1,10 @@
+import type { NotificationWire } from "@tillerd/client-bindings";
+
 import { expect, test } from "bun:test";
-import type { NotificationEvent } from "@tillerd/sdk/orchestrator";
 
 import { raiseBanner, type BannerDeps } from "./native-banner";
 
-function ev(over: Partial<NotificationEvent> = {}): NotificationEvent {
+function ev(over: Partial<NotificationWire> = {}): NotificationWire {
   return { id: "1", category: "surface-error", severity: "error", message: "boom", ts: 0, ...over };
 }
 

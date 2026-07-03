@@ -35,7 +35,6 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Fresh session opens to a single empty leaf; no surface until the user spawns.
 export const DEFAULT_LAYOUT: PanelLeaf = {
   kind: "panel",
   id: "root",

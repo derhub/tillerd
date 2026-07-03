@@ -6,6 +6,7 @@ use serde::Serialize;
 /// `kind` and `status` are the stored string columns (`terminal`/`diff` and
 /// `pending`/`live`/`idle`/`failed`); the read path needs no enum round-trip.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SurfaceView {
     pub id: String,

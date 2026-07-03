@@ -50,6 +50,8 @@ jobs:
       # Formatting is owned by autofix.ci (auto-fixes oxfmt + cargo fmt and red-gates the PR).
       - run: bun run check-types
       - run: bun run lint
+      # Rust gate: promote every warn-level lint (incl. deprecated=deny, clippy::all) to a hard error.
+      - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest

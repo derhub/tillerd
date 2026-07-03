@@ -37,8 +37,6 @@ pub use seed_commands::SeedCommands;
 pub use unpin_command::UnpinCommand;
 pub use view::CommandView;
 
-// -- guard ---------------------------------------------------------------------
-
 pub(crate) fn guard_not_prebuilt(
     cmd: &crate::entities::command::Command,
 ) -> crate::shared::Result<()> {
@@ -50,8 +48,6 @@ pub(crate) fn guard_not_prebuilt(
         Ok(())
     }
 }
-
-// -- seed helper ---------------------------------------------------------------
 
 pub(crate) async fn seed_prebuilt(cx: &crate::context::Ctx) -> crate::shared::Result<()> {
     // The schema migration seeds login-shell; any prebuilt that should exist

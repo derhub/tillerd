@@ -5,12 +5,14 @@ use crate::shared::{Error, Result};
 pub const CURRENT_SPEC_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LaunchSpec {
     pub version: u32,
     pub items: Vec<LaunchItem>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LaunchItem {
     pub target: String,
     pub placement: Option<String>,
@@ -18,6 +20,7 @@ pub struct LaunchItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(untagged)]
 pub enum CommandRef {
     LibraryRef {

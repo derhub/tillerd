@@ -1,7 +1,7 @@
 # store-architecture Specification
 
 ## Purpose
-TBD - created by archiving change restructure-store-layers. Update Purpose after archive.
+Store layer architecture: each domain entity (workspace, project, session, surface, command, launch_template, notification) persists via its own async sqlite repository in `infra/`, with cross-aggregate work (e.g. templated session creation) handled by a standalone coordinator rather than store-to-store dependencies. `shared/` holds reusable building blocks only (fs, kv, pagination, datetime, the error registry, CQS machinery) with no generic Repository abstraction; pagination, pinning, fuzzy search, and notification read/snooze state are query-level concerns, and config (settings, profile, theme, keybinding) and the portable template library persist as files while project launch templates persist as sqlite rows.
 ## Requirements
 ### Requirement: Cross-aggregate session creation goes through a coordinator, not a store
 

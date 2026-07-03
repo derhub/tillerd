@@ -10,8 +10,6 @@ use crate::shared::message::Command;
 
 use super::common::{default_cwd, DEFAULT_GEOMETRY};
 
-// -- SpawnSurface (D9: persist intent -> effect -> record) -------------------------
-
 /// Add a surface to a session: persist a `pending` row (committed), spawn its PTY
 /// lock-free via the runtime port, then record the outcome. The sqlite write lock
 /// is never held across the spawn.

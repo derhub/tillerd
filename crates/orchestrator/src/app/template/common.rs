@@ -14,8 +14,6 @@ pub(super) fn index_path(fs_root: &std::path::Path) -> PathBuf {
     fs_root.join("templates").join("index.json")
 }
 
-// -- index serialisation (serde only used inside this module, not on CQS structs) --
-
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 pub(super) struct TemplateIndex {
     pub(super) entries: Vec<IndexEntry>,
@@ -45,7 +43,7 @@ impl TemplateIndex {
     pub(super) async fn save(&self, fs_root: &std::path::Path) -> Result<()> {
         let path = index_path(fs_root);
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         let s = serde_json::to_string_pretty(self)?;
         shared::fs::write_string(&path, &s).await

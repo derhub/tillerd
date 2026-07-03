@@ -24,8 +24,6 @@ mod tests {
     use crate::app::notification::test_util::*;
     use crate::shared::Bus;
 
-    // -- Scenario: prune keeps only the most recent N records ------------------
-
     #[tokio::test]
     async fn prune_notifications_keeps_only_the_most_recent_n() {
         let bus = Bus::new(test_ctx().await);
@@ -46,8 +44,6 @@ mod tests {
         let ids: Vec<&str> = listing.items.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, ["p5", "p4", "p3"]);
     }
-
-    // -- Scenario: keep larger than count deletes nothing ----------------------
 
     #[tokio::test]
     async fn prune_with_keep_larger_than_count_deletes_nothing() {

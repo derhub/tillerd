@@ -1,0 +1,12 @@
+id: nav-link-not-anchor
+language: Tsx
+severity: error
+files:
+  - "apps/ui/**"
+message: "Use the router <Link> for internal navigation -- a raw <a href=\"/...\"> triggers a full reload that drops SPA/router state, the query cache, and scroll position."
+note: 'Do: replace <a href="/path"> with <Link to="/path">; keep <a> only for external (https://) or mailto links.'
+rule:
+  kind: jsx_opening_element
+  all:
+    - has: { field: name, regex: '^a$' }
+    - has: { kind: jsx_attribute, regex: '^href="/' }

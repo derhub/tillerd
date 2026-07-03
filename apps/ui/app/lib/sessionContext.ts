@@ -1,4 +1,4 @@
-import { createContext } from "react";
+import React from "react";
 
 export type SessionContextValue = {
   sessionId: string | null;
@@ -6,7 +6,7 @@ export type SessionContextValue = {
   setStatus: (s: string) => void;
 };
 
-export const SessionContext = createContext<SessionContextValue>({
+export const SessionContext = React.createContext<SessionContextValue>({
   sessionId: null,
   status: "",
   setStatus: () => {},

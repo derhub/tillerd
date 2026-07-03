@@ -1,9 +1,10 @@
-// Multi-window plumbing (roadmap 0.0.11). A child window is another webview of the same app and
-// backend; it carries its intent in the URL query (`?w=detached|project`) the shell reads, because
-// the custom scheme has no SPA fallback for a deep route. Window labels are the cross-window
-// identity used by the host `window_open` / `window_focus` commands.
+// Child windows are webviews of the same app+backend; intent is carried in the URL query
+// (`?w=detached|project`) because the custom scheme has no SPA fallback for a deep route.
 
-import { isDesktopHost, loadTauriCore } from "./transport/core";
+import { windowClose, windowFocus, windowOpen } from "@tillerd/client-bindings";
+
+import { currentWindow, emitEvent, listenEvent } from "./tauriEvents";
+import { isDesktopHost } from "./transport/core";
 
 export type WindowIntent =
   | { kind: "main" }
@@ -61,27 +62,18 @@ export function parseWindowIntent(search: string): WindowIntent {
   }
 }
 
-async function invoke<T>(cmd: string, args: Record<string, unknown>): Promise<T | null> {
-  if (!isDesktopHost()) return null;
-  const core = await loadTauriCore();
-  return core.invoke(cmd, args) as Promise<T>;
-}
-
 export function openWindow(label: string, query: string): Promise<void | null> {
-  return invoke<void>("window_open", { label, query });
+  return isDesktopHost() ? windowOpen(label, query) : Promise.resolve(null);
 }
 
 export function focusWindow(label: string): Promise<void | null> {
-  return invoke<void>("window_focus", { label });
+  return isDesktopHost() ? windowFocus(label) : Promise.resolve(null);
 }
 
-// Close a child window by label from the parent. The child's onCloseRequested handler
-// (armReattachOnClose) runs, emitting the re-attach event -- so this is the parent-side re-attach.
+// Closing a child via this call triggers armReattachOnClose on the child, which emits the re-attach event.
 export function closeWindow(label: string): Promise<void | null> {
-  return invoke<void>("window_close", { label });
+  return isDesktopHost() ? windowClose(label) : Promise.resolve(null);
 }
-
-// -- Cross-window re-attach event contract ------------------------------------
 
 const REATTACH_PANEL = "panel:reattach";
 const REATTACH_PROJECT = "project:reattach";
@@ -91,39 +83,23 @@ export type ReattachPanel = { sessionId: string; placement: string };
 export type ReattachProject = { projectId: string };
 export type ReattachWorkspace = { workspaceId: string };
 
-async function emit(event: string, payload: unknown): Promise<void> {
-  if (!isDesktopHost()) return;
-  const { emit } = await import("@tauri-apps/api/event");
-  await emit(event, payload);
-}
-
-async function listen<T>(event: string, cb: (payload: T) => void): Promise<() => void> {
-  if (!isDesktopHost()) return () => {};
-  const { listen } = await import("@tauri-apps/api/event");
-  return listen<T>(event, (e) => cb(e.payload));
-}
-
-export const emitReattachPanel = (p: ReattachPanel) => emit(REATTACH_PANEL, p);
-export const emitReattachProject = (p: ReattachProject) => emit(REATTACH_PROJECT, p);
-export const emitReattachWorkspace = (p: ReattachWorkspace) => emit(REATTACH_WORKSPACE, p);
-export const onReattachPanel = (cb: (p: ReattachPanel) => void) => listen(REATTACH_PANEL, cb);
-export const onReattachProject = (cb: (p: ReattachProject) => void) => listen(REATTACH_PROJECT, cb);
+export const emitReattachPanel = (p: ReattachPanel) => emitEvent(REATTACH_PANEL, p);
+export const emitReattachProject = (p: ReattachProject) => emitEvent(REATTACH_PROJECT, p);
+export const emitReattachWorkspace = (p: ReattachWorkspace) => emitEvent(REATTACH_WORKSPACE, p);
+export const onReattachPanel = (cb: (p: ReattachPanel) => void) => listenEvent(REATTACH_PANEL, cb);
+export const onReattachProject = (cb: (p: ReattachProject) => void) =>
+  listenEvent(REATTACH_PROJECT, cb);
 export const onReattachWorkspace = (cb: (p: ReattachWorkspace) => void) =>
-  listen(REATTACH_WORKSPACE, cb);
+  listenEvent(REATTACH_WORKSPACE, cb);
 
-// Focus the window this code runs in (the parent, when re-attaching back to it).
 export async function focusSelf(): Promise<void> {
-  if (!isDesktopHost()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  await getCurrentWindow().setFocus();
+  await (await currentWindow())?.setFocus();
 }
 
-// Arm a child window so ANY close path (native button or `closeSelf`) first emits its re-attach
-// event, then destroys the window -- the parent restores on that event. Returns an unlisten.
+// Any close path (native button or closeSelf) emits the re-attach event before destroying the window.
 export async function armReattachOnClose(emitReattach: () => Promise<void>): Promise<() => void> {
-  if (!isDesktopHost()) return () => {};
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  const win = getCurrentWindow();
+  const win = await currentWindow();
+  if (!win) return () => {};
   return win.onCloseRequested(async (event) => {
     event.preventDefault();
     await emitReattach();
@@ -131,9 +107,6 @@ export async function armReattachOnClose(emitReattach: () => Promise<void>): Pro
   });
 }
 
-// Request this window to close, routing through the armed re-attach handler.
 export async function closeSelf(): Promise<void> {
-  if (!isDesktopHost()) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  await getCurrentWindow().close();
+  await (await currentWindow())?.close();
 }

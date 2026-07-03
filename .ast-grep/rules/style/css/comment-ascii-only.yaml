@@ -1,0 +1,10 @@
+id: comment-ascii-only-css
+language: Css
+severity: error
+message: >-
+  Comments must be plain ASCII: no emojis, section signs, smart quotes, arrows, or
+  other non-ASCII typographic characters. Use ASCII equivalents (-> for arrows,
+  "..." for ellipsis, straight quotes).
+rule:
+  kind: comment
+  regex: '[^\x00-\x7F]'

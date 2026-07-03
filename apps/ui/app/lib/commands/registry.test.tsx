@@ -1,7 +1,7 @@
+import { cleanup, render, screen } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanup, render, screen } from "@testing-library/react";
-import { useMemo } from "react";
+import React from "react";
 
 import {
   CommandRegistryProvider,
@@ -13,7 +13,7 @@ import {
 afterEach(cleanup);
 
 function Register({ commands }: { commands: Command[] }) {
-  const memo = useMemo(() => commands, [commands]);
+  const memo = React.useMemo(() => commands, [commands]);
   useRegisterCommands(memo);
   return null;
 }

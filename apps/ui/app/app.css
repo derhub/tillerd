@@ -16,7 +16,7 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
-  /* Standard shell easing (Tailwind `ease-standard`). Frozen at 0.0.6 — see DESIGN.md Motion. */
+  /* Standard shell easing (Tailwind `ease-standard`). Frozen at 0.0.6 -- see DESIGN.md Motion. */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -72,7 +72,7 @@
   }
 }
 
-/* ── Resize handle active state ──────────────────────────────────────── */
+/* -- Resize handle active state ---------------------------------------- */
 
 [data-slot="resizable-handle"][aria-orientation="vertical"][data-separator="active"] {
   width: 0.25rem;
@@ -82,7 +82,7 @@
   height: 0.25rem;
 }
 
-/* ── Compact editor chrome ────────────────────────────────────────────── */
+/* -- Compact editor chrome ---------------------------------------------- */
 
 html {
   font-size: 12px;
@@ -98,7 +98,7 @@ body {
   --panel-header-height: 2.5rem;
   --toolbar-height: 2.333rem;
 
-  /* ── Motion scale ──────────────────────────────────────────────────────
+  /* -- Motion scale ------------------------------------------------------
      Named transition durations for shell interactions. Theme-independent.
      Apply with `duration-[var(--motion-base)]` etc.; pair with `ease-standard`.
      Token names frozen at 0.0.6 (DESIGN.md Motion). */
@@ -107,10 +107,10 @@ body {
   --motion-base: 150ms;
   --motion-slow: 250ms;
 
-  /* ── Icon sizing scale ─────────────────────────────────────────────────
+  /* -- Icon sizing scale -------------------------------------------------
      Formalizes the contextual icon sizes. Apply with `size-[var(--icon-md)]`.
      Token names frozen at 0.0.6 (DESIGN.md Icon Sizing). */
-  --icon-sm: 0.75rem; /* 12px — dense inline / sidebar actions */
-  --icon-md: 0.875rem; /* 14px — default action icons */
-  --icon-lg: 1rem; /* 16px — panel headers / primary controls */
+  --icon-sm: 0.75rem; /* 12px -- dense inline / sidebar actions */
+  --icon-md: 0.875rem; /* 14px -- default action icons */
+  --icon-lg: 1rem; /* 16px -- panel headers / primary controls */
 }

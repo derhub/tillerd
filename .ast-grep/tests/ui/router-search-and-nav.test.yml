@@ -1,0 +1,7 @@
+id: router-search-and-nav
+valid:
+  - "const s = useSearch({ from: '/posts' })"
+  - "const v = window.location.href"
+invalid:
+  - "const p = new URLSearchParams(window.location.search)"
+  - "window.location.href = '/dash'"

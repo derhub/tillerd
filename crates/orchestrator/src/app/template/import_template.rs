@@ -20,7 +20,7 @@ impl Command<Ctx> for ImportTemplate {
         let id = TemplateId::mint();
         let bundle_path = template_bundle_path(cx.fs_root(), &id);
         if let Some(parent) = bundle_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         shared::fs::write_string(&bundle_path, &self.spec_json).await?;
 

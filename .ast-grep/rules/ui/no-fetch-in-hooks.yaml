@@ -1,0 +1,23 @@
+id: no-fetch-in-hooks
+language: Tsx
+severity: error
+message: >-
+  Do not call fetch() inside a React hook or component. Read server data through TanStack Query --
+  put the fetch in a module-level queryFn (a top-level helper, e.g. in lib/data), not in a use* hook
+  or a component.
+rule:
+  all:
+    - pattern: fetch($$$)
+    - inside:
+        stopBy: end
+        any:
+          - kind: function_declaration
+            has:
+              field: name
+              regex: '^(use[A-Z]|[A-Z])'
+          - kind: arrow_function
+            inside:
+              kind: variable_declarator
+              has:
+                field: name
+                regex: '^(use[A-Z]|[A-Z])'

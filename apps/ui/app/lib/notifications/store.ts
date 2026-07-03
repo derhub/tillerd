@@ -1,14 +1,12 @@
-import type { NotificationEvent, NotificationSeverity } from "@tillerd/sdk/orchestrator";
+import type { NotificationWire } from "@tillerd/client-bindings";
 
-/** Display cap for the in-app list; the durable store keeps more (host retention). */
 export const MAX_ITEMS = 200;
 
-/** Prepend `event` (most recent first), de-duped by id, bounded to `max`. */
 export function boundedPrepend(
-  items: NotificationEvent[],
-  event: NotificationEvent,
+  items: NotificationWire[],
+  event: NotificationWire,
   max: number = MAX_ITEMS,
-): NotificationEvent[] {
+): NotificationWire[] {
   const deduped = items.filter((i) => i.id !== event.id);
   return [event, ...deduped].slice(0, max);
 }
@@ -22,13 +20,12 @@ const CATEGORY_LABEL: Record<string, string> = {
   "orchestrator-status": "Status",
 };
 
-/** A heading for a notification: its title, else a label for its (possibly unknown) category. */
-export function notificationHeading(event: NotificationEvent): string {
+export function notificationHeading(event: NotificationWire): string {
   if (event.title) return event.title;
   return CATEGORY_LABEL[event.category] ?? "Notification";
 }
 
-export const SEVERITY_DOT: Record<NotificationSeverity, string> = {
+export const SEVERITY_DOT: Record<"info" | "warning" | "error", string> = {
   info: "bg-sky-500",
   warning: "bg-amber-500",
   error: "bg-red-500",

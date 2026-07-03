@@ -1,11 +1,11 @@
 # sidebar-context-actions Specification
 
 ## Purpose
-TBD - created by archiving change workspace-management. Update Purpose after archive.
+Right-click context menus on sidebar project and session rows: project rows expose Rename, Archive, Delete, and Open in new window; session rows expose Rename, Archive, and Delete. The menu opens at the cursor, closes on outside click or Escape, and is keyboard-navigable via Tab/Shift+Tab and Enter.
 ## Requirements
 ### Requirement: Right-click project row to open context menu with full action set
 
-Users can right-click on a project row in the sidebar to open a context menu with actions: Rename, Archive, Delete, Open in new window.
+Right-clicking a project row in the sidebar SHALL open a context menu offering Rename, Archive, Delete, and Open in new window.
 
 #### Scenario: Right-click project opens context menu
 
@@ -42,7 +42,7 @@ Users can right-click on a project row in the sidebar to open a context menu wit
 
 ### Requirement: Right-click session row to open context menu with action set
 
-Users can right-click on a session row in the sidebar to open a context menu with actions: Rename, Archive, Delete.
+Right-clicking a session row in the sidebar SHALL open a context menu offering Rename, Archive, and Delete.
 
 #### Scenario: Right-click session opens context menu
 
@@ -74,7 +74,7 @@ Users can right-click on a session row in the sidebar to open a context menu wit
 
 ### Requirement: Context menu is keyboard-accessible
 
-Users can navigate and invoke context menu actions using Tab, Arrow keys, and Enter.
+Context-menu actions SHALL be reachable and invocable by keyboard (Tab, Arrow keys, Enter).
 
 #### Scenario: Tab through context menu items
 

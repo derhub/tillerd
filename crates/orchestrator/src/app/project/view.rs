@@ -2,6 +2,7 @@ use serde::Serialize;
 
 /// Flat read model for a project row. Serializes to the SDK `Project` wire shape.
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectView {
     pub id: String,

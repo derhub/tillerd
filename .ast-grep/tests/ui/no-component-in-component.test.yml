@@ -1,0 +1,7 @@
+id: no-component-in-component
+valid:
+  - "function Outer(){ function helper(){ return 1 } return <i/> }"
+  - "function Inner(){ return <span/> }"
+invalid:
+  - "function Outer(){ function Inner(){ return <span/> } return <Inner/> }"
+  - "const Outer = () => { function Inner(){ return <span/> } return <Inner/> }"

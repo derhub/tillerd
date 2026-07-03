@@ -12,8 +12,6 @@ use crate::entities::session::{Session, SessionId, SessionStatus};
 use crate::shared::pagination::{Listing, Page};
 use crate::shared::Result;
 
-// -- repository ----------------------------------------------------------------
-
 /// Entity projection: maps straight onto `Session` (status derived from `archived_at`).
 const SELECT: &str = "SELECT id, project_id, title, title_source, spec_version, spec_json,
                              sort_order, pinned, created_at,
@@ -210,8 +208,6 @@ impl SessionRepo {
         Ok(())
     }
 }
-
-// -- tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,7 @@
 # domain-model-boundary Specification
 
 ## Purpose
-TBD - created by archiving change client-assigned-create-ids. Update Purpose after archive.
+The domain-model module boundary: domain-model holds only aggregates, entities, value objects, identifiers, and enums -- no create-input DTOs or command wrapper structs. Create commands carry their input fields directly, the command handler alone builds the complete entity (defaults, value objects, identifier), and repositories accept and persist domain entities only, never input/draft/command types.
 ## Requirements
 ### Requirement: The domain-model module holds only the domain model
 

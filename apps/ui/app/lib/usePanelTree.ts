@@ -1,4 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { query, runCommand } from "@tillerd/client-bindings";
+import React from "react";
+
 import {
   type PanelNode,
   type PanelContent,
@@ -11,65 +14,49 @@ import {
   setActiveTabNode,
   countLeaves,
 } from "./panelTree";
-import type { OrchestratorClient } from "@tillerd/sdk/orchestrator";
 
-const LEGACY_STORAGE_KEY = "tillerd:panel-tree";
+export function sessionLayoutQuery(id: string) {
+  return query("sessionLayoutGet", { id });
+}
 
-function discardLegacyLayout(): void {
+function layoutToTree(blob: string | null | undefined): PanelNode {
+  if (!blob) return DEFAULT_LAYOUT;
   try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
-    }
+    return deserializeLayout(blob);
   } catch {
-    // storage unavailable
+    return DEFAULT_LAYOUT;
   }
 }
 
-export function usePanelTree(sessionId?: string | null, client?: OrchestratorClient | null) {
-  const [tree, setTree] = useState<PanelNode>(DEFAULT_LAYOUT);
+export function usePanelTree(sessionId?: string | null) {
+  const layoutQuery = useQuery({
+    ...sessionLayoutQuery(sessionId ?? ""),
+    enabled: !!sessionId,
+  });
 
-  // On mount: discard legacy key and load server layout when session + client are available
-  useEffect(() => {
-    discardLegacyLayout();
-    if (!sessionId || !client) return;
+  // Seeded during render, not in an effect, so refetches never clobber in-progress edits.
+  const [tree, setTree] = React.useState<PanelNode>(DEFAULT_LAYOUT);
+  const seededFor = React.useRef<string | null>(null);
+  const key = sessionId ?? null;
+  if (key && layoutQuery.data !== undefined && seededFor.current !== key) {
+    seededFor.current = key;
+    setTree(layoutToTree(layoutQuery.data));
+  }
 
-    let cancelled = false;
-    void (async () => {
-      try {
-        const blob = await client.getSessionLayout({ id: sessionId });
-        if (cancelled) return;
-        // Reset on a null layout -- never inherit the previous session's tree.
-        if (!blob) {
-          setTree(DEFAULT_LAYOUT);
-          return;
-        }
-        try {
-          setTree(deserializeLayout(blob));
-        } catch {
-          setTree(DEFAULT_LAYOUT);
-        }
-      } catch {
-        setTree(DEFAULT_LAYOUT);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, client]);
-
-  const persistLayout = useCallback(
+  const queryClient = useQueryClient();
+  const persistLayout = React.useCallback(
     (next: PanelNode) => {
-      if (!sessionId || !client) return;
-      void client
-        .setSessionLayout({ id: sessionId, layoutJson: serializeLayout(next) })
-        .catch(() => {
-          // non-fatal; layout will be re-persisted on next mutation
-        });
+      if (!sessionId) return;
+      const layoutJson = serializeLayout(next);
+      queryClient.setQueryData(sessionLayoutQuery(sessionId).queryKey, layoutJson);
+      void runCommand("sessionLayoutSet", { id: sessionId, layoutJson }).catch(() => {
+        // non-fatal; layout re-persists on next mutation
+      });
     },
-    [sessionId, client],
+    [sessionId, queryClient],
   );
 
-  const update = useCallback(
+  const update = React.useCallback(
     (fn: (t: PanelNode) => PanelNode) => {
       setTree((prev) => {
         const next = fn(prev);
@@ -80,14 +67,14 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
     [persistLayout],
   );
 
-  const split = useCallback(
+  const split = React.useCallback(
     (id: string, direction: "horizontal" | "vertical") => {
       update((t) => splitNode(t, id, direction));
     },
     [update],
   );
 
-  const close = useCallback(
+  const close = React.useCallback(
     (id: string) => {
       update((t) => {
         if (countLeaves(t) <= 1) return t;
@@ -97,14 +84,14 @@ export function usePanelTree(sessionId?: string | null, client?: OrchestratorCli
     [update],
   );
 
-  const setContent = useCallback(
+  const setContent = React.useCallback(
     (id: string, content: PanelContent) => {
       update((t) => setContentNode(t, id, content));
     },
     [update],
   );
 
-  const setActiveTab = useCallback(
+  const setActiveTab = React.useCallback(
     (groupId: string, tabId: string) => {
       update((t) => setActiveTabNode(t, groupId, tabId));
     },

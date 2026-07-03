@@ -13,6 +13,7 @@ use crate::shared::{fs, Result};
 
 /// A keybinding entry: action and its effective chord.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct KeybindingEntry {
     pub action: String,
     pub chord: String,
@@ -41,9 +42,9 @@ impl KeybindingStore {
             .join("overrides.json")
     }
 
-    fn ensure_dir(path: &Path) -> Result<()> {
+    async fn ensure_dir(path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         Ok(())
     }
@@ -58,7 +59,7 @@ impl KeybindingStore {
 
     async fn write_overrides(&self, overrides: &HashMap<String, String>) -> Result<()> {
         let path = self.overrides_path();
-        Self::ensure_dir(&path)?;
+        Self::ensure_dir(&path).await?;
         let s = serde_json::to_string_pretty(overrides)?;
         fs::write_string(&path, &s).await
     }
@@ -138,7 +139,7 @@ mod tests {
         );
     }
 
-    // Scenario: reset removes an override; overrides() no longer contains it
+    // Scenario: reset removes an override; overrides() omits it after reset
     #[tokio::test]
     async fn reset_removes_override() {
         let dir = TempDir::new().unwrap();

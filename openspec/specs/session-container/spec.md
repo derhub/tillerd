@@ -1,7 +1,7 @@
 # session-container Specification
 
 ## Purpose
-TBD - created by archiving change projects-and-sessions-container. Update Purpose after archive.
+Session lifecycle in the orchestrator: creation under a project (defaulting to Unfiled) with title inference by `title_source` strategy, rename, listing, adding and removing surfaces as divergences of the session's launch spec, soft-delete (archive) with cascade to surfaces, hard-delete of already-archived sessions, and reconnecting surfaces by placement on orchestrator restart.
 ## Requirements
 ### Requirement: Session creation under a project
 

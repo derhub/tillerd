@@ -1,0 +1,30 @@
+id: no-inline-dynamic-import
+language: Tsx
+severity: error
+ignores:
+  - "**/routeTree.gen.ts"
+message: >-
+  Do not use an inline dynamic import() inside a React hook or component. Add the loader to
+  apps/ui/app/lib/lazy.ts (or use loadTauriCore in lib/transport/core.ts) and call it -- the web
+  build has no Tauri, and heavy modules code-split in one place so they are easy to find and exempt.
+rule:
+  all:
+    - kind: call_expression
+      has:
+        field: function
+        regex: '^import$'
+    - inside:
+        kind: await_expression
+    - inside:
+        stopBy: end
+        any:
+          - kind: function_declaration
+            has:
+              field: name
+              regex: '^(use[A-Z]|[A-Z])'
+          - kind: arrow_function
+            inside:
+              kind: variable_declarator
+              has:
+                field: name
+                regex: '^(use[A-Z]|[A-Z])'

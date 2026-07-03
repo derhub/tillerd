@@ -9,8 +9,6 @@ use memorya::hook_source::{HookSource, StubSource};
 use memorya::Engram;
 use serde_json::json;
 
-// -- Viewer is loopback-only ---------------------------------------------------
-
 /// The viewer MUST bind to the loopback interface only, in both standalone and
 /// composed mode. This ensures the human viewer is never reachable off-host.
 #[test]
@@ -22,8 +20,6 @@ fn viewer_is_loopback_only_in_both_modes() {
         "viewer binds 127.0.0.1 only; got {addr}"
     );
 }
-
-// -- Standalone exposes its own tool face -------------------------------------
 
 /// When running alone (`mcp` subcommand), recall is reachable over memorya's own
 /// standalone MCP tool face -- `tools/list` advertises `recall`.
@@ -64,8 +60,6 @@ fn standalone_mode_selected_when_gate_url_absent() {
         "absent session id must select standalone mode"
     );
 }
-
-// -- Composed is fronted by the tool gateway -----------------------------------
 
 /// In composed mode, memorya selects the gate-subscription source and its tool
 /// behavior is unchanged -- no special-casing in the MCP handler. The gateway

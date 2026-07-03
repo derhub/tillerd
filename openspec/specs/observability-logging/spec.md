@@ -105,18 +105,6 @@ to the same field semantics as the TypeScript logger.
 - **THEN** that event is emitted as a structured JSON log record at an appropriate level, not as
   plain stderr text
 
-### Requirement: Core packages remain logging-library-agnostic
-
-The `@tillerd/sdk` and `@tillerd/engine` packages SHALL depend only on the injected `Logger`
-interface and MUST NOT import any concrete logging library. The context-binding additions MUST
-preserve the inward-pointing dependency rule so the core remains runtime-neutral.
-
-#### Scenario: Engine uses only the injected interface
-
-- **WHEN** the engine emits logs and binds context
-- **THEN** it does so exclusively through the injected `Logger` interface (including `child`)
-  and imports no logging implementation
-
 ### Requirement: correlation_id propagates across process hops
 
 Every operation SHALL be assigned a `correlation_id` at its ingress (desktop IPC command

@@ -32,8 +32,6 @@ fn prompt_event_at_turn(content: &str, turn: i64) -> HookEvent {
     }
 }
 
-// -- Hook never blocks the agent -----------------------------------------------
-
 /// Capture is fire-and-forget: dispatching a hook event completes in bounded
 /// time and does not block the calling thread. A thread that simulates an
 /// "agent" invoking the capturer must return well within 1 second even when
@@ -53,8 +51,6 @@ fn hook_never_blocks_the_agent() {
         "dispatch must return promptly (fire-and-forget); took {elapsed:?}"
     );
 }
-
-// -- Source is swappable for tests ---------------------------------------------
 
 /// In production the hook source is a gate subscription; in tests it is a stub.
 /// The capturer's behavior is identical regardless of the source -- this
@@ -82,8 +78,6 @@ fn source_is_swappable_for_tests_without_changing_capturer() {
     let count = memorya.lock().unwrap().active_chunk_count().unwrap();
     assert_eq!(count, 2);
 }
-
-// -- Queue survives restart (dedicated) ---------------------------------------
 
 /// Pending embedding requests survive a process restart (db reopen). This is
 /// the durability guarantee: at-least-once draining requires the queue to
@@ -118,8 +112,6 @@ fn queue_survives_restart_pending_requests_present_after_reopen() {
         "the pending request persists after reopening the database (restart simulation)"
     );
 }
-
-// -- Worker drains proactively -------------------------------------------------
 
 /// The background worker drains pending requests without waiting for a recall
 /// to be issued. This confirms proactive draining -- not lazy on read.

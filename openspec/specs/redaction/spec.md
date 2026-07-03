@@ -1,7 +1,7 @@
 # redaction Specification
 
 ## Purpose
-TBD - created by archiving change add-redact-rs. Update Purpose after archive.
+Sensitive-data detection and redaction library: pattern/entropy/allowlist-based detection of credentials and structured PII (with checksum or context-keyword confirmation for low-confidence numeric classes), replacement of each detected span with a fixed [REDACTED] marker that preserves labeled keys, and a stdin/stdout CLI for external processes.
 ## Requirements
 ### Requirement: Sensitive-data detection
 

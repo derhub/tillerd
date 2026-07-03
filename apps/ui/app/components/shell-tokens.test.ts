@@ -20,14 +20,10 @@ function shellComponents(dir: string): string[] {
   return files;
 }
 
-// Ad-hoc styling values the shell must not carry: literal colors and raw-pixel
-// arbitrary values. Token references (`var(--x)`, `[var(--x)]`) and content-relative
-// `ch` measures resolve from tokens and are allowed.
 const LITERAL_COLOR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgb|rgba|hsl|hsla)\(/;
 const PX_ARBITRARY = /\[[^\]]*\d+px[^\]]*\]/;
 
 describe("shell tokens", () => {
-  // Spec: ui-shell -- "Shell components use tokens only".
   test("shell components use tokens only", () => {
     const violations: string[] = [];
     for (const file of shellComponents(import.meta.dir)) {

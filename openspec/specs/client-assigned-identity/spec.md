@@ -1,7 +1,7 @@
 # client-assigned-identity Specification
 
 ## Purpose
-TBD - created by archiving change client-assigned-create-ids. Update Purpose after archive.
+Create commands for aggregates (workspace, project, session, command-library entry) accept the entity's identifier from the caller instead of minting it server-side; only derived/server-owned fields (timestamps, inferred names, resolved specs) remain assigned by the command. Create handlers read the new entity back by that identifier rather than diffing before/after listings, and repeating a create with the same identifier is idempotent.
 ## Requirements
 ### Requirement: Create commands carry a caller-assigned identifier
 

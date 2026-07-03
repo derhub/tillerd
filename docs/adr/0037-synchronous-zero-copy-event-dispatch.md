@@ -1,6 +1,6 @@
 # 0037. Synchronous zero-copy event dispatch: borrowed events, fan-out terminal, middleware by wrapping
 
-- Status: accepted
+- Status: accepted (bus-exclusivity clause revised by ADR-0041)
 - Date: 2026-06-22
 
 ## Context

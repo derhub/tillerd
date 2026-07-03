@@ -1,0 +1,12 @@
+id: no-raw-invoke
+valid:
+  - 'import { Channel } from "@tauri-apps/api/core";'
+  - 'import { listen } from "@tauri-apps/api/event";'
+  - 'import { query, command } from "@tillerd/client-bindings";'
+  - 'const { Channel } = await import("@tauri-apps/api/core");'
+  - 'const { invoke } = await import("./my-local-module");'
+invalid:
+  - 'import { invoke } from "@tauri-apps/api/core";'
+  - 'import { invoke as tauriInvoke } from "@tauri-apps/api/core";'
+  - 'const { invoke } = await import("@tauri-apps/api/core");'
+  - 'const { invoke, Channel } = await import("@tauri-apps/api/core");'

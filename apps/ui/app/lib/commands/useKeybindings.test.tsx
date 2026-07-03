@@ -1,6 +1,6 @@
+import { cleanup, render } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanup, render } from "@testing-library/react";
 
 import { CommandRegistryProvider, RegisterCommands, type Command } from "./registry";
 import { useGlobalShortcuts } from "./useKeybindings";

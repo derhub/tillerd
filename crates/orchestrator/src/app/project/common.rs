@@ -15,8 +15,6 @@ pub(super) fn infer_name(name: Option<&str>, root_path: Option<&str>) -> String 
     "New Project".to_owned()
 }
 
-// -- Cursor helpers (relocated from infra/project.rs) --------------------------
-
 /// Cursor format: `"{pinned}:{sort_order}:{id}"`.
 pub(super) fn make_cursor(pinned: bool, sort_order: u32, id: &str) -> String {
     format!("{}:{}:{}", pinned as i64, sort_order, id)

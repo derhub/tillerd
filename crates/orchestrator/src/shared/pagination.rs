@@ -39,8 +39,8 @@ impl Page {
 
 /// A page of results with an optional continuation cursor for the next page.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct Listing<T> {
-    /// The items in this page.
     pub items: Vec<T>,
     /// The cursor for the next page, if more items exist after this page.
     pub next: Option<String>,

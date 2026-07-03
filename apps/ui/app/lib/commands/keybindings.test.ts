@@ -125,9 +125,7 @@ describe("resolveBindings", () => {
     const overrides = { [ACTION.surfaceClose]: "CmdOrCtrl+Shift+W" };
     const onDefault = resolveBindings(DEFAULT_PRESET, overrides);
     const onVscode = resolveBindings("vscode", overrides);
-    // Override survives the preset switch.
     expect(onVscode.get(ACTION.surfaceClose)).toBe("CmdOrCtrl+Shift+W");
-    // A non-overridden action re-bases to the new preset.
     expect(onVscode.get(ACTION.surfaceSpawn)).toBe(PRESETS.vscode[ACTION.surfaceSpawn]);
     expect(onVscode.get(ACTION.surfaceSpawn)).not.toBe(onDefault.get(ACTION.surfaceSpawn));
   });

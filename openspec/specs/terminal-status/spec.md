@@ -2,7 +2,7 @@
 
 ## Purpose
 
-TBD - created by syncing change terminal-status. Update Purpose after archive.
+Terminal status is a per-session signal derived from OS-level process facts -- foreground process group and output quiescence -- published as IDLE or WORKING, independent of and alongside the agent's hook-derived lifecycle status. It excludes WAITING_INPUT, defers completion reporting to the existing process-exit signal, delivers an initial value on spawn and subscribe, degrades gracefully for adopted sessions or unreadable foreground groups, and is defined once in the shared wire contract.
 
 ## Requirements
 

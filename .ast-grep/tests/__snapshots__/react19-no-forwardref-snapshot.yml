@@ -1,0 +1,22 @@
+id: react19-no-forwardref
+snapshots:
+  const Input = forwardRef((p, ref) => <input ref={ref} {...p}/>):
+    labels:
+    - source: forwardRef((p, ref) => <input ref={ref} {...p}/>)
+      style: primary
+      start: 14
+      end: 63
+    - source: forwardRef
+      style: secondary
+      start: 14
+      end: 24
+  const Input = forwardRef<HTMLInputElement, P>((p, ref) => <input ref={ref}/>):
+    labels:
+    - source: forwardRef<HTMLInputElement, P>((p, ref) => <input ref={ref}/>)
+      style: primary
+      start: 14
+      end: 77
+    - source: forwardRef
+      style: secondary
+      start: 14
+      end: 24

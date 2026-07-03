@@ -1,0 +1,14 @@
+id: comment-style-tells-ts
+valid:
+    - "// raw bytes cross postMessage as-is"
+    - "// child re-attach event may not fire before close"
+    - "// Query owns caching; router stale-while-revalidate stays off"
+    - "// seamless weather web tooling"
+invalid:
+    - "// we feature-detect and fall back"
+    - "// for now this is a stub"
+    - "// the list no longer lives here"
+    - "/* note that this is basically a hack */"
+    - "// used to read from the manual parser"
+    - "// File-based routing (ADR-0040): generated route tree"
+    - "// session registry replaces the sqlite path (design D6)"

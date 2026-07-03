@@ -8,8 +8,6 @@ use crate::shared::message::Command;
 
 use super::common::require_surface;
 
-// -- StopSurface (keep record, resumable) ----------------------------------------
-
 /// Kill the process inside a surface; the record is kept so it can resume later.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

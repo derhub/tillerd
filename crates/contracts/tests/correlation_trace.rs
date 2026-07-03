@@ -130,7 +130,7 @@ fn same_correlation_id_appears_in_all_three_hop_shapes() {
     assert_eq!(result_corr, corr);
 }
 
-/// The standardized observability vocabulary (design D5): a correlated record's log
+/// The standardized observability vocabulary: a correlated record's log
 /// attribute key is exactly `correlation_id` -- snake_case, distinct from the camelCase
 /// `correlationId` used on the JSON wire. Capture a structured log line emitted in the
 /// production shape (orchestrator, gate, and daemon all log `correlation_id = ...`) and

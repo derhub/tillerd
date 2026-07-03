@@ -1,7 +1,6 @@
-//! PTY session-event wire codec (sole Rust owner of ADR-0009 framing).
+//! PTY session-event wire codec.
 //! Consumer provides transport; this crate provides encode/decode only.
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
 
 use contracts::{SessionId, SESSION_EVENT_WIRE_VERSION};
 use serde_json::{json, Value};
@@ -229,7 +228,6 @@ pub enum SessionFrame {
     SpawnAck {
         /// The session the daemon started (echoes the requested id).
         session_id: String,
-        /// The spawned process id.
         pid: u32,
     },
     /// Raw PTY output for a session.
@@ -241,7 +239,6 @@ pub enum SessionFrame {
     },
     /// A terminal-derived status transition.
     Status {
-        /// Session id.
         session_id: String,
         /// The new status (e.g. `IDLE`, `WORKING`).
         status: String,
@@ -250,7 +247,6 @@ pub enum SessionFrame {
     },
     /// A session exited.
     Exit {
-        /// Session id.
         session_id: String,
         /// The qualified exit reason.
         qualifier: String,

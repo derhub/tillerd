@@ -1,0 +1,6 @@
+id: comment-ascii-only-css
+valid:
+  - "/* ascii only */"
+  - ".x { color: red }"
+invalid:
+  - "/* arrow → here */"

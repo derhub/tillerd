@@ -1,0 +1,48 @@
+id: no-fetch-in-hooks
+snapshots:
+  const Panel = () => { fetch('/x'); return null; };:
+    labels:
+    - source: fetch('/x')
+      style: primary
+      start: 22
+      end: 33
+    - source: Panel
+      style: secondary
+      start: 6
+      end: 11
+    - source: Panel = () => { fetch('/x'); return null; }
+      style: secondary
+      start: 6
+      end: 49
+    - source: () => { fetch('/x'); return null; }
+      style: secondary
+      start: 14
+      end: 49
+  function Panel() { return fetch('/x'); }:
+    labels:
+    - source: fetch('/x')
+      style: primary
+      start: 26
+      end: 37
+    - source: Panel
+      style: secondary
+      start: 9
+      end: 14
+    - source: function Panel() { return fetch('/x'); }
+      style: secondary
+      start: 0
+      end: 40
+  function useThing() { fetch('/x'); }:
+    labels:
+    - source: fetch('/x')
+      style: primary
+      start: 22
+      end: 33
+    - source: useThing
+      style: secondary
+      start: 9
+      end: 17
+    - source: function useThing() { fetch('/x'); }
+      style: secondary
+      start: 0
+      end: 36

@@ -12,7 +12,7 @@ pub fn pid_is_alive(pid: u32) -> bool {
     use nix::sys::signal::kill;
     use nix::unistd::Pid;
     // Signal 0 performs error checking without delivering a signal: Ok means
-    // the process exists and we may signal it.
+    // the process exists and can be signaled.
     kill(Pid::from_raw(pid as i32), None).is_ok()
 }
 
@@ -25,8 +25,8 @@ pub trait Probes {
     fn is_reachable(&self, path: &Path) -> bool;
 
     /// Signal the process with `pid` to drain (SIGUSR2): refuse new work, finish active work, then
-    /// exit. Used to retire a version-mismatched instance before starting the expected one
-    /// (ADR-0029). A no-op if the process is already gone.
+    /// exit. Retires a version-mismatched instance before starting the expected one.
+    /// A no-op if the process is already gone.
     fn drain(&self, pid: u32);
 
     /// Remove the socket file at `path`, ignoring a missing file.

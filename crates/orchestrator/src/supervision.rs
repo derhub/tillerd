@@ -43,7 +43,7 @@ pub fn ensure_service(
 ) -> Result<ServiceStatus> {
     if let Some(manifest) = Manifest::read(&spec.manifest_path) {
         if probes.is_alive(manifest.pid) {
-            // Readiness comes from the manifest status (ADR-0028), not a socket probe.
+            // Readiness comes from the manifest status, not a socket probe.
             if manifest.version == spec.version && manifest.status == Lifecycle::Ready {
                 return Ok(ServiceStatus {
                     name: spec.name.clone(),
@@ -54,7 +54,7 @@ pub fn ensure_service(
                 });
             }
 
-            // Live but the wrong version: drain-and-restart (ADR-0029). Signal the old instance to
+            // Live but the wrong version: drain-and-restart. Signal the old instance to
             // drain (refuse new work, finish active work, exit) and wait for it to release the
             // socket before starting the expected binary. No state handoff between old and new.
             if manifest.version != spec.version {
@@ -105,7 +105,7 @@ pub fn ensure_service(
 
 /// Poll until the draining process exits or the startup window elapses. No force-kill here: an
 /// instance with active sessions exits only when it idles or an explicit upgrade-now (SIGTERM)
-/// retires it (ADR-0029). If it has not exited by the deadline, the caller proceeds anyway -- the
+/// retires it. If it has not exited by the deadline, the caller proceeds anyway -- the
 /// fresh spawn surfaces an unavailable service rather than this blocking forever.
 fn wait_for_exit(probes: &impl Probes, pid: u32, timing: &SpawnTiming) {
     let deadline = Instant::now() + timing.startup_timeout;

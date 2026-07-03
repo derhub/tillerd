@@ -1,0 +1,44 @@
+id: comment-style-tells-ts
+snapshots:
+  /* note that this is basically a hack */:
+    labels:
+    - source: /* note that this is basically a hack */
+      style: primary
+      start: 0
+      end: 40
+  '// File-based routing (ADR-0040): generated route tree':
+    labels:
+    - source: '// File-based routing (ADR-0040): generated route tree'
+      style: primary
+      start: 0
+      end: 54
+  // for now this is a stub:
+    labels:
+    - source: // for now this is a stub
+      style: primary
+      start: 0
+      end: 25
+  // session registry replaces the sqlite path (design D6):
+    labels:
+    - source: // session registry replaces the sqlite path (design D6)
+      style: primary
+      start: 0
+      end: 56
+  // the list no longer lives here:
+    labels:
+    - source: // the list no longer lives here
+      style: primary
+      start: 0
+      end: 32
+  // used to read from the manual parser:
+    labels:
+    - source: // used to read from the manual parser
+      style: primary
+      start: 0
+      end: 38
+  // we feature-detect and fall back:
+    labels:
+    - source: // we feature-detect and fall back
+      style: primary
+      start: 0
+      end: 34

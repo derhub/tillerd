@@ -28,8 +28,6 @@ struct CursorRow {
     created_at: String,
 }
 
-// -- Repository ----------------------------------------------------------------
-
 pub struct SurfaceRepo;
 
 impl SurfaceRepo {
@@ -195,8 +193,6 @@ impl SurfaceRepo {
         Ok(())
     }
 }
-
-// -- Tests ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

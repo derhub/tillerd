@@ -1,0 +1,50 @@
+id: no-inline-dynamic-import
+snapshots:
+  const Comp = () => { void (async () => { await import('y'); })(); return null; };:
+    labels:
+    - source: import('y')
+      style: primary
+      start: 47
+      end: 58
+    - source: import
+      style: secondary
+      start: 47
+      end: 53
+    - source: await import('y')
+      style: secondary
+      start: 41
+      end: 58
+    - source: Comp
+      style: secondary
+      start: 6
+      end: 10
+    - source: Comp = () => { void (async () => { await import('y'); })(); return null; }
+      style: secondary
+      start: 6
+      end: 80
+    - source: () => { void (async () => { await import('y'); })(); return null; }
+      style: secondary
+      start: 13
+      end: 80
+  function useThing() { void (async () => { await import('y'); })(); }:
+    labels:
+    - source: import('y')
+      style: primary
+      start: 48
+      end: 59
+    - source: import
+      style: secondary
+      start: 48
+      end: 54
+    - source: await import('y')
+      style: secondary
+      start: 42
+      end: 59
+    - source: useThing
+      style: secondary
+      start: 9
+      end: 17
+    - source: function useThing() { void (async () => { await import('y'); })(); }
+      style: secondary
+      start: 0
+      end: 68

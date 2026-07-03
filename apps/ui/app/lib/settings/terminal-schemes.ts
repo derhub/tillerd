@@ -1,4 +1,3 @@
-/** xterm theme shape (subset we set). */
 export interface TerminalTheme {
   background: string;
   foreground: string;
@@ -65,15 +64,14 @@ const GITHUB_LIGHT: TerminalTheme = {
   brightWhite: "#8c959f",
 };
 
-/** Named terminal color schemes. The terminal canvas stays independent of the app theme. */
-export const TERMINAL_SCHEMES: Record<string, TerminalTheme> = {
+// Terminal canvas is independent of the app theme.
+const TERMINAL_SCHEMES: Record<string, TerminalTheme> = {
   "github-dark": GITHUB_DARK,
   "github-light": GITHUB_LIGHT,
 };
 
 export const DEFAULT_TERMINAL_SCHEME = "github-dark";
 
-/** Resolve a scheme name to its theme, falling back to the default for unknown names. */
 export function getTerminalTheme(name: string): TerminalTheme {
   return TERMINAL_SCHEMES[name] ?? TERMINAL_SCHEMES[DEFAULT_TERMINAL_SCHEME];
 }

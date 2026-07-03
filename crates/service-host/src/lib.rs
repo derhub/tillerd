@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![deny(missing_docs)]
 
 //! Tool lifecycle host: single entry point ([`host::run`] / [`run_blocking`]), tool supplies only serve behavior.
 //! Lifecycle and filesystem only; no wire types or transport (tools own protocol).

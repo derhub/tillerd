@@ -3,8 +3,6 @@ use sqlx::SqliteExecutor;
 use crate::entities::command::{Command, CommandId};
 use crate::shared::Result;
 
-// -- CommandRepo ----------------------------------------------------------------
-
 /// Per-entity repository for the command library table.
 ///
 /// All methods take an executor (`impl SqliteExecutor`) so the same code serves
@@ -96,8 +94,6 @@ impl CommandRepo {
     }
 }
 
-// -- tests ---------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -117,8 +113,6 @@ mod tests {
             pinned: false,
         }
     }
-
-    // -- Scenario: round-trip --------------------------------------------------
 
     #[tokio::test]
     async fn create_then_get_returns_the_command() {
@@ -142,8 +136,6 @@ mod tests {
         assert!(result.is_none());
     }
 
-    // -- Scenario: update ------------------------------------------------------
-
     #[tokio::test]
     async fn update_persists_name_and_cli_changes() {
         let pool = migrate::open_memory().await.unwrap();
@@ -159,8 +151,6 @@ mod tests {
         assert_eq!(reloaded.cli, "/usr/bin/fish");
     }
 
-    // -- Scenario: delete (soft) -----------------------------------------------
-
     #[tokio::test]
     async fn delete_hides_the_command_from_get() {
         let pool = migrate::open_memory().await.unwrap();
@@ -172,8 +162,6 @@ mod tests {
         assert!(result.is_none());
     }
 
-    // -- Scenario: pinned flag round-trips -------------------------------------
-
     #[tokio::test]
     async fn set_pinned_updates_the_flag() {
         let pool = migrate::open_memory().await.unwrap();
@@ -184,8 +172,6 @@ mod tests {
         let cmd = CommandRepo::get(&pool, &id).await.unwrap().unwrap();
         assert!(cmd.pinned);
     }
-
-    // -- Scenario: multi-repo call on one transaction is atomic ----------------
 
     #[tokio::test]
     async fn two_creates_on_one_transaction_are_both_committed_or_neither() {
