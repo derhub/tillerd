@@ -9,7 +9,7 @@ import { PanelTree } from "~/components/shell/PanelTree";
 import { DetachedPanelsContext } from "~/components/shell/shellContext";
 import { TerminalPane } from "~/components/terminal/TerminalPane";
 import { Skeleton } from "~/components/ui/skeleton";
-import { RegisterCommands } from "~/lib/commands/registry";
+import { RegisterHandlers } from "~/lib/commands/registry";
 import { bootContent } from "~/lib/health/boot-content";
 import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
@@ -64,7 +64,7 @@ export function PanelContent() {
     [sessionId, close, surfaceClose],
   );
 
-  const panelCommands = useShellCommands({
+  const panelHandlers = useShellCommands({
     treeRef,
     activeLeafRef,
     detachedRef,
@@ -78,7 +78,7 @@ export function PanelContent() {
 
   return (
     <div className="h-full w-full" onPointerDownCapture={onContentPointerDown}>
-      <RegisterCommands commands={panelCommands} />
+      <RegisterHandlers handlers={panelHandlers} />
       {bootRegion === "content" ? (
         <PanelTree
           tree={tree}

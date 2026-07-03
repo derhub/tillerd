@@ -2,8 +2,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 /// <reference lib="dom" />
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
+import type { CommandHandler } from "~/lib/commands/types";
+
 import { ACTION } from "~/lib/commands/ids";
-import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
+import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 
 // Capture the handler registered via subscribe("commandCenterOpen").listen so openPalette() can
 // fire it. The component consumes the client-bindings `subscribe`/`runCommand` wrappers, so the mock
@@ -27,10 +29,10 @@ const { CommandCenter } = await import("./CommandCenter");
 afterEach(cleanup);
 afterAll(() => mock.restore());
 
-function renderWith(commands: Command[]) {
+function renderWith(handlers: Record<string, CommandHandler>) {
   return render(
     <CommandRegistryProvider>
-      <RegisterCommands commands={commands} />
+      <RegisterHandlers handlers={handlers} />
       <CommandCenter />
     </CommandRegistryProvider>,
   );
@@ -43,23 +45,20 @@ function openPalette() {
 // cmdk fuzzy filtering requires layout happy-dom does not provide; filter behaviour is in desktop e2e (WKWebView).
 describe("CommandCenter", () => {
   test("is closed until the open signal fires", () => {
-    renderWith([{ id: ACTION.surfaceClose, title: "Close surface", run: () => {} }]);
+    renderWith({ [ACTION.surfaceClose]: () => {} });
     expect(screen.queryByTestId("command-center")).toBeNull();
   });
 
-  test("opens and lists registered commands", async () => {
-    renderWith([
-      { id: ACTION.surfaceClose, title: "Close surface", run: () => {} },
-      { id: ACTION.panelSplitH, title: "Split right", run: () => {} },
-    ]);
+  test("opens and lists commands by their definition titles", async () => {
+    renderWith({ [ACTION.surfaceClose]: () => {}, [ACTION.panelSplitH]: () => {} });
     openPalette();
     await waitFor(() => expect(screen.queryByTestId("command-center")).not.toBeNull());
-    expect(screen.queryByText("Close surface")).not.toBeNull();
-    expect(screen.queryByText("Split right")).not.toBeNull();
+    expect(screen.queryByText("Close panel")).not.toBeNull();
+    expect(screen.queryByText("Split panel right")).not.toBeNull();
   });
 
   test("shows the resolved key hint for a bound action", async () => {
-    renderWith([{ id: ACTION.surfaceClose, title: "Close surface", run: () => {} }]);
+    renderWith({ [ACTION.surfaceClose]: () => {} });
     openPalette();
     // Default preset binds surface.close to CmdOrCtrl+W; hint ends in W.
     await waitFor(() => expect(screen.queryByText(/W$/)).not.toBeNull());
@@ -67,9 +66,9 @@ describe("CommandCenter", () => {
 
   test("selecting a command runs it and closes the palette", async () => {
     let ran = false;
-    renderWith([{ id: ACTION.surfaceClose, title: "Close surface", run: () => (ran = true) }]);
+    renderWith({ [ACTION.surfaceClose]: () => (ran = true) });
     openPalette();
-    const item = await screen.findByText("Close surface");
+    const item = await screen.findByText("Close panel");
     fireEvent.click(item);
     expect(ran).toBe(true);
     await waitFor(() => expect(screen.queryByTestId("command-center")).toBeNull());
@@ -77,11 +76,20 @@ describe("CommandCenter", () => {
 
   test("Escape closes without running anything", async () => {
     let ran = false;
-    renderWith([{ id: ACTION.surfaceClose, title: "Close surface", run: () => (ran = true) }]);
+    renderWith({ [ACTION.surfaceClose]: () => (ran = true) });
     openPalette();
     const box = await screen.findByTestId("command-center");
     fireEvent.keyDown(box, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("command-center")).toBeNull());
     expect(ran).toBe(false);
+  });
+
+  test("omits a command that has no registered handler", async () => {
+    // Register one command's handler; another defined command stays inactive.
+    renderWith({ [ACTION.surfaceClose]: () => {} });
+    openPalette();
+    await waitFor(() => expect(screen.queryByTestId("command-center")).not.toBeNull());
+    expect(screen.queryByText("Close panel")).not.toBeNull();
+    expect(screen.queryByText("Detach panel")).toBeNull();
   });
 });

@@ -1,31 +1,37 @@
 import type { ReactNode } from "react";
 
+import { useSelector } from "@tanstack/react-store";
 import React from "react";
 
-export interface Command {
-  id: string;
-  title: string;
-  keywords?: string[];
-  group?: string;
-  run: () => void;
-}
+import { contextStore } from "./context";
+import { COMMAND_DEFS } from "./defs";
+import {
+  isOnSurface,
+  type Command,
+  type CommandDef,
+  type CommandHandler,
+  type Surface,
+} from "./types";
+import { evaluateWhen, type ContextSnapshot } from "./when";
+
+export type { Command, CommandDef, CommandHandler, Surface } from "./types";
 
 interface RegistryDispatch {
-  register: (token: string, commands: Command[]) => void;
+  register: (token: string, handlers: Record<string, CommandHandler>) => void;
   unregister: (token: string) => void;
 }
 
-// Dispatch is split from the command list so a contributor does not re-render when the merged list
-// changes -- registering re-renders the registrant, whose command array may not be referentially
-// stable, causing the register effect to loop.
-const CommandDispatchContext = React.createContext<RegistryDispatch | null>(null);
-const CommandsContext = React.createContext<Command[]>([]);
+// Dispatch is split from the handler map so a contributor does not re-render when
+// the merged map changes -- registering re-renders the registrant, whose handler
+// record may not be referentially stable, causing the register effect to loop.
+const HandlerDispatchContext = React.createContext<RegistryDispatch | null>(null);
+const HandlersContext = React.createContext<ReadonlyMap<string, CommandHandler>>(new Map());
 
 export function CommandRegistryProvider({ children }: { children: ReactNode }) {
-  const [sources, setSources] = React.useState<Record<string, Command[]>>({});
+  const [sources, setSources] = React.useState<Record<string, Record<string, CommandHandler>>>({});
 
-  const register = React.useCallback((token: string, commands: Command[]) => {
-    setSources((prev) => ({ ...prev, [token]: commands }));
+  const register = React.useCallback((token: string, handlers: Record<string, CommandHandler>) => {
+    setSources((prev) => ({ ...prev, [token]: handlers }));
   }, []);
 
   const unregister = React.useCallback((token: string) => {
@@ -37,46 +43,84 @@ export function CommandRegistryProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const commands = React.useMemo(() => {
-    const byId = new Map<string, Command>();
-    for (const list of Object.values(sources)) {
-      for (const command of list) byId.set(command.id, command);
+  const handlers = React.useMemo(() => {
+    const byId = new Map<string, CommandHandler>();
+    for (const record of Object.values(sources)) {
+      for (const [id, handler] of Object.entries(record)) byId.set(id, handler);
     }
-    return [...byId.values()];
+    return byId;
   }, [sources]);
 
-  // Stable for the provider's lifetime so dispatch consumers never re-render on a command-list change.
   const dispatch = React.useMemo<RegistryDispatch>(
     () => ({ register, unregister }),
     [register, unregister],
   );
 
   return (
-    <CommandDispatchContext value={dispatch}>
-      <CommandsContext value={commands}>{children}</CommandsContext>
-    </CommandDispatchContext>
+    <HandlerDispatchContext value={dispatch}>
+      <HandlersContext value={handlers}>{children}</HandlersContext>
+    </HandlerDispatchContext>
   );
 }
 
-// Pass a memoized array -- an unstable identity that also derives from `commands` could loop.
-export function useRegisterCommands(commands: Command[]): void {
-  const dispatch = React.use(CommandDispatchContext);
+// Pass a memoized record -- an unstable identity re-runs the register effect.
+export function useRegisterHandlers(handlers: Record<string, CommandHandler>): void {
+  const dispatch = React.use(HandlerDispatchContext);
   const token = React.useId();
   const register = dispatch?.register;
   const unregister = dispatch?.unregister;
 
   React.useEffect(() => {
     if (!register || !unregister) return;
-    register(token, commands);
+    register(token, handlers);
     return () => unregister(token);
-  }, [register, unregister, token, commands]);
+  }, [register, unregister, token, handlers]);
 }
 
-export function useCommands(): Command[] {
-  return React.use(CommandsContext);
+// Register a single command's handler by id. `handler` should be stable
+// (wrap in useCallback) so the registration does not churn each render.
+export function useCommand(id: string, handler: CommandHandler): void {
+  const record = React.useMemo(() => ({ [id]: handler }), [id, handler]);
+  useRegisterHandlers(record);
 }
 
-export function RegisterCommands({ commands }: { commands: Command[] }): null {
-  useRegisterCommands(commands);
+export function RegisterHandlers({ handlers }: { handlers: Record<string, CommandHandler> }): null {
+  useRegisterHandlers(handlers);
   return null;
+}
+
+// Pure composition: a command is active only once a handler is registered for
+// its id -- a definition with no live handler is not surfaced or keybound (it
+// would otherwise show a dead palette entry and swallow its shortcut). Toggles
+// resolve their checked state against the context snapshot.
+export function composeCommands(
+  defs: readonly CommandDef[],
+  handlers: ReadonlyMap<string, CommandHandler>,
+  ctx: ContextSnapshot,
+): Command[] {
+  const commands: Command[] = [];
+  for (const def of defs) {
+    const run = handlers.get(def.id);
+    if (!run) continue;
+    commands.push({ ...def, run, checked: def.toggle ? def.toggle(ctx) : undefined });
+  }
+  return commands;
+}
+
+// Every active command (registered handler) composed with its checked state.
+// Not filtered by `when` -- callers that render a surface use useSurfaceCommands.
+export function useCommands(): Command[] {
+  const handlers = React.use(HandlersContext);
+  const ctx = useSelector(contextStore, (s) => s);
+  return React.useMemo(() => composeCommands(COMMAND_DEFS, handlers, ctx), [handlers, ctx]);
+}
+
+// Commands tagged for a surface whose `when` currently passes.
+export function useSurfaceCommands(surface: Surface): Command[] {
+  const commands = useCommands();
+  const ctx = useSelector(contextStore, (s) => s);
+  return React.useMemo(
+    () => commands.filter((c) => isOnSurface(c, surface) && evaluateWhen(c.when, ctx)),
+    [commands, ctx, surface],
+  );
 }

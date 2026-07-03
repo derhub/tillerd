@@ -1,92 +1,71 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
-import {
-  CommandRegistryProvider,
-  useCommands,
-  useRegisterCommands,
-  type Command,
-} from "./registry";
+import type { CommandDef, CommandHandler } from "./types";
+
+import { ACTION } from "./ids";
+import { CommandRegistryProvider, composeCommands, useCommand, useCommands } from "./registry";
 
 afterEach(cleanup);
 
-function Register({ commands }: { commands: Command[] }) {
-  const memo = React.useMemo(() => commands, [commands]);
-  useRegisterCommands(memo);
+function Register({ id, handler }: { id: string; handler: CommandHandler }) {
+  useCommand(id, handler);
   return null;
 }
 
-function Probe() {
-  const commands = useCommands();
-  return (
-    <ul>
-      {commands.map((c) => (
-        <li key={c.id} data-testid="cmd">
-          {c.id}:{c.title}
-        </li>
-      ))}
-    </ul>
-  );
-}
+describe("composeCommands", () => {
+  const handler = () => {};
 
-const cmd = (id: string, title = id): Command => ({ id, title, run: () => {} });
+  test("wires a registered handler onto its definition", () => {
+    const defs: CommandDef[] = [{ id: "a", title: "A" }];
+    const [cmd] = composeCommands(defs, new Map([["a", handler]]), {});
+    expect(cmd.run).toBe(handler);
+  });
+
+  test("excludes a definition with no registered handler", () => {
+    const defs: CommandDef[] = [{ id: "a", title: "A" }];
+    expect(composeCommands(defs, new Map(), {})).toEqual([]);
+  });
+
+  test("a toggle definition resolves checked from context", () => {
+    const defs: CommandDef[] = [{ id: "t", title: "T", toggle: (ctx) => Boolean(ctx.on) }];
+    const handlers = new Map([["t", handler]]);
+    expect(composeCommands(defs, handlers, { on: true })[0].checked).toBe(true);
+    expect(composeCommands(defs, handlers, { on: false })[0].checked).toBe(false);
+  });
+});
 
 describe("command registry", () => {
-  test("exposes commands a mounted contributor registers", () => {
+  test("a registered handler is invoked by its command", () => {
+    const spy = mock(() => {});
+    let run: (() => void) | undefined;
+    function Runner() {
+      run = useCommands().find((c) => c.id === ACTION.viewLogs)?.run;
+      return null;
+    }
     render(
       <CommandRegistryProvider>
-        <Register commands={[cmd("a"), cmd("b")]} />
-        <Probe />
+        <Register id={ACTION.viewLogs} handler={spy} />
+        <Runner />
       </CommandRegistryProvider>,
     );
-    expect(screen.getAllByTestId("cmd").map((el) => el.textContent)).toEqual(["a:a", "b:b"]);
+    run?.();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  test("merges commands from independent contributors", () => {
+  test("a command with no registered handler is absent from the registry", () => {
+    let found: unknown;
+    function Runner() {
+      found = useCommands().find((c) => c.id === ACTION.projectNew);
+      return null;
+    }
     render(
       <CommandRegistryProvider>
-        <Register commands={[cmd("a")]} />
-        <Register commands={[cmd("b")]} />
-        <Probe />
+        <Runner />
       </CommandRegistryProvider>,
     );
-    const ids = screen.getAllByTestId("cmd").map((el) => el.textContent);
-    expect(ids).toContain("a:a");
-    expect(ids).toContain("b:b");
-  });
-
-  test("a later contributor's id wins on collision", () => {
-    render(
-      <CommandRegistryProvider>
-        <Register commands={[cmd("a", "first")]} />
-        <Register commands={[cmd("a", "second")]} />
-        <Probe />
-      </CommandRegistryProvider>,
-    );
-    expect(screen.getByTestId("cmd").textContent).toBe("a:second");
-  });
-
-  test("unmounting a contributor removes its commands", () => {
-    const { rerender } = render(
-      <CommandRegistryProvider>
-        <Register commands={[cmd("a")]} />
-        <Probe />
-      </CommandRegistryProvider>,
-    );
-    expect(screen.getAllByTestId("cmd")).toHaveLength(1);
-
-    rerender(
-      <CommandRegistryProvider>
-        <Probe />
-      </CommandRegistryProvider>,
-    );
-    expect(screen.queryAllByTestId("cmd")).toHaveLength(0);
-  });
-
-  test("useCommands is empty without a provider", () => {
-    render(<Probe />);
-    expect(screen.queryAllByTestId("cmd")).toHaveLength(0);
+    expect(found).toBeUndefined();
   });
 });

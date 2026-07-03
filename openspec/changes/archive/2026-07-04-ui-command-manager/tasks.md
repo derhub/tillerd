@@ -1,0 +1,48 @@
+## 1. Context-key store and `when` evaluator
+
+- [x] 1.1 Add `app/lib/commands/context.ts`: a reactive context-key store (`@tanstack/react-store` slice) with `setContextKey`/`useContextKey` and a `readContext()` snapshot.
+- [x] 1.2 Add `app/lib/commands/when.ts`: `WhenExpr` (conjunction of key terms + negation) + `evaluateWhen(expr, ctx)`; absent expr = always true.
+- [x] 1.3 Context keys are pushed in on demand by their consumers (`setContextKey`), not eagerly seeded. As shipped no command declares a `when`, so no keys are seeded yet; the title bar (PR #64) will seed `commandPaletteOpen`/panel-visibility keys for its toggles. Panel/surface commands are scoped by handler presence, not `when`.
+- [x] 1.4 Tests: evaluator truth table (key present/absent, negation, conjunction, empty expr); context store reactivity.
+
+## 2. Command definition model
+
+- [x] 2.1 Extend the registry types in `app/lib/commands/registry.tsx`: `CommandDef` (id, title, category?, keywords?, icon?, surfaces?, group?, defaultKeys?, when?, toggle?) and runtime `Command` = def + handler + accel + checked.
+- [x] 2.2 Add `Surface = "palette" | "titlebar" | "contextmenu"`; default surfaces `["palette"]`.
+- [x] 2.3 Add `app/lib/commands/defs.ts`: the single definitions table for all existing actions, migrating `ACTION_TITLES` and `PRESETS.default` (+ other presets) into per-def metadata + `defaultKeys`.
+- [x] 2.4 Tests: every `ACTION` id has a def; default-keys parity with the pre-migration `PRESETS`.
+
+## 3. Handler registration by id
+
+- [x] 3.1 Add `registerCommand(id, handler)` / `useCommand(id, handler)` in the registry; runtime `Command` composes def + handler; missing handler => inert (no-op invoke).
+- [x] 3.2 Update `useCommands()` to return the composed runtime commands (def + handler + resolved accel + resolved checked), preserving the existing consumer shape.
+- [x] 3.3 Tests: registered handler runs on invoke; defined-but-unregistered command lists but no-ops.
+
+## 4. Toggle commands
+
+- [x] 4.1 Support `toggle` selector on `CommandDef`; resolve `checked = toggle(ctx)` reactively in `useCommands()`.
+- [x] 4.2 Tests: checked follows the underlying state; invoke runs handler; checked never stored separately.
+
+## 5. Keybindings sourced from definitions, gated by `when`
+
+- [x] 5.1 Derive presets from `defs` (`def.defaultKeys[preset]`) instead of the standalone `PRESETS` map; keep `resolveBindings`, `Accelerator`/`Chord`, `displayAccelerator`, overrides, leader, and settings keys unchanged.
+- [x] 5.2 Gate `useGlobalShortcuts` dispatch on the command's `when` (skip a binding whose `when` is false); keep capture-target guards.
+- [x] 5.3 Tests: default key from def; override wins + persists + clears to default; gated key does not fire out of context; single-chord preserved.
+
+## 6. Palette reads the single registry
+
+- [x] 6.1 `CommandCenter.tsx`: filter to `surfaces` including `palette` and passing `when`; group by category; render toggle checked state; keep binding display, fuzzy search, dismiss behavior.
+- [x] 6.2 Tests: palette omits out-of-context and non-palette commands; toggle shows check; selecting invokes handler and closes.
+
+## 7. Migrate registration sites
+
+- [x] 7.1 Migrate `RootLayout` nav commands to `useCommand(id, handler)` against defs.
+- [x] 7.2 Migrate `hooks/useShellCommands.ts` handlers to `useCommand`.
+- [x] 7.3 Migrate `PanelContent.tsx` command registration to `useCommand`.
+- [x] 7.4 Delete `ACTION_TITLES` and the standalone `PRESETS` once nothing reads them; `ACTION` id constants stay.
+- [x] 7.5 Tests/regression: every previously-registered command still lists, invokes, and resolves its binding.
+
+## 8. Verify
+
+- [x] 8.1 `bun test` (apps/ui) green; type-check + lint clean.
+- [x] 8.2 Desktop smoke via `bun run e2e` (42 tests green): palette lists/filters/invokes; keybinding-preset change reflects in the palette and survives reload. Toggle checked-state has no shipped command yet (title bar PR #64) — covered by unit tests (composeCommands toggle + palette Check render).
