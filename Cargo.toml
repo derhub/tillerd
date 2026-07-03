@@ -44,7 +44,7 @@ nix = "0.31"
 # filesystem watch (vetted cross-platform watcher; see non-blocking-io memory)
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 # mcp
-rmcp = "1.7"
+rmcp = "2.1"
 # typed tauri bindings (RC toolchain -- pinned exact; build-time only, output committed + drift-guarded)
 specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
 specta-typescript = "=0.0.12"
