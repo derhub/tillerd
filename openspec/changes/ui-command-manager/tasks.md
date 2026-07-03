@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add `app/lib/commands/context.ts`: a reactive context-key store (`@tanstack/react-store` slice) with `setContextKey`/`useContextKey` and a `readContext()` snapshot.
 - [x] 1.2 Add `app/lib/commands/when.ts`: `WhenExpr` (conjunction of key terms + negation) + `evaluateWhen(expr, ctx)`; absent expr = always true.
-- [x] 1.3 Seed context keys: `terminalFocus` (from the existing capture-target/xterm-focus guard), `isDesktopHost`, `hasActiveSession`, `commandPaletteOpen`.
+- [x] 1.3 Context keys are pushed in on demand by their consumers (`setContextKey`), not eagerly seeded. As shipped no command declares a `when`, so no keys are seeded yet; the title bar (PR #64) will seed `commandPaletteOpen`/panel-visibility keys for its toggles. Panel/surface commands are scoped by handler presence, not `when`.
 - [x] 1.4 Tests: evaluator truth table (key present/absent, negation, conjunction, empty expr); context store reactivity.
 
 ## 2. Command definition model
