@@ -16,8 +16,6 @@ import { evaluateWhen, type ContextSnapshot } from "./when";
 
 export type { Command, CommandDef, CommandHandler, Surface } from "./types";
 
-const NOOP: CommandHandler = () => {};
-
 interface RegistryDispatch {
   register: (token: string, handlers: Record<string, CommandHandler>) => void;
   unregister: (token: string) => void;
@@ -91,21 +89,25 @@ export function RegisterHandlers({ handlers }: { handlers: Record<string, Comman
   return null;
 }
 
-// Pure composition: each definition gets its resolved handler (NOOP if none) and,
-// for toggles, its checked state evaluated against the context snapshot.
+// Pure composition: a command is active only once a handler is registered for
+// its id -- a definition with no live handler is not surfaced or keybound (it
+// would otherwise show a dead palette entry and swallow its shortcut). Toggles
+// resolve their checked state against the context snapshot.
 export function composeCommands(
   defs: readonly CommandDef[],
   handlers: ReadonlyMap<string, CommandHandler>,
   ctx: ContextSnapshot,
 ): Command[] {
-  return defs.map((def) => ({
-    ...def,
-    run: handlers.get(def.id) ?? NOOP,
-    checked: def.toggle ? def.toggle(ctx) : undefined,
-  }));
+  const commands: Command[] = [];
+  for (const def of defs) {
+    const run = handlers.get(def.id);
+    if (!run) continue;
+    commands.push({ ...def, run, checked: def.toggle ? def.toggle(ctx) : undefined });
+  }
+  return commands;
 }
 
-// Every declared command composed with its resolved handler and checked state.
+// Every active command (registered handler) composed with its checked state.
 // Not filtered by `when` -- callers that render a surface use useSurfaceCommands.
 export function useCommands(): Command[] {
   const handlers = React.use(HandlersContext);

@@ -24,17 +24,16 @@ describe("composeCommands", () => {
     expect(cmd.run).toBe(handler);
   });
 
-  test("an unregistered definition gets an inert no-op handler", () => {
+  test("excludes a definition with no registered handler", () => {
     const defs: CommandDef[] = [{ id: "a", title: "A" }];
-    const [cmd] = composeCommands(defs, new Map(), {});
-    expect(() => cmd.run()).not.toThrow();
-    expect(cmd.checked).toBeUndefined();
+    expect(composeCommands(defs, new Map(), {})).toEqual([]);
   });
 
   test("a toggle definition resolves checked from context", () => {
     const defs: CommandDef[] = [{ id: "t", title: "T", toggle: (ctx) => Boolean(ctx.on) }];
-    expect(composeCommands(defs, new Map(), { on: true })[0].checked).toBe(true);
-    expect(composeCommands(defs, new Map(), { on: false })[0].checked).toBe(false);
+    const handlers = new Map([["t", handler]]);
+    expect(composeCommands(defs, handlers, { on: true })[0].checked).toBe(true);
+    expect(composeCommands(defs, handlers, { on: false })[0].checked).toBe(false);
   });
 });
 
@@ -56,10 +55,10 @@ describe("command registry", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  test("invoking a defined command with no handler does not throw", () => {
-    let run: (() => void) | undefined;
+  test("a command with no registered handler is absent from the registry", () => {
+    let found: unknown;
     function Runner() {
-      run = useCommands().find((c) => c.id === ACTION.projectNew)?.run;
+      found = useCommands().find((c) => c.id === ACTION.projectNew);
       return null;
     }
     render(
@@ -67,7 +66,6 @@ describe("command registry", () => {
         <Runner />
       </CommandRegistryProvider>,
     );
-    expect(run).toBeDefined();
-    expect(() => run?.()).not.toThrow();
+    expect(found).toBeUndefined();
   });
 });

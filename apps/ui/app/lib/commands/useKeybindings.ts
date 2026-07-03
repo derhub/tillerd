@@ -43,16 +43,22 @@ function isCaptureTarget(target: EventTarget | null): boolean {
 
 export function useGlobalShortcuts(bindings: Map<string, Accelerator>): void {
   const commands = useCommands();
+  // Read the latest commands through a ref so the listener attaches once per
+  // bindings change rather than re-subscribing on every context-store update
+  // (composeCommands rebuilds its array whenever any context key changes).
+  const commandsRef = React.useRef(commands);
+  commandsRef.current = commands;
+
   React.useEffect(() => {
-    const byId = new Map(commands.map((c) => [c.id, c]));
     const onKey = (e: KeyboardEvent) => {
       if (isCaptureTarget(e.target)) return;
       const accel = eventToAccelerator(e);
       if (!accel) return;
+      const byId = new Map(commandsRef.current.map((c) => [c.id, c]));
       for (const [id, bound] of bindings) {
         if (bound !== accel) continue;
         const command = byId.get(id);
-        // A binding only fires when its command is available in the current context.
+        // A binding only fires when its command is active and available in context.
         if (command && evaluateWhen(command.when, readContext())) {
           e.preventDefault();
           command.run();
@@ -62,5 +68,5 @@ export function useGlobalShortcuts(bindings: Map<string, Accelerator>): void {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [bindings, commands]);
+  }, [bindings]);
 }

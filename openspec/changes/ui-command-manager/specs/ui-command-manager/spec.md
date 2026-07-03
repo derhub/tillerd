@@ -16,17 +16,22 @@ Every UI command SHALL be declared once as a command definition carrying a stabl
 
 ### Requirement: Handlers register by id, separate from declaration
 
-A command's behavior SHALL be registered by id at runtime, decoupled from its static definition, so a handler MAY close over live application context (navigation, stores, session). The runtime command SHALL be the composition of its definition, its registered handler, its resolved accelerator, and its resolved checked state. Invoking a command with no registered handler SHALL be a no-op, not an error.
+A command's behavior SHALL be registered by id at runtime, decoupled from its static definition, so a handler MAY close over live application context (navigation, stores, session). A command SHALL be active only while a handler is registered for its id: an inactive command SHALL NOT be surfaced in any UI location and its keybinding SHALL NOT fire (the keystroke SHALL pass through untouched). This keeps availability tied to a live implementation, so a not-yet-mounted or host-inapplicable contributor never shows a dead entry or swallows a shortcut.
 
 #### Scenario: Handler closes over live context
 
 - **WHEN** a handler registered for a command id calls navigation or a store setter
 - **THEN** invoking that command from the palette or its keybinding runs the handler against current context
 
-#### Scenario: Definition without a handler is inert
+#### Scenario: Command with no registered handler is inactive
 
 - **WHEN** a command is defined but no handler is registered for its id
-- **THEN** the command still lists per its surfaces but invoking it does nothing
+- **THEN** it does not appear in the palette or any surface, and pressing its default key does not prevent the keystroke's default handling
+
+#### Scenario: A contributor mounting activates its commands
+
+- **WHEN** a component that registers a command's handler mounts
+- **THEN** the command becomes visible on its surfaces and its keybinding begins firing; unmounting reverses this
 
 ### Requirement: Context-key store and `when` evaluation
 

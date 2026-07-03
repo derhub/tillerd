@@ -24,10 +24,6 @@ export function readContext(): ContextSnapshot {
   return contextStore.state;
 }
 
-export function useContext(): ContextSnapshot {
-  return useSelector(contextStore, (s) => s);
-}
-
 export function useWhen(expr: WhenExpr | undefined): boolean {
   return useSelector(contextStore, (s) => evaluateWhen(expr, s));
 }
