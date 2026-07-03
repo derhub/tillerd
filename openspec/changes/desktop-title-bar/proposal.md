@@ -34,5 +34,5 @@ The desktop window is configured with `decorations: false` and a transparent tit
 - **apps/desktop** (Rust / Tauri):
   - `src-tauri/capabilities/default.json` — add `core:window:allow-minimize`, `allow-maximize`, `allow-unmaximize`, `allow-toggle-maximize` (and `os:` permissions if the OS plugin is added).
   - `src-tauri/src/lib.rs` — register `tauri_plugin_os` only if `tauri-controls` requires it.
-- **Dependencies**: add `tauri-controls` and its peer deps (`@tauri-apps/plugin-os`) to `apps/ui`; add the `tauri-plugin-os` crate to `apps/desktop` only if needed. `clsx` / `tailwind-merge` are already present.
-- **Risk**: `tauri-controls` is at 0.4.0 (~2 years old) and references the deprecated `tauri-plugin-window`; a feasibility spike must verify it renders and its controls fire under Tauri 2.11 + Tailwind v4 before the rest is built on it.
+- **Dependencies**: none. The native OS window controls are kept via window config (`titleBarStyle`), so no controls library or plugin is added. (The `tauri-controls` library was evaluated and rejected — it crashes under React 19.)
+- **Risk**: low — the controls are OS-native; the main surface area is the shell layout restructure, covered by component tests and desktop e2e.

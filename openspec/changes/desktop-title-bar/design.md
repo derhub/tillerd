@@ -27,13 +27,19 @@ The user explicitly chose the `tauri-controls` library for the window controls, 
 
 ## Decisions
 
-### D1: Use `tauri-controls` (not a custom control set)
+### D1: Keep the native OS window controls — no plugin, no library, no custom-drawn controls
 
-User directive. `tauri-controls` provides `WindowControls`/`WindowTitlebar` React components with platform-aware styling and a `data-tauri-drag-region` affordance. Alternative considered and rejected by the user: a custom control set over the existing `currentWindow()` boundary (fewer deps, guaranteed Tauri-2.11 compatibility). Because the library is at 0.4.0 (~2 years old) and documents the deprecated `tauri-plugin-window`, **Task 1 is a feasibility spike**: install it, render `<WindowControls>` in the dev desktop build, confirm minimize/maximize/close fire under Tauri 2.11 and that styling survives Tailwind v4. If the library's controls do not fire, the spike wires the control callbacks to our own `currentWindow()` window-boundary methods while keeping the library's presentational components — recorded as a decision, not a silent pivot.
+The change originally chose the `tauri-controls` library (user directive). The **Task-1 feasibility spike disqualified every drawn/library approach and landed on Tauri's own documented standard**:
 
-### D2: Window-op wrappers live in `windows.ts`
+- `tauri-controls` 0.4.0 **crashes under React 19** — it bundles React 18's JSX runtime and reads `React.__SECRET_INTERNALS….ReactCurrentDispatcher`, removed in React 19; importing it white-screens the app. No React-19 release.
+- The `tauri-plugin-decorum` / `tauri-plugin-frame` plugins (frame is the maintained 2026 fork) give native macOS traffic-light *inset* but require a Rust plugin, per-window `create_overlay_titlebar()` wiring, and extra config/perms — more than the goal needs.
+- Hand-drawn traffic lights are not the OS's real controls.
 
-Add `minimizeSelf()`, `toggleMaximizeSelf()`, `startDrag()` to `app/lib/windows.ts`, each `(await currentWindow())?.method()`, mirroring `closeSelf()`. This keeps all `@tauri-apps/api/window` access behind the one boundary and gives the title bar host-agnostic callbacks. `close` reuses the existing `closeSelf()`. Alternative: let `tauri-controls` call the window API directly — rejected because it would bypass the `isDesktopHost()` guard and scatter Tauri imports.
+Per the official Tauri window-customization guide, the standard is to keep the **OS-native controls** and build a custom titlebar around them. `decorations: false` is precisely what strips the native controls; leaving decorations on with `titleBarStyle: "Overlay"` (macOS) keeps the native traffic lights in their default top-left position while the webview draws behind them. So the decision is a **config change, not code**: the `TitleBar` renders no control buttons at all — the OS draws them.
+
+### D2: No window-op wrappers, no extra window permissions
+
+Because the OS owns minimize/maximize/close, there is no IPC to make: no `minimizeSelf`/`toggleMaximizeSelf` in `windows.ts`, and no `allow-minimize`/`allow-maximize`/etc. capability permissions. Only `core:window:allow-start-dragging` is kept, for the `data-tauri-drag-region` bar. The `TitleBar` reserves left padding on the macOS desktop host so the toolbar sits inline to the right of the native controls.
 
 ### D3: Visibility state is durable settings, not ephemeral `uiStore`
 
