@@ -16,7 +16,7 @@ export function TitleBar() {
       className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background select-none"
     >
       <div data-tauri-drag-region className="flex-1 self-stretch" />
-      <div className="flex items-center gap-0.5 pr-2">
+      <div className="flex items-center gap-1 px-3">
         {commands.map((command) => {
           const Icon = command.icon;
           return (
