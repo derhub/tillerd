@@ -3,7 +3,6 @@ use serde::Deserialize;
 use crate::context::Ctx;
 use crate::entities::SurfaceStatus;
 use crate::infra::daemon_pty_api::SpawnRequest;
-use crate::infra::SurfaceRepo;
 use crate::shared::errors::Result;
 use crate::shared::message::Command;
 
@@ -42,10 +41,16 @@ impl Command<Ctx> for ReconcileSurfaces {
             };
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live).await?
+                    super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Live)
+                        .await?
                 }
                 Err(_) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Failed).await?
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        SurfaceStatus::Failed,
+                    )
+                    .await?
                 }
             }
         }

@@ -46,6 +46,8 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::logs::logs_changed_channel_close,
             transport::notification::notification_channel::<tauri::Wry>,
             transport::notification::notification_channel_close,
+            transport::surface::surface_status_channel::<tauri::Wry>,
+            transport::surface::surface_status_channel_close,
             transport::settings::setting_get,
             transport::settings::setting_set,
             transport::settings::setting_list,

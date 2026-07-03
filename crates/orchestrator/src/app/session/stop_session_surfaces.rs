@@ -19,8 +19,8 @@ impl Command<Ctx> for StopSessionSurfaces {
         let id = SessionId::from_string(&self.id);
         let surfaces = SurfaceRepo::list(cx.db(), &id, Page::All).await?;
         for sf in surfaces.items.iter().filter(|sf| sf.status.is_live()) {
-            SurfaceRepo::update_status(
-                cx.db(),
+            crate::app::surface::update_status_and_emit(
+                cx,
                 &sf.id,
                 crate::entities::surface::SurfaceStatus::Idle,
             )

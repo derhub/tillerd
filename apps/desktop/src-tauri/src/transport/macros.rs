@@ -154,6 +154,8 @@ macro_rules! collect_transport {
             $crate::transport::workspace::workspace_pin,
             $crate::transport::workspace::workspace_unpin,
             $crate::transport::workspace::workspace_stop_surfaces,
+            $crate::transport::surface::surface_status_channel,
+            $crate::transport::surface::surface_status_channel_close,
             $crate::transport::surface::surface_get,
             $crate::transport::surface::surface_list_by_session,
             $crate::transport::surface::surface_list_resumable,

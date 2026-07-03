@@ -61,10 +61,14 @@ impl Command<Ctx> for SpawnSurface {
             cwd: self.cwd.clone().unwrap_or_else(default_cwd),
         };
         match cx.runtime().spawn(request).await {
-            // 3) record the outcome
-            Ok(()) => SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live).await,
+            // 3) record the outcome (emits the surface-status push)
+            Ok(()) => {
+                super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Live)
+                    .await
+            }
             Err(e) => {
-                SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Failed).await?;
+                super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Failed)
+                    .await?;
                 Err(e)
             }
         }

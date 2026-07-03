@@ -139,6 +139,14 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
         ),
         (
+            "surface_status_channel",
+            serde_json::json!({ "channel": channel, "req": { "channelId": "contract" } }),
+        ),
+        (
+            "surface_status_channel_close",
+            serde_json::json!({ "req": { "channelId": "contract" } }),
+        ),
+        (
             "notification_channel_close",
             serde_json::json!({ "req": { "channelId": "contract" } }),
         ),

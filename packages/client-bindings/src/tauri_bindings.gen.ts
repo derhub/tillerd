@@ -32,6 +32,8 @@ export const commands = {
 	logsChangedChannelClose: (args: { req: CloseLogsChangedChannel }) => typedError<null, string>(__TAURI_INVOKE("logs_changed_channel_close", args)),
 	notificationChannel: (args: { channel: Channel<number[]>; req: OpenNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel", args)),
 	notificationChannelClose: (args: { req: CloseNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel_close", args)),
+	surfaceStatusChannel: (args: { channel: Channel<number[]>; req: OpenSurfaceStatusChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_status_channel", args)),
+	surfaceStatusChannelClose: (args: { req: CloseSurfaceStatusChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_status_channel_close", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),
@@ -223,6 +225,10 @@ export type CloseSurfaceChannel = {
 	surfaceId: string,
 };
 
+export type CloseSurfaceStatusChannel = {
+	channelId: string,
+};
+
 export type CommandCenterOpen = string;
 
 export type CommandRef = ({ library_ref: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { library_ref?: never };
@@ -374,6 +380,10 @@ export type OpenNotificationChannel = {
 
 export type OpenSurfaceChannel = {
 	surfaceId: string,
+};
+
+export type OpenSurfaceStatusChannel = {
+	channelId: string,
 };
 
 /**  A stored profile: id, name, and a map of setting overrides. */

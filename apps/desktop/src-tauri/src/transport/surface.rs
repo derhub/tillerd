@@ -53,6 +53,11 @@ domain_channel! {
     pub close surface_channel_close(orchestrator::app::surface::CloseSurfaceChannel)
 }
 
+domain_channel! {
+    pub open surface_status_channel(orchestrator::app::surface::OpenSurfaceStatusChannel),
+    pub close surface_status_channel_close(orchestrator::app::surface::CloseSurfaceStatusChannel)
+}
+
 transport_query!(
     surface_resolve_or_spawn(session: String, placement: String, cwd: Option<String>, cols: Option<u16>, rows: Option<u16>) -> SurfaceView
         => ResolveOrSpawnSurface { session, placement, cwd, cols, rows },

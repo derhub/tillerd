@@ -27,8 +27,13 @@ impl Command<Ctx> for StopProjectSurfaces {
                 if surface.status == SurfaceStatus::Live {
                     // Stop the PTY (no DB lock held).
                     cx.runtime().stop(&surface.id).await?;
-                    // Record outcome.
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Idle).await?;
+                    // Record outcome (emits the surface-status push).
+                    crate::app::surface::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        SurfaceStatus::Idle,
+                    )
+                    .await?;
                 }
             }
         }

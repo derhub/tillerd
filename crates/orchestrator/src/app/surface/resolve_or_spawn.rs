@@ -55,13 +55,19 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    SurfaceRepo::update_status(cx.db(), &surface_id, SurfaceStatus::Live).await?;
+                    super::status_events::update_status_and_emit(cx, &surface_id, SurfaceStatus::Live)
+                        .await?;
                     let mut updated = view;
                     updated.status = "live".to_owned();
                     Ok(updated)
                 }
                 Err(e) => {
-                    SurfaceRepo::update_status(cx.db(), &surface_id, SurfaceStatus::Failed).await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface_id,
+                        SurfaceStatus::Failed,
+                    )
+                    .await?;
                     Err(e)
                 }
             }
@@ -94,7 +100,8 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live).await?;
+                    super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Live)
+                        .await?;
                     Ok(SurfaceView {
                         id: surface.id.as_str().to_owned(),
                         session_id: self.session.clone(),
@@ -105,7 +112,12 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
                     })
                 }
                 Err(e) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Failed).await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        SurfaceStatus::Failed,
+                    )
+                    .await?;
                     Err(e)
                 }
             }

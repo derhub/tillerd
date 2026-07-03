@@ -12,17 +12,17 @@
 
 ## 2. Workspace-activity query + status push (backend)
 
-- [ ] 2.1 `ListWorkspaceActivity` app-layer Query returning
+- [x] 2.1 `ListWorkspaceActivity` app-layer Query returning
   `{workspace_id, running, failed}` via one GROUP-BY join over persisted surface status;
   transport shim via `transport_query!`; ACL/wire additive (spec: workspace-activity /
   rollup; design D3).
-- [ ] 2.2 Rust tests: rollup counts across workspaces (running/failed/idle mix, empty
+- [x] 2.2 Rust tests: rollup counts across workspaces (running/failed/idle mix, empty
   workspace) in one round trip; no schema change asserted by migration diff.
-- [ ] 2.3 Emit `surface_status_changed {surface_id, session_id, workspace_id, status}`
+- [x] 2.3 Emit `surface_status_changed {surface_id, session_id, workspace_id, status}`
   on the dispatch spine at every app-layer surface status transition (spawn confirmed,
   exit, error, close); expose over the existing subscription transport (spec:
   workspace-activity / push; design D4).
-- [ ] 2.4 Rust test: status transition dispatches exactly one event with the
+- [x] 2.4 Rust test: status transition dispatches exactly one event with the
   post-transition status; event fires after the status write commits.
 
 ## 3. Client bindings + state-model mirror (client)

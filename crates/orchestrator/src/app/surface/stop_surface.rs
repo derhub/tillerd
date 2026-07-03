@@ -2,7 +2,6 @@ use serde::Deserialize;
 
 use crate::context::Ctx;
 use crate::entities::{SurfaceId, SurfaceStatus};
-use crate::infra::SurfaceRepo;
 use crate::shared::errors::Result;
 use crate::shared::message::Command;
 
@@ -20,7 +19,7 @@ impl Command<Ctx> for StopSurface {
         let id = SurfaceId::from_string(&self.id);
         require_surface(cx, &id).await?;
         cx.runtime().stop(&id).await?;
-        SurfaceRepo::update_status(cx.db(), &id, SurfaceStatus::Idle).await
+        super::status_events::update_status_and_emit(cx, &id, SurfaceStatus::Idle).await
     }
 }
 
