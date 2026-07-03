@@ -91,16 +91,17 @@ SETUP="$REPO_ROOT/tests/desktop-e2e/setup.ts"
 RESUME="$REPO_ROOT/tests/desktop-e2e/resume.test.ts"
 RELOAD="$REPO_ROOT/tests/desktop-e2e/reload-deep-route.test.ts"
 POINTERS="$REPO_ROOT/tests/desktop-e2e/view-pointers-restart.test.ts"
+FOUNDATION="$REPO_ROOT/tests/desktop-e2e/foundation-integration.test.ts"
 
 # Dev scenario suite: one shared app (preload) across every spec except the own-launch ones.
-SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME" | grep -v "$RELOAD" | grep -v "$POINTERS")
+SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME" | grep -v "$RELOAD" | grep -v "$POINTERS" | grep -v "$FOUNDATION")
 # shellcheck disable=SC2086
 TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail --preload "$SETUP" $SCENARIO_SPECS
 
 # Own-launch specs (own app against the shared TILLERD_DIR): restart-resume, deep-route reload,
-# and the view-pointer restart.
+# the view-pointer restart, and the foundation-integration journey (it reloads its own app).
 set +e
-TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD" "$POINTERS"
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD" "$POINTERS" "$FOUNDATION"
 TEST_EXIT=$?
 if [[ $TEST_EXIT -ne 0 ]]; then
   echo "--- E2E TEST FAILED ---" >&2

@@ -29,9 +29,9 @@ the client to enumerate sessions or surfaces to assemble it.
 
 ### Requirement: Surface runtime status changes push to every window
 
-When a surface's runtime status changes (spawned, exited, crashed, closed), the
-orchestrator SHALL emit a status-change event on the existing event-dispatch spine,
-delivered to every connected window — including windows that did not cause the change.
+The orchestrator SHALL emit a status-change event on the existing event-dispatch spine
+when a surface's runtime status changes (spawned, exited, crashed, closed), delivered to
+every connected window — including windows that did not cause the change.
 
 #### Scenario: A crash the user did not cause is pushed
 

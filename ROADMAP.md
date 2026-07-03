@@ -364,11 +364,11 @@ cohesion and typed search-params that fit the `?w=<id>` window-intent model (SPA
 SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/`serve`,
 `@react-router/node`) for a Vite SPA build.
 
-> Re-scope: the bullets below (and 0.0.17's Re-sync / conflict-prompt) reference the
-> state-model contract and the hand-editable file tree that ADR-0036 deferred / superseded.
-> Domain is now sqlite (not hand-edited files), so 3-way file merge / Re-sync is moot as
-> written; view pointers, guards, and workspace-activity ride the deferred state-model.
-> These need re-scoping against ADR-0036 before 0.0.16 starts.
+> Re-scoped (resolved): the bullets below referenced the state-model contract and the
+> hand-editable file tree that ADR-0036 deferred / superseded. Domain is now sqlite (not
+> hand-edited files), so 3-way file merge / Re-sync is moot; view pointers, guards, and
+> workspace-activity were re-based onto ADR-0044 (Rust-authoritative state model) and landed
+> below. 0.0.17's Re-sync / conflict-prompt bullet is dropped for the same reason (see 0.0.17).
 
 - [x] TanStack Router — replace react-router routing (12 files); typed search-params carry window intent.
   (`@tanstack/react-router`, file-based routing per ADR-0040; `app/router.tsx` + `app/lib/windows.ts`
@@ -392,9 +392,20 @@ SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/
 
 Buffer + integration pass: the three slices proven together end-to-end before the 0.0.20 UX/UI ship.
 
-- [ ] End-to-end — storage + state model + TanStack working as one across create / switch / reload / Re-sync / multi-window.
-- [ ] Re-sync UX — placement + conflict-prompt (Override / Force-merge), per-node for layout.
-- [ ] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.16 lands here.
+- [x] End-to-end — storage + state model + TanStack working as one across create / switch / reload / multi-window.
+  (Consolidated journey `tests/desktop-e2e/foundation-integration.test.ts`: one project threaded through
+  create → switch → reload, asserting surface identity survives both the session switch and a full window
+  reload; multi-window coherence via the parent-row reaction.)
+- [x] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.16 lands here.
+  (No integration blocker surfaced — the consolidated journey and the full verify gate are green as-is.)
+
+> Dropped: **Re-sync UX — placement + conflict-prompt (Override / Force-merge)**. Moot post
+> ADR-0036 — conflict-locking and the 3-way file-merge model it prompted are gone with the
+> hand-editable file tree; the domain is a single relational store where every mutation is one
+> atomic transaction. ADR-0044 makes the server-state cache the sync axis (pending / error /
+> stale), and ADR-0039's cross-window cache-invalidation broadcast already delivers multi-window
+> coherence — a write in one window invalidates the matching query in the others. No conflict
+> prompt is built.
 
 ---
 
