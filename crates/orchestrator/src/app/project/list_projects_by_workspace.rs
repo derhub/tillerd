@@ -49,7 +49,8 @@ impl Query<Ctx> for ListProjectsByWorkspace {
         match page {
             Page::All => {
                 let items = sqlx::query_as::<_, ProjectView>(
-                    "SELECT id, name, source_kind, root_path, workspace_id
+                    "SELECT id, name, source_kind, root_path, workspace_id,
+                            CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM project
                      WHERE workspace_id = ?
                      ORDER BY pinned DESC, sort_order, id",
@@ -64,7 +65,8 @@ impl Query<Ctx> for ListProjectsByWorkspace {
                 // Fetch one extra to detect whether a next page exists.
                 let fetch = (limit as i64) + 1;
                 let rows = sqlx::query_as::<_, ProjectView>(
-                    "SELECT id, name, source_kind, root_path, workspace_id
+                    "SELECT id, name, source_kind, root_path, workspace_id,
+                            CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM project
                      WHERE workspace_id = ?
                      ORDER BY pinned DESC, sort_order, id
@@ -95,7 +97,9 @@ impl Query<Ctx> for ListProjectsByWorkspace {
                 let rows: Vec<CursorRow> = if let Some(cursor) = &after {
                     let (c_pinned, c_sort, c_id) = parse_cursor(cursor)?;
                     sqlx::query_as(
-                        "SELECT id, name, source_kind, root_path, workspace_id, pinned, sort_order
+                        "SELECT id, name, source_kind, root_path, workspace_id,
+                                CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status,
+                                pinned, sort_order
                          FROM project
                          WHERE workspace_id = ?
                            AND (
@@ -118,7 +122,9 @@ impl Query<Ctx> for ListProjectsByWorkspace {
                     .await?
                 } else {
                     sqlx::query_as(
-                        "SELECT id, name, source_kind, root_path, workspace_id, pinned, sort_order
+                        "SELECT id, name, source_kind, root_path, workspace_id,
+                                CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status,
+                                pinned, sort_order
                          FROM project
                          WHERE workspace_id = ?
                          ORDER BY pinned DESC, sort_order, id

@@ -54,6 +54,7 @@ export const commands = {
 	sourceKind: string,
 	rootPath: string | null,
 	workspaceId: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("project_get", args)),
 	projectSearch: (args: { workspaceId: string; query: string; limit: number }) => typedError<ProjectView[], string>(__TAURI_INVOKE("project_search", args)),
 	projectRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("project_restore", args)),
@@ -70,6 +71,7 @@ export const commands = {
 	workspaceGet: (args: { id: string }) => typedError<{
 	id: string,
 	name: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("workspace_get", args)),
 	workspaceArchive: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_archive", args)),
 	workspaceRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_restore", args)),
@@ -114,6 +116,7 @@ export const commands = {
 	title: string,
 	titleSource: string,
 	createdAt: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("session_get", args)),
 	sessionListAll: (args: { limit: number | null; offset: number | null; after: string | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list_all", args)),
 	sessionGetLaunchSpec: (args: { id: string }) => typedError<LaunchSpec | null, string>(__TAURI_INVOKE("session_get_launch_spec", args)),
@@ -407,6 +410,7 @@ export type ProjectView = {
 	sourceKind: string,
 	rootPath: string | null,
 	workspaceId: string,
+	status: string,
 };
 
 /**  One service's health on the wire. */
@@ -432,6 +436,7 @@ export type SessionView = {
 	title: string,
 	titleSource: string,
 	createdAt: string,
+	status: string,
 };
 
 /**
@@ -516,6 +521,7 @@ export type WorkspaceActivityView = {
 export type WorkspaceView = {
 	id: string,
 	name: string,
+	status: string,
 };
 
 /* Tauri Specta runtime */

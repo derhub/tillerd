@@ -185,8 +185,10 @@ mod tests {
         let cx = ctx().await;
         let surface_id = seed_surface(&cx).await;
 
-        cx.domain_channel_sinks()
-            .register("surface-status://probe", Arc::new(RecordingSink(Mutex::new(Vec::new()))));
+        cx.domain_channel_sinks().register(
+            "surface-status://probe",
+            Arc::new(RecordingSink(Mutex::new(Vec::new()))),
+        );
 
         update_status_and_emit(&cx, &surface_id, SurfaceStatus::Failed)
             .await

@@ -9,7 +9,9 @@ use crate::shared::message::Query;
 use crate::shared::pagination::{Listing, Page};
 
 /// Projection columns for the `SessionView` read model.
-const SELECT: &str = "SELECT id, project_id, title, title_source, created_at FROM session";
+const SELECT: &str = "SELECT id, project_id, title, title_source, created_at,
+                             CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
+                      FROM session";
 
 /// List sessions in a project, pinned-first.
 ///

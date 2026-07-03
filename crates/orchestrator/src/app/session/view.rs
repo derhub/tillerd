@@ -11,6 +11,7 @@ pub struct SessionView {
     pub title: String,
     pub title_source: String,
     pub created_at: String,
+    pub status: String,
 }
 
 /// Read model for a session's launch spec (the migrated recipe + placements).

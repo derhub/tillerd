@@ -41,8 +41,12 @@ impl Command<Ctx> for ReconcileSurfaces {
             };
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Live)
-                        .await?
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        SurfaceStatus::Live,
+                    )
+                    .await?
                 }
                 Err(_) => {
                     super::status_events::update_status_and_emit(

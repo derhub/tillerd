@@ -75,7 +75,8 @@ mod tests {
         let w = WorkspaceView {
             id: "w".into(),
             name: "W".into(),
+            status: "active".into(),
         };
-        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name"]);
+        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name", "status"]);
     }
 }

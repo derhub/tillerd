@@ -18,7 +18,8 @@ impl Query<Ctx> for SearchProjects {
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         let pattern = format!("%{}%", self.query.replace('%', "\\%").replace('_', "\\_"));
         Ok(sqlx::query_as::<_, ProjectView>(
-            "SELECT id, name, source_kind, root_path, workspace_id
+            "SELECT id, name, source_kind, root_path, workspace_id,
+                    CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
              FROM project
              WHERE workspace_id = ?
                AND name LIKE ? ESCAPE '\\'

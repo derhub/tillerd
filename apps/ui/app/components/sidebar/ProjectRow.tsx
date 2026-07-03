@@ -8,6 +8,7 @@ import { ProjectContextMenu } from "~/components/sidebar/ProjectContextMenu";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { reorderByDrop } from "~/lib/reorder";
+import { can } from "~/lib/stateModel";
 import { useProjectExpanded } from "~/lib/store";
 import { cn } from "~/lib/utils";
 
@@ -170,7 +171,8 @@ export function ProjectRow({
       {menuAt && (
         <ProjectContextMenu
           at={menuAt}
-          allowMutations={!isUnfiled}
+          allowRename={!isUnfiled}
+          allowDelete={can("project", "discard", project)}
           onClose={() => setMenuAt(null)}
           onRename={() => {
             onStartEdit();

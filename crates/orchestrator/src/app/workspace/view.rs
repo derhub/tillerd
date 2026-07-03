@@ -7,6 +7,7 @@ use serde::Serialize;
 pub struct WorkspaceView {
     pub id: String,
     pub name: String,
+    pub status: String,
 }
 
 /// Per-workspace rollup of surface runtime state (ADR-0044): derived at query

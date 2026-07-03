@@ -67,8 +67,12 @@ impl Command<Ctx> for SpawnSurface {
                     .await
             }
             Err(e) => {
-                super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Failed)
-                    .await?;
+                super::status_events::update_status_and_emit(
+                    cx,
+                    &surface.id,
+                    SurfaceStatus::Failed,
+                )
+                .await?;
                 Err(e)
             }
         }

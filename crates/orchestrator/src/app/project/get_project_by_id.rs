@@ -15,7 +15,10 @@ impl Query<Ctx> for GetProjectById {
     type Out = Option<ProjectView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, ProjectView>(
-            "SELECT id, name, source_kind, root_path, workspace_id FROM project WHERE id = ?",
+            "SELECT id, name, source_kind, root_path, workspace_id,
+                    CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
+             FROM project
+             WHERE id = ?",
         )
         .bind(&self.id)
         .fetch_optional(cx.db())

@@ -27,15 +27,15 @@
 
 ## 3. Client bindings + state-model mirror (client)
 
-- [ ] 3.1 Regenerate client bindings for the new query + subscription event.
-- [ ] 3.2 `apps/ui/app/lib/stateModel.ts`: typed mirror constants + `can(entity, action,
+- [x] 3.1 Regenerate client bindings for the new query + subscription event.
+- [x] 3.2 `apps/ui/app/lib/stateModel.ts`: typed mirror constants + `can(entity, action,
   row)`; TS contract test asserts the mirror matches `state-model.contract.json`,
   including required-field presence on the view types (spec: state-model-contract /
   mirror + drift; design D1/D2).
-- [ ] 3.3 Wire enablement: sidebar/context-menu/workspace actions derive
+- [x] 3.3 Wire enablement: sidebar/context-menu/workspace actions derive
   disabled state from `can()` (Default workspace, Unfiled project, archived entities);
   remove any per-component guard conditionals found (spec: advisory guards).
-- [ ] 3.4 UI unit tests: guarded rows render disabled actions; guard rejection from the
+- [x] 3.4 UI unit tests: guarded rows render disabled actions; guard rejection from the
   server still surfaces via the mutation-error notification path.
 
 ## 4. View pointers (client + settings keys)

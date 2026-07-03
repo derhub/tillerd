@@ -55,8 +55,12 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    super::status_events::update_status_and_emit(cx, &surface_id, SurfaceStatus::Live)
-                        .await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface_id,
+                        SurfaceStatus::Live,
+                    )
+                    .await?;
                     let mut updated = view;
                     updated.status = "live".to_owned();
                     Ok(updated)
@@ -100,8 +104,12 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    super::status_events::update_status_and_emit(cx, &surface.id, SurfaceStatus::Live)
-                        .await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        SurfaceStatus::Live,
+                    )
+                    .await?;
                     Ok(SurfaceView {
                         id: surface.id.as_str().to_owned(),
                         session_id: self.session.clone(),

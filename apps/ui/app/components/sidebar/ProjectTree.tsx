@@ -29,6 +29,7 @@ const UNFILED_PROJECT: Project = {
   sourceKind: "blank",
   rootPath: null,
   workspaceId: DEFAULT_WORKSPACE_ID,
+  status: "active",
 };
 
 export function ProjectTree({

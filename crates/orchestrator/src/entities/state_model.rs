@@ -74,14 +74,38 @@ pub fn state_model() -> StateModel {
                     WorkspaceStatus::Archived.as_str(),
                 ),
                 transitions: vec![
-                    Transition { action: "archive", from: "active", to: "archived" },
-                    Transition { action: "restore", from: "archived", to: "active" },
+                    Transition {
+                        action: "archive",
+                        from: "active",
+                        to: "archived",
+                    },
+                    Transition {
+                        action: "restore",
+                        from: "archived",
+                        to: "active",
+                    },
                 ],
                 guards: vec![
-                    GuardRule { action: "archive", rule: "not-default", fields: &["id"] },
-                    GuardRule { action: "archive", rule: "active", fields: &["status"] },
-                    GuardRule { action: "discard", rule: "not-default", fields: &["id"] },
-                    GuardRule { action: "restore", rule: "archived", fields: &["status"] },
+                    GuardRule {
+                        action: "archive",
+                        rule: "not-default",
+                        fields: &["id"],
+                    },
+                    GuardRule {
+                        action: "archive",
+                        rule: "active",
+                        fields: &["status"],
+                    },
+                    GuardRule {
+                        action: "discard",
+                        rule: "not-default",
+                        fields: &["id"],
+                    },
+                    GuardRule {
+                        action: "restore",
+                        rule: "archived",
+                        fields: &["status"],
+                    },
                 ],
             },
             EntityStateModel {
@@ -91,15 +115,43 @@ pub fn state_model() -> StateModel {
                     ProjectStatus::Archived.as_str(),
                 ),
                 transitions: vec![
-                    Transition { action: "archive", from: "active", to: "archived" },
-                    Transition { action: "restore", from: "archived", to: "active" },
+                    Transition {
+                        action: "archive",
+                        from: "active",
+                        to: "archived",
+                    },
+                    Transition {
+                        action: "restore",
+                        from: "archived",
+                        to: "active",
+                    },
                 ],
                 guards: vec![
-                    GuardRule { action: "archive", rule: "not-unfiled", fields: &["id"] },
-                    GuardRule { action: "archive", rule: "active", fields: &["status"] },
-                    GuardRule { action: "discard", rule: "not-unfiled", fields: &["id"] },
-                    GuardRule { action: "move", rule: "not-unfiled", fields: &["id"] },
-                    GuardRule { action: "restore", rule: "archived", fields: &["status"] },
+                    GuardRule {
+                        action: "archive",
+                        rule: "not-unfiled",
+                        fields: &["id"],
+                    },
+                    GuardRule {
+                        action: "archive",
+                        rule: "active",
+                        fields: &["status"],
+                    },
+                    GuardRule {
+                        action: "discard",
+                        rule: "not-unfiled",
+                        fields: &["id"],
+                    },
+                    GuardRule {
+                        action: "move",
+                        rule: "not-unfiled",
+                        fields: &["id"],
+                    },
+                    GuardRule {
+                        action: "restore",
+                        rule: "archived",
+                        fields: &["status"],
+                    },
                 ],
             },
             EntityStateModel {
@@ -111,8 +163,16 @@ pub fn state_model() -> StateModel {
                     vec!["active", "archived"]
                 },
                 transitions: vec![
-                    Transition { action: "archive", from: "active", to: "archived" },
-                    Transition { action: "restore", from: "archived", to: "active" },
+                    Transition {
+                        action: "archive",
+                        from: "active",
+                        to: "archived",
+                    },
+                    Transition {
+                        action: "restore",
+                        from: "archived",
+                        to: "active",
+                    },
                 ],
                 guards: vec![],
             },
@@ -125,13 +185,41 @@ pub fn state_model() -> StateModel {
                     SurfaceStatus::Idle.as_str(),
                 ],
                 transitions: vec![
-                    Transition { action: "spawn", from: "pending", to: "live" },
-                    Transition { action: "spawn", from: "pending", to: "failed" },
-                    Transition { action: "resume", from: "idle", to: "live" },
-                    Transition { action: "resume", from: "failed", to: "live" },
-                    Transition { action: "stop", from: "live", to: "idle" },
-                    Transition { action: "reconcile", from: "live", to: "failed" },
-                    Transition { action: "reconcile", from: "pending", to: "failed" },
+                    Transition {
+                        action: "spawn",
+                        from: "pending",
+                        to: "live",
+                    },
+                    Transition {
+                        action: "spawn",
+                        from: "pending",
+                        to: "failed",
+                    },
+                    Transition {
+                        action: "resume",
+                        from: "idle",
+                        to: "live",
+                    },
+                    Transition {
+                        action: "resume",
+                        from: "failed",
+                        to: "live",
+                    },
+                    Transition {
+                        action: "stop",
+                        from: "live",
+                        to: "idle",
+                    },
+                    Transition {
+                        action: "reconcile",
+                        from: "live",
+                        to: "failed",
+                    },
+                    Transition {
+                        action: "reconcile",
+                        from: "pending",
+                        to: "failed",
+                    },
                 ],
                 guards: vec![],
             },

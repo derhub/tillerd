@@ -102,10 +102,18 @@ mod tests {
             source_kind: "blank".into(),
             root_path: None,
             workspace_id: "w".into(),
+            status: "active".into(),
         };
         assert_keys(
             &serde_json::to_value(p).unwrap(),
-            &["id", "name", "sourceKind", "rootPath", "workspaceId"],
+            &[
+                "id",
+                "name",
+                "sourceKind",
+                "rootPath",
+                "workspaceId",
+                "status",
+            ],
         );
     }
 }
