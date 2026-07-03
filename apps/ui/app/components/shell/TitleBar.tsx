@@ -1,29 +1,22 @@
 import { useSurfaceCommands } from "~/lib/commands/registry";
-import { isMac } from "~/lib/platform";
-import { isDesktopHost } from "~/lib/transport/core";
 import { cn } from "~/lib/utils";
 
-// The top band of the window. The OS draws the native window controls here
-// (macOS keeps its traffic lights via `titleBarStyle: "Overlay"`), so this
-// component adds no control buttons -- it reserves space for the native controls
-// on the left, is a drag region, and renders the command toolbar inline beside
-// them. The toolbar projects the commands tagged for the `titlebar` surface, so
-// adding a button is a command-definition edit, not a change here.
+// The top band of the window. The OS draws the native window controls at the top
+// left (macOS traffic lights, via `titleBarStyle: "Overlay"`), so this component
+// draws no control buttons -- the left area is just a drag region the controls sit
+// over. The command toolbar is right-aligned at the end of the title bar. The
+// toolbar projects the commands tagged for the `titlebar` surface, so adding a
+// button is a command-definition edit, not a change here.
 export function TitleBar() {
   const commands = useSurfaceCommands("titlebar");
-  // macOS traffic lights overlay the top-left; reserve room so the toolbar sits
-  // to their right rather than under them.
-  const reserveTrafficLights = isMac && isDesktopHost();
 
   return (
     <div
       data-tauri-drag-region
-      className={cn(
-        "flex h-9 shrink-0 items-center border-b border-border/40 bg-background select-none",
-        reserveTrafficLights ? "pl-20" : "pl-2",
-      )}
+      className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background select-none"
     >
-      <div className="flex items-center gap-0.5">
+      <div data-tauri-drag-region className="flex-1 self-stretch" />
+      <div className="flex items-center gap-0.5 pr-2">
         {commands.map((command) => {
           const Icon = command.icon;
           return (
@@ -45,7 +38,6 @@ export function TitleBar() {
           );
         })}
       </div>
-      <div data-tauri-drag-region className="flex-1 self-stretch" />
     </div>
   );
 }
