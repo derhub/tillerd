@@ -1,6 +1,11 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
-import { command, query, type Workspace } from "@tillerd/client-bindings";
+import {
+  command,
+  query,
+  type Workspace,
+  type WorkspaceActivityView,
+} from "@tillerd/client-bindings";
 import { FolderPlus, ArrowUpRight } from "lucide-react";
 import React from "react";
 
@@ -22,6 +27,7 @@ import {
 
 export interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
+  activity?: ReadonlyMap<string, WorkspaceActivityView>;
   activeId: string | null;
   detachedIds: Set<string>;
   isDesktop: boolean;
@@ -35,8 +41,28 @@ export interface WorkspaceSwitcherProps {
   onRename: (id: string, name: string) => void;
 }
 
+// Minimal activity signal (full badge styling lands with the 0.0.20 visual pass):
+// a dot per workspace with live/failed surfaces, colored by the worst state.
+function ActivityDot({ activity }: { activity?: WorkspaceActivityView }) {
+  if (!activity || (activity.running === 0 && activity.failed === 0)) return null;
+  const failed = activity.failed > 0;
+  return (
+    <span
+      data-testid="workspace-activity"
+      data-running={activity.running}
+      data-failed={activity.failed}
+      title={`${activity.running} running, ${activity.failed} failed`}
+      className={cn(
+        "size-1.5 rounded-full shrink-0",
+        failed ? "bg-red-500" : "bg-emerald-500",
+      )}
+    />
+  );
+}
+
 export function WorkspaceSwitcherList({
   workspaces,
+  activity,
   activeId,
   detachedIds,
   isDesktop,
@@ -79,6 +105,7 @@ export function WorkspaceSwitcherList({
               {ws.name}
             </button>
           )}
+          <ActivityDot activity={activity?.get(ws.id)} />
           {detachedIds.has(ws.id) ? (
             <button
               type="button"
@@ -143,6 +170,13 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
   const renameWorkspace = useMutation(command("workspaceRename"));
 
   const { data: workspaces } = useSuspenseQuery(query("workspaceList"));
+  // Enhancement read: the switcher renders without it (no suspense), the dot
+  // appears when the rollup lands and refreshes on the surface-status push.
+  const { data: activityRows } = useQuery(query("workspaceActivity"));
+  const activity = React.useMemo(
+    () => new Map((activityRows ?? []).map((a) => [a.workspaceId, a])),
+    [activityRows],
+  );
 
   // Lifecycle resolution (ADR-0044): a pointer to an archived or deleted workspace
   // resolves to the Default workspace — never an error or an empty shell.
@@ -223,6 +257,7 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     <div className="flex flex-col h-full">
       <WorkspaceSwitcherList
         workspaces={workspaces}
+        activity={activity}
         activeId={activeWorkspaceId}
         detachedIds={detachedWorkspaces}
         isDesktop={isDesktop}

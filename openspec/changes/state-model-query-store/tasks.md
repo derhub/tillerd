@@ -57,13 +57,13 @@
 
 ## 5. Activity consumption (client)
 
-- [ ] 5.1 `["workspace-activity"]` queryOptions factory; subscription handler feeds the
+- [x] 5.1 `["workspace-activity"]` queryOptions factory; subscription handler feeds the
   crossWindowSync coalescing flush to invalidate `["workspace-activity"]` +
   `["surfaces", session_id]` (spec: workspace-activity / invalidate + coalesce).
-- [ ] 5.2 Minimal activity indicator on workspace/session rows reading the rollup
+- [x] 5.2 Minimal activity indicator on workspace/session rows reading the rollup
   (running/failed) — full badge styling stays 0.0.20; this proves the read-model
   end-to-end.
-- [ ] 5.3 UI unit tests: push event → invalidation (coalesced under burst), badge
+- [x] 5.3 UI unit tests: push event → invalidation (coalesced under burst), badge
   reflects rollup.
 
 ## 6. Integration + docs

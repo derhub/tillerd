@@ -117,6 +117,40 @@ export async function notificationChannel(
   );
 }
 
+export type SurfaceStatusEvent = {
+  surfaceId: string;
+  sessionId: string;
+  workspaceId: string;
+  status: string;
+};
+
+export type SurfaceStatusChannelHandle = {
+  close(): Promise<void>;
+};
+
+// Per-window subscription to surface runtime status transitions (ADR-0044): the
+// orchestrator pushes after each status write commits, so a re-query on receipt
+// always reads the post-transition row.
+export async function surfaceStatusChannel(
+  callback: (event: SurfaceStatusEvent) => void,
+): Promise<SurfaceStatusChannelHandle> {
+  const channelId = crypto.randomUUID();
+  return openChannel(
+    (channel) => commands.surfaceStatusChannel({ channel, req: { channelId } }).then(ensureResult),
+    (bytes) => {
+      if (bytes[0] === 0x00) {
+        const json = new TextDecoder().decode(bytes.subarray(1));
+        callback(JSON.parse(json));
+      }
+    },
+    {
+      close: async () => {
+        await commands.surfaceStatusChannelClose({ req: { channelId } }).then(ensureResult);
+      },
+    },
+  );
+}
+
 export type LogsChangedChannelHandle = {
   close(): Promise<void>;
 };

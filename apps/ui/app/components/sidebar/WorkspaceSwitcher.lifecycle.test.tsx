@@ -25,6 +25,7 @@ const beta = { id: "ws-2", name: "Beta" };
 const opened: string[] = [];
 const created: { name: string }[] = [];
 let workspaceList: { id: string; name: string }[] = [alpha, beta];
+let workspaceActivity: { workspaceId: string; running: number; failed: number }[] = [];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
 void mock.module("~/lib/useDesktopHost", () => ({
@@ -58,6 +59,7 @@ void mock.module("@tauri-apps/api/core", () => ({
     }
     if (cmd === "project_list") return [];
     if (cmd === "session_list") return [];
+    if (cmd === "workspace_activity") return [...workspaceActivity];
     return null;
   },
   Channel: class Channel {
@@ -79,6 +81,7 @@ afterEach(() => {
   opened.length = 0;
   created.length = 0;
   workspaceList = [alpha, beta];
+  workspaceActivity = [];
   reattach = undefined;
   setActiveWorkspace(null);
   setReady(false);
@@ -122,6 +125,25 @@ test("detaching a workspace opens its window and re-attaching closes it back to 
   });
   await waitFor(() => expect(detachedIndicator()).toBeNull());
   expect(detachBtn()).not.toBeNull();
+});
+
+// The activity dot proves the workspace-activity read-model end to end: rollup rows
+// render as a per-workspace indicator colored by the worst state.
+test("the activity dot reflects the rollup for its workspace", async () => {
+  workspaceActivity = [
+    { workspaceId: "ws-1", running: 2, failed: 0 },
+    { workspaceId: "ws-2", running: 0, failed: 0 },
+  ];
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const dot = document.querySelector('[data-testid="workspace-activity"]');
+    expect(dot).not.toBeNull();
+    expect(dot?.getAttribute("data-running")).toBe("2");
+  });
+  // ws-2 has no live/failed surfaces: exactly one dot renders.
+  expect(document.querySelectorAll('[data-testid="workspace-activity"]')).toHaveLength(1);
 });
 
 // Lifecycle resolution (ADR-0044): a pointer to a deleted workspace resolves to the

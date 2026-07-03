@@ -21,11 +21,14 @@ export {
   logChannel,
   notificationChannel,
   logsChangedChannel,
+  surfaceStatusChannel,
   type SurfaceChannelEvent,
   type SurfaceChannelHandle,
   type LogChannelHandle,
   type NotificationChannelHandle,
   type LogsChangedChannelHandle,
+  type SurfaceStatusEvent,
+  type SurfaceStatusChannelHandle,
 } from "./subscribe";
 export { openChannel, type ChannelHandle } from "./channel";
 export { windowOpen, windowFocus, windowClose } from "./window";

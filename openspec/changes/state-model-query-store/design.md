@@ -67,7 +67,10 @@ Guard rules reference only fields present in the client's existing read models
 (`is_default`, `is_unfiled`, `status`). The mirror module exposes
 `can(entity, action, row) -> boolean`; components call it for enablement — no new
 queries, no per-component conditionals. Server remains the enforcer; a rejected command
-surfaces through the existing `MutationCache.onError` → notification path.
+is recorded by the orchestrator as a `command-error` notification (bus
+`execute_recorded` + recording middleware) and pushed over the notification channel —
+the renderer never records notifications (user decision, mid-implementation: the
+prior client-side `MutationCache.onError → recordNotification` path was removed).
 
 *Alternative — server-computed `allowedActions` per row:* another payload on every list
 read and a second source of truth to keep live; rejected.

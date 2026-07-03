@@ -16,6 +16,7 @@ import {
   shouldDehydrateQuery,
 } from "~/lib/queryClient";
 import { subscribe } from "~/lib/subscribe";
+import { mountSurfaceStatusSync } from "~/lib/surfaceStatusSync";
 
 import { routeTree } from "./routeTree.gen";
 
@@ -42,6 +43,7 @@ declare module "@tanstack/react-router" {
 
 export function AppRouter() {
   React.useEffect(() => subscribe(mountCrossWindowInvalidate(queryClient)), []);
+  React.useEffect(() => mountSurfaceStatusSync(queryClient), []);
 
   const content = <RouterProvider router={router} />;
 

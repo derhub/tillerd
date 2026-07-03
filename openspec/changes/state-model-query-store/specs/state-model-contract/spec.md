@@ -60,12 +60,14 @@ removed, or renamed on one side only. The test SHALL run in the default verifica
 ### Requirement: Client guards are advisory; the server enforces
 
 Client-side guard evaluation SHALL be advisory only. The server SHALL enforce every guard
-regardless of client behavior, and a guard rejection SHALL surface to the user through the
-standard mutation-error channel.
+regardless of client behavior. A guard rejection SHALL be recorded by the orchestrator as
+an error notification (the orchestrator is the sole notification recorder; the client
+never records) and pushed to windows over the notification channel.
 
 #### Scenario: Bypassing the client guard still fails safely
 
 - **WHEN** a guarded command reaches the server despite the client mirror (stale window,
   race, or direct dispatch)
-- **THEN** the server rejects it with the typed guard error and the client surfaces the
-  rejection through the standard mutation-error notification path
+- **THEN** the server rejects it with the typed guard error, records a `command-error`
+  notification server-side, and every window's notification feed receives it over the
+  push channel
