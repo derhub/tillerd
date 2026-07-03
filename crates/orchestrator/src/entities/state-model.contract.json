@@ -1,0 +1,180 @@
+{
+  "well_known_ids": {
+    "default_workspace": "00000000-0000-0000-0000-000000000001",
+    "unfiled_project": "00000000-0000-0000-0000-000000000000"
+  },
+  "entities": [
+    {
+      "entity": "workspace",
+      "states": [
+        "active",
+        "archived"
+      ],
+      "transitions": [
+        {
+          "action": "archive",
+          "from": "active",
+          "to": "archived"
+        },
+        {
+          "action": "restore",
+          "from": "archived",
+          "to": "active"
+        }
+      ],
+      "guards": [
+        {
+          "action": "archive",
+          "rule": "not-default",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "action": "archive",
+          "rule": "active",
+          "fields": [
+            "status"
+          ]
+        },
+        {
+          "action": "discard",
+          "rule": "not-default",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "action": "restore",
+          "rule": "archived",
+          "fields": [
+            "status"
+          ]
+        }
+      ]
+    },
+    {
+      "entity": "project",
+      "states": [
+        "active",
+        "archived"
+      ],
+      "transitions": [
+        {
+          "action": "archive",
+          "from": "active",
+          "to": "archived"
+        },
+        {
+          "action": "restore",
+          "from": "archived",
+          "to": "active"
+        }
+      ],
+      "guards": [
+        {
+          "action": "archive",
+          "rule": "not-unfiled",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "action": "archive",
+          "rule": "active",
+          "fields": [
+            "status"
+          ]
+        },
+        {
+          "action": "discard",
+          "rule": "not-unfiled",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "action": "move",
+          "rule": "not-unfiled",
+          "fields": [
+            "id"
+          ]
+        },
+        {
+          "action": "restore",
+          "rule": "archived",
+          "fields": [
+            "status"
+          ]
+        }
+      ]
+    },
+    {
+      "entity": "session",
+      "states": [
+        "active",
+        "archived"
+      ],
+      "transitions": [
+        {
+          "action": "archive",
+          "from": "active",
+          "to": "archived"
+        },
+        {
+          "action": "restore",
+          "from": "archived",
+          "to": "active"
+        }
+      ],
+      "guards": []
+    },
+    {
+      "entity": "surface",
+      "states": [
+        "pending",
+        "live",
+        "failed",
+        "idle"
+      ],
+      "transitions": [
+        {
+          "action": "spawn",
+          "from": "pending",
+          "to": "live"
+        },
+        {
+          "action": "spawn",
+          "from": "pending",
+          "to": "failed"
+        },
+        {
+          "action": "resume",
+          "from": "idle",
+          "to": "live"
+        },
+        {
+          "action": "resume",
+          "from": "failed",
+          "to": "live"
+        },
+        {
+          "action": "stop",
+          "from": "live",
+          "to": "idle"
+        },
+        {
+          "action": "reconcile",
+          "from": "live",
+          "to": "failed"
+        },
+        {
+          "action": "reconcile",
+          "from": "pending",
+          "to": "failed"
+        }
+      ],
+      "guards": []
+    }
+  ]
+}

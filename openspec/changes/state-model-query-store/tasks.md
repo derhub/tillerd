@@ -2,11 +2,11 @@
 
 ## 1. State-model tables + contract fixture (backend)
 
-- [ ] 1.1 Add `state_model` module to the entity layer exporting per-entity static
+- [x] 1.1 Add `state_model` module to the entity layer exporting per-entity static
   tables: states, legal transitions, guard rules (`entity`, `action`, `rule`, required
   fields) — data derived from the existing enums and `guard_*` methods, no behavior
   change (spec: state-model-contract / single source).
-- [ ] 1.2 Rust contract test: serialize the tables (sorted, stable) and assert equality
+- [x] 1.2 Rust contract test: serialize the tables (sorted, stable) and assert equality
   with a committed `state-model.contract.json` fixture (command_contract.rs pattern);
   runs in the default verify gate.
 

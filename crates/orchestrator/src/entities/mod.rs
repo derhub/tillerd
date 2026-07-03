@@ -8,6 +8,7 @@ pub mod notification;
 pub mod project;
 pub mod session;
 pub mod setting;
+pub mod state_model;
 pub mod surface;
 pub mod template;
 pub mod workspace;
