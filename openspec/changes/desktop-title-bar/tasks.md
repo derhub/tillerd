@@ -1,8 +1,8 @@
 ## 1. Feasibility spike (gates everything else)
 
-- [ ] 1.1 Add `tauri-controls` + peer dep `@tauri-apps/plugin-os` to `apps/ui`; add `core:window` minimize/maximize/unmaximize/toggle-maximize permissions to `apps/desktop/src-tauri/capabilities/default.json`.
-- [ ] 1.2 Render `<WindowControls>` in a throwaway spot in the desktop dev build; confirm the controls display and that minimize / maximize / close fire under Tauri 2.11, and that styling survives Tailwind v4.
-- [ ] 1.3 Decide the control-callback path: use the library's built-in window calls if they fire, else wire the callbacks to our own `windows.ts` boundary while keeping the library's presentational components. Record the outcome on the decisions page. Only add `tauri_plugin_os` (crate + `os:` capability) if platform auto-detection requires it; prefer an explicit `platform` prop otherwise.
+- [x] 1.1 Add `tauri-controls` + peer dep `@tauri-apps/plugin-os` to `apps/ui`; add `core:window` minimize/maximize/unmaximize/toggle-maximize permissions to `apps/desktop/src-tauri/capabilities/default.json`.
+- [x] 1.2 Render `<WindowControls>` in a throwaway spot in the desktop dev build; confirm the controls display and that minimize / maximize / close fire under Tauri 2.11, and that styling survives Tailwind v4.
+- [x] 1.3 Decide the control-callback path: use the library's built-in window calls if they fire, else wire the callbacks to our own `windows.ts` boundary while keeping the library's presentational components. Record the outcome on the decisions page. Only add `tauri_plugin_os` (crate + `os:` capability) if platform auto-detection requires it; prefer an explicit `platform` prop otherwise.
 
 ## 2. Window-op boundary
 
