@@ -189,10 +189,19 @@ pub fn run() {
     let builder = tauri::Builder::default();
     #[cfg(feature = "webdriver")]
     let builder = builder.plugin(tauri_plugin_webdriver::init());
-    // Save/restore window size, position, and maximized state across relaunch. The default
-    // builder auto-saves on exit and restores on launch; no manual save/restore calls needed.
+    // Save/restore window geometry across relaunch. Persist size/position/maximized only --
+    // NOT decorations: the default flags include DECORATIONS, which would restore a stale
+    // decorations value over the window config and hide the native overlay title-bar controls.
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    let builder = builder.plugin(
+        tauri_plugin_window_state::Builder::default()
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::SIZE
+                    | tauri_plugin_window_state::StateFlags::POSITION
+                    | tauri_plugin_window_state::StateFlags::MAXIMIZED,
+            )
+            .build(),
+    );
     // Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
     let builder = builder.plugin(tauri_plugin_notification::init());
     #[cfg(debug_assertions)]
