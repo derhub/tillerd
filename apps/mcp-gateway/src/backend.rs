@@ -1,9 +1,6 @@
 //! Backend connection and reverse-request relay to front client.
 
-use rmcp::model::{
-    CreateElicitationRequestParams, CreateElicitationResult, CreateMessageRequestParams,
-    CreateMessageResult, ListRootsResult,
-};
+use rmcp::model::{ElicitRequestParams, ElicitResult};
 use rmcp::service::{NotificationContext, RequestContext, RunningService};
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use rmcp::{ClientHandler, ErrorData as McpError, RoleClient, ServiceExt};
@@ -37,32 +34,11 @@ impl BackendHandler {
 }
 
 impl ClientHandler for BackendHandler {
-    async fn create_message(
-        &self,
-        params: CreateMessageRequestParams,
-        _context: RequestContext<RoleClient>,
-    ) -> Result<CreateMessageResult, McpError> {
-        let peer = self.front.get().ok_or_else(Self::no_front)?;
-        peer.create_message(params)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))
-    }
-
-    async fn list_roots(
-        &self,
-        _context: RequestContext<RoleClient>,
-    ) -> Result<ListRootsResult, McpError> {
-        let peer = self.front.get().ok_or_else(Self::no_front)?;
-        peer.list_roots()
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))
-    }
-
     async fn create_elicitation(
         &self,
-        request: CreateElicitationRequestParams,
+        request: ElicitRequestParams,
         _context: RequestContext<RoleClient>,
-    ) -> Result<CreateElicitationResult, McpError> {
+    ) -> Result<ElicitResult, McpError> {
         let peer = self.front.get().ok_or_else(Self::no_front)?;
         peer.create_elicitation(request)
             .await
