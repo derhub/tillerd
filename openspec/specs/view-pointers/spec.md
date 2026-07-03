@@ -10,11 +10,11 @@ and wired through the client's server-state cache with optimistic local reads.
 
 ### Requirement: View pointers persist in the settings store
 
-The view pointers `activeWorkspace`, `lastSession.<project>`, and
-`sidebar.expanded.<project>` SHALL persist as keyed values in the orchestrator settings
-store (global scope). They SHALL NOT persist in webview browser storage. Writes SHALL be
-fire-and-forget from the user's perspective: pointer updates never block or fail the
-interaction that caused them.
+The orchestrator settings store (global scope) SHALL persist the view pointers
+`activeWorkspace`, `lastSession.<project>`, and `sidebar.expanded.<project>` as keyed
+values. They SHALL NOT persist in webview browser storage. Writes SHALL be fire-and-forget
+from the user's perspective: pointer updates never block or fail the interaction that
+caused them.
 
 #### Scenario: Pointers survive a webview storage wipe
 
