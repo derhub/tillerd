@@ -103,7 +103,10 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                               <aside className="h-full w-full overflow-hidden border-r border-border/40">
                                 <React.Suspense
                                   fallback={
-                                    <div className="h-full w-full p-3" data-testid="sidebar-skeleton">
+                                    <div
+                                      className="h-full w-full p-3"
+                                      data-testid="sidebar-skeleton"
+                                    >
                                       <Skeleton className="h-full w-full" />
                                     </div>
                                   }
