@@ -17,6 +17,11 @@ import { TitleBar } from "~/components/shell/TitleBar";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { WorkspaceSwitcher } from "~/components/sidebar/WorkspaceSwitcher";
 import { DetachedWindow } from "~/components/terminal/DetachedWindow";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "~/components/ui/resizable";
 import { Skeleton } from "~/components/ui/skeleton";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
@@ -93,47 +98,66 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                 <CommandCenter />
                 <div className="h-dvh w-full flex flex-col overflow-hidden">
                   <TitleBar />
-                  <div className="flex-1 min-h-0 flex flex-col">
-                    <div className="flex-1 min-h-0 flex">
+                  <div className="flex-1 min-h-0">
+                    <ResizablePanelGroup orientation="horizontal">
                       {leftVisible && (
-                        <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">
-                          <React.Suspense
-                            fallback={
-                              <div className="h-full w-full p-3" data-testid="sidebar-skeleton">
-                                <Skeleton className="h-full w-full" />
-                              </div>
-                            }
-                          >
-                            {isProjectWindow ? (
-                              <SessionSidebar activeProjectId={projectWindowId} />
-                            ) : (
-                              <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
-                            )}
-                          </React.Suspense>
-                        </aside>
-                      )}
-                      <div className="flex-1 min-w-0 pt-px relative">
-                        <Outlet />
-                        <div className="absolute bottom-2 right-2 z-50 flex items-center gap-2">
-                          {(isProjectWindow || isWorkspaceWindow) && (
-                            <button
-                              type="button"
-                              onClick={() => void closeSelf()}
-                              aria-label="Re-attach"
-                              className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+                        <ResizablePanel defaultSize="224px" minSize="180px" maxSize="360px">
+                          <aside className="h-full w-full overflow-hidden border-r border-border/40">
+                            <React.Suspense
+                              fallback={
+                                <div className="h-full w-full p-3" data-testid="sidebar-skeleton">
+                                  <Skeleton className="h-full w-full" />
+                                </div>
+                              }
                             >
-                              <Undo2 size={12} />
-                              <span>Re-attach</span>
-                            </button>
+                              {isProjectWindow ? (
+                                <SessionSidebar activeProjectId={projectWindowId} />
+                              ) : (
+                                <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
+                              )}
+                            </React.Suspense>
+                          </aside>
+                        </ResizablePanel>
+                      )}
+                      {leftVisible && <ResizableHandle />}
+                      <ResizablePanel minSize="30%" className="min-w-0">
+                        <ResizablePanelGroup orientation="vertical">
+                          <ResizablePanel minSize="20%" className="min-h-0">
+                            <div className="h-full w-full min-w-0 pt-px relative">
+                              <Outlet />
+                              <div className="absolute bottom-2 right-2 z-50 flex items-center gap-2">
+                                {(isProjectWindow || isWorkspaceWindow) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void closeSelf()}
+                                    aria-label="Re-attach"
+                                    className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+                                  >
+                                    <Undo2 size={12} />
+                                    <span>Re-attach</span>
+                                  </button>
+                                )}
+                                <NotificationIndicator />
+                                <SettingsPanel />
+                                <ServiceHealthIndicator />
+                              </div>
+                            </div>
+                          </ResizablePanel>
+                          {bottomVisible && <ResizableHandle />}
+                          {bottomVisible && (
+                            <ResizablePanel defaultSize="200px" minSize="120px" maxSize="60%">
+                              <BottomDock />
+                            </ResizablePanel>
                           )}
-                          <NotificationIndicator />
-                          <SettingsPanel />
-                          <ServiceHealthIndicator />
-                        </div>
-                      </div>
-                      {rightVisible && <RightDock />}
-                    </div>
-                    {bottomVisible && <BottomDock />}
+                        </ResizablePanelGroup>
+                      </ResizablePanel>
+                      {rightVisible && <ResizableHandle />}
+                      {rightVisible && (
+                        <ResizablePanel defaultSize="256px" minSize="180px" maxSize="480px">
+                          <RightDock />
+                        </ResizablePanel>
+                      )}
+                    </ResizablePanelGroup>
                   </div>
                 </div>
               </DetachedPanelsContext>
