@@ -383,8 +383,10 @@ SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/
   (app-internal, not file-watching). (Landed as a client-broadcast, not an orchestrator-pushed
   `changed{id}` event as originally worded: `app/lib/crossWindowSync.ts` broadcasts `meta.invalidates`
   keys over the Tauri event bus from the mutating window; ADR-0039 documents the deviation.)
-- [ ] Wire view pointers + state-model guards + workspace-activity read-model through Query/Store.
-  (Out of scope per ADR-0039 — the deferred state-model contract, ADR-0034, isn't implemented yet.)
+- [x] Wire view pointers + state-model guards + workspace-activity read-model through Query/Store.
+  (Landed re-based on ADR-0044, which supersedes ADR-0034: Rust-authoritative state/guard
+  contract with dual drift tests; view pointers in the settings store; server-derived
+  activity rollup kept live by the `surface_status_changed` push.)
 
 ### 0.0.17 — Foundation integration
 
