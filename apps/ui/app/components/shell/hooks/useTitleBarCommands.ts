@@ -16,18 +16,15 @@ export function useTitleBarCommands(): void {
   const [bottomVisible, setBottomVisible] = usePanelVisible("bottom");
   const [commandCenterOpen, setCommandCenterOpen] = useCommandCenterOpen();
 
-  React.useEffect(() => {
+  // Seed synchronously before paint (layout effect) so a toggle's checked state
+  // is correct on first render -- a plain effect flushes post-paint and would flash
+  // a default-visible region's button as unchecked for a frame.
+  React.useLayoutEffect(() => {
     setContextKey("leftPanelVisible", leftVisible);
-  }, [leftVisible]);
-  React.useEffect(() => {
     setContextKey("rightPanelVisible", rightVisible);
-  }, [rightVisible]);
-  React.useEffect(() => {
     setContextKey("bottomPanelVisible", bottomVisible);
-  }, [bottomVisible]);
-  React.useEffect(() => {
     setContextKey("commandPaletteOpen", commandCenterOpen);
-  }, [commandCenterOpen]);
+  }, [leftVisible, rightVisible, bottomVisible, commandCenterOpen]);
 
   useCommand(
     ACTION.panelToggleLeft,

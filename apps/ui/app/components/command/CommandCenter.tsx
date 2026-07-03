@@ -17,12 +17,10 @@ import {
   useLeaderBinding,
   useResolvedBindings,
 } from "~/lib/commands/useKeybindings";
+import { isMac } from "~/lib/platform";
 import { useCommandCenterOpen } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
 import { useWindowEvent } from "~/lib/useWindowEvent";
-
-const isMac =
-  typeof navigator !== "undefined" && /mac/i.test(navigator.platform || navigator.userAgent);
 
 async function mountLeaderKey(leader: string, onActivate: () => void): Promise<() => void> {
   const [, unlisten] = await Promise.all([
