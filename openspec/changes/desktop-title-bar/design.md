@@ -43,9 +43,16 @@ Panel visibility should survive restart, so it follows the `sidebarExpandedKey` 
 
 `ShellChrome` becomes `flex flex-col h-dvh`: row 1 = `<TitleBar>` (fixed height), row 2 = `flex-1 min-h-0` body. The body is `flex flex-col`: an upper `flex` row (left sidebar | content outlet | right dock) and the bottom dock beneath it. Hidden regions render `null` (not zero-width) so they consume no space and the outlet reclaims it — satisfies the "reclaims space" scenarios. The existing bottom-right floating action cluster (`NotificationIndicator`/`SettingsPanel`/`ServiceHealthIndicator`) stays anchored to the content area.
 
-### D5: Toggle actions registered centrally
+### D5: Toggles are `titlebar`-tagged toggle commands (via the shipped command manager)
 
-Add action ids to `ids.ts` (`panelToggleLeft`, `panelToggleRight`, `panelToggleBottom`, `commandToggle`) with titles. Register them once (in `RootLayout` alongside `navCommands`, or a dedicated `useTitleBarCommands` hook) so both the palette and the title bar buttons call the same `run`. Title bar buttons import the same toggle setters directly so behavior can't drift. Keybindings via `keybindings.ts` presets are optional and can be added later without spec change.
+The command manager (`ui-command-manager`, ADR-0045) now provides exactly the primitives this needs, so the toolbar is a projection of the command table rather than hand-wired buttons:
+
+- Add four `CommandDef`s (`panelToggleLeft/Right/Bottom`, `commandToggle`) to `commands/defs.ts`, each with `surfaces: ["titlebar", "palette"]`, an `icon` (lucide), a `group`, and a `toggle` selector that reads its checked state from context (`c => c.leftPanelVisible`, `commandToggle`: `c => c.commandPaletteOpen`).
+- Register their handlers by id via `useCommand` (in a `useTitleBarCommands` hook): each `run` flips the underlying store — `setPanelVisible(side, !visible)` / `setCommandCenterOpen(!open)`.
+- Seed the context keys the selectors read via `setContextKey`: mirror panel visibility (`leftPanelVisible`/`rightPanelVisible`/`bottomPanelVisible`) and `commandPaletteOpen` into context wherever those stores change. This is the command manager's first real use of context keys and toggle commands.
+- The title bar toolbar renders `useSurfaceCommands("titlebar")`: each command is a button showing its `icon`, `aria-pressed={command.checked}`, `onClick={command.run}`. Adding/removing a toolbar button is a defs edit, not a component edit. The same commands appear in the palette (checked state rendered there already).
+
+Keybindings via `defaultKeys` are optional and can be added later without spec change.
 
 ## Risks / Trade-offs
 

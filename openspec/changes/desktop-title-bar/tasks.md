@@ -15,17 +15,18 @@
 - [ ] 3.2 Add `usePanelVisible(side)` + `setPanelVisible(side, value)` in `app/lib/store.ts`, shaped like `useProjectExpanded`, backed by the settings store; defaults left=visible, right/bottom=hidden.
 - [ ] 3.3 Test: toggling persists to settings; defaults apply when unset; `resetUiStore` hygiene covers the new keys if applicable.
 
-## 4. Command/toggle actions
+## 4. Toggle commands (via the command manager)
 
-- [ ] 4.1 Add `panelToggleLeft`, `panelToggleRight`, `panelToggleBottom`, `commandToggle` action ids + titles to `app/lib/commands/ids.ts`.
-- [ ] 4.2 Register the four actions (in `RootLayout` or a `useTitleBarCommands` hook) whose `run` calls the same setters used by the title bar buttons; `commandToggle` flips `commandCenterOpen`.
-- [ ] 4.3 Test: invoking each action from the registry toggles the corresponding state.
+- [ ] 4.1 Add `panelToggleLeft/Right/Bottom`, `commandToggle` ids to `app/lib/commands/ids.ts` and `CommandDef`s to `commands/defs.ts` with `surfaces: ["titlebar","palette"]`, a lucide `icon`, a `group`, and a `toggle` selector reading the relevant context key.
+- [ ] 4.2 Add a `useTitleBarCommands` hook registering each handler by id (`useCommand`): panel toggles call `setPanelVisible(side, !visible)`; `commandToggle` flips `commandCenterOpen`.
+- [ ] 4.3 Seed the context keys the toggle selectors read (`leftPanelVisible`/`rightPanelVisible`/`bottomPanelVisible`, `commandPaletteOpen`) via `setContextKey`, mirroring the underlying stores.
+- [ ] 4.4 Test: invoking each command toggles the store; the command's `checked` follows the store; palette shows the checked indicator.
 
 ## 5. Title bar component
 
-- [ ] 5.1 Create `app/components/shell/TitleBar.tsx`: fixed-height row with `tauri-controls` window controls (per D1/D3 outcome), a `data-tauri-drag-region` drag area, and a toggle toolbar (left / right / bottom / command) using existing `ui/button` + lucide icons, each button reflecting its region's visibility.
+- [ ] 5.1 Create `app/components/shell/TitleBar.tsx`: fixed-height row with `tauri-controls` window controls (per D1/D3 outcome), a `data-tauri-drag-region` drag area, and a toolbar rendering `useSurfaceCommands("titlebar")` as icon buttons (`aria-pressed={cmd.checked}`, `onClick={cmd.run}`).
 - [ ] 5.2 Off the desktop host, omit OS controls and render the toolbar only; the drag region no-ops.
-- [ ] 5.3 Test: buttons call the correct toggles; button active/inactive state tracks visibility; OS controls absent in browser build.
+- [ ] 5.3 Test: toolbar is data-driven from titlebar-surface commands; each button reflects its command's `checked`; OS controls absent in browser build.
 
 ## 6. Shell layout restructure + dock regions
 
