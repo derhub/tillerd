@@ -1,4 +1,5 @@
 import { runCommand, subscribe as eventSub } from "@tillerd/client-bindings";
+import { Check } from "lucide-react";
 import React from "react";
 
 import {
@@ -10,7 +11,7 @@ import {
   CommandShortcut,
 } from "~/components/ui/command";
 import { displayAccelerator } from "~/lib/commands/keybindings";
-import { useCommands, type Command } from "~/lib/commands/registry";
+import { useSurfaceCommands, type Command } from "~/lib/commands/registry";
 import {
   useGlobalShortcuts,
   useLeaderBinding,
@@ -33,7 +34,7 @@ async function mountLeaderKey(leader: string, onActivate: () => void): Promise<(
 
 export function CommandCenter() {
   const [open, setOpen] = useCommandCenterOpen();
-  const commands = useCommands();
+  const commands = useSurfaceCommands("palette");
   const bindings = useResolvedBindings();
   const leader = useLeaderBinding();
 
@@ -84,6 +85,13 @@ export function CommandCenter() {
                   keywords={command.keywords}
                   onSelect={() => invoke(command)}
                 >
+                  {command.toggle && (
+                    <Check
+                      size={14}
+                      className={command.checked ? "opacity-100" : "opacity-0"}
+                      aria-hidden
+                    />
+                  )}
                   <span>{command.title}</span>
                   {accel && <CommandShortcut>{displayAccelerator(accel, isMac)}</CommandShortcut>}
                 </CommandItem>

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { ACTION_TITLES, STATIC_ACTION_IDS, type ActionId } from "~/lib/commands/ids";
+import { COMMAND_DEFS } from "~/lib/commands/defs";
 import {
   DEFAULT_PRESET,
   PRESET_NAMES,
@@ -14,12 +14,14 @@ import { KEYBINDINGS_OVERRIDES_KEY, KEYBINDINGS_PRESET_KEY } from "~/lib/setting
 
 function OverrideRow({
   id,
+  title,
   resolved,
   onCommit,
 }: {
-  id: ActionId;
+  id: string;
+  title: string;
   resolved: string;
-  onCommit: (id: ActionId, raw: string) => void;
+  onCommit: (id: string, raw: string) => void;
 }) {
   // Track only the in-progress edit; the displayed value falls back to `resolved` when not editing,
   // so an external change (preset switch / commit) flows through during render -- no syncing effect.
@@ -28,9 +30,9 @@ function OverrideRow({
 
   return (
     <label className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground truncate">{ACTION_TITLES[id]}</span>
+      <span className="text-muted-foreground truncate">{title}</span>
       <input
-        aria-label={`Binding for ${ACTION_TITLES[id]}`}
+        aria-label={`Binding for ${title}`}
         data-testid={`kb-${id}`}
         className="w-32 bg-transparent border border-border/40 rounded-sm px-1 py-0.5 text-right tabular-nums"
         value={value}
@@ -59,7 +61,7 @@ export function KeybindingSettings() {
   const bindings = useResolvedBindings();
 
   const commit = React.useCallback(
-    (id: ActionId, raw: string) => {
+    (id: string, raw: string) => {
       const next = { ...parseOverrides(overridesRaw) };
       const trimmed = raw.trim();
       if (!trimmed) {
@@ -95,8 +97,14 @@ export function KeybindingSettings() {
       </label>
 
       <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
-        {STATIC_ACTION_IDS.map((id) => (
-          <OverrideRow key={id} id={id} resolved={bindings.get(id) ?? ""} onCommit={commit} />
+        {COMMAND_DEFS.map((def) => (
+          <OverrideRow
+            key={def.id}
+            id={def.id}
+            title={def.title}
+            resolved={bindings.get(def.id) ?? ""}
+            onCommit={commit}
+          />
         ))}
       </div>
     </div>

@@ -14,11 +14,13 @@ import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { WorkspaceSwitcher } from "~/components/sidebar/WorkspaceSwitcher";
 import { DetachedWindow } from "~/components/terminal/DetachedWindow";
 import { Skeleton } from "~/components/ui/skeleton";
-import { ACTION, ACTION_TITLES } from "~/lib/commands/ids";
-import { CommandRegistryProvider, RegisterCommands, type Command } from "~/lib/commands/registry";
+import { setContextKey } from "~/lib/commands/context";
+import { ACTION } from "~/lib/commands/ids";
+import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { NotificationsProvider } from "~/lib/notifications/context";
 import { SessionContext } from "~/lib/sessionContext";
 import { SettingsProvider } from "~/lib/settings/context";
+import { isDesktopHost } from "~/lib/transport/core";
 import { DesktopHostProvider } from "~/lib/useDesktopHost";
 import { parseWindowIntent, type WindowIntent } from "~/lib/windows";
 import { closeSelf, emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
@@ -57,23 +59,21 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   useArmReattachOnClose(workspaceWindowId, (id) => emitReattachWorkspace({ workspaceId: id }));
 
   const navigate = useNavigate();
-  const navCommands = React.useMemo<Command[]>(
-    () => [
-      {
-        id: ACTION.viewLogs,
-        title: ACTION_TITLES[ACTION.viewLogs],
-        keywords: ["logs", "observability"],
-        run: () => void navigate({ to: "/logs" }),
-      },
-      {
-        id: ACTION.appSettings,
-        title: ACTION_TITLES[ACTION.appSettings],
-        keywords: ["preferences", "theme", "keybindings"],
-        run: () => window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)),
-      },
-    ],
+  const navHandlers = React.useMemo(
+    () => ({
+      [ACTION.viewLogs]: () => void navigate({ to: "/logs" }),
+      [ACTION.appSettings]: () => window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)),
+    }),
     [navigate],
   );
+
+  React.useEffect(() => {
+    setContextKey("isDesktopHost", isDesktopHost());
+  }, []);
+
+  React.useEffect(() => {
+    setContextKey("hasActiveSession", Boolean(sessionId));
+  }, [sessionId]);
 
   return (
     <DesktopHostProvider>
@@ -82,7 +82,7 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
           <CommandRegistryProvider>
             <SessionContext value={{ sessionId, status, setStatus }}>
               <DetachedPanelsContext value={{ detached, detach, reattach }}>
-                <RegisterCommands commands={navCommands} />
+                <RegisterHandlers handlers={navHandlers} />
                 <CommandCenter />
                 <div className="h-dvh w-full flex overflow-hidden">
                   <aside className="w-56 shrink-0 overflow-hidden border-r border-border/40">

@@ -1,4 +1,4 @@
-import { ACTION, type ActionId } from "./ids";
+import { COMMAND_DEFS } from "./defs";
 
 export type Accelerator = string;
 
@@ -81,41 +81,26 @@ export function isPresetName(value: unknown): value is PresetName {
   return typeof value === "string" && (PRESET_NAMES as readonly string[]).includes(value);
 }
 
-// `default` binds every static action; flavor presets (`vim`/`vscode`/`tmux`) bind a subset.
+// Preset baselines are derived from the command definitions' per-preset default
+// keys -- the definition table is the single source of truth. `default` binds
+// every action that declares a default key; flavor presets bind their subset.
 // Single chords only -- multi-key sequences are out of scope.
-export const PRESETS: Record<PresetName, Partial<Record<ActionId, Accelerator>>> = {
-  default: {
-    [ACTION.projectNew]: "CmdOrCtrl+Shift+N",
-    [ACTION.sessionNew]: "CmdOrCtrl+N",
-    [ACTION.surfaceSpawn]: "CmdOrCtrl+T",
-    [ACTION.surfaceClose]: "CmdOrCtrl+W",
-    [ACTION.panelSplitH]: "CmdOrCtrl+\\",
-    [ACTION.panelSplitV]: "CmdOrCtrl+Shift+\\",
-    [ACTION.surfaceDetach]: "CmdOrCtrl+Shift+D",
-    [ACTION.projectOpenNewWindow]: "CmdOrCtrl+Shift+O",
-    [ACTION.viewLogs]: "CmdOrCtrl+Shift+L",
-    [ACTION.appSettings]: "CmdOrCtrl+,",
-  },
-  vscode: {
-    [ACTION.sessionNew]: "CmdOrCtrl+N",
-    [ACTION.surfaceSpawn]: "CmdOrCtrl+Shift+`",
-    [ACTION.surfaceClose]: "CmdOrCtrl+W",
-    [ACTION.panelSplitH]: "CmdOrCtrl+\\",
-    [ACTION.appSettings]: "CmdOrCtrl+,",
-  },
-  vim: {
-    [ACTION.surfaceSpawn]: "CmdOrCtrl+Alt+N",
-    [ACTION.surfaceClose]: "CmdOrCtrl+Alt+W",
-    [ACTION.panelSplitH]: "CmdOrCtrl+Alt+S",
-    [ACTION.panelSplitV]: "CmdOrCtrl+Alt+V",
-  },
-  tmux: {
-    [ACTION.surfaceSpawn]: "CmdOrCtrl+Alt+T",
-    [ACTION.surfaceClose]: "CmdOrCtrl+Alt+X",
-    [ACTION.panelSplitH]: "CmdOrCtrl+Alt+5",
-    [ACTION.panelSplitV]: "CmdOrCtrl+Alt+2",
-  },
-};
+function buildPresets(): Record<PresetName, Partial<Record<string, Accelerator>>> {
+  const presets = { default: {}, vscode: {}, vim: {}, tmux: {} } as Record<
+    PresetName,
+    Partial<Record<string, Accelerator>>
+  >;
+  for (const def of COMMAND_DEFS) {
+    if (!def.defaultKeys) continue;
+    for (const name of PRESET_NAMES) {
+      const accel = def.defaultKeys[name];
+      if (accel) presets[name][def.id] = accel;
+    }
+  }
+  return presets;
+}
+
+export const PRESETS: Record<PresetName, Partial<Record<string, Accelerator>>> = buildPresets();
 
 export type Overrides = Partial<Record<string, Accelerator>>;
 

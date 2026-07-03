@@ -11,13 +11,8 @@ import { ProjectTree, type ProjectTreeHandlers } from "~/components/sidebar/Proj
 import { SessionSearchDialog } from "~/components/sidebar/SessionSearchDialog";
 import { useSidebarData } from "~/components/sidebar/sidebar-data";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import {
-  ACTION,
-  ACTION_TITLES,
-  SESSION_SEARCH_ACTION_ID,
-  SESSION_SEARCH_TITLE,
-} from "~/lib/commands/ids";
-import { useRegisterCommands, type Command } from "~/lib/commands/registry";
+import { ACTION, SESSION_SEARCH_ACTION_ID } from "~/lib/commands/ids";
+import { useRegisterHandlers } from "~/lib/commands/registry";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
 import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
@@ -195,36 +190,17 @@ export function SessionSidebar({
     [isDesktop, reorderSessions],
   );
 
-  const sidebarCommands = React.useMemo<Command[]>(() => {
+  const sidebarHandlers = React.useMemo(() => {
     const targetProjectId = (): string => activeProjectId ?? projects[0]?.id ?? "";
-    return [
-      {
-        id: ACTION.projectNew,
-        title: ACTION_TITLES[ACTION.projectNew],
-        keywords: ["project", "create"],
-        run: () => handleNewProject(),
-      },
-      {
-        id: ACTION.sessionNew,
-        title: ACTION_TITLES[ACTION.sessionNew],
-        keywords: ["session", "create"],
-        run: () => handleNewSession(targetProjectId()),
-      },
-      {
-        id: SESSION_SEARCH_ACTION_ID,
-        title: SESSION_SEARCH_TITLE,
-        keywords: ["session", "switch", "go to", "find", "search"],
-        run: () => window.dispatchEvent(new CustomEvent(SESSION_SEARCH_OPEN_EVENT)),
-      },
-      {
-        id: ACTION.projectOpenNewWindow,
-        title: ACTION_TITLES[ACTION.projectOpenNewWindow],
-        keywords: ["window", "project", "detach"],
-        run: () => handleOpenInNewWindow(targetProjectId()),
-      },
-    ];
+    return {
+      [ACTION.projectNew]: () => handleNewProject(),
+      [ACTION.sessionNew]: () => handleNewSession(targetProjectId()),
+      [SESSION_SEARCH_ACTION_ID]: () =>
+        window.dispatchEvent(new CustomEvent(SESSION_SEARCH_OPEN_EVENT)),
+      [ACTION.projectOpenNewWindow]: () => handleOpenInNewWindow(targetProjectId()),
+    };
   }, [activeProjectId, projects, handleNewProject, handleNewSession, handleOpenInNewWindow]);
-  useRegisterCommands(sidebarCommands);
+  useRegisterHandlers(sidebarHandlers);
 
   const treeHandlers: ProjectTreeHandlers = {
     isDesktop,

@@ -8,6 +8,7 @@ import {
   KEYBINDINGS_PRESET_KEY,
 } from "~/lib/settings/keys";
 
+import { readContext } from "./context";
 import {
   DEFAULT_PRESET,
   eventToAccelerator,
@@ -17,6 +18,7 @@ import {
   type Accelerator,
 } from "./keybindings";
 import { useCommands } from "./registry";
+import { evaluateWhen } from "./when";
 
 export function useResolvedBindings(): Map<string, Accelerator> {
   const { value: presetRaw } = useGlobalSetting(KEYBINDINGS_PRESET_KEY, DEFAULT_PRESET);
@@ -50,7 +52,8 @@ export function useGlobalShortcuts(bindings: Map<string, Accelerator>): void {
       for (const [id, bound] of bindings) {
         if (bound !== accel) continue;
         const command = byId.get(id);
-        if (command) {
+        // A binding only fires when its command is available in the current context.
+        if (command && evaluateWhen(command.when, readContext())) {
           e.preventDefault();
           command.run();
         }

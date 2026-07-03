@@ -3,8 +3,9 @@
 // register by id at their feature sites (see registry `useCommand`). This table
 // replaces the split between `ids.ts` titles and `keybindings.ts` presets.
 
-import { ACTION, SESSION_SEARCH_ACTION_ID, SESSION_SEARCH_TITLE } from "./ids";
 import type { CommandDef } from "./types";
+
+import { ACTION, SESSION_SEARCH_ACTION_ID, SESSION_SEARCH_TITLE } from "./ids";
 
 const IN_SESSION = ["hasActiveSession"] as const;
 
