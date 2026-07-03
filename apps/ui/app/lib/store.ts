@@ -1,88 +1,36 @@
 import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
-// Client UI state only. Server data (projects/sessions/workspaces) lives in the Query cache; never duplicated here.
+import { setGlobalSetting, settingsStore } from "~/lib/settings/context";
+import { sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "~/lib/settings/keys";
+
+// Window-scoped, ephemeral UI state only. The durable view pointers (active
+// workspace, sidebar expansion, last session — ADR-0044) are settings-store keys
+// read through the settings bootstrap; server data lives in the Query cache.
+// activeProjectId stays per-window: it is derived from the window's URL intent,
+// not a cross-window position.
 interface UiState {
-  activeWorkspaceId: string | null;
   activeProjectId: string | null;
   commandCenterOpen: boolean;
-  expandedProjectIds: Record<string, boolean>;
 }
 
-const LOCAL_STORAGE_KEY = "tillerd:ui-state";
-
-function getInitialState(): UiState {
-  const defaults: UiState = {
-    activeWorkspaceId: null,
-    activeProjectId: null,
-    commandCenterOpen: false,
-    expandedProjectIds: {},
-  };
-
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
-    return defaults;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        return {
-          ...defaults,
-          activeWorkspaceId:
-            typeof parsed.activeWorkspaceId === "string" ? parsed.activeWorkspaceId : null,
-          activeProjectId:
-            typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
-          expandedProjectIds:
-            parsed.expandedProjectIds && typeof parsed.expandedProjectIds === "object"
-              ? parsed.expandedProjectIds
-              : {},
-        };
-      }
-    }
-  } catch (e) {
-    console.error("Failed to load uiStore state from localStorage", e);
-  }
-  return defaults;
-}
-
-const initialState = getInitialState();
-
-export const uiStore = new Store<UiState>(initialState);
-
-if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
-  uiStore.subscribe(() => {
-    try {
-      const state = uiStore.state;
-      window.localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify({
-          activeWorkspaceId: state.activeWorkspaceId,
-          activeProjectId: state.activeProjectId,
-          expandedProjectIds: state.expandedProjectIds,
-        }),
-      );
-    } catch (e) {
-      console.error("Failed to save uiStore state to localStorage", e);
-    }
-  });
-}
+export const uiStore = new Store<UiState>({
+  activeProjectId: null,
+  commandCenterOpen: false,
+});
 
 export function setActiveWorkspace(id: string | null): void {
-  uiStore.setState((s) => ({ ...s, activeWorkspaceId: id }));
+  setGlobalSetting(VIEW_ACTIVE_WORKSPACE_KEY, id);
 }
 
 export function useActiveWorkspace(): string | null {
-  return useSelector(uiStore, (s) => s.activeWorkspaceId);
+  const raw = useSelector(settingsStore, (s) => s.values[VIEW_ACTIVE_WORKSPACE_KEY]);
+  return typeof raw === "string" && raw ? raw : null;
 }
 
 export function setActiveProject(id: string | null): void {
-  uiStore.setState((s) => ({
-    ...s,
-    activeProjectId: id,
-    expandedProjectIds: id ? { ...s.expandedProjectIds, [id]: true } : s.expandedProjectIds,
-  }));
+  uiStore.setState((s) => ({ ...s, activeProjectId: id }));
+  if (id) setProjectExpanded(id, true);
 }
 
 export function useActiveProject(): string | null {
@@ -102,14 +50,14 @@ export function useCommandCenterOpen() {
 }
 
 export function setProjectExpanded(projectId: string, expanded: boolean): void {
-  uiStore.setState((s) => ({
-    ...s,
-    expandedProjectIds: { ...s.expandedProjectIds, [projectId]: expanded },
-  }));
+  setGlobalSetting(sidebarExpandedKey(projectId), expanded);
 }
 
 export function useProjectExpanded(projectId: string) {
-  const expanded = useSelector(uiStore, (s) => !!s.expandedProjectIds[projectId]);
+  const expanded = useSelector(
+    settingsStore,
+    (s) => s.values[sidebarExpandedKey(projectId)] === true,
+  );
   const setExpanded = React.useCallback(
     (val: boolean) => {
       setProjectExpanded(projectId, val);
@@ -121,9 +69,17 @@ export function useProjectExpanded(projectId: string) {
 
 export function resetUiStore(): void {
   uiStore.setState(() => ({
-    activeWorkspaceId: null,
     activeProjectId: null,
     commandCenterOpen: false,
-    expandedProjectIds: {},
   }));
+  // Strip the view-pointer keys without persisting: test/reset hygiene, not a write.
+  settingsStore.setState((s) => {
+    const values = { ...s.values };
+    for (const key of Object.keys(values)) {
+      if (key === VIEW_ACTIVE_WORKSPACE_KEY || key.startsWith("sidebar.expanded.")) {
+        delete values[key];
+      }
+    }
+    return { ...s, values };
+  });
 }

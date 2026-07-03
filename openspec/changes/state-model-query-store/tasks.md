@@ -40,19 +40,19 @@
 
 ## 4. View pointers (client + settings keys)
 
-- [ ] 4.1 `["view-pointers"]` queryOptions factory reading `view.active-workspace`,
+- [x] 4.1 `["view-pointers"]` queryOptions factory reading `view.active-workspace`,
   `view.last-session.<project>`, `sidebar.expanded.<project>` in one round trip
   (ListSettings/ResolveSettings); ApplySetting mutations with optimistic `setQueryData`
   + `meta.invalidates` (spec: view-pointers / cache + optimistic; design D5).
-- [ ] 4.2 Migrate `uiStore`: hydrate active-workspace + expanded-projects from the
+- [x] 4.2 Migrate `uiStore`: hydrate active-workspace + expanded-projects from the
   view-pointer query; delete their `localStorage` persistence; adopt or delete the dead
   `SIDEBAR_EXPANDED_KEY` constant (spec: client-engine delta).
-- [ ] 4.3 Write `view.last-session.<project>` on session open; fire-and-forget failure
+- [x] 4.3 Write `view.last-session.<project>` on session open; fire-and-forget failure
   path routed to the standard error channel (spec: view-pointers / fire-and-forget).
-- [ ] 4.4 Lifecycle resolution at consumption points: archived/deleted workspace →
+- [x] 4.4 Lifecycle resolution at consumption points: archived/deleted workspace →
   Default + pointer rewrite-once; stale lastSession ignored (spec: view-pointers /
   lifecycle; design D6).
-- [ ] 4.5 UI unit tests: pointer restore, stale-pointer fallback, optimistic switch,
+- [x] 4.5 UI unit tests: pointer restore, stale-pointer fallback, optimistic switch,
   write-failure non-blocking.
 
 ## 5. Activity consumption (client)

@@ -124,6 +124,27 @@ test("detaching a workspace opens its window and re-attaching closes it back to 
   expect(detachBtn()).not.toBeNull();
 });
 
+// Lifecycle resolution (ADR-0044): a pointer to a deleted workspace resolves to the
+// Default workspace and the pointer is rewritten once — never an error or empty shell.
+test("a stale active-workspace pointer falls back to the Default workspace", async () => {
+  const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
+  workspaceList = [defaultWs, alpha];
+  setActiveWorkspace("ws-deleted");
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const active = document.querySelector(
+      `[data-testid="workspace-item"][data-workspace-id="${defaultWs.id}"]`,
+    );
+    expect(active?.className ?? "").toContain("font-medium");
+  });
+  const { settingsStore } = await import("~/lib/settings/context");
+  await waitFor(() =>
+    expect(settingsStore.state.values["view.active-workspace"]).toBe(defaultWs.id),
+  );
+});
+
 // New workspace must not depend on window.prompt (unreliable in the Tauri webview): it creates a
 // placeholder workspace and drops straight into inline rename.
 test("New workspace creates a placeholder and opens it for inline rename", async () => {

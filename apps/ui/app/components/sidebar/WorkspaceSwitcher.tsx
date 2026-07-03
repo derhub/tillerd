@@ -6,6 +6,7 @@ import React from "react";
 
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
+import { DEFAULT_WORKSPACE_ID } from "~/components/sidebar/sidebar-data";
 import { useActiveWorkspace, setActiveWorkspace } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
 import { useDesktopHost } from "~/lib/useDesktopHost";
@@ -143,10 +144,19 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
 
   const { data: workspaces } = useSuspenseQuery(query("workspaceList"));
 
-  const activeWorkspaceId =
-    storedActiveWorkspaceId && workspaces.some((w) => w.id === storedActiveWorkspaceId)
-      ? storedActiveWorkspaceId
-      : null;
+  // Lifecycle resolution (ADR-0044): a pointer to an archived or deleted workspace
+  // resolves to the Default workspace — never an error or an empty shell.
+  const pointerTarget = workspaces.find((w) => w.id === storedActiveWorkspaceId);
+  const pointerStale =
+    storedActiveWorkspaceId != null && (!pointerTarget || pointerTarget.status === "archived");
+  const activeWorkspaceId = pointerStale
+    ? DEFAULT_WORKSPACE_ID
+    : (pointerTarget?.id ?? null);
+
+  // Rewrite the stale pointer once so it does not re-resolve every start.
+  React.useEffect(() => {
+    if (pointerStale) setActiveWorkspace(DEFAULT_WORKSPACE_ID);
+  }, [pointerStale]);
 
   React.useEffect(() => {
     if (initialWorkspaceId) setActiveWorkspace(initialWorkspaceId);

@@ -1,9 +1,12 @@
 import type { SettingView } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
+import { QueryObserver } from "@tanstack/react-query";
 import { Store, useSelector } from "@tanstack/react-store";
 import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
 import React from "react";
+
+import { broadcastInvalidate } from "../crossWindowSync";
 
 import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
@@ -27,13 +30,26 @@ export function _resetForTests(): void {
   hydrated = false;
 }
 
+// Fire-and-forget: the interaction that caused the write never blocks on it. A
+// failure that reaches the orchestrator is recorded there (`command-error`) and
+// pushed back over the notification channel — the renderer never records. On
+// success sibling windows converge via the invalidation broadcast (the local
+// store is already updated synchronously by setGlobalSetting).
 function persist(key: string, value: unknown): void {
-  void runCommand("settingSet", {
+  runCommand("settingSet", {
     scope: "global",
     projectId: null,
     key,
     valueJson: JSON.stringify(value),
-  });
+  }).then(
+    () => {
+      // Converge the local query cache too (the broadcast skips its own window).
+      // Optional call: bootstrap-test stubs provide only ensureQueryData.
+      void getQueryClient().invalidateQueries?.({ queryKey: ["settings"] });
+      broadcastInvalidate([["settings"]]);
+    },
+    () => {},
+  );
 }
 
 function defaultResolve(): Promise<SettingView[]> {
@@ -67,6 +83,28 @@ export function setGlobalSetting(key: string, value: unknown): void {
   else pendingWrites.push({ key, value });
 }
 
+// Keep the store converged with the settings query after hydration: when a sibling
+// window's write invalidates ["settings"] (cross-window broadcast) the refetch lands
+// here and re-seeds the store, so pointer changes appear live in every window.
+export function watchSettings(): () => void {
+  const client = getQueryClient();
+  // Bootstrap-test stubs provide only ensureQueryData; live convergence needs a
+  // full QueryClient, so degrade to a no-op rather than throw.
+  if (typeof (client as { getQueryCache?: unknown }).getQueryCache !== "function") {
+    return () => {};
+  }
+  const observer = new QueryObserver(
+    client,
+    query("settingList", { scope: "global", projectId: null }),
+  );
+  return observer.subscribe((result) => {
+    if (!hydrated || !result.data) return;
+    const values: Record<string, unknown> = {};
+    for (const e of result.data) values[e.key] = e.value;
+    settingsStore.setState((s) => ({ ...s, values }));
+  });
+}
+
 export function SettingsProvider({
   children,
   resolve = defaultResolve,
@@ -75,7 +113,15 @@ export function SettingsProvider({
   resolve?: () => Promise<SettingView[]>;
 }) {
   React.useEffect(() => {
-    void hydrateSettings(resolve);
+    let unwatch: (() => void) | undefined;
+    let disposed = false;
+    void hydrateSettings(resolve).then(() => {
+      if (!disposed) unwatch = watchSettings();
+    });
+    return () => {
+      disposed = true;
+      unwatch?.();
+    };
   }, [resolve]);
   return <>{children}</>;
 }
