@@ -225,7 +225,7 @@ impl Bus<Ctx> {
 
     /// Run a user-initiated mutation with failure recording: on error the
     /// recording layer records one `command-error` notification. The orchestrator
-    /// owns all notification recording — the renderer only displays what the
+    /// owns all notification recording -- the renderer only displays what the
     /// notification channel pushes.
     pub async fn execute_recorded<C: Command<Ctx>>(&self, c: C) -> Result<()> {
         let cx = self.cx.clone();

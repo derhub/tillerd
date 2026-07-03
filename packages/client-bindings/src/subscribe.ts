@@ -128,7 +128,7 @@ export type SurfaceStatusChannelHandle = {
   close(): Promise<void>;
 };
 
-// Per-window subscription to surface runtime status transitions (ADR-0044): the
+// Per-window subscription to surface runtime status transitions : the
 // orchestrator pushes after each status write commits, so a re-query on receipt
 // always reads the post-transition row.
 export async function surfaceStatusChannel(

@@ -508,7 +508,7 @@ export type ThemeOrigin = "prebuilt" | "custom";
 export type ThemeView = Theme;
 
 /**
- *  Per-workspace rollup of surface runtime state (ADR-0044): derived at query
+ *  Per-workspace rollup of surface runtime state : derived at query
  *  time from the persisted surface status, never a stored domain field.
  */
 export type WorkspaceActivityView = {

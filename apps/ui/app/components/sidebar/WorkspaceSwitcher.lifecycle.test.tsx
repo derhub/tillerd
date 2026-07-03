@@ -146,8 +146,8 @@ test("the activity dot reflects the rollup for its workspace", async () => {
   expect(document.querySelectorAll('[data-testid="workspace-activity"]')).toHaveLength(1);
 });
 
-// Lifecycle resolution (ADR-0044): a pointer to a deleted workspace resolves to the
-// Default workspace and the pointer is rewritten once — never an error or empty shell.
+// Lifecycle resolution : a pointer to a deleted workspace resolves to the
+// Default workspace and the pointer is rewritten once -- never an error or empty shell.
 test("a stale active-workspace pointer falls back to the Default workspace", async () => {
   const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
   workspaceList = [defaultWs, alpha];

@@ -52,10 +52,7 @@ function ActivityDot({ activity }: { activity?: WorkspaceActivityView }) {
       data-running={activity.running}
       data-failed={activity.failed}
       title={`${activity.running} running, ${activity.failed} failed`}
-      className={cn(
-        "size-1.5 rounded-full shrink-0",
-        failed ? "bg-red-500" : "bg-emerald-500",
-      )}
+      className={cn("size-1.5 rounded-full shrink-0", failed ? "bg-red-500" : "bg-emerald-500")}
     />
   );
 }
@@ -178,14 +175,12 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     [activityRows],
   );
 
-  // Lifecycle resolution (ADR-0044): a pointer to an archived or deleted workspace
-  // resolves to the Default workspace — never an error or an empty shell.
+  // Lifecycle resolution : a pointer to an archived or deleted workspace
+  // resolves to the Default workspace -- never an error or an empty shell.
   const pointerTarget = workspaces.find((w) => w.id === storedActiveWorkspaceId);
   const pointerStale =
     storedActiveWorkspaceId != null && (!pointerTarget || pointerTarget.status === "archived");
-  const activeWorkspaceId = pointerStale
-    ? DEFAULT_WORKSPACE_ID
-    : (pointerTarget?.id ?? null);
+  const activeWorkspaceId = pointerStale ? DEFAULT_WORKSPACE_ID : (pointerTarget?.id ?? null);
 
   // Rewrite the stale pointer once so it does not re-resolve every start.
   React.useEffect(() => {

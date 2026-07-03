@@ -1,7 +1,7 @@
-// Typed mirror of the Rust state-model tables (ADR-0044). The orchestrator entities are
+// Typed mirror of the Rust state-model tables . The orchestrator entities are
 // the source of truth; stateModel.test.ts proves this mirror matches the committed
 // state-model.contract.json fixture, so drift on either side fails the build. Guard
-// evaluation here is advisory only — the server enforces every rule.
+// evaluation here is advisory only -- the server enforces every rule.
 
 export const WELL_KNOWN_IDS = {
   defaultWorkspace: "00000000-0000-0000-0000-000000000001",
@@ -96,7 +96,7 @@ function rulePasses(rule: GuardRuleId, row: GuardRow): boolean {
 }
 
 // Advisory enablement: every guard the action declares must pass. Actions with no
-// declared guards are always enabled — the server remains the enforcer either way.
+// declared guards are always enabled -- the server remains the enforcer either way.
 export function can(entity: StateModelEntity, action: string, row: GuardRow): boolean {
   return STATE_MODEL[entity].guards
     .filter((g) => g.action === action)

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import contract from "../../../../crates/orchestrator/src/entities/state-model.contract.json";
-
 import {
   can,
   STATE_MODEL,

@@ -18,7 +18,7 @@ export const Route = createFileRoute("/session/$id")({
       .then((session) => {
         if (session) {
           setActiveProject(session.projectId);
-          // Last-visited view pointer (ADR-0044); fire-and-forget like the rest.
+          // Last-visited view pointer ; fire-and-forget like the rest.
           setGlobalSetting(lastSessionKey(session.projectId), session.id);
         }
       })

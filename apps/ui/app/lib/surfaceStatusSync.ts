@@ -1,4 +1,4 @@
-// Subscription-driven activity invalidation (ADR-0044): the orchestrator pushes a
+// Subscription-driven activity invalidation : the orchestrator pushes a
 // surface-status event after each status write commits; this window invalidates the
 // activity rollup and surface reads so the next render reads fresh data. A spawn
 // burst coalesces to one invalidation pass (same trailing-window guard as

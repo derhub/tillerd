@@ -66,7 +66,7 @@ fn failure_notification(action: &'static str, error: &Error) -> RecordNotificati
 
 /// Turns an observed `Notable` signal into exactly one recorded notification, and
 /// records a `command-error` notification when a recorder-composed mutation fails
-/// — the orchestrator is the sole recording point (the renderer never records).
+/// -- the orchestrator is the sole recording point (the renderer never records).
 /// Ordinary commands and queries (where `Op::notable` is `None` and no recorder
 /// is composed) pass straight through.
 pub(crate) struct NotificationRecordingLayer {
@@ -133,7 +133,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
 
-    use crate::app::notification::{ListNotifications, NotificationSink, RecordNotification};
+    use crate::app::notification::{ListNotifications, RecordNotification};
     use crate::app::workspace::DiscardWorkspace;
     use crate::shared::bus::Bus;
     use crate::shared::message::Query;
@@ -154,7 +154,7 @@ mod tests {
         // Discarding the Default workspace trips guard_not_default.
         let result = bus
             .execute_recorded(DiscardWorkspace {
-                id: crate::entities::WorkspaceId::DEFAULT.to_owned(),
+                id: crate::app::workspace::default_workspace_id(),
             })
             .await;
         assert!(result.is_err(), "the guard must reject the discard");
@@ -174,10 +174,18 @@ mod tests {
             .expect("a command-error notification is persisted");
         assert_eq!(recorded.severity, "error");
         assert!(
-            recorded.detail.as_deref().unwrap_or("").contains("DiscardWorkspace"),
+            recorded
+                .detail
+                .as_deref()
+                .unwrap_or("")
+                .contains("DiscardWorkspace"),
             "detail names the failed action"
         );
-        assert_eq!(announced.load(Ordering::SeqCst), 1, "announced exactly once");
+        assert_eq!(
+            announced.load(Ordering::SeqCst),
+            1,
+            "announced exactly once"
+        );
     }
 
     // Scenario: A successful recorded mutation records nothing.

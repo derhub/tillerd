@@ -148,7 +148,7 @@ test("a failed pointer write never blocks the interaction", async () => {
   setGlobalSetting("view.active-workspace", "ws-2");
 
   // The in-memory value updates immediately; the rejected persist is swallowed
-  // (the orchestrator records reachable failures — the renderer never records).
+  // (the orchestrator records reachable failures -- the renderer never records).
   expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-2");
   await waitFor(() =>
     expect(settingSetCalls).toContainEqual(

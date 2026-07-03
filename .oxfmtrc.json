@@ -5,6 +5,7 @@
     "openspec/**",
     ".ast-grep/**",
     "apps/mcp-gateway/schema.json",
+    "crates/orchestrator/src/entities/state-model.contract.json",
     "**/*.md",
     "**/*.gen.ts"
   ],

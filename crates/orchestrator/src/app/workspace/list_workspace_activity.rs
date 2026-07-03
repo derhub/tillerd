@@ -5,7 +5,7 @@ use crate::context::Ctx;
 use crate::shared::message::Query;
 use crate::shared::Result;
 
-/// Per-workspace activity rollup (ADR-0044): running / failed surface counts for
+/// Per-workspace activity rollup : running / failed surface counts for
 /// every workspace in one aggregate, derived from the persisted surface status.
 /// Workspaces with no surfaces report zero counts.
 #[derive(Deserialize)]

@@ -1,6 +1,6 @@
-//! Machine-readable state-model tables (ADR-0044): per-entity lifecycle states, legal
+//! Machine-readable state-model tables : per-entity lifecycle states, legal
 //! transitions, and guard rules, derived from the enums and `guard_*` methods in this
-//! layer. Data only — no behavior. The committed `state-model.contract.json` fixture is
+//! layer. Data only -- no behavior. The committed `state-model.contract.json` fixture is
 //! generated from these tables; a Rust test and a TS test assert their side against the
 //! fixture, so drift on either side fails the build.
 

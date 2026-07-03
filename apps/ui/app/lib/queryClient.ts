@@ -53,7 +53,7 @@ export function makeQueryClient(): QueryClient {
       if (keys?.length) broadcastInvalidate(keys);
     },
     // No onError recording here: the orchestrator records every failed command as a
-    // `command-error` notification and pushes it over the notification channel — the
+    // `command-error` notification and pushes it over the notification channel -- the
     // renderer only displays, it never records. Optimistic mutations still roll back
     // via their own onError.
   });

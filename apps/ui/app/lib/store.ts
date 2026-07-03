@@ -5,7 +5,7 @@ import { setGlobalSetting, settingsStore } from "~/lib/settings/context";
 import { sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "~/lib/settings/keys";
 
 // Window-scoped, ephemeral UI state only. The durable view pointers (active
-// workspace, sidebar expansion, last session — ADR-0044) are settings-store keys
+// workspace, sidebar expansion, last session -- ) are settings-store keys
 // read through the settings bootstrap; server data lives in the Query cache.
 // activeProjectId stays per-window: it is derived from the window's URL intent,
 // not a cross-window position.

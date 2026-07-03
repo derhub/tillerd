@@ -1,4 +1,4 @@
-//! Surface status transitions push to every window (ADR-0044): persist the status,
+//! Surface status transitions push to every window : persist the status,
 //! then emit `{surfaceId, sessionId, workspaceId, status}` to every open
 //! surface-status channel so windows invalidate the activity read-model without
 //! polling. Emission is best-effort and happens after the write commits, so a
