@@ -18,11 +18,16 @@ pub async fn window_open<R: tauri::Runtime>(
     if let Some(existing) = app.get_webview_window(&label) {
         return existing.set_focus().map_err(|e| e.to_string());
     }
-    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(query.into()))
+    let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(query.into()))
         .title("tillerd")
-        .inner_size(820.0, 640.0)
-        .build()
-        .map_err(|e| e.to_string())?;
+        .inner_size(820.0, 640.0);
+    // Match the main window's overlay title bar so child windows keep native
+    // controls floating over the custom title bar (see tauri.conf.json).
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true);
+    builder.build().map_err(|e| e.to_string())?;
     Ok(())
 }
 
