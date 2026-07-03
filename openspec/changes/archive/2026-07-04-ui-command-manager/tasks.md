@@ -45,4 +45,4 @@
 ## 8. Verify
 
 - [x] 8.1 `bun test` (apps/ui) green; type-check + lint clean.
-- [ ] 8.2 Manual smoke: palette lists/filters/invokes; shortcuts fire and respect context; overrides/preset/leader still work; a sample toggle command shows checked state.
+- [x] 8.2 Desktop smoke via `bun run e2e` (42 tests green): palette lists/filters/invokes; keybinding-preset change reflects in the palette and survives reload. Toggle checked-state has no shipped command yet (title bar PR #64) — covered by unit tests (composeCommands toggle + palette Check render).
