@@ -111,4 +111,7 @@ test("storage, state model, and client engine compose across create/switch/reloa
   } finally {
     await b.deleteSession();
   }
-}, 180_000);
+  // Higher ceiling than the single-phase own-launch specs: this journey chains a ~90s boot with
+  // create + switch + reload + multi-window phases, so 180s could expire before a specific
+  // `waitUntil` surfaces its own `timeoutMsg` -- an opaque bun:test timeout instead of a diagnostic.
+}, 240_000);
