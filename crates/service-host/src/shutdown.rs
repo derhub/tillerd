@@ -118,7 +118,7 @@ mod tests {
         // A child that ignores SIGTERM must still be gone after escalation.
         let registry = ChildRegistry::new();
         let child = tokio::process::Command::new("/bin/sh")
-            .args(["-c", "trap '' TERM; sleep 60"])
+            .args(["-c", "trap '' TERM; exec sleep 60"])
             .kill_on_drop(true)
             .spawn()
             .expect("spawn SIGTERM-ignoring child");
