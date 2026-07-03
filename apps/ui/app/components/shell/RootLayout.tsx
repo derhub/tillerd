@@ -95,30 +95,30 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                 <div className="h-dvh w-full flex flex-col overflow-hidden">
                   <TitleBar />
                   <div className="flex-1 min-h-0">
-                    <ResizablePanelGroup orientation="horizontal">
-                      {leftVisible && (
-                        <ResizablePanel defaultSize="224px" minSize="180px" maxSize="360px">
-                          <aside className="h-full w-full overflow-hidden border-r border-border/40">
-                            <React.Suspense
-                              fallback={
-                                <div className="h-full w-full p-3" data-testid="sidebar-skeleton">
-                                  <Skeleton className="h-full w-full" />
-                                </div>
-                              }
-                            >
-                              {isProjectWindow ? (
-                                <SessionSidebar activeProjectId={projectWindowId} />
-                              ) : (
-                                <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
-                              )}
-                            </React.Suspense>
-                          </aside>
-                        </ResizablePanel>
-                      )}
-                      {leftVisible && <ResizableHandle />}
-                      <ResizablePanel minSize="30%" className="min-w-0">
-                        <ResizablePanelGroup orientation="vertical">
-                          <ResizablePanel minSize="20%" className="min-h-0">
+                    <ResizablePanelGroup orientation="vertical">
+                      <ResizablePanel minSize="20%" className="min-h-0">
+                        <ResizablePanelGroup orientation="horizontal">
+                          {leftVisible && (
+                            <ResizablePanel defaultSize="224px" minSize="180px" maxSize="360px">
+                              <aside className="h-full w-full overflow-hidden border-r border-border/40">
+                                <React.Suspense
+                                  fallback={
+                                    <div className="h-full w-full p-3" data-testid="sidebar-skeleton">
+                                      <Skeleton className="h-full w-full" />
+                                    </div>
+                                  }
+                                >
+                                  {isProjectWindow ? (
+                                    <SessionSidebar activeProjectId={projectWindowId} />
+                                  ) : (
+                                    <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
+                                  )}
+                                </React.Suspense>
+                              </aside>
+                            </ResizablePanel>
+                          )}
+                          {leftVisible && <ResizableHandle />}
+                          <ResizablePanel minSize="30%" className="min-w-0">
                             <div className="h-full w-full min-w-0 pt-px relative">
                               <Outlet />
                               <div className="absolute bottom-2 right-2 z-50 flex items-center gap-2">
@@ -139,18 +139,18 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                               </div>
                             </div>
                           </ResizablePanel>
-                          {bottomVisible && <ResizableHandle />}
-                          {bottomVisible && (
-                            <ResizablePanel defaultSize="200px" minSize="120px" maxSize="60%">
-                              <BottomDock />
+                          {rightVisible && <ResizableHandle />}
+                          {rightVisible && (
+                            <ResizablePanel defaultSize="256px" minSize="180px" maxSize="480px">
+                              <RightDock />
                             </ResizablePanel>
                           )}
                         </ResizablePanelGroup>
                       </ResizablePanel>
-                      {rightVisible && <ResizableHandle />}
-                      {rightVisible && (
-                        <ResizablePanel defaultSize="256px" minSize="180px" maxSize="480px">
-                          <RightDock />
+                      {bottomVisible && <ResizableHandle />}
+                      {bottomVisible && (
+                        <ResizablePanel defaultSize="200px" minSize="120px" maxSize="60%">
+                          <BottomDock />
                         </ResizablePanel>
                       )}
                     </ResizablePanelGroup>
