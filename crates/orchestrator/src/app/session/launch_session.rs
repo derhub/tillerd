@@ -17,7 +17,7 @@ pub struct LaunchSession {
 
 impl Command<Ctx> for LaunchSession {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
-        use crate::app::surface::update_status_and_emit;
+        use crate::app::surface::{confirm_spawn_and_emit, update_status_and_emit};
         use crate::entities::launch_spec;
         use crate::entities::surface::SurfaceStatus;
         use crate::entities::SurfaceKind;
@@ -67,7 +67,7 @@ impl Command<Ctx> for LaunchSession {
             // D9: run effect lock-free, record outcome (emits surface-status push).
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    update_status_and_emit(cx, &surface.id, SurfaceStatus::Live).await?;
+                    confirm_spawn_and_emit(cx, &surface.id).await?;
                 }
                 Err(e) => {
                     update_status_and_emit(cx, &surface.id, SurfaceStatus::Failed).await?;

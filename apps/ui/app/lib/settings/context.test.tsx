@@ -27,7 +27,8 @@ void mock.module("@tillerd/client-bindings", () => ({
   query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    // No getQueryCache on purpose: watchSettings degrades to a no-op under this stub.
+    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+    getQueryData: () => undefined,
     invalidateQueries: () => Promise.resolve(),
   }),
 }));
@@ -156,6 +157,21 @@ test("rapid writes to one key reach the wire in order, intermediates coalesced",
     expect(values).toEqual(["a", "c"]);
   });
   expect(settingsStore.state.values["terminal.scheme"]).toBe("c");
+});
+
+test("a queued newer value still reaches the wire after a failed write", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+  failSettingSet = true;
+
+  setGlobalSetting("terminal.scheme", "first-fails");
+  setGlobalSetting("terminal.scheme", "must-still-send");
+
+  await waitFor(() => {
+    const values = settingSetCalls
+      .filter((call) => call.key === "terminal.scheme")
+      .map((call) => JSON.parse(call.valueJson));
+    expect(values).toEqual(["first-fails", "must-still-send"]);
+  });
 });
 
 test("a failed pointer write never blocks the interaction", async () => {

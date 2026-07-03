@@ -52,6 +52,13 @@ shell.
   the pointer was written
 - **THEN** the shell opens on the Default workspace and the pointer is rewritten
 
+#### Scenario: Active-workspace pointer targets an absent workspace
+
+- **WHEN** the pointer names a workspace the current list does not carry (deleted, or a
+  stale snapshot missing a young workspace)
+- **THEN** the shell renders the Default workspace scope without rewriting the pointer,
+  which self-heals if the workspace reappears in a later read
+
 #### Scenario: New window seeds from the pointer
 
 - **WHEN** a new main window opens without an explicit window intent

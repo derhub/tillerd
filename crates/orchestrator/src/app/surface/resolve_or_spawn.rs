@@ -55,6 +55,9 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
+                    // Resume of an existing idle/failed record: the prior status is
+                    // not unique, so this write stays unconditional (a same-instant
+                    // exit frame can be overwritten -- reconcile converges on boot).
                     super::status_events::update_status_and_emit(
                         cx,
                         &surface_id,
@@ -104,12 +107,7 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    super::status_events::update_status_and_emit(
-                        cx,
-                        &surface.id,
-                        SurfaceStatus::Live,
-                    )
-                    .await?;
+                    super::status_events::confirm_spawn_and_emit(cx, &surface.id).await?;
                     Ok(SurfaceView {
                         id: surface.id.as_str().to_owned(),
                         session_id: self.session.clone(),

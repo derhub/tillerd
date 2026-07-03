@@ -146,12 +146,34 @@ test("the activity dot reflects the rollup for its workspace", async () => {
   expect(document.querySelectorAll('[data-testid="workspace-activity"]')).toHaveLength(1);
 });
 
-// Lifecycle resolution : a pointer to a deleted workspace resolves to the
-// Default workspace and the pointer is rewritten once -- never an error or empty shell.
-test("a stale active-workspace pointer falls back to the Default workspace", async () => {
+// Lifecycle resolution: a pointer to a deleted workspace renders the Default
+// scope -- never an error or empty shell. The pointer itself is NOT rewritten
+// for a merely-absent id (the list can be a stale snapshot missing a young
+// workspace); it self-heals if the workspace reappears.
+test("a pointer to an absent workspace renders Default without rewriting", async () => {
   const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
   workspaceList = [defaultWs, alpha];
   setActiveWorkspace("ws-deleted");
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const active = document.querySelector(
+      `[data-testid="workspace-item"][data-workspace-id="${defaultWs.id}"]`,
+    );
+    expect(active?.className ?? "").toContain("font-medium");
+  });
+  const { settingsStore } = await import("~/lib/settings/context");
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-deleted");
+});
+
+// A target the list KNOWS is archived is a settled fact: render Default AND
+// rewrite the pointer once so it does not re-resolve every start.
+test("a pointer to an archived workspace falls back and is rewritten", async () => {
+  const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
+  const archivedWs = { id: "ws-arch", name: "Archived", status: "archived" };
+  workspaceList = [defaultWs, alpha, archivedWs];
+  setActiveWorkspace("ws-arch");
 
   withQuery(<WorkspaceSwitcher />);
 

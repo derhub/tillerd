@@ -34,6 +34,19 @@ pub async fn update_status_and_emit(cx: &Ctx, id: &SurfaceId, status: SurfaceSta
     Ok(())
 }
 
+/// Confirm a fresh spawn: `pending -> live` only. An immediately-dying PTY's
+/// exit frame can land before this confirmation; the conditional write loses to
+/// that terminal record instead of resurrecting a dead surface as live.
+pub async fn confirm_spawn_and_emit(cx: &Ctx, id: &SurfaceId) -> Result<()> {
+    let transitioned =
+        SurfaceRepo::update_status_from(cx.db(), id, SurfaceStatus::Pending, SurfaceStatus::Live)
+            .await?;
+    if transitioned {
+        emit_status(cx, id, SurfaceStatus::Live).await;
+    }
+    Ok(())
+}
+
 /// Best-effort push: a lookup or serialize failure must never fail the command
 /// that performed the transition.
 async fn emit_status(cx: &Ctx, id: &SurfaceId, status: SurfaceStatus) {
@@ -200,6 +213,37 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(status, "failed");
+    }
+
+    // Scenario: A spawn confirmation loses to an exit frame that already landed --
+    // a dead surface is never resurrected as live.
+    #[tokio::test]
+    async fn confirm_spawn_does_not_overwrite_a_terminal_exit() {
+        let cx = ctx().await;
+        let surface_id = seed_surface(&cx).await;
+
+        // The PTY died immediately: the pump recorded failed before the spawn
+        // command's confirmation ran.
+        update_status_and_emit(&cx, &surface_id, SurfaceStatus::Failed)
+            .await
+            .unwrap();
+
+        let sink = Arc::new(RecordingSink(Mutex::new(Vec::new())));
+        cx.domain_channel_sinks()
+            .register("surface-status://confirm-race", sink.clone());
+
+        confirm_spawn_and_emit(&cx, &surface_id).await.unwrap();
+
+        let (status,): (String,) = sqlx::query_as("SELECT status FROM surface WHERE id = ?")
+            .bind(surface_id.as_str())
+            .fetch_one(cx.db())
+            .await
+            .unwrap();
+        assert_eq!(status, "failed", "the terminal exit record must stand");
+        assert!(
+            sink.0.lock().unwrap().is_empty(),
+            "no live push for a confirmation that did not transition"
+        );
     }
 
     // Scenario: No subscriber, no error -- push is additive over the query.

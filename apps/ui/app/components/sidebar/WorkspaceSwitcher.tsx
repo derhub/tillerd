@@ -177,26 +177,33 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     [activityRows],
   );
 
+  // A window opened with an explicit workspace intent (detached workspace
+  // window) scopes to it window-locally; writing the shared global pointer here
+  // would live-rescope every other window through the settings broadcast.
+  const scopedId = initialWorkspaceId ?? storedActiveWorkspaceId;
+
   // Lifecycle resolution: a pointer to an archived or deleted workspace resolves
   // to the Default workspace -- never an error or an empty shell. Staleness is
   // judged only against a settled list: right after a create, the pointer names a
   // workspace the cached list does not carry yet, and treating that as stale
   // would clobber the user's fresh selection back to Default.
-  const pointerTarget = workspaces.find((w) => w.id === storedActiveWorkspaceId);
+  const pointerTarget = workspaces.find((w) => w.id === scopedId);
   const pointerStale =
     !isFetchingWorkspaces &&
-    storedActiveWorkspaceId != null &&
+    scopedId != null &&
     (!pointerTarget || pointerTarget.status === "archived");
-  const activeWorkspaceId = pointerStale ? DEFAULT_WORKSPACE_ID : storedActiveWorkspaceId;
+  const activeWorkspaceId = pointerStale ? DEFAULT_WORKSPACE_ID : scopedId;
 
-  // Rewrite the stale pointer once so it does not re-resolve every start.
+  // Rewrite the pointer only for a target the list KNOWS is archived. An absent
+  // id is not proof of deletion (the settled list can be a stale restored
+  // snapshot missing a young workspace, or a failed cold-start refetch): render
+  // the Default scope but keep the pointer, which self-heals when the list
+  // catches up.
   React.useEffect(() => {
-    if (pointerStale) setActiveWorkspace(DEFAULT_WORKSPACE_ID);
-  }, [pointerStale]);
-
-  React.useEffect(() => {
-    if (initialWorkspaceId) setActiveWorkspace(initialWorkspaceId);
-  }, [initialWorkspaceId]);
+    if (pointerStale && !initialWorkspaceId && pointerTarget?.status === "archived") {
+      setActiveWorkspace(DEFAULT_WORKSPACE_ID);
+    }
+  }, [pointerStale, pointerTarget?.status, initialWorkspaceId]);
 
   React.useEffect(
     () =>

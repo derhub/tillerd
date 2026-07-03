@@ -56,8 +56,25 @@ function persist(key: string, value: unknown): void {
   send(key, value);
 }
 
+// Bumped whenever a key's chain settles; refreshFromSource re-fetches when a
+// local write landed while its snapshot was in flight.
+let settleStamp = 0;
+
 function send(key: string, value: unknown): void {
   inFlightWrites.add(key);
+  const advance = () => {
+    inFlightWrites.delete(key);
+    settleStamp++;
+    if (queuedWrites.has(key)) {
+      const next = queuedWrites.get(key);
+      queuedWrites.delete(key);
+      // A queued newer value continues the chain even after a failed write --
+      // the user's latest choice must still reach disk.
+      send(key, next);
+      return false;
+    }
+    return true;
+  };
   runCommand("settingSet", {
     scope: "global",
     projectId: null,
@@ -65,36 +82,24 @@ function send(key: string, value: unknown): void {
     valueJson: JSON.stringify(value),
   }).then(
     () => {
-      inFlightWrites.delete(key);
-      if (queuedWrites.has(key)) {
-        const next = queuedWrites.get(key);
-        queuedWrites.delete(key);
-        send(key, next);
-        return;
-      }
+      if (!advance()) return;
       // Chain drained: converge the local query cache (the broadcast skips its
-      // own window). Optional call: bootstrap-test stubs provide only
-      // ensureQueryData.
-      void getQueryClient().invalidateQueries?.({ queryKey: ["settings"] });
+      // own window).
+      void getQueryClient().invalidateQueries({ queryKey: ["settings"] });
       broadcastInvalidate([["settings"]]);
     },
     () => {
-      inFlightWrites.delete(key);
-      queuedWrites.delete(key);
+      advance();
     },
   );
 }
 
 function defaultResolve(): Promise<SettingView[]> {
-  const client = getQueryClient();
   const opts = query("settingList", { scope: "global", projectId: null });
   // Hydration must reflect disk, not the restored (persisted) query cache -- that
-  // snapshot can predate the previous run's last write. fetchQuery with a zero
-  // stale floor always hits the orchestrator; bootstrap-test stubs provide only
-  // ensureQueryData, so fall back for them.
-  return typeof (client as { fetchQuery?: unknown }).fetchQuery === "function"
-    ? client.fetchQuery({ ...opts, staleTime: 0 })
-    : client.ensureQueryData(opts);
+  // snapshot can predate the previous run's last write. A zero stale floor makes
+  // fetchQuery always hit the orchestrator.
+  return getQueryClient().fetchQuery({ ...opts, staleTime: 0 });
 }
 
 // Synchronous pre-seed from the restored (persisted) query cache: the shell must
@@ -103,10 +108,8 @@ function defaultResolve(): Promise<SettingView[]> {
 // UI, not like an empty store. Fills only missing keys so pre-hydration writes
 // are never clobbered; the fresh read that follows corrects any staleness.
 function seedFromCache(): void {
-  const client = getQueryClient();
-  if (typeof (client as { getQueryData?: unknown }).getQueryData !== "function") return;
   const opts = query("settingList", { scope: "global", projectId: null });
-  const cached = client.getQueryData<SettingView[]>(opts.queryKey);
+  const cached = getQueryClient().getQueryData<SettingView[]>(opts.queryKey);
   if (!cached) return;
   settingsStore.setState((s) => {
     const values = { ...s.values };
@@ -155,7 +158,17 @@ export function watchSettings(): () => void {
 }
 
 async function refreshFromSource(): Promise<void> {
-  const entries = await defaultResolve();
+  // Re-fetch while local writes settle during the snapshot: a chain that drained
+  // mid-flight (writePending already false) would otherwise be reverted by data
+  // fetched before that write committed. Bounded: user-paced writes drain fast.
+  let entries: SettingView[];
+  let attempts = 0;
+  do {
+    const stampBefore = settleStamp;
+    entries = await defaultResolve();
+    if (settleStamp === stampBefore) break;
+  } while (++attempts < 3);
+
   const values: Record<string, unknown> = {};
   for (const e of entries) values[e.key] = e.value;
   settingsStore.setState((s) => {
