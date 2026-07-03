@@ -104,19 +104,27 @@ push only bounds staleness.
 user-facing signal with their own persistence/pruning; coupling cache coherence to them
 inverts their purpose.
 
+(As built, two extensions: PTY self-exits also transition the persisted status in
+`SurfaceChannelStream` — qualifier-mapped per the exit-classification contract — since
+no app command observes them; and a fresh-spawn confirmation is a conditional
+`pending → live` write so it loses gracefully to an exit frame that already recorded
+the PTY's death.)
+
 ### D5 — View pointers are settings-store keys behind one Query key
 
 Keys (global scope): `view.active-workspace` (workspace id),
 `view.last-session.<project_id>` (session id), `sidebar.expanded.<project_id>`
 (present = expanded — adopts the dead `SIDEBAR_EXPANDED_KEY` intent as a prefix).
 Per-project keys, not one blob: concurrent windows toggling different projects must not
-read-modify-write clobber each other. One `queryOptions` factory
-(`["view-pointers"]`) fetches all three groups via `ListSettings`/`ResolveSettings` in a
-single round trip; writes are `ApplySetting` mutations with optimistic `setQueryData` +
-`meta.invalidates: [["view-pointers"]]` so sibling windows converge over the existing
-broadcast. `uiStore` keeps the in-memory reactive copy for synchronous reads but drops
-its `localStorage` persistence of `activeWorkspaceId`/`expandedProjectIds`; the persisted
-Query cache covers cold-start hydration (client-engine delta).
+read-modify-write clobber each other. (As built — confirmed at gate 2: the pointers ride
+the existing settings bootstrap rather than a separate view-pointer factory. Reads flow
+through `settingsStore` seeded by `settingList`; writes go through `setGlobalSetting`
+with a per-key latest-wins write queue, a serialized + atomically-renamed `SettingStore`
+on the orchestrator side, drain-triggered `["settings"]` invalidation + broadcast, and a
+remote-only convergence hook so a window's own snapshot can never revert its fresh local
+writes. Hydration fetches fresh with a synchronous pre-seed from the restored cache.)
+`uiStore` keeps only window-scoped ephemera; `localStorage` persistence of
+`activeWorkspaceId`/`expandedProjectIds` is dropped (client-engine delta).
 
 *Alternative — keep localStorage:* lost on webview-storage wipe, invisible to other
 future hosts, and leaves the settings-store intent dead. *Alternative — single JSON blob
@@ -127,8 +135,10 @@ key:* cross-window clobber.
 Pointer resolution (`archived/deleted workspace → Default`, `stale lastSession →
 ignored`) happens in the one place each pointer is consumed (workspace scope derivation,
 project open), comparing against the already-cached entity lists — no server round trip.
-A fallback rewrites the pointer once (fire-and-forget) so the stale value does not
-re-resolve every start.
+The pointer is rewritten once only when the target is KNOWN archived (present in a
+settled list); an absent id renders the Default scope without rewriting, since a settled
+list can still be a stale restored snapshot missing a young workspace. A window opened
+with explicit workspace intent scopes window-locally and never writes the shared pointer.
 
 ## Risks / Trade-offs
 
