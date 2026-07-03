@@ -2,15 +2,15 @@
 
 - [x] 1.1 Add `app/lib/commands/context.ts`: a reactive context-key store (`@tanstack/react-store` slice) with `setContextKey`/`useContextKey` and a `readContext()` snapshot.
 - [x] 1.2 Add `app/lib/commands/when.ts`: `WhenExpr` (conjunction of key terms + negation) + `evaluateWhen(expr, ctx)`; absent expr = always true.
-- [x] 1.3 Seed context keys: `terminalFocus` (from the existing capture-target/xterm-focus guard), `isDesktopHost`, `hasActiveSession`, `commandPaletteOpen`.
+- [ ] 1.3 Seed context keys: `terminalFocus` (from the existing capture-target/xterm-focus guard), `isDesktopHost`, `hasActiveSession`, `commandPaletteOpen`.
 - [x] 1.4 Tests: evaluator truth table (key present/absent, negation, conjunction, empty expr); context store reactivity.
 
 ## 2. Command definition model
 
-- [ ] 2.1 Extend the registry types in `app/lib/commands/registry.tsx`: `CommandDef` (id, title, category?, keywords?, icon?, surfaces?, group?, defaultKeys?, when?, toggle?) and runtime `Command` = def + handler + accel + checked.
-- [ ] 2.2 Add `Surface = "palette" | "titlebar" | "contextmenu"`; default surfaces `["palette"]`.
-- [ ] 2.3 Add `app/lib/commands/defs.ts`: the single definitions table for all existing actions, migrating `ACTION_TITLES` and `PRESETS.default` (+ other presets) into per-def metadata + `defaultKeys`.
-- [ ] 2.4 Tests: every `ACTION` id has a def; default-keys parity with the pre-migration `PRESETS`.
+- [x] 2.1 Extend the registry types in `app/lib/commands/registry.tsx`: `CommandDef` (id, title, category?, keywords?, icon?, surfaces?, group?, defaultKeys?, when?, toggle?) and runtime `Command` = def + handler + accel + checked.
+- [x] 2.2 Add `Surface = "palette" | "titlebar" | "contextmenu"`; default surfaces `["palette"]`.
+- [x] 2.3 Add `app/lib/commands/defs.ts`: the single definitions table for all existing actions, migrating `ACTION_TITLES` and `PRESETS.default` (+ other presets) into per-def metadata + `defaultKeys`.
+- [x] 2.4 Tests: every `ACTION` id has a def; default-keys parity with the pre-migration `PRESETS`.
 
 ## 3. Handler registration by id
 
