@@ -4,9 +4,8 @@
 use std::sync::Arc;
 
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, CreateMessageRequestParams, ListPromptsResult,
-    ListToolsResult, PaginatedRequestParams, Prompt, SamplingMessage, ServerCapabilities,
-    ServerInfo, Tool,
+    CallToolRequestParams, CallToolResult, ContentBlock, ListPromptsResult, ListToolsResult,
+    PaginatedRequestParams, Prompt, ServerCapabilities, ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::transport::io::stdio;
@@ -46,41 +45,22 @@ impl ServerHandler for Stub {
         _params: Option<PaginatedRequestParams>,
         _ctx: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
-        Ok(ListToolsResult::with_all_items(vec![
-            Tool::new("echo", "Echo the arguments back as text", object_schema()),
-            Tool::new(
-                "sample",
-                "Ask the client to sample a message (reverse request)",
-                object_schema(),
-            ),
-        ]))
+        Ok(ListToolsResult::with_all_items(vec![Tool::new(
+            "echo",
+            "Echo the arguments back as text",
+            object_schema(),
+        )]))
     }
 
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        ctx: RequestContext<RoleServer>,
+        _ctx: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         match request.name.as_ref() {
             "echo" => {
                 let text = serde_json::to_string(&request.arguments).unwrap_or_default();
-                Ok(CallToolResult::success(vec![Content::text(text)]))
-            }
-            "sample" => {
-                // Issue a server-to-client sampling request; the gateway relays
-                // it to the front client and returns the client's response.
-                let msg = serde_json::to_value(SamplingMessage::user_text("ping")).unwrap();
-                let params: CreateMessageRequestParams = serde_json::from_value(
-                    serde_json::json!({ "messages": [msg], "maxTokens": 64 }),
-                )
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                let result = ctx
-                    .peer
-                    .create_message(params)
-                    .await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                let text = serde_json::to_string(&result).unwrap_or_default();
-                Ok(CallToolResult::success(vec![Content::text(text)]))
+                Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
             }
             other => Err(McpError::invalid_params(
                 format!("unknown tool: {other}"),

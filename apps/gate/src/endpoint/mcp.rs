@@ -7,7 +7,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use contracts::SessionId;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, ListToolsResult, PaginatedRequestParams,
+    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
     ServerCapabilities, ServerInfo,
 };
 use rmcp::service::RequestContext;
@@ -85,7 +85,7 @@ async fn route_call(
         body,
     };
     match router.handle(inbound).await {
-        Ok(Outbound::Forward(body)) => Ok(CallToolResult::success(vec![Content::text(
+        Ok(Outbound::Forward(body)) => Ok(CallToolResult::success(vec![ContentBlock::text(
             String::from_utf8_lossy(&body).into_owned(),
         )])),
         Ok(Outbound::Accepted) => Ok(CallToolResult::success(Vec::new())),
