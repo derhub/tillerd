@@ -16,6 +16,11 @@ pub struct StopWorkspaceSurfaces {
 impl Command<Ctx> for StopWorkspaceSurfaces {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         use crate::entities::surface::{SurfaceId, SurfaceStatus};
+        use crate::entities::WorkspaceId;
+
+        // Already known -- no lookup needed: every surface in this loop belongs
+        // to this workspace by construction (the query below is scoped to it).
+        let workspace_id = WorkspaceId::new(self.id.clone());
 
         // Collect live surface ids across all sessions in this workspace.
         let rows: Vec<(String,)> = sqlx::query_as(
@@ -33,8 +38,13 @@ impl Command<Ctx> for StopWorkspaceSurfaces {
             // 1) runtime stop (outside any tx, per D9)
             cx.runtime().stop(&surface_id).await?;
             // 2) record outcome: transition to idle (emits the surface-status push)
-            crate::app::surface::update_status_and_emit(cx, &surface_id, SurfaceStatus::Idle)
-                .await?;
+            crate::app::surface::update_status_and_emit(
+                cx,
+                &surface_id,
+                &workspace_id,
+                SurfaceStatus::Idle,
+            )
+            .await?;
         }
         Ok(())
     }

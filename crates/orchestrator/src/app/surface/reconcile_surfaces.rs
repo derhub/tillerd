@@ -39,11 +39,14 @@ impl Command<Ctx> for ReconcileSurfaces {
                 geometry: DEFAULT_GEOMETRY,
                 cwd: surface.cwd.clone().unwrap_or_else(default_cwd),
             };
+            let workspace_id =
+                super::status_events::workspace_id_for_session(cx, &surface.session_id).await?;
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
                     super::status_events::update_status_and_emit(
                         cx,
                         &surface.id,
+                        &workspace_id,
                         SurfaceStatus::Live,
                     )
                     .await?
@@ -52,6 +55,7 @@ impl Command<Ctx> for ReconcileSurfaces {
                     super::status_events::update_status_and_emit(
                         cx,
                         &surface.id,
+                        &workspace_id,
                         SurfaceStatus::Failed,
                     )
                     .await?

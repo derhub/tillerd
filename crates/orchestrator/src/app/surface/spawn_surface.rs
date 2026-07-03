@@ -39,8 +39,10 @@ impl Command<Ctx> for SpawnSurface {
             _ => DEFAULT_GEOMETRY,
         };
 
-        // 1) persist intent -- a single committed write (pool, no transaction)
         let session_id = SessionId::from_string(&self.session);
+        let workspace_id = super::status_events::workspace_id_for_session(cx, &session_id).await?;
+
+        // 1) persist intent -- a single committed write (pool, no transaction)
         let surface = SurfaceRepo::create(
             cx.db(),
             None,
@@ -62,11 +64,14 @@ impl Command<Ctx> for SpawnSurface {
         };
         match cx.runtime().spawn(request).await {
             // 3) record the outcome (emits the surface-status push)
-            Ok(()) => super::status_events::confirm_spawn_and_emit(cx, &surface.id).await,
+            Ok(()) => {
+                super::status_events::confirm_spawn_and_emit(cx, &surface.id, &workspace_id).await
+            }
             Err(e) => {
                 super::status_events::update_status_and_emit(
                     cx,
                     &surface.id,
+                    &workspace_id,
                     SurfaceStatus::Failed,
                 )
                 .await?;

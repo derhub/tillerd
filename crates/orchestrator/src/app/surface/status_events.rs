@@ -7,12 +7,14 @@
 use serde::Serialize;
 
 use crate::context::Ctx;
+use crate::entities::session::SessionId;
 use crate::entities::surface::{SurfaceId, SurfaceStatus};
+use crate::entities::WorkspaceId;
 use crate::infra::SurfaceRepo;
 use crate::shared::domain_channel::{
     CloseDomainChannel, DomainChannelEvent, DomainChannelSink, OpenDomainChannel,
 };
-use crate::shared::Result;
+use crate::shared::{Error, Result};
 
 /// Registry key prefix; each window registers its own `surface-status://{channelId}`.
 pub const SURFACE_STATUS_PREFIX: &str = "surface-status://";
@@ -22,41 +24,53 @@ pub const SURFACE_STATUS_PREFIX: &str = "surface-status://";
 struct SurfaceStatusChanged<'a> {
     surface_id: &'a str,
     session_id: String,
-    workspace_id: String,
+    workspace_id: &'a str,
     status: &'static str,
 }
 
 /// Persist a surface status transition, then push it to every subscribed window.
-/// The single write path for app-layer status transitions.
-pub async fn update_status_and_emit(cx: &Ctx, id: &SurfaceId, status: SurfaceStatus) -> Result<()> {
+/// The single write path for app-layer status transitions. `workspace_id` is the
+/// caller's responsibility to supply -- the entity chain (surface -> session ->
+/// project -> workspace) is FK-enforced, so every call site either already has it
+/// in scope or resolves it once via `workspace_id_for_session`/`workspace_id_for_surface`.
+pub async fn update_status_and_emit(
+    cx: &Ctx,
+    id: &SurfaceId,
+    workspace_id: &WorkspaceId,
+    status: SurfaceStatus,
+) -> Result<()> {
     SurfaceRepo::update_status(cx.db(), id, status).await?;
-    emit_status(cx, id, status).await;
+    emit_status(cx, id, workspace_id, status).await;
     Ok(())
 }
 
 /// Confirm a fresh spawn: `pending -> live` only. An immediately-dying PTY's
 /// exit frame can land before this confirmation; the conditional write loses to
 /// that terminal record instead of resurrecting a dead surface as live.
-pub async fn confirm_spawn_and_emit(cx: &Ctx, id: &SurfaceId) -> Result<()> {
+pub async fn confirm_spawn_and_emit(
+    cx: &Ctx,
+    id: &SurfaceId,
+    workspace_id: &WorkspaceId,
+) -> Result<()> {
     let transitioned =
         SurfaceRepo::update_status_from(cx.db(), id, SurfaceStatus::Pending, SurfaceStatus::Live)
             .await?;
     if transitioned {
-        emit_status(cx, id, SurfaceStatus::Live).await;
+        emit_status(cx, id, workspace_id, SurfaceStatus::Live).await;
     }
     Ok(())
 }
 
 /// Best-effort push: a lookup or serialize failure must never fail the command
 /// that performed the transition.
-async fn emit_status(cx: &Ctx, id: &SurfaceId, status: SurfaceStatus) {
-    let Ok(Some((session_id, workspace_id))) = owner_ids(cx, id).await else {
+async fn emit_status(cx: &Ctx, id: &SurfaceId, workspace_id: &WorkspaceId, status: SurfaceStatus) {
+    let Ok(Some(session_id)) = session_id_for_surface(cx, id).await else {
         return;
     };
     let wire = SurfaceStatusChanged {
         surface_id: id.as_str(),
         session_id,
-        workspace_id,
+        workspace_id: workspace_id.as_str(),
         status: status.as_str(),
     };
     let Ok(json) = serde_json::to_vec(&wire) else {
@@ -67,9 +81,35 @@ async fn emit_status(cx: &Ctx, id: &SurfaceId, status: SurfaceStatus) {
         .dispatch_prefix(SURFACE_STATUS_PREFIX, |sink| sink.emit(&event));
 }
 
-async fn owner_ids(cx: &Ctx, id: &SurfaceId) -> Result<Option<(String, String)>> {
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT s.id, p.workspace_id
+async fn session_id_for_surface(cx: &Ctx, id: &SurfaceId) -> Result<Option<String>> {
+    let row: Option<(String,)> = sqlx::query_as("SELECT session_id FROM surface WHERE id = ?")
+        .bind(id.as_str())
+        .fetch_optional(cx.db())
+        .await?;
+    Ok(row.map(|(s,)| s))
+}
+
+/// Resolve a session's owning workspace id for call sites that only have a
+/// session in scope (spawn, launch, stop-session). The chain is FK-enforced
+/// (session -> project -> workspace, both NOT NULL): a lookup miss means the
+/// session vanished mid-operation, a genuine error, not a validated case.
+pub async fn workspace_id_for_session(cx: &Ctx, session_id: &SessionId) -> Result<WorkspaceId> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT p.workspace_id FROM session s JOIN project p ON p.id = s.project_id WHERE s.id = ?",
+    )
+    .bind(session_id.as_str())
+    .fetch_optional(cx.db())
+    .await?;
+    row.map(|(wid,)| WorkspaceId::new(wid))
+        .ok_or_else(|| Error::WorkspaceNotFound(session_id.as_str().to_owned()))
+}
+
+/// Resolve a surface's owning workspace id when only the surface id is known
+/// (a raw PTY exit frame carries no session context). Same FK-enforced guarantee
+/// as `workspace_id_for_session`.
+pub async fn workspace_id_for_surface(cx: &Ctx, id: &SurfaceId) -> Result<WorkspaceId> {
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT p.workspace_id
          FROM surface sf
          JOIN session s ON s.id = sf.session_id
          JOIN project p ON p.id = s.project_id
@@ -78,7 +118,8 @@ async fn owner_ids(cx: &Ctx, id: &SurfaceId) -> Result<Option<(String, String)>>
     .bind(id.as_str())
     .fetch_optional(cx.db())
     .await?;
-    Ok(row)
+    row.map(|(wid,)| WorkspaceId::new(wid))
+        .ok_or_else(|| Error::WorkspaceNotFound(id.as_str().to_owned()))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -131,7 +172,7 @@ mod tests {
         }
     }
 
-    async fn seed_surface(cx: &Ctx) -> SurfaceId {
+    async fn seed_surface(cx: &Ctx) -> (SurfaceId, WorkspaceId) {
         insert_workspace(cx, "ws-ev-1", "W").await;
         sqlx::query("INSERT INTO project (id, workspace_id, name) VALUES (?, ?, ?)")
             .bind("p-ev-1")
@@ -164,7 +205,7 @@ mod tests {
         )
         .await
         .unwrap();
-        surface.id
+        (surface.id, WorkspaceId::new("ws-ev-1"))
     }
 
     // Scenario: A status transition dispatches exactly one event carrying the
@@ -172,13 +213,13 @@ mod tests {
     #[tokio::test]
     async fn transition_pushes_one_event_with_post_transition_status() {
         let cx = ctx().await;
-        let surface_id = seed_surface(&cx).await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
 
         let sink = Arc::new(RecordingSink(Mutex::new(Vec::new())));
         cx.domain_channel_sinks()
             .register("surface-status://test-window", sink.clone());
 
-        update_status_and_emit(&cx, &surface_id, SurfaceStatus::Live)
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Live)
             .await
             .unwrap();
 
@@ -196,14 +237,14 @@ mod tests {
     #[tokio::test]
     async fn status_is_already_persisted_when_the_event_fires() {
         let cx = ctx().await;
-        let surface_id = seed_surface(&cx).await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
 
         cx.domain_channel_sinks().register(
             "surface-status://probe",
             Arc::new(RecordingSink(Mutex::new(Vec::new()))),
         );
 
-        update_status_and_emit(&cx, &surface_id, SurfaceStatus::Failed)
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Failed)
             .await
             .unwrap();
 
@@ -220,11 +261,11 @@ mod tests {
     #[tokio::test]
     async fn confirm_spawn_does_not_overwrite_a_terminal_exit() {
         let cx = ctx().await;
-        let surface_id = seed_surface(&cx).await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
 
         // The PTY died immediately: the pump recorded failed before the spawn
         // command's confirmation ran.
-        update_status_and_emit(&cx, &surface_id, SurfaceStatus::Failed)
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Failed)
             .await
             .unwrap();
 
@@ -232,7 +273,9 @@ mod tests {
         cx.domain_channel_sinks()
             .register("surface-status://confirm-race", sink.clone());
 
-        confirm_spawn_and_emit(&cx, &surface_id).await.unwrap();
+        confirm_spawn_and_emit(&cx, &surface_id, &workspace_id)
+            .await
+            .unwrap();
 
         let (status,): (String,) = sqlx::query_as("SELECT status FROM surface WHERE id = ?")
             .bind(surface_id.as_str())
@@ -250,9 +293,9 @@ mod tests {
     #[tokio::test]
     async fn transition_without_subscribers_still_persists() {
         let cx = ctx().await;
-        let surface_id = seed_surface(&cx).await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
 
-        update_status_and_emit(&cx, &surface_id, SurfaceStatus::Idle)
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Idle)
             .await
             .unwrap();
 
@@ -262,5 +305,43 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(status, "idle");
+    }
+
+    // Scenario: workspace_id_for_session resolves the FK chain for a caller that
+    // only has a session in scope.
+    #[tokio::test]
+    async fn workspace_id_for_session_resolves_through_the_project() {
+        let cx = ctx().await;
+        let (_, workspace_id) = seed_surface(&cx).await;
+
+        let resolved = workspace_id_for_session(&cx, &SessionId::from_string("s-ev-1"))
+            .await
+            .unwrap();
+
+        assert_eq!(resolved, workspace_id);
+    }
+
+    // Scenario: workspace_id_for_surface resolves the full chain for a caller
+    // that only has a surface id (a raw PTY exit frame).
+    #[tokio::test]
+    async fn workspace_id_for_surface_resolves_through_session_and_project() {
+        let cx = ctx().await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
+
+        let resolved = workspace_id_for_surface(&cx, &surface_id).await.unwrap();
+
+        assert_eq!(resolved, workspace_id);
+    }
+
+    // Scenario: a session that never existed is a genuine error, not a silent None --
+    // the FK chain guarantees presence for any session that does exist.
+    #[tokio::test]
+    async fn workspace_id_for_session_errors_on_an_unknown_session() {
+        let cx = ctx().await;
+
+        let result =
+            workspace_id_for_session(&cx, &SessionId::from_string("no-such-session")).await;
+
+        assert!(matches!(result, Err(Error::WorkspaceNotFound(_))));
     }
 }

@@ -90,11 +90,28 @@ impl DomainChannelStream for SurfaceChannelStream {
         while let Some(frame) = self.runtime.recv().await {
             // A terminal exit transitions the persisted status (and pushes to every
             // window) even when no user command caused it. Best-effort: the pump
-            // must keep draining frames regardless.
+            // must keep draining frames regardless. workspace_id resolution can
+            // only fail if the surface row itself already vanished (raced delete);
+            // in that case there is nothing to persist or push, so the frame is
+            // dropped rather than blocking the pump.
             if let Output::Exit(q) = &frame.output {
                 let id = SurfaceId::from_string(&frame.surface);
-                let _ = super::status_events::update_status_and_emit(&self.cx, &id, exit_status(q))
-                    .await;
+                let status = exit_status(q);
+                match super::status_events::workspace_id_for_surface(&self.cx, &id).await {
+                    Ok(workspace_id) => {
+                        let _ = super::status_events::update_status_and_emit(
+                            &self.cx,
+                            &id,
+                            &workspace_id,
+                            status,
+                        )
+                        .await;
+                    }
+                    Err(_) => {
+                        let _ = crate::infra::SurfaceRepo::update_status(self.cx.db(), &id, status)
+                            .await;
+                    }
+                }
             }
             let event = match &frame.output {
                 Output::Bytes(b) => DomainChannelEvent::Bytes(b),

@@ -40,6 +40,11 @@ impl Command<Ctx> for LaunchSession {
             })?
             .0;
 
+        if spec.items.is_empty() {
+            return Ok(());
+        }
+        let workspace_id = crate::app::surface::workspace_id_for_session(cx, &id).await?;
+
         for item in &spec.items {
             // D9: persist intent (pending).
             let surface = SurfaceRepo::create(
@@ -67,10 +72,11 @@ impl Command<Ctx> for LaunchSession {
             // D9: run effect lock-free, record outcome (emits surface-status push).
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    confirm_spawn_and_emit(cx, &surface.id).await?;
+                    confirm_spawn_and_emit(cx, &surface.id, &workspace_id).await?;
                 }
                 Err(e) => {
-                    update_status_and_emit(cx, &surface.id, SurfaceStatus::Failed).await?;
+                    update_status_and_emit(cx, &surface.id, &workspace_id, SurfaceStatus::Failed)
+                        .await?;
                     return Err(e);
                 }
             }

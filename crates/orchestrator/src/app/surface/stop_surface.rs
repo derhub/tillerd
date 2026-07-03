@@ -17,9 +17,12 @@ pub struct StopSurface {
 impl Command<Ctx> for StopSurface {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         let id = SurfaceId::from_string(&self.id);
-        require_surface(cx, &id).await?;
+        let surface = require_surface(cx, &id).await?;
+        let workspace_id =
+            super::status_events::workspace_id_for_session(cx, &surface.session_id).await?;
         cx.runtime().stop(&id).await?;
-        super::status_events::update_status_and_emit(cx, &id, SurfaceStatus::Idle).await
+        super::status_events::update_status_and_emit(cx, &id, &workspace_id, SurfaceStatus::Idle)
+            .await
     }
 }
 
