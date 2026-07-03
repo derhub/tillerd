@@ -370,11 +370,21 @@ SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/
 > written; view pointers, guards, and workspace-activity ride the deferred state-model.
 > These need re-scoping against ADR-0036 before 0.0.16 starts.
 
-- [ ] TanStack Router — replace react-router routing (12 files); typed search-params carry window intent.
-- [ ] TanStack Query — server-state cache = the sync axis (pending/error/stale/refetch); kills imperative `refresh()`.
-- [ ] TanStack Store — reactive client store; coherent lists across windows.
-- [ ] Internal multi-window coherence — orchestrator emits `changed{id}` on its own writes → windows invalidate the matching Query key (app-internal, not file-watching).
+- [x] TanStack Router — replace react-router routing (12 files); typed search-params carry window intent.
+  (`@tanstack/react-router`, file-based routing per ADR-0040; `app/router.tsx` + `app/lib/windows.ts`
+  `WindowIntent` search-params; commit `4cee5cd6`.)
+- [x] TanStack Query — server-state cache = the sync axis (pending/error/stale/refetch); kills imperative `refresh()`.
+  (`app/lib/queryClient.ts` — `MutationCache.onSuccess` auto-invalidates via `meta.invalidates`; no
+  imperative `refresh()` remains.)
+- [x] TanStack Store — reactive client store; coherent lists across windows.
+  (`app/lib/store.ts` — `uiStore = new Store<UiState>(...)`, client-UI-state only; server data stays
+  in the Query cache.)
+- [x] Internal multi-window coherence — windows invalidate the matching Query key on a write
+  (app-internal, not file-watching). (Landed as a client-broadcast, not an orchestrator-pushed
+  `changed{id}` event as originally worded: `app/lib/crossWindowSync.ts` broadcasts `meta.invalidates`
+  keys over the Tauri event bus from the mutating window; ADR-0039 documents the deviation.)
 - [ ] Wire view pointers + state-model guards + workspace-activity read-model through Query/Store.
+  (Out of scope per ADR-0039 — the deferred state-model contract, ADR-0034, isn't implemented yet.)
 
 ### 0.0.17 — Foundation integration
 
