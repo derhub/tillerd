@@ -49,17 +49,22 @@ The title bar SHALL host a toolbar with buttons that toggle the visibility of th
 
 ### Requirement: Left, right, and bottom dock regions
 
-The shell body SHALL host the existing left sidebar plus a right dock and a bottom dock region flanking the content outlet. Each region SHALL be independently hideable. When a region is hidden it SHALL not occupy layout space, and the content outlet SHALL reclaim that space. The right and bottom docks MAY render placeholder content until their content is defined.
+The shell body SHALL host the existing left sidebar plus a right dock and a bottom dock region flanking the content outlet. Each region SHALL be independently hideable and drag-resizable via a handle between it and the content area, within defined minimum and maximum bounds. When a region is hidden it SHALL not occupy layout space (its resize handle SHALL also be absent), and the content outlet SHALL reclaim that space. The right and bottom docks MAY render placeholder content until their content is defined.
 
 #### Scenario: Hidden region reclaims space
 
 - **WHEN** the bottom dock is hidden
-- **THEN** the bottom dock occupies no vertical space and the content area extends to the window bottom
+- **THEN** the bottom dock and its resize handle occupy no vertical space and the content area extends to the window bottom
 
 #### Scenario: Regions are independently controlled
 
 - **WHEN** the user hides the right dock
 - **THEN** the left sidebar and bottom dock visibility are unchanged
+
+#### Scenario: A visible region can be resized
+
+- **WHEN** the user drags the handle between the content area and a visible dock
+- **THEN** that dock resizes within its min/max bounds and the content area takes the remaining space
 
 ### Requirement: Persisted panel visibility
 

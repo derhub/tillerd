@@ -21,9 +21,13 @@ The user explicitly chose the `tauri-controls` library for the window controls, 
 **Non-Goals:**
 
 - Real content for the right/bottom docks (placeholder only; content is a later change).
-- Resizable/draggable dock sizing beyond a fixed default width/height (react-resizable-panels wiring is out of scope).
+- Persisting dock sizes across restart (the regions are drag-resizable via `react-resizable-panels`, but the chosen size is per-session, not saved — size persistence is a later change).
 - Changes to the recursive terminal panel tree (`ui-shell`).
 - Per-window (non-persisted) layout variants; visibility is a single durable setting shared across windows, matching `sidebarExpandedKey`.
+
+### D6: Sidebar and docks are drag-resizable
+
+The shell body is a nested `react-resizable-panels` layout: a horizontal group (sidebar | center | right dock) whose center is a vertical group (content | bottom dock), with resize handles between regions. Sizes use unit strings (sidebar `224px`, right `256px`, bottom `200px`) with min/max bounds. A hidden region renders neither its panel nor its handle, so the remaining regions reclaim the space. Size is not persisted yet (see Non-Goals). Alternative rejected: fixed-width docks — the user wants to resize them; the panel library is already a dependency (terminal splits use it).
 
 ## Decisions
 
