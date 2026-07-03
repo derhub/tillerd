@@ -392,8 +392,12 @@ SSR not a factor). Swaps react-router's framework-mode toolchain (`build`/`dev`/
 
 Buffer + integration pass: the three slices proven together end-to-end before the 0.0.20 UX/UI ship.
 
-- [ ] End-to-end — storage + state model + TanStack working as one across create / switch / reload / multi-window.
-- [ ] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.16 lands here.
+- [x] End-to-end — storage + state model + TanStack working as one across create / switch / reload / multi-window.
+  (Consolidated journey `tests/desktop-e2e/foundation-integration.test.ts`: one project threaded through
+  create → switch → reload, asserting surface identity survives both the session switch and a full window
+  reload; multi-window coherence via the parent-row reaction.)
+- [x] Absorb any blocker found while splitting; anything deferred from 0.0.15–0.0.16 lands here.
+  (No integration blocker surfaced — the consolidated journey and the full verify gate are green as-is.)
 
 > Dropped: **Re-sync UX — placement + conflict-prompt (Override / Force-merge)**. Moot post
 > ADR-0036 — conflict-locking and the 3-way file-merge model it prompted are gone with the
