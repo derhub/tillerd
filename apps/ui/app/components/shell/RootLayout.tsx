@@ -122,24 +122,8 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                           )}
                           {leftVisible && <ResizableHandle />}
                           <ResizablePanel minSize="30%" className="min-w-0">
-                            <div className="h-full w-full min-w-0 pt-px relative">
+                            <div className="h-full w-full min-w-0 pt-px">
                               <Outlet />
-                              <div className="absolute bottom-2 right-2 z-50 flex items-center gap-2">
-                                {(isProjectWindow || isWorkspaceWindow) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void closeSelf()}
-                                    aria-label="Re-attach"
-                                    className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
-                                  >
-                                    <Undo2 size={12} />
-                                    <span>Re-attach</span>
-                                  </button>
-                                )}
-                                <NotificationIndicator />
-                                <SettingsPanel />
-                                <ServiceHealthIndicator />
-                              </div>
                             </div>
                           </ResizablePanel>
                           {rightVisible && <ResizableHandle />}
@@ -158,6 +142,22 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
                       )}
                     </ResizablePanelGroup>
                   </div>
+                  <footer className="flex h-7 shrink-0 items-center justify-end gap-2 border-t border-border/40 px-2">
+                    {(isProjectWindow || isWorkspaceWindow) && (
+                      <button
+                        type="button"
+                        onClick={() => void closeSelf()}
+                        aria-label="Re-attach"
+                        className="flex items-center gap-1 px-2 h-5 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+                      >
+                        <Undo2 size={12} />
+                        <span>Re-attach</span>
+                      </button>
+                    )}
+                    <NotificationIndicator />
+                    <SettingsPanel />
+                    <ServiceHealthIndicator />
+                  </footer>
                 </div>
               </DetachedPanelsContext>
             </SessionContext>
