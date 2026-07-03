@@ -18,10 +18,20 @@ impl Command<Ctx> for StopSessionSurfaces {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         let id = SessionId::from_string(&self.id);
         let surfaces = SurfaceRepo::list(cx.db(), &id, Page::All).await?;
-        for sf in surfaces.items.iter().filter(|sf| sf.status.is_live()) {
-            SurfaceRepo::update_status(
-                cx.db(),
+        let live: Vec<_> = surfaces
+            .items
+            .iter()
+            .filter(|sf| sf.status.is_live())
+            .collect();
+        if live.is_empty() {
+            return Ok(());
+        }
+        let workspace_id = crate::app::surface::workspace_id_for_session(cx, &id).await?;
+        for sf in live {
+            crate::app::surface::update_status_and_emit(
+                cx,
                 &sf.id,
+                &workspace_id,
                 crate::entities::surface::SurfaceStatus::Idle,
             )
             .await?;

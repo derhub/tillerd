@@ -11,7 +11,7 @@ macro_rules! transport_command {
             $( $param: $ty, )*
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<(), ::std::string::String> {
-            bus.execute($build).await.map_err(|e| e.to_string())
+            bus.execute_recorded($build).await.map_err(|e| e.to_string())
         }
     };
 }
@@ -56,7 +56,7 @@ macro_rules! transport_create {
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<$ret, ::std::string::String> {
             let $bind = $mint;
-            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            bus.execute_recorded($cmd).await.map_err(|e| e.to_string())?;
             let $out = bus
                 .query($query)
                 .await
@@ -88,7 +88,7 @@ macro_rules! transport_create {
             bus: tauri::State<'_, $crate::transport::Bus>,
         ) -> ::std::result::Result<$ret, ::std::string::String> {
             let $bind = $mint;
-            bus.execute($cmd).await.map_err(|e| e.to_string())?;
+            bus.execute_recorded($cmd).await.map_err(|e| e.to_string())?;
             let $out = bus
                 .query($query)
                 .await
@@ -144,6 +144,7 @@ macro_rules! collect_transport {
             $crate::transport::project::project_stop_surfaces,
             $crate::transport::workspace::workspace_create,
             $crate::transport::workspace::workspace_list,
+            $crate::transport::workspace::workspace_activity,
             $crate::transport::workspace::workspace_rename,
             $crate::transport::workspace::workspace_reorder,
             $crate::transport::workspace::workspace_delete,
@@ -153,6 +154,8 @@ macro_rules! collect_transport {
             $crate::transport::workspace::workspace_pin,
             $crate::transport::workspace::workspace_unpin,
             $crate::transport::workspace::workspace_stop_surfaces,
+            $crate::transport::surface::surface_status_channel,
+            $crate::transport::surface::surface_status_channel_close,
             $crate::transport::surface::surface_get,
             $crate::transport::surface::surface_list_by_session,
             $crate::transport::surface::surface_list_resumable,

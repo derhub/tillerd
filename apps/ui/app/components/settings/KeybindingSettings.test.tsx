@@ -26,6 +26,9 @@ void mock.module("@tillerd/client-bindings", () => ({
   query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+    getQueryData: () => undefined,
+    invalidateQueries: () => Promise.resolve(),
   }),
 }));
 

@@ -42,7 +42,8 @@ impl Query<Ctx> for ListWorkspaces {
         match page {
             Page::All => {
                 let items = sqlx::query_as::<_, WorkspaceView>(
-                    "SELECT id, name
+                    "SELECT id, name,
+                            CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM workspace
                      ORDER BY pinned DESC, sort_order",
                 )
@@ -54,7 +55,8 @@ impl Query<Ctx> for ListWorkspaces {
             Page::Offset { limit, offset } => {
                 // Fetch limit+1 to detect whether a next page exists.
                 let items = sqlx::query_as::<_, WorkspaceView>(
-                    "SELECT id, name
+                    "SELECT id, name,
+                            CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM workspace
                      ORDER BY pinned DESC, sort_order
                      LIMIT ? OFFSET ?",
@@ -82,7 +84,8 @@ impl Query<Ctx> for ListWorkspaces {
 
                 // Fetch limit+1 to detect whether a next page exists.
                 let items = sqlx::query_as::<_, WorkspaceView>(
-                    "SELECT id, name
+                    "SELECT id, name,
+                            CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM workspace
                      ORDER BY pinned DESC, sort_order
                      LIMIT ? OFFSET ?",

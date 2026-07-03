@@ -1,29 +1,51 @@
 /// <reference lib="dom" />
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { setActiveWorkspace, uiStore } from "./store";
+import { _resetForTests, settingsStore } from "./settings/context";
+import { sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "./settings/keys";
+import {
+  resetUiStore,
+  setActiveProject,
+  setActiveWorkspace,
+  setProjectExpanded,
+  uiStore,
+} from "./store";
 
-afterEach(() => setActiveWorkspace(null));
+// Pre-hydration writes buffer inside the settings bootstrap (no transport call),
+// so these tests exercise the pointer wiring without a mocked backend.
+beforeEach(() => {
+  _resetForTests();
+  settingsStore.setState(() => ({ values: {} }));
+  resetUiStore();
+});
 
-describe("uiStore activeWorkspaceId", () => {
+afterEach(() => {
+  resetUiStore();
+  settingsStore.setState(() => ({ values: {} }));
+  _resetForTests();
+});
+
+describe("active-workspace view pointer", () => {
   test("starts unscoped (all workspaces)", () => {
-    expect(uiStore.state.activeWorkspaceId).toBeNull();
+    expect(settingsStore.state.values[VIEW_ACTIVE_WORKSPACE_KEY]).toBeUndefined();
   });
 
-  test("setActiveWorkspace selects a workspace", () => {
+  test("setActiveWorkspace writes the settings-store pointer", () => {
     setActiveWorkspace("ws-1");
-    expect(uiStore.state.activeWorkspaceId).toBe("ws-1");
+    expect(settingsStore.state.values[VIEW_ACTIVE_WORKSPACE_KEY]).toBe("ws-1");
   });
 
   test("setActiveWorkspace(null) returns to the unscoped view", () => {
     setActiveWorkspace("ws-1");
     setActiveWorkspace(null);
-    expect(uiStore.state.activeWorkspaceId).toBeNull();
+    expect(settingsStore.state.values[VIEW_ACTIVE_WORKSPACE_KEY]).toBeNull();
   });
 
   test("a subscriber sees the new selection and stops after unsubscribe", () => {
-    const seen: (string | null)[] = [];
-    const sub = uiStore.subscribe(() => seen.push(uiStore.state.activeWorkspaceId));
+    const seen: unknown[] = [];
+    const sub = settingsStore.subscribe(() =>
+      seen.push(settingsStore.state.values[VIEW_ACTIVE_WORKSPACE_KEY]),
+    );
 
     setActiveWorkspace("ws-2");
     sub.unsubscribe();
@@ -33,12 +55,24 @@ describe("uiStore activeWorkspaceId", () => {
     expect(seen).not.toContain("ws-3");
   });
 
-  test("state updates are persisted to localStorage", () => {
+  test("view pointers no longer persist to webview localStorage", () => {
     localStorage.clear();
     setActiveWorkspace("ws-persist-test");
-    const raw = localStorage.getItem("tillerd:ui-state");
-    expect(raw).not.toBeNull();
-    const parsed = JSON.parse(raw!);
-    expect(parsed.activeWorkspaceId).toBe("ws-persist-test");
+    expect(localStorage.getItem("tillerd:ui-state")).toBeNull();
+  });
+});
+
+describe("sidebar-expanded view pointer", () => {
+  test("setProjectExpanded writes a per-project settings key", () => {
+    setProjectExpanded("p-1", true);
+    expect(settingsStore.state.values[sidebarExpandedKey("p-1")]).toBe(true);
+    setProjectExpanded("p-1", false);
+    expect(settingsStore.state.values[sidebarExpandedKey("p-1")]).toBe(false);
+  });
+
+  test("setActiveProject expands the project and stays window-local", () => {
+    setActiveProject("p-2");
+    expect(uiStore.state.activeProjectId).toBe("p-2");
+    expect(settingsStore.state.values[sidebarExpandedKey("p-2")]).toBe(true);
   });
 });

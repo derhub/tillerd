@@ -25,6 +25,7 @@ const beta = { id: "ws-2", name: "Beta" };
 const opened: string[] = [];
 const created: { name: string }[] = [];
 let workspaceList: { id: string; name: string }[] = [alpha, beta];
+let workspaceActivity: { workspaceId: string; running: number; failed: number }[] = [];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
 void mock.module("~/lib/useDesktopHost", () => ({
@@ -58,6 +59,7 @@ void mock.module("@tauri-apps/api/core", () => ({
     }
     if (cmd === "project_list") return [];
     if (cmd === "session_list") return [];
+    if (cmd === "workspace_activity") return [...workspaceActivity];
     return null;
   },
   Channel: class Channel {
@@ -79,6 +81,7 @@ afterEach(() => {
   opened.length = 0;
   created.length = 0;
   workspaceList = [alpha, beta];
+  workspaceActivity = [];
   reattach = undefined;
   setActiveWorkspace(null);
   setReady(false);
@@ -122,6 +125,68 @@ test("detaching a workspace opens its window and re-attaching closes it back to 
   });
   await waitFor(() => expect(detachedIndicator()).toBeNull());
   expect(detachBtn()).not.toBeNull();
+});
+
+// The activity dot proves the workspace-activity read-model end to end: rollup rows
+// render as a per-workspace indicator colored by the worst state.
+test("the activity dot reflects the rollup for its workspace", async () => {
+  workspaceActivity = [
+    { workspaceId: "ws-1", running: 2, failed: 0 },
+    { workspaceId: "ws-2", running: 0, failed: 0 },
+  ];
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const dot = document.querySelector('[data-testid="workspace-activity"]');
+    expect(dot).not.toBeNull();
+    expect(dot?.getAttribute("data-running")).toBe("2");
+  });
+  // ws-2 has no live/failed surfaces: exactly one dot renders.
+  expect(document.querySelectorAll('[data-testid="workspace-activity"]')).toHaveLength(1);
+});
+
+// Lifecycle resolution: a pointer to a deleted workspace renders the Default
+// scope -- never an error or empty shell. The pointer itself is NOT rewritten
+// for a merely-absent id (the list can be a stale snapshot missing a young
+// workspace); it self-heals if the workspace reappears.
+test("a pointer to an absent workspace renders Default without rewriting", async () => {
+  const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
+  workspaceList = [defaultWs, alpha];
+  setActiveWorkspace("ws-deleted");
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const active = document.querySelector(
+      `[data-testid="workspace-item"][data-workspace-id="${defaultWs.id}"]`,
+    );
+    expect(active?.className ?? "").toContain("font-medium");
+  });
+  const { settingsStore } = await import("~/lib/settings/context");
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-deleted");
+});
+
+// A target the list KNOWS is archived is a settled fact: render Default AND
+// rewrite the pointer once so it does not re-resolve every start.
+test("a pointer to an archived workspace falls back and is rewritten", async () => {
+  const defaultWs = { id: "00000000-0000-0000-0000-000000000001", name: "Default" };
+  const archivedWs = { id: "ws-arch", name: "Archived", status: "archived" };
+  workspaceList = [defaultWs, alpha, archivedWs];
+  setActiveWorkspace("ws-arch");
+
+  withQuery(<WorkspaceSwitcher />);
+
+  await waitFor(() => {
+    const active = document.querySelector(
+      `[data-testid="workspace-item"][data-workspace-id="${defaultWs.id}"]`,
+    );
+    expect(active?.className ?? "").toContain("font-medium");
+  });
+  const { settingsStore } = await import("~/lib/settings/context");
+  await waitFor(() =>
+    expect(settingsStore.state.values["view.active-workspace"]).toBe(defaultWs.id),
+  );
 });
 
 // New workspace must not depend on window.prompt (unreliable in the Tauri webview): it creates a

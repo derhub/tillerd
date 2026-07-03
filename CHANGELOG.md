@@ -10,6 +10,21 @@ Next: 0.0.10 — notification center. The architecture froze at 0.0.6; every lat
 is additive on those seams. The working app ships at the end of the 0.0.x line (0.0.14);
 0.1.x extends it; 1.0.0 ships distribution.
 
+### Added
+
+- **State model wired through the client engine** (ADR-0044, supersedes ADR-0034) — Rust
+  entity states/transitions/guards exported as a committed contract fixture with drift
+  tests on both sides; UI action enablement derives from the mirrored guard table.
+- **Workspace-activity read-model** — per-workspace running/failed rollup query, kept
+  live in every window by a `surface_status_changed` push (PTY self-exits and crashes
+  included); minimal activity dot on workspace rows.
+- **View pointers in the settings store** — active workspace, per-project last session,
+  and sidebar expansion persist as orchestrator settings keys; webview `localStorage`
+  no longer holds them; a stale pointer resolves to the Default workspace.
+- **Server-side command-error notifications** — a failed user command is recorded by the
+  orchestrator (durable, pushed to all windows); the renderer no longer records
+  notifications.
+
 ## [0.0.9] — 2026-06-14
 
 Settings foundation.

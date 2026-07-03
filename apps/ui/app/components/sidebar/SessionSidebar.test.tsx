@@ -147,6 +147,39 @@ describe("project scoping (a project child window)", () => {
   });
 });
 
+describe("guarded actions (stateModel mirror)", () => {
+  const UNFILED_ID = "00000000-0000-0000-0000-000000000000";
+
+  function projectRow(name: string): HTMLElement {
+    const label = screen.queryByText(name);
+    if (!label) throw new Error(`no row for ${name}`);
+    return label;
+  }
+
+  test("the Unfiled project's context menu offers no Delete", async () => {
+    setTreeData([project(UNFILED_ID, "Unfiled", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Unfiled")).not.toBeNull());
+
+    fireEvent.contextMenu(projectRow("Unfiled"));
+
+    await waitFor(() => expect(screen.queryByText("Open in new window")).not.toBeNull());
+    expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  test("an ordinary project's context menu offers Delete", async () => {
+    setTreeData([project("p-1", "Ordinary", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Ordinary")).not.toBeNull());
+
+    fireEvent.contextMenu(projectRow("Ordinary"));
+
+    await waitFor(() => expect(screen.queryByText("Delete")).not.toBeNull());
+  });
+});
+
 describe("lazy per-project session loading", () => {
   function expandToggle(projectId: string): HTMLElement {
     const toggle = document.querySelector(

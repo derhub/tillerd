@@ -70,11 +70,49 @@ impl DomainChannelMessage<Ctx> for SurfaceClientMsg {
 pub struct SurfaceChannelStream {
     pub runtime: Arc<Runtime>,
     pub registry: Arc<Registry<dyn DomainChannelSink>>,
+    /// For persisting exit transitions: a self-exit or crash the user did not
+    /// cause must still update `surface.status` and push .
+    pub cx: Ctx,
+}
+
+/// Qualifier -> persisted status, per the exit-classification contract: only
+/// crash-class qualifiers mark the surface failed; `ok` and `stopped-by-request`
+/// leave a resumable idle record.
+fn exit_status(qualifier: &str) -> crate::entities::SurfaceStatus {
+    match qualifier {
+        "ok" | "stopped-by-request" => crate::entities::SurfaceStatus::Idle,
+        _ => crate::entities::SurfaceStatus::Failed,
+    }
 }
 
 impl DomainChannelStream for SurfaceChannelStream {
     async fn handle(self) {
         while let Some(frame) = self.runtime.recv().await {
+            // A terminal exit transitions the persisted status (and pushes to every
+            // window) even when no user command caused it. Best-effort: the pump
+            // must keep draining frames regardless. workspace_id resolution can
+            // only fail if the surface row itself already vanished (raced delete);
+            // in that case there is nothing to persist or push, so the frame is
+            // dropped rather than blocking the pump.
+            if let Output::Exit(q) = &frame.output {
+                let id = SurfaceId::from_string(&frame.surface);
+                let status = exit_status(q);
+                match super::status_events::workspace_id_for_surface(&self.cx, &id).await {
+                    Ok(workspace_id) => {
+                        let _ = super::status_events::update_status_and_emit(
+                            &self.cx,
+                            &id,
+                            &workspace_id,
+                            status,
+                        )
+                        .await;
+                    }
+                    Err(_) => {
+                        let _ = crate::infra::SurfaceRepo::update_status(self.cx.db(), &id, status)
+                            .await;
+                    }
+                }
+            }
             let event = match &frame.output {
                 Output::Bytes(b) => DomainChannelEvent::Bytes(b),
                 Output::Status(s) => DomainChannelEvent::Status(s),
@@ -228,6 +266,74 @@ mod tests {
                 }
             ]
         );
+    }
+
+    async fn seed_live_surface(h: &crate::app::surface::test_util::Harness, id: &str) {
+        let session = seed_session(&h.pool, &format!("s-{id}")).await;
+        sqlx::query(
+            "INSERT INTO surface (id, session_id, kind, cwd, status, placement)
+             VALUES (?, ?, 'terminal', '/work', 'live', 'main')",
+        )
+        .bind(id)
+        .bind(&session)
+        .fetch_optional(&h.pool)
+        .await
+        .unwrap();
+    }
+
+    async fn drain_stream(h: &crate::app::surface::test_util::Harness) {
+        SurfaceChannelStream {
+            runtime: Arc::new(Runtime::Fake(Arc::clone(&h.runtime))),
+            registry: Arc::clone(h.bus.cx().domain_channel_sinks()),
+            cx: h.bus.cx().clone(),
+        }
+        .handle()
+        .await;
+    }
+
+    async fn surface_status(h: &crate::app::surface::test_util::Harness, id: &str) -> String {
+        let (status,): (String,) = sqlx::query_as("SELECT status FROM surface WHERE id = ?")
+            .bind(id)
+            .fetch_one(&h.pool)
+            .await
+            .unwrap();
+        status
+    }
+
+    // Scenario: A crash the user did not cause is pushed -- the exit frame
+    // transitions the persisted status and every status subscriber hears it.
+    #[tokio::test]
+    async fn a_crash_class_exit_persists_failed_and_pushes() {
+        let h = harness().await;
+        seed_live_surface(&h, "sf-exit-crash").await;
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        h.bus
+            .cx()
+            .domain_channel_sinks()
+            .register("surface-status://probe", Arc::new(Recorder(seen.clone())));
+
+        h.runtime
+            .enqueue_output("sf-exit-crash", Output::Exit("error".to_owned()));
+        drain_stream(&h).await;
+
+        assert_eq!(surface_status(&h, "sf-exit-crash").await, "failed");
+        let pushed = seen.lock().unwrap();
+        assert_eq!(pushed.len(), 1, "one status push per exit");
+        assert!(pushed[0].contains("\"status\":\"failed\""));
+    }
+
+    // Scenario: A clean self-exit leaves a resumable idle record, not a failure.
+    #[tokio::test]
+    async fn a_clean_exit_persists_idle() {
+        let h = harness().await;
+        seed_live_surface(&h, "sf-exit-ok").await;
+
+        h.runtime
+            .enqueue_output("sf-exit-ok", Output::Exit("ok".to_owned()));
+        drain_stream(&h).await;
+
+        assert_eq!(surface_status(&h, "sf-exit-ok").await, "idle");
     }
 
     /// Counts the bus spans (`command`/`query`) opened during a closure -- the

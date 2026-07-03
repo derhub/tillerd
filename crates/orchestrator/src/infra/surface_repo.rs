@@ -184,6 +184,24 @@ impl SurfaceRepo {
         Ok(())
     }
 
+    /// Transition only from an expected prior status; returns whether a row
+    /// changed. Lets a spawn confirmation (`pending -> live`) lose gracefully to
+    /// an exit-frame write that already recorded the PTY's death.
+    pub async fn update_status_from<'e>(
+        exec: impl SqliteExecutor<'e>,
+        id: &SurfaceId,
+        from: SurfaceStatus,
+        to: SurfaceStatus,
+    ) -> Result<bool> {
+        let result = sqlx::query("UPDATE surface SET status = ? WHERE id = ? AND status = ?")
+            .bind(to.as_str())
+            .bind(id.as_str())
+            .bind(from.as_str())
+            .execute(exec)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
     /// Delete a surface row by id (used by `CloseSurface`).
     pub async fn delete<'e>(exec: impl SqliteExecutor<'e>, id: &SurfaceId) -> Result<()> {
         sqlx::query("DELETE FROM surface WHERE id = ?")

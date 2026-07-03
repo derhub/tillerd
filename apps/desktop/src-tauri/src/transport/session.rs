@@ -172,10 +172,18 @@ mod tests {
             title: "T".into(),
             title_source: "agentTitle".into(),
             created_at: "2026-01-01T00:00:00.000Z".into(),
+            status: "active".into(),
         };
         assert_keys(
             &serde_json::to_value(s).unwrap(),
-            &["id", "projectId", "title", "titleSource", "createdAt"],
+            &[
+                "id",
+                "projectId",
+                "title",
+                "titleSource",
+                "createdAt",
+                "status",
+            ],
         );
     }
 

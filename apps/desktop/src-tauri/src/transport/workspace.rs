@@ -1,7 +1,7 @@
 use orchestrator::app::workspace::{
-    ArchiveWorkspace, DiscardWorkspace, GetWorkspaceById, ListWorkspaces, NewWorkspaceCmd,
-    PinWorkspace, RenameWorkspace, ReorderWorkspace, RestoreWorkspace, StopWorkspaceSurfaces,
-    UnpinWorkspace, WorkspaceView,
+    ArchiveWorkspace, DiscardWorkspace, GetWorkspaceById, ListWorkspaceActivity, ListWorkspaces,
+    NewWorkspaceCmd, PinWorkspace, RenameWorkspace, ReorderWorkspace, RestoreWorkspace,
+    StopWorkspaceSurfaces, UnpinWorkspace, WorkspaceActivityView, WorkspaceView,
 };
 use uuid::Uuid;
 
@@ -21,6 +21,12 @@ transport_query!(
     workspace_list() -> Vec<WorkspaceView>
         => ListWorkspaces { limit: None, offset: None, after: None },
         |listing| listing.items
+);
+
+transport_query!(
+    workspace_activity() -> Vec<WorkspaceActivityView>
+        => ListWorkspaceActivity {},
+        |items| items
 );
 
 transport_command!(workspace_rename(id: String, name: String) => RenameWorkspace {
@@ -69,7 +75,8 @@ mod tests {
         let w = WorkspaceView {
             id: "w".into(),
             name: "W".into(),
+            status: "active".into(),
         };
-        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name"]);
+        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name", "status"]);
     }
 }

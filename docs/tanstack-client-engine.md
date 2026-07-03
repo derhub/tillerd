@@ -120,6 +120,39 @@ const activeWorkspaceId = useStore(uiStore, (s) => s.activeWorkspaceId);
 Use `Derived` for computed state that depends on other store state. Always pass a selector to
 `useStore` — subscribing to the whole store re-renders on every field change.
 
+## View pointers ride the settings store (ADR-0044)
+
+Durable UI position — `view.active-workspace`, `view.last-session.<projectId>`,
+`sidebar.expanded.<projectId>` — persists as orchestrator settings keys (global scope,
+one key per target so concurrent windows never clobber each other), NOT webview
+`localStorage`. Reads flow through the settings bootstrap (`settingsStore`); writes go
+through `setGlobalSetting` (synchronous local update, fire-and-forget persist, sibling
+windows converge via the `["settings"]` invalidation broadcast + the post-hydration
+`watchSettings` query observer). `~/lib/store.ts` keeps only window-scoped ephemera
+(`activeProjectId`, `commandCenterOpen`). Resolve a pointer against live lifecycle at
+its consumption point: an archived/deleted workspace falls back to the Default
+workspace and the pointer is rewritten once (`WorkspaceSwitcher`).
+
+## State-model mirror: enablement comes from `can()`
+
+`~/lib/stateModel.ts` mirrors the Rust entity state/guard tables (drift-proven against
+`state-model.contract.json` by tests on both sides — regenerate the fixture with
+`TILLERD_BLESS=1 cargo nextest run -p tillerd-orchestrator state_model`). Derive action
+enablement from `can(entity, action, row)`, never from per-component id/status
+conditionals. Advisory only: the orchestrator enforces every guard and records a
+rejected command as a `command-error` notification server-side — the renderer never
+records notifications, it only displays what the notification channel pushes.
+
+## Subscription-driven invalidation: workspace activity
+
+The per-workspace activity rollup is a server-derived read (`query("workspaceActivity")`,
+cache key `["workspaces", "activity"]`). The orchestrator pushes
+`surface_status_changed` over a per-window channel after every persisted surface-status
+transition (including PTY self-exits); `~/lib/surfaceStatusSync.ts` (mounted once per
+window in `router.tsx`) coalesces the events (~80ms) and invalidates
+`["workspaces", "activity"]` + `["surfaces"]` — activity indicators stay live with no
+polling and no focus-refetch.
+
 ## Router (TanStack Router)
 
 File-based routing via `@tanstack/router-plugin` (ADR-0040, supersedes ADR-0039's code-based single

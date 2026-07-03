@@ -32,6 +32,8 @@ export const commands = {
 	logsChangedChannelClose: (args: { req: CloseLogsChangedChannel }) => typedError<null, string>(__TAURI_INVOKE("logs_changed_channel_close", args)),
 	notificationChannel: (args: { channel: Channel<number[]>; req: OpenNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel", args)),
 	notificationChannelClose: (args: { req: CloseNotificationChannel }) => typedError<null, string>(__TAURI_INVOKE("notification_channel_close", args)),
+	surfaceStatusChannel: (args: { channel: Channel<number[]>; req: OpenSurfaceStatusChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_status_channel", args)),
+	surfaceStatusChannelClose: (args: { req: CloseSurfaceStatusChannel }) => typedError<null, string>(__TAURI_INVOKE("surface_status_channel_close", args)),
 	settingGet: (args: { scope: string; projectId: string | null; key: string }) => typedError<string | null, string>(__TAURI_INVOKE("setting_get", args)),
 	settingSet: (args: { scope: string; projectId: string | null; key: string; valueJson: string }) => typedError<null, string>(__TAURI_INVOKE("setting_set", args)),
 	settingList: (args: { scope: string; projectId: string | null }) => typedError<SettingView[], string>(__TAURI_INVOKE("setting_list", args)),
@@ -52,6 +54,7 @@ export const commands = {
 	sourceKind: string,
 	rootPath: string | null,
 	workspaceId: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("project_get", args)),
 	projectSearch: (args: { workspaceId: string; query: string; limit: number }) => typedError<ProjectView[], string>(__TAURI_INVOKE("project_search", args)),
 	projectRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("project_restore", args)),
@@ -61,12 +64,14 @@ export const commands = {
 	projectStopSurfaces: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("project_stop_surfaces", args)),
 	workspaceCreate: (args: { name: string }) => typedError<WorkspaceView, string>(__TAURI_INVOKE("workspace_create", args)),
 	workspaceList: () => typedError<WorkspaceView[], string>(__TAURI_INVOKE("workspace_list")),
+	workspaceActivity: () => typedError<WorkspaceActivityView[], string>(__TAURI_INVOKE("workspace_activity")),
 	workspaceRename: (args: { id: string; name: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_rename", args)),
 	workspaceReorder: (args: { id: string; sortOrder: number }) => typedError<null, string>(__TAURI_INVOKE("workspace_reorder", args)),
 	workspaceDelete: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_delete", args)),
 	workspaceGet: (args: { id: string }) => typedError<{
 	id: string,
 	name: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("workspace_get", args)),
 	workspaceArchive: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_archive", args)),
 	workspaceRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_restore", args)),
@@ -111,6 +116,7 @@ export const commands = {
 	title: string,
 	titleSource: string,
 	createdAt: string,
+	status: string,
 } | null, string>(__TAURI_INVOKE("session_get", args)),
 	sessionListAll: (args: { limit: number | null; offset: number | null; after: string | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list_all", args)),
 	sessionGetLaunchSpec: (args: { id: string }) => typedError<LaunchSpec | null, string>(__TAURI_INVOKE("session_get_launch_spec", args)),
@@ -220,6 +226,10 @@ export type CloseNotificationChannel = {
 
 export type CloseSurfaceChannel = {
 	surfaceId: string,
+};
+
+export type CloseSurfaceStatusChannel = {
+	channelId: string,
 };
 
 export type CommandCenterOpen = string;
@@ -375,6 +385,10 @@ export type OpenSurfaceChannel = {
 	surfaceId: string,
 };
 
+export type OpenSurfaceStatusChannel = {
+	channelId: string,
+};
+
 /**  A stored profile: id, name, and a map of setting overrides. */
 export type Profile = {
 	id: string,
@@ -396,6 +410,7 @@ export type ProjectView = {
 	sourceKind: string,
 	rootPath: string | null,
 	workspaceId: string,
+	status: string,
 };
 
 /**  One service's health on the wire. */
@@ -421,6 +436,7 @@ export type SessionView = {
 	title: string,
 	titleSource: string,
 	createdAt: string,
+	status: string,
 };
 
 /**
@@ -491,10 +507,21 @@ export type ThemeOrigin = "prebuilt" | "custom";
  */
 export type ThemeView = Theme;
 
+/**
+ *  Per-workspace rollup of surface runtime state : derived at query
+ *  time from the persisted surface status, never a stored domain field.
+ */
+export type WorkspaceActivityView = {
+	workspaceId: string,
+	running: number,
+	failed: number,
+};
+
 /**  Flat read model for a workspace row. Serializes to the SDK `Workspace` wire shape. */
 export type WorkspaceView = {
 	id: string,
 	name: string,
+	status: string,
 };
 
 /* Tauri Specta runtime */

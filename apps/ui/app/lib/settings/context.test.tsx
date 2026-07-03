@@ -7,6 +7,7 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+let failSettingSet = false;
 
 // Spread the real module so non-overridden exports stay intact: mock.module is process-global
 // and persists across files, so a partial replacement would clobber sibling suites that use the
@@ -20,11 +21,15 @@ void mock.module("@tillerd/client-bindings", () => ({
     args: { scope: string; projectId: null; key: string; valueJson: string },
   ) => {
     if (key === "settingSet") settingSetCalls.push(args);
+    if (failSettingSet) return Promise.reject(new Error("store unavailable"));
     return Promise.resolve(null);
   },
   query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
   getQueryClient: () => ({
     ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+    getQueryData: () => undefined,
+    invalidateQueries: () => Promise.resolve(),
   }),
 }));
 
@@ -46,6 +51,7 @@ afterEach(() => {
   settingsStore.setState(() => ({ values: {} }));
   _resetForTests();
   settingSetCalls.length = 0;
+  failSettingSet = false;
 });
 
 afterAll(() => mock.restore());
@@ -116,6 +122,70 @@ test("setTheme applies the class, caches it, and persists to the source", async 
   await waitFor(() =>
     expect(settingSetCalls).toContainEqual(
       expect.objectContaining({ key: "theme", valueJson: JSON.stringify("dark") }),
+    ),
+  );
+});
+
+test("view pointers restore from the settings source on hydration", async () => {
+  await hydrateSettings(() =>
+    Promise.resolve(
+      listFrom({
+        "view.active-workspace": "ws-9",
+        "sidebar.expanded.p-1": true,
+        "view.last-session.p-1": "s-4",
+      }),
+    ),
+  );
+
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-9");
+  expect(settingsStore.state.values["sidebar.expanded.p-1"]).toBe(true);
+  expect(settingsStore.state.values["view.last-session.p-1"]).toBe("s-4");
+});
+
+test("rapid writes to one key reach the wire in order, intermediates coalesced", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+
+  setGlobalSetting("terminal.scheme", "a");
+  setGlobalSetting("terminal.scheme", "b");
+  setGlobalSetting("terminal.scheme", "c");
+
+  await waitFor(() => {
+    const values = settingSetCalls
+      .filter((call) => call.key === "terminal.scheme")
+      .map((call) => JSON.parse(call.valueJson));
+    // One write on the wire at a time: "b" never sends, "c" follows "a".
+    expect(values).toEqual(["a", "c"]);
+  });
+  expect(settingsStore.state.values["terminal.scheme"]).toBe("c");
+});
+
+test("a queued newer value still reaches the wire after a failed write", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+  failSettingSet = true;
+
+  setGlobalSetting("terminal.scheme", "first-fails");
+  setGlobalSetting("terminal.scheme", "must-still-send");
+
+  await waitFor(() => {
+    const values = settingSetCalls
+      .filter((call) => call.key === "terminal.scheme")
+      .map((call) => JSON.parse(call.valueJson));
+    expect(values).toEqual(["first-fails", "must-still-send"]);
+  });
+});
+
+test("a failed pointer write never blocks the interaction", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+  failSettingSet = true;
+
+  setGlobalSetting("view.active-workspace", "ws-2");
+
+  // The in-memory value updates immediately; the rejected persist is swallowed
+  // (the orchestrator records reachable failures -- the renderer never records).
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-2");
+  await waitFor(() =>
+    expect(settingSetCalls).toContainEqual(
+      expect.objectContaining({ key: "view.active-workspace" }),
     ),
   );
 });

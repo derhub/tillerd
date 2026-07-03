@@ -78,6 +78,7 @@ pub async fn build_bus(cfg: &Config) -> shared::Result<Bus<Ctx>> {
         SurfaceChannelStream {
             runtime: runtime_arc,
             registry,
+            cx: ctx.clone(),
         }
         .handle(),
     );

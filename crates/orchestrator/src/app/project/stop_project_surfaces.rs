@@ -17,18 +17,35 @@ pub struct StopProjectSurfaces {
 impl Command<Ctx> for StopProjectSurfaces {
     async fn handle(&self, cx: &Ctx) -> Result<()> {
         use crate::entities::surface::SurfaceStatus;
-        use crate::infra::SurfaceRepo;
+        use crate::infra::{ProjectRepo, SurfaceRepo};
+        use crate::shared::Error;
 
         let id = ProjectId::new(&self.id);
         let sessions = SessionRepo::list(cx.db(), &id, Page::All).await?;
+        if sessions.items.is_empty() {
+            return Ok(());
+        }
+        // One workspace owns every session in this project -- resolved once, not
+        // per surface.
+        let workspace_id = ProjectRepo::get(cx.db(), &id)
+            .await?
+            .ok_or_else(|| Error::ProjectNotFound(self.id.clone()))?
+            .workspace_id;
+
         for session in sessions.items {
             let surfaces = SurfaceRepo::list(cx.db(), &session.id, Page::All).await?;
             for surface in surfaces.items {
                 if surface.status == SurfaceStatus::Live {
                     // Stop the PTY (no DB lock held).
                     cx.runtime().stop(&surface.id).await?;
-                    // Record outcome.
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Idle).await?;
+                    // Record outcome (emits the surface-status push).
+                    crate::app::surface::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        &workspace_id,
+                        SurfaceStatus::Idle,
+                    )
+                    .await?;
                 }
             }
         }

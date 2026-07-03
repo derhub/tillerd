@@ -10,4 +10,5 @@ pub struct ProjectView {
     pub source_kind: String,
     pub root_path: Option<String>,
     pub workspace_id: String,
+    pub status: String,
 }

@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { query } from "@tillerd/client-bindings";
 
 import { PanelContent } from "~/components/shell/PanelContent";
+import { setGlobalSetting } from "~/lib/settings/context";
+import { lastSessionKey } from "~/lib/settings/keys";
 import { setActiveProject } from "~/lib/store";
 import { sessionLayoutQuery } from "~/lib/usePanelTree";
 
@@ -14,7 +16,11 @@ export const Route = createFileRoute("/session/$id")({
     void context.queryClient
       .ensureQueryData(query("sessionGet", { id: params.id }))
       .then((session) => {
-        if (session) setActiveProject(session.projectId);
+        if (session) {
+          setActiveProject(session.projectId);
+          // Last-visited view pointer ; fire-and-forget like the rest.
+          setGlobalSetting(lastSessionKey(session.projectId), session.id);
+        }
       })
       .catch(() => {
         // non-fatal; active project remains unresolved

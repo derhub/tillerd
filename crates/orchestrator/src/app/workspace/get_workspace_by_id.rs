@@ -17,7 +17,12 @@ impl Query<Ctx> for GetWorkspaceById {
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(
-            sqlx::query_as::<_, WorkspaceView>("SELECT id, name FROM workspace WHERE id = ?")
+            sqlx::query_as::<_, WorkspaceView>(
+                "SELECT id, name,
+                        CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
+                 FROM workspace
+                 WHERE id = ?",
+            )
                 .bind(&self.id)
                 .fetch_optional(cx.db())
                 .await?,

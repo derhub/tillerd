@@ -27,6 +27,7 @@ pub mod list_resumable_surfaces;
 pub mod list_surfaces_by_session;
 pub mod reconcile_surfaces;
 pub mod spawn_surface;
+pub mod status_events;
 pub mod stop_surface;
 
 #[cfg(test)]
@@ -41,6 +42,10 @@ pub use list_surfaces_by_session::ListSurfacesBySession;
 pub use reconcile_surfaces::ReconcileSurfaces;
 pub use resolve_or_spawn::ResolveOrSpawnSurface;
 pub use spawn_surface::SpawnSurface;
+pub use status_events::{
+    confirm_spawn_and_emit, update_status_and_emit, workspace_id_for_session,
+    workspace_id_for_surface, CloseSurfaceStatusChannel, OpenSurfaceStatusChannel,
+};
 pub use stop_surface::StopSurface;
 pub use surface_channel::{
     CloseSurfaceChannel, OpenSurfaceChannel, SurfaceChannelStream, SurfaceClientMsg,

@@ -13,6 +13,7 @@ mod view;
 pub mod archive_workspace;
 pub mod discard_workspace;
 pub mod get_workspace_by_id;
+pub mod list_workspace_activity;
 pub mod list_workspaces;
 pub mod new_workspace_cmd;
 pub mod pin_workspace;
@@ -28,6 +29,7 @@ pub(crate) mod test_util;
 pub use archive_workspace::ArchiveWorkspace;
 pub use discard_workspace::DiscardWorkspace;
 pub use get_workspace_by_id::GetWorkspaceById;
+pub use list_workspace_activity::ListWorkspaceActivity;
 pub use list_workspaces::ListWorkspaces;
 pub use new_workspace_cmd::NewWorkspaceCmd;
 pub use pin_workspace::PinWorkspace;
@@ -36,7 +38,7 @@ pub use reorder_workspace::ReorderWorkspace;
 pub use restore_workspace::RestoreWorkspace;
 pub use stop_workspace_surfaces::StopWorkspaceSurfaces;
 pub use unpin_workspace::UnpinWorkspace;
-pub use view::WorkspaceView;
+pub use view::{WorkspaceActivityView, WorkspaceView};
 
 /// The default workspace id as a primitive, for hosts that default a missing id
 /// without reaching the domain newtype.

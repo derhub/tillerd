@@ -40,6 +40,9 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
                 return Ok(view);
             }
 
+            let session_id = SessionId::from_string(&view.session_id);
+            let workspace_id =
+                super::status_events::workspace_id_for_session(cx, &session_id).await?;
             let surface_id = SurfaceId::from_string(&view.id);
             let geometry = match (self.cols, self.rows) {
                 (Some(cols), Some(rows)) => Geometry { cols, rows },
@@ -55,18 +58,35 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    SurfaceRepo::update_status(cx.db(), &surface_id, SurfaceStatus::Live).await?;
+                    // Resume of an existing idle/failed record: the prior status is
+                    // not unique, so this write stays unconditional (a same-instant
+                    // exit frame can be overwritten -- reconcile converges on boot).
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface_id,
+                        &workspace_id,
+                        SurfaceStatus::Live,
+                    )
+                    .await?;
                     let mut updated = view;
                     updated.status = "live".to_owned();
                     Ok(updated)
                 }
                 Err(e) => {
-                    SurfaceRepo::update_status(cx.db(), &surface_id, SurfaceStatus::Failed).await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface_id,
+                        &workspace_id,
+                        SurfaceStatus::Failed,
+                    )
+                    .await?;
                     Err(e)
                 }
             }
         } else {
             let session_id = SessionId::from_string(&self.session);
+            let workspace_id =
+                super::status_events::workspace_id_for_session(cx, &session_id).await?;
             let kind = SurfaceKind::Terminal;
             let geometry = match (self.cols, self.rows) {
                 (Some(cols), Some(rows)) => Geometry { cols, rows },
@@ -94,7 +114,8 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
             match cx.runtime().spawn(request).await {
                 Ok(()) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Live).await?;
+                    super::status_events::confirm_spawn_and_emit(cx, &surface.id, &workspace_id)
+                        .await?;
                     Ok(SurfaceView {
                         id: surface.id.as_str().to_owned(),
                         session_id: self.session.clone(),
@@ -105,7 +126,13 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
                     })
                 }
                 Err(e) => {
-                    SurfaceRepo::update_status(cx.db(), &surface.id, SurfaceStatus::Failed).await?;
+                    super::status_events::update_status_and_emit(
+                        cx,
+                        &surface.id,
+                        &workspace_id,
+                        SurfaceStatus::Failed,
+                    )
+                    .await?;
                     Err(e)
                 }
             }

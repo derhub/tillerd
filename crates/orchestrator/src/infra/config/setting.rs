@@ -6,9 +6,16 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use crate::entities::setting::{SettingEntry, SettingScope};
 use crate::shared::{fs, Result};
+
+/// Serializes every settings mutation in the process. The store is constructed
+/// per call, and a mutation is a read-modify-write of one shared JSON file --
+/// concurrent fire-and-forget writes (view pointers, theme, keybindings) would
+/// otherwise lose keys or tear the file.
+static WRITE_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 /// File-backed settings store scoped to a config root directory.
 pub struct SettingStore {
@@ -59,11 +66,17 @@ impl SettingStore {
     async fn write_map(path: &Path, map: &HashMap<String, String>) -> Result<()> {
         Self::ensure_parent(path).await?;
         let s = serde_json::to_string_pretty(map)?;
-        fs::write_string(path, &s).await
+        // Write-then-rename: a concurrent reader sees the old file or the new
+        // one, never a torn write.
+        let tmp = path.with_extension("json.tmp");
+        fs::write_string(&tmp, &s).await?;
+        tokio::fs::rename(&tmp, path).await?;
+        Ok(())
     }
 
     /// Set (or overwrite) a setting value at the given scope.
     pub async fn apply(&self, scope: &SettingScope, key: &str, value_json: &str) -> Result<()> {
+        let _guard = WRITE_LOCK.lock().await;
         let path = self.scope_path(scope);
         let mut map = Self::read_map(&path).await?;
         map.insert(key.to_owned(), value_json.to_owned());
@@ -72,6 +85,7 @@ impl SettingStore {
 
     /// Remove a setting override at the given scope. Returns `Ok(())` whether it existed or not.
     pub async fn reset(&self, scope: &SettingScope, key: &str) -> Result<()> {
+        let _guard = WRITE_LOCK.lock().await;
         let path = self.scope_path(scope);
         let mut map = Self::read_map(&path).await?;
         map.remove(key);
@@ -208,6 +222,39 @@ mod tests {
 
         let keys: Vec<&str> = entries.iter().map(|e| e.key.as_str()).collect();
         assert_eq!(keys, vec!["a-key", "m-key", "z-key"]);
+    }
+
+    // Scenario: concurrent writes lose no keys and never tear the file.
+    #[tokio::test]
+    async fn concurrent_applies_keep_every_key_and_valid_json() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().to_path_buf();
+
+        let mut tasks = Vec::new();
+        for i in 0..32 {
+            let root = root.clone();
+            tasks.push(tokio::spawn(async move {
+                SettingStore::new(root)
+                    .apply(&SettingScope::Global, &format!("k{i}"), &i.to_string())
+                    .await
+            }));
+        }
+        for t in tasks {
+            t.await.unwrap().unwrap();
+        }
+
+        let s = store(&dir);
+        let entries = s.list(&SettingScope::Global).await.unwrap();
+        assert_eq!(entries.len(), 32, "no write may be lost");
+        for i in 0..32 {
+            assert_eq!(
+                s.get(&SettingScope::Global, &format!("k{i}"))
+                    .await
+                    .unwrap()
+                    .as_deref(),
+                Some(i.to_string().as_str())
+            );
+        }
     }
 
     // Scenario: external config edit is picked up (no caching -- reads from disk each call)
