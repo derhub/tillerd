@@ -7,7 +7,6 @@ import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
 import React from "react";
 
 import { broadcastInvalidate } from "../crossWindowSync";
-
 import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
 
@@ -32,7 +31,7 @@ export function _resetForTests(): void {
 
 // Fire-and-forget: the interaction that caused the write never blocks on it. A
 // failure that reaches the orchestrator is recorded there (`command-error`) and
-// pushed back over the notification channel — the renderer never records. On
+// pushed back over the notification channel -- the renderer never records. On
 // success sibling windows converge via the invalidation broadcast (the local
 // store is already updated synchronously by setGlobalSetting).
 function persist(key: string, value: unknown): void {
@@ -105,6 +104,20 @@ export function watchSettings(): () => void {
   });
 }
 
+// Plain helper (not a hook): hydrate, then watch; returns a cleanup that also
+// cancels an in-flight hydration's watch handoff.
+function startSettings(resolve: () => Promise<SettingView[]>): () => void {
+  let unwatch: (() => void) | undefined;
+  let disposed = false;
+  void hydrateSettings(resolve).then(() => {
+    if (!disposed) unwatch = watchSettings();
+  });
+  return () => {
+    disposed = true;
+    unwatch?.();
+  };
+}
+
 export function SettingsProvider({
   children,
   resolve = defaultResolve,
@@ -112,17 +125,7 @@ export function SettingsProvider({
   children: ReactNode;
   resolve?: () => Promise<SettingView[]>;
 }) {
-  React.useEffect(() => {
-    let unwatch: (() => void) | undefined;
-    let disposed = false;
-    void hydrateSettings(resolve).then(() => {
-      if (!disposed) unwatch = watchSettings();
-    });
-    return () => {
-      disposed = true;
-      unwatch?.();
-    };
-  }, [resolve]);
+  React.useEffect(() => startSettings(resolve), [resolve]);
   return <>{children}</>;
 }
 
