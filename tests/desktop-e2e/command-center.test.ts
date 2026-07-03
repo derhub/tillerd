@@ -23,7 +23,9 @@ async function openPaletteRetrying(b: Browser, timeoutMs: number): Promise<void>
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     await openPalette(b);
-    const opened = await (await b.$('[data-testid="command-center"]'))
+    const opened = await (
+      await b.$('[data-testid="command-center"]')
+    )
       .waitForExist({ timeout: 300 })
       .then(() => true)
       .catch(() => false);
@@ -38,15 +40,13 @@ async function openPaletteRetrying(b: Browser, timeoutMs: number): Promise<void>
 // miss (confirmed: still occasionally left open after one click in a repeated diagnostic
 // run). Re-clicking is harmless once already closed (body click with nothing to dismiss),
 // so retry until the target element is actually gone.
-async function closeBySelectorGone(
-  b: Browser,
-  selector: string,
-  timeoutMs: number,
-): Promise<void> {
+async function closeBySelectorGone(b: Browser, selector: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     await (await b.$("body")).click();
-    const gone = await (await b.$(selector))
+    const gone = await (
+      await b.$(selector)
+    )
       .waitForExist({ timeout: 300, reverse: true })
       .then(() => true)
       .catch(() => false);
@@ -119,7 +119,9 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   // overlays. Close the palette first if it is somehow still open.
   if (await (await b.$('[data-testid="command-center"]')).isExisting()) {
     await b.keys(["Escape"]);
-    await (await b.$('[data-testid="command-center"]')).waitForExist({
+    await (
+      await b.$('[data-testid="command-center"]')
+    ).waitForExist({
       timeout: 5_000,
       reverse: true,
     });
