@@ -69,6 +69,7 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::project::project_stop_surfaces,
             transport::workspace::workspace_create,
             transport::workspace::workspace_list,
+            transport::workspace::workspace_activity,
             transport::workspace::workspace_rename,
             transport::workspace::workspace_reorder,
             transport::workspace::workspace_delete,

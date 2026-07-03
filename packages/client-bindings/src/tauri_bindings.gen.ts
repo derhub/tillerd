@@ -61,6 +61,7 @@ export const commands = {
 	projectStopSurfaces: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("project_stop_surfaces", args)),
 	workspaceCreate: (args: { name: string }) => typedError<WorkspaceView, string>(__TAURI_INVOKE("workspace_create", args)),
 	workspaceList: () => typedError<WorkspaceView[], string>(__TAURI_INVOKE("workspace_list")),
+	workspaceActivity: () => typedError<WorkspaceActivityView[], string>(__TAURI_INVOKE("workspace_activity")),
 	workspaceRename: (args: { id: string; name: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_rename", args)),
 	workspaceReorder: (args: { id: string; sortOrder: number }) => typedError<null, string>(__TAURI_INVOKE("workspace_reorder", args)),
 	workspaceDelete: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_delete", args)),
@@ -490,6 +491,16 @@ export type ThemeOrigin = "prebuilt" | "custom";
  *  (same `{ id, name, origin, data_json }` JSON the entity produced).
  */
 export type ThemeView = Theme;
+
+/**
+ *  Per-workspace rollup of surface runtime state (ADR-0044): derived at query
+ *  time from the persisted surface status, never a stored domain field.
+ */
+export type WorkspaceActivityView = {
+	workspaceId: string,
+	running: number,
+	failed: number,
+};
 
 /**  Flat read model for a workspace row. Serializes to the SDK `Workspace` wire shape. */
 export type WorkspaceView = {

@@ -4,6 +4,10 @@
 //! generated from these tables; a Rust test and a TS test assert their side against the
 //! fixture, so drift on either side fails the build.
 
+// No runtime caller by design: the tables exist for the contract tests (Rust here, TS
+// via the committed fixture).
+#![allow(dead_code)]
+
 use serde::Serialize;
 
 use super::project::{ProjectId, ProjectStatus};

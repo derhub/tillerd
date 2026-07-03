@@ -144,6 +144,7 @@ macro_rules! collect_transport {
             $crate::transport::project::project_stop_surfaces,
             $crate::transport::workspace::workspace_create,
             $crate::transport::workspace::workspace_list,
+            $crate::transport::workspace::workspace_activity,
             $crate::transport::workspace::workspace_rename,
             $crate::transport::workspace::workspace_reorder,
             $crate::transport::workspace::workspace_delete,
