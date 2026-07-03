@@ -68,11 +68,11 @@
 
 ## 6. Integration + docs
 
-- [ ] 6.1 Desktop e2e: surface crash/exit updates the activity indicator in a second
+- [x] 6.1 Desktop e2e: surface crash/exit updates the activity indicator in a second
   window without user action; view pointers survive relaunch (restore active workspace,
   expanded projects, last session).
-- [ ] 6.2 Verify gates green: `cargo nextest run`, bun tests, ast-grep scan (layer
+- [x] 6.2 Verify gates green: `cargo nextest run`, bun tests, ast-grep scan (layer
   boundaries hold — entities export data tables only), dynamic-ACL contract test.
-- [ ] 6.3 Docs: `docs/tanstack-client-engine.md` conventions updated (view pointers,
+- [x] 6.3 Docs: `docs/tanstack-client-engine.md` conventions updated (view pointers,
   activity, subscription-driven invalidation); CONTEXT.md terms if new ones surfaced;
   ROADMAP 0.0.16 final bullet checked; CHANGELOG entry.

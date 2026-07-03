@@ -57,14 +57,27 @@ export function broadcastInvalidate(keys: QueryKey[]): void {
   outbound.add(keys);
 }
 
+// Side channel for stores that mirror server state outside the Query cache (the
+// settings store): they re-read their source only when a SIBLING window's write
+// lands -- never on this window's own writes, so a local optimistic value can
+// never be clobbered by its own feedback.
+type RemoteInvalidateListener = (keys: QueryKey[]) => void;
+const remoteListeners = new Set<RemoteInvalidateListener>();
+
+export function onRemoteInvalidate(listener: RemoteInvalidateListener): () => void {
+  remoteListeners.add(listener);
+  return () => remoteListeners.delete(listener);
+}
+
 // Mount once per window. The sender receives its own global emit; skip events tagged with this
 // window's label (already invalidated locally). Listeners never re-emit, so there is no echo loop.
 export async function mountCrossWindowInvalidate(client: QueryClient): Promise<() => void> {
   if (!isDesktopHost()) return () => {};
   const self = await windowLabel();
-  const inbound = makeCoalescer((keys) =>
-    keys.forEach((queryKey) => void client.invalidateQueries({ queryKey })),
-  );
+  const inbound = makeCoalescer((keys) => {
+    keys.forEach((queryKey) => void client.invalidateQueries({ queryKey }));
+    remoteListeners.forEach((listener) => listener(keys));
+  });
 
   const unlisten = await listenEvent<InvalidatePayload>(INVALIDATE_EVENT, (payload) => {
     if (payload.source === self) return;

@@ -141,6 +141,23 @@ test("view pointers restore from the settings source on hydration", async () => 
   expect(settingsStore.state.values["view.last-session.p-1"]).toBe("s-4");
 });
 
+test("rapid writes to one key reach the wire in order, intermediates coalesced", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+
+  setGlobalSetting("terminal.scheme", "a");
+  setGlobalSetting("terminal.scheme", "b");
+  setGlobalSetting("terminal.scheme", "c");
+
+  await waitFor(() => {
+    const values = settingSetCalls
+      .filter((call) => call.key === "terminal.scheme")
+      .map((call) => JSON.parse(call.valueJson));
+    // One write on the wire at a time: "b" never sends, "c" follows "a".
+    expect(values).toEqual(["a", "c"]);
+  });
+  expect(settingsStore.state.values["terminal.scheme"]).toBe("c");
+});
+
 test("a failed pointer write never blocks the interaction", async () => {
   await hydrateSettings(() => Promise.resolve([]));
   failSettingSet = true;

@@ -166,7 +166,9 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
   const createWorkspace = useMutation(command("workspaceCreate"));
   const renameWorkspace = useMutation(command("workspaceRename"));
 
-  const { data: workspaces } = useSuspenseQuery(query("workspaceList"));
+  const { data: workspaces, isFetching: isFetchingWorkspaces } = useSuspenseQuery(
+    query("workspaceList"),
+  );
   // Enhancement read: the switcher renders without it (no suspense), the dot
   // appears when the rollup lands and refreshes on the surface-status push.
   const { data: activityRows } = useQuery(query("workspaceActivity"));
@@ -175,12 +177,17 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     [activityRows],
   );
 
-  // Lifecycle resolution : a pointer to an archived or deleted workspace
-  // resolves to the Default workspace -- never an error or an empty shell.
+  // Lifecycle resolution: a pointer to an archived or deleted workspace resolves
+  // to the Default workspace -- never an error or an empty shell. Staleness is
+  // judged only against a settled list: right after a create, the pointer names a
+  // workspace the cached list does not carry yet, and treating that as stale
+  // would clobber the user's fresh selection back to Default.
   const pointerTarget = workspaces.find((w) => w.id === storedActiveWorkspaceId);
   const pointerStale =
-    storedActiveWorkspaceId != null && (!pointerTarget || pointerTarget.status === "archived");
-  const activeWorkspaceId = pointerStale ? DEFAULT_WORKSPACE_ID : (pointerTarget?.id ?? null);
+    !isFetchingWorkspaces &&
+    storedActiveWorkspaceId != null &&
+    (!pointerTarget || pointerTarget.status === "archived");
+  const activeWorkspaceId = pointerStale ? DEFAULT_WORKSPACE_ID : storedActiveWorkspaceId;
 
   // Rewrite the stale pointer once so it does not re-resolve every start.
   React.useEffect(() => {
