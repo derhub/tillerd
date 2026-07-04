@@ -1,8 +1,9 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { query } from "@tillerd/client-bindings";
 
-import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
+
+import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import { SessionRow } from "~/components/sidebar/SessionRow";
 import { reorderByDrop } from "~/lib/reorder";
 

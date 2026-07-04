@@ -3,8 +3,9 @@ import type { Project } from "@tillerd/client-bindings";
 import { ArrowUpRight, ChevronDown, ChevronRight, Pin, Plus } from "lucide-react";
 import React from "react";
 
-import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
+
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { useTreeNav } from "~/components/sidebar/ProjectTree";

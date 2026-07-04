@@ -71,7 +71,10 @@ export function TemplateRow({
                 e.stopPropagation();
                 onExport(template.id);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
             >
               <Download className="size-[var(--icon-sm)]" strokeWidth={2} />
             </TooltipTrigger>
@@ -85,7 +88,10 @@ export function TemplateRow({
                 if (template.pinned) onUnpin(template.id);
                 else onPin(template.id);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
             >
               {template.pinned ? (
                 <PinOff className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -103,7 +109,10 @@ export function TemplateRow({
                   e.stopPropagation();
                   onRequestDelete(template.id, template.name);
                 }}
-                className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10")}
+                className={cn(
+                  ROW_ACTION_CLASS,
+                  "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+                )}
               >
                 <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
               </TooltipTrigger>

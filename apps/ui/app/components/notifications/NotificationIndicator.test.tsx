@@ -32,7 +32,10 @@ void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
   query: (key: string, args?: unknown) =>
     key === "notificationCountUnread"
-      ? { queryKey: ["notifications", "countUnread"], queryFn: () => Promise.resolve(unreadCountValue) }
+      ? {
+          queryKey: ["notifications", "countUnread"],
+          queryFn: () => Promise.resolve(unreadCountValue),
+        }
       : (actualBindings.query as (k: string, a?: unknown) => unknown)(key, args),
   command: (key: string) => ({
     mutationFn: (args: unknown) => {

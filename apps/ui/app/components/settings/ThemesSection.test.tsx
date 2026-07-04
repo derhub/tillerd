@@ -1,6 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { setQueryClient, setReady } from "@tillerd/client-bindings";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { setQueryClient, setReady } from "@tillerd/client-bindings";
 /// <reference lib="dom" />
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";

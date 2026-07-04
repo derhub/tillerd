@@ -42,13 +42,19 @@ test("dragging one panel's header onto another swaps their surfaces, not their p
   // DataTransfer across both, exactly as a real drag would carry one across its whole gesture.
   await b.execute(
     (sourcePanelId: string, targetPanelId: string) => {
-      const header = document.querySelector(`[data-panel-id="${sourcePanelId}"] [draggable="true"]`);
+      const header = document.querySelector(
+        `[data-panel-id="${sourcePanelId}"] [draggable="true"]`,
+      );
       const targetFrame = document.querySelector(`[data-panel-id="${targetPanelId}"]`);
       if (!header || !targetFrame) throw new Error("drag source or target not found in the DOM");
       const dt = new DataTransfer();
       (window as unknown as { __e2eDragDt: DataTransfer }).__e2eDragDt = dt;
-      header.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
-      targetFrame.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      header.dispatchEvent(
+        new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }),
+      );
+      targetFrame.dispatchEvent(
+        new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }),
+      );
     },
     panelA,
     panelB,
@@ -56,7 +62,9 @@ test("dragging one panel's header onto another swaps their surfaces, not their p
 
   // The hover highlight (panel-drop-target-active) is the drop target's own anchor, only present
   // while a compatible drag is over it.
-  const highlighted = await b.$(`[data-panel-id="${panelB}"][data-testid="panel-drop-target-active"]`);
+  const highlighted = await b.$(
+    `[data-panel-id="${panelB}"][data-testid="panel-drop-target-active"]`,
+  );
   await highlighted.waitForExist({
     timeout: 10_000,
     timeoutMsg: "drop-target highlight did not appear on dragover",
@@ -65,10 +73,16 @@ test("dragging one panel's header onto another swaps their surfaces, not their p
   await b.execute(
     (sourcePanelId: string, targetPanelId: string) => {
       const dt = (window as unknown as { __e2eDragDt: DataTransfer }).__e2eDragDt;
-      const header = document.querySelector(`[data-panel-id="${sourcePanelId}"] [draggable="true"]`);
+      const header = document.querySelector(
+        `[data-panel-id="${sourcePanelId}"] [draggable="true"]`,
+      );
       const targetFrame = document.querySelector(`[data-panel-id="${targetPanelId}"]`);
-      targetFrame?.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
-      header?.dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      targetFrame?.dispatchEvent(
+        new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }),
+      );
+      header?.dispatchEvent(
+        new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer: dt }),
+      );
       delete (window as unknown as { __e2eDragDt?: DataTransfer }).__e2eDragDt;
     },
     panelA,

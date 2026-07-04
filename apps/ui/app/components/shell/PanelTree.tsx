@@ -3,6 +3,11 @@ import { query } from "@tillerd/client-bindings";
 import { ArrowUpRight, Columns2, ExternalLink, Rows2 } from "lucide-react";
 import React from "react";
 
+import { EmptyPanel } from "~/components/shell/EmptyPanel";
+import { Panel } from "~/components/shell/Panel";
+import { PanelGroup, PanelGroupTabsRoot } from "~/components/shell/PanelGroup";
+import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
+import { formatElapsed } from "~/lib/formatElapsed";
 import {
   collectLeaves,
   DRAG_PANEL_LEAF,
@@ -11,17 +16,15 @@ import {
   type PanelLeaf,
   type PanelNode,
 } from "~/lib/panelTree";
-import { formatElapsed } from "~/lib/formatElapsed";
 import { useElapsedTick } from "~/lib/useElapsedTick";
-
-import { EmptyPanel } from "~/components/shell/EmptyPanel";
-import { Panel } from "~/components/shell/Panel";
-import { PanelGroup, PanelGroupTabsRoot } from "~/components/shell/PanelGroup";
-import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
 
 // Panel title content (ui-panel-compound spec): session name + surface kind, plus elapsed time
 // since the surface's PTY spawned once known. Hidden when spawnedAt is null (never spawned yet).
-function terminalTitle(sessionTitle: string | undefined, spawnedAt: number | null, now: number): string {
+function terminalTitle(
+  sessionTitle: string | undefined,
+  spawnedAt: number | null,
+  now: number,
+): string {
   const base = `${sessionTitle ?? "Session"} · Terminal`;
   return spawnedAt == null ? base : `${base} · ${formatElapsed(spawnedAt, now)}`;
 }
@@ -67,7 +70,9 @@ export function PanelTree({
   // panel area to keep the displayed "Xm"/"Xh Ym" text current.
   const terminalPlacements = React.useMemo(
     () =>
-      collectLeaves(tree).flatMap((leaf) => (leaf.content.type === "terminal" ? [leaf.content.placement] : [])),
+      collectLeaves(tree).flatMap((leaf) =>
+        leaf.content.type === "terminal" ? [leaf.content.placement] : [],
+      ),
     [tree],
   );
   const surfaceQueries = useQueries({
@@ -77,7 +82,10 @@ export function PanelTree({
     })),
   });
   const spawnedAtByPlacement = new Map<string, number | null>(
-    terminalPlacements.map((placement, i) => [placement, surfaceQueries[i]?.data?.spawnedAt ?? null]),
+    terminalPlacements.map((placement, i) => [
+      placement,
+      surfaceQueries[i]?.data?.spawnedAt ?? null,
+    ]),
   );
   const now = useElapsedTick();
 

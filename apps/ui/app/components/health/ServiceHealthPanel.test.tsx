@@ -90,9 +90,9 @@ test("the panel exposes no control that changes a service's lifecycle", async ()
   // Every button in the panel is a "show logs" jump, never a start/stop/restart control.
   const buttons = screen.getAllByRole("button");
   expect(buttons.length).toBeGreaterThan(0);
-  expect(buttons.every((b) => (b.getAttribute("aria-label") ?? "").startsWith("Show logs for"))).toBe(
-    true,
-  );
+  expect(
+    buttons.every((b) => (b.getAttribute("aria-label") ?? "").startsWith("Show logs for")),
+  ).toBe(true);
 });
 
 test("the orchestrator row shows its failure reason when the orchestrator failed", async () => {

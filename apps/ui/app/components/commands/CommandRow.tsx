@@ -96,7 +96,10 @@ export function CommandRow({
                   e.stopPropagation();
                   onEdit(command.id);
                 }}
-                className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+                className={cn(
+                  ROW_ACTION_CLASS,
+                  "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                )}
               >
                 <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
               </TooltipTrigger>
@@ -110,7 +113,10 @@ export function CommandRow({
                 e.stopPropagation();
                 onDuplicate(command.id);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
             >
               <Copy className="size-[var(--icon-sm)]" strokeWidth={2} />
             </TooltipTrigger>
@@ -124,7 +130,10 @@ export function CommandRow({
                 if (command.pinned) onUnpin(command.id);
                 else onPin(command.id);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
             >
               {command.pinned ? (
                 <PinOff className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -142,7 +151,10 @@ export function CommandRow({
                   e.stopPropagation();
                   onRequestDelete(command.id, command.name);
                 }}
-                className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10")}
+                className={cn(
+                  ROW_ACTION_CLASS,
+                  "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+                )}
               >
                 <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
               </TooltipTrigger>

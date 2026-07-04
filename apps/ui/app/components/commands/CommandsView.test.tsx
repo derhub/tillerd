@@ -56,9 +56,7 @@ void mock.module("@tauri-apps/api/core", () => ({
     if (cmd === "command_edit") {
       const id = args?.["id"] as string;
       commands = commands.map((c) =>
-        c.id === id
-          ? { ...c, cli: args?.["cli"] as string, args: args?.["args"] as string[] }
-          : c,
+        c.id === id ? { ...c, cli: args?.["cli"] as string, args: args?.["args"] as string[] } : c,
       );
       return null;
     }
@@ -236,15 +234,15 @@ describe("edit", () => {
 
     fireEvent.click(screen.getByLabelText("Edit Build"));
     await waitFor(() => expect(screen.queryByTestId("command-form-dialog")).not.toBeNull());
-    expect((screen.getByTestId("command-form-cli") as HTMLInputElement).value).toBe("npm run build");
+    expect((screen.getByTestId("command-form-cli") as HTMLInputElement).value).toBe(
+      "npm run build",
+    );
 
     fireEvent.click(screen.getByTestId("command-form-add-arg"));
     fireEvent.change(screen.getByTestId("command-form-arg"), { target: { value: "--verbose" } });
     fireEvent.click(screen.getByTestId("command-form-save"));
 
-    await waitFor(() =>
-      expect(commands.find((c) => c.id === "c-1")?.args).toEqual(["--verbose"]),
-    );
+    await waitFor(() => expect(commands.find((c) => c.id === "c-1")?.args).toEqual(["--verbose"]));
   });
 });
 
@@ -252,21 +250,17 @@ describe("delete", () => {
   // Confirmation round-trip (AlertDialog + mutation settle) already ran close to Bun's 5s
   // default even before this sweep; the added row Tooltips push it over on a loaded machine,
   // so this one test gets a longer timeout rather than the whole suite.
-  test(
-    "deleting a custom command removes it from the list after confirmation",
-    async () => {
-      commands = [makeCommand({ id: "c-1", name: "Build" })];
-      renderView();
-      await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+  test("deleting a custom command removes it from the list after confirmation", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Build" })];
+    renderView();
+    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
 
-      fireEvent.click(screen.getByLabelText("Delete Build"));
-      await waitFor(() => expect(screen.queryByTestId("command-delete-confirm")).not.toBeNull());
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByLabelText("Delete Build"));
+    await waitFor(() => expect(screen.queryByTestId("command-delete-confirm")).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-    },
-    10000,
-  );
+    await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
+  }, 10000);
 });
 
 describe("pin", () => {

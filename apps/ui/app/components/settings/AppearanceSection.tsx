@@ -14,10 +14,7 @@ export function AppearanceSection() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <section
-      aria-labelledby="settings-appearance-heading"
-      className="flex flex-col gap-3 max-w-sm"
-    >
+    <section aria-labelledby="settings-appearance-heading" className="flex flex-col gap-3 max-w-sm">
       <h2
         id="settings-appearance-heading"
         className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground"

@@ -2,8 +2,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { command, query } from "@tillerd/client-bindings";
 import React from "react";
 
-import { type PanelLeaf, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
-
+import { useShellCommands } from "~/components/shell/hooks/useShellCommands";
+import { PanelTree } from "~/components/shell/PanelTree";
+import { DetachedPanelsContext } from "~/components/shell/shellContext";
+import { TerminalPane } from "~/components/terminal/TerminalPane";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,17 +15,14 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { Checkbox } from "~/components/ui/checkbox";
-import { useShellCommands } from "~/components/shell/hooks/useShellCommands";
-import { PanelTree } from "~/components/shell/PanelTree";
-import { DetachedPanelsContext } from "~/components/shell/shellContext";
-import { TerminalPane } from "~/components/terminal/TerminalPane";
 import { Skeleton } from "~/components/ui/skeleton";
 import { RegisterHandlers } from "~/lib/commands/registry";
 import { bootContent } from "~/lib/health/boot-content";
+import { type PanelLeaf, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
 import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
-import { PANEL_CLOSE_CONFIRM_SKIP_KEY } from "~/lib/settings/keys";
 import { useBoolGlobalSetting } from "~/lib/settings/context";
+import { PANEL_CLOSE_CONFIRM_SKIP_KEY } from "~/lib/settings/keys";
 import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { usePanelTree } from "~/lib/usePanelTree";
@@ -194,7 +193,10 @@ export function PanelContent() {
           <Skeleton className="h-full w-full" />
         </div>
       ) : null}
-      <AlertDialog open={pendingClose !== null} onOpenChange={(open) => !open && setPendingClose(null)}>
+      <AlertDialog
+        open={pendingClose !== null}
+        onOpenChange={(open) => !open && setPendingClose(null)}
+      >
         <AlertDialogContent data-testid="close-confirm-dialog">
           <AlertDialogTitle>Close terminal?</AlertDialogTitle>
           <AlertDialogDescription>

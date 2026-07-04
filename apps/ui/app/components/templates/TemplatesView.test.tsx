@@ -9,7 +9,12 @@ import React from "react";
 
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { CommandRegistryProvider } from "~/lib/commands/registry";
-import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec, type LaunchSpec } from "~/lib/launchSpec";
+import {
+  CURRENT_SPEC_VERSION,
+  emptySpec,
+  serializeLaunchSpec,
+  type LaunchSpec,
+} from "~/lib/launchSpec";
 import { makeQueryClient } from "~/lib/queryClient";
 import { resetUiStore, setActiveProject } from "~/lib/store";
 
@@ -54,7 +59,10 @@ function makeTemplate(overrides: Partial<TemplateView> = {}): TemplateView {
 }
 
 function specWithCommand(commandId: string): LaunchSpec {
-  return { version: CURRENT_SPEC_VERSION, items: [{ target: "terminal", command: { library_ref: commandId } }] };
+  return {
+    version: CURRENT_SPEC_VERSION,
+    items: [{ target: "terminal", command: { library_ref: commandId } }],
+  };
 }
 
 void mock.module("@tauri-apps/api/core", () => ({
@@ -108,7 +116,11 @@ void mock.module("@tauri-apps/api/core", () => ({
       const id = args?.["id"] as string;
       launchTemplates = launchTemplates.map((t) =>
         t.id === id
-          ? { ...t, specVersion: args?.["specVersion"] as number, specJson: args?.["specJson"] as string }
+          ? {
+              ...t,
+              specVersion: args?.["specVersion"] as number,
+              specJson: args?.["specJson"] as string,
+            }
           : t,
       );
       return null;
@@ -191,7 +203,12 @@ describe("project launch templates", () => {
     setActiveProject(PROJECT_ID);
     commands = [makeCommand({ id: "cmd-1", name: "Build" })];
     launchTemplates = [
-      { id: "lt-1", projectId: PROJECT_ID, specVersion: CURRENT_SPEC_VERSION, specJson: serializeLaunchSpec(specWithCommand("cmd-1")) },
+      {
+        id: "lt-1",
+        projectId: PROJECT_ID,
+        specVersion: CURRENT_SPEC_VERSION,
+        specJson: serializeLaunchSpec(specWithCommand("cmd-1")),
+      },
     ];
     renderView();
 
@@ -203,7 +220,9 @@ describe("project launch templates", () => {
     setActiveProject(PROJECT_ID);
     commands = [makeCommand({ id: "cmd-1", name: "Build" })];
     renderView();
-    await waitFor(() => expect(screen.queryByTestId("launch-template-create-button")).not.toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId("launch-template-create-button")).not.toBeNull(),
+    );
 
     fireEvent.click(screen.getByTestId("launch-template-create-button"));
     await waitFor(() => expect(screen.queryByTestId("spec-editor-dialog")).not.toBeNull());
@@ -224,7 +243,9 @@ describe("project launch templates", () => {
   test("saving an item without a picked command is rejected inline", async () => {
     setActiveProject(PROJECT_ID);
     renderView();
-    await waitFor(() => expect(screen.queryByTestId("launch-template-create-button")).not.toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByTestId("launch-template-create-button")).not.toBeNull(),
+    );
 
     fireEvent.click(screen.getByTestId("launch-template-create-button"));
     fireEvent.click(screen.getByTestId("spec-add-item"));
@@ -237,25 +258,28 @@ describe("project launch templates", () => {
   // Confirmation round-trip (AlertDialog + mutation settle) already runs close to Bun's 5s
   // default even before this sweep; the added row Tooltip pushes it closer on a loaded
   // machine, so this one test gets a longer timeout rather than the whole suite.
-  test(
-    "discarding a launch template removes it from the project",
-    async () => {
-      setActiveProject(PROJECT_ID);
-      commands = [makeCommand({ id: "cmd-1", name: "Build" })];
-      launchTemplates = [
-        { id: "lt-1", projectId: PROJECT_ID, specVersion: CURRENT_SPEC_VERSION, specJson: serializeLaunchSpec(specWithCommand("cmd-1")) },
-      ];
-      renderView();
-      await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+  test("discarding a launch template removes it from the project", async () => {
+    setActiveProject(PROJECT_ID);
+    commands = [makeCommand({ id: "cmd-1", name: "Build" })];
+    launchTemplates = [
+      {
+        id: "lt-1",
+        projectId: PROJECT_ID,
+        specVersion: CURRENT_SPEC_VERSION,
+        specJson: serializeLaunchSpec(specWithCommand("cmd-1")),
+      },
+    ];
+    renderView();
+    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
 
-      fireEvent.click(screen.getByLabelText("Discard Build"));
-      await waitFor(() => expect(screen.queryByTestId("launch-template-discard-confirm")).not.toBeNull());
-      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    fireEvent.click(screen.getByLabelText("Discard Build"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("launch-template-discard-confirm")).not.toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
-      await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-    },
-    10000,
-  );
+    await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
+  }, 10000);
 });
 
 describe("import", () => {
@@ -270,7 +294,9 @@ describe("import", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(screen.queryByTestId("template-import-dialog")).not.toBeNull());
-    expect((screen.getByTestId("template-import-name") as HTMLInputElement).value).toBe("my-template");
+    expect((screen.getByTestId("template-import-name") as HTMLInputElement).value).toBe(
+      "my-template",
+    );
 
     fireEvent.click(screen.getByTestId("template-import-confirm"));
 

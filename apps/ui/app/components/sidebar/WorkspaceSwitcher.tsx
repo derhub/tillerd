@@ -12,10 +12,7 @@ import React from "react";
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import { DeleteDialog, type DeleteTarget } from "~/components/sidebar/DeleteDialog";
-import {
-  StopSurfacesDialog,
-  type StopSurfacesTarget,
-} from "~/components/sidebar/EntityDialogs";
+import { StopSurfacesDialog, type StopSurfacesTarget } from "~/components/sidebar/EntityDialogs";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { DEFAULT_WORKSPACE_ID } from "~/components/sidebar/sidebar-data";

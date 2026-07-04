@@ -6,7 +6,10 @@ import { Plus, Upload } from "lucide-react";
 import React from "react";
 
 import { ExportTemplateDialog } from "~/components/templates/ExportTemplateDialog";
-import { ImportTemplateDialog, type PendingImport } from "~/components/templates/ImportTemplateDialog";
+import {
+  ImportTemplateDialog,
+  type PendingImport,
+} from "~/components/templates/ImportTemplateDialog";
 import { LaunchTemplateRow } from "~/components/templates/LaunchTemplateRow";
 import { SpecEditorDialog } from "~/components/templates/SpecEditorDialog";
 import { TemplateRow } from "~/components/templates/TemplateRow";
@@ -49,7 +52,10 @@ function notify(category: string, severity: "info" | "error", message: string): 
   });
 }
 
-function launchTemplateLabel(view: LaunchTemplateView, commandsById: Map<string, CommandView>): string {
+function launchTemplateLabel(
+  view: LaunchTemplateView,
+  commandsById: Map<string, CommandView>,
+): string {
   let spec: LaunchSpec;
   try {
     spec = parseLaunchSpec(view.specJson);
@@ -355,7 +361,10 @@ export function TemplatesView() {
         onConfirm={handleConfirmImport}
       />
 
-      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent data-testid="template-delete-confirm">
           <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -366,7 +375,10 @@ export function TemplatesView() {
             <AlertDialogAction
               onClick={() => {
                 if (!deleteTarget) return;
-                discardTemplate.mutate({ id: deleteTarget.id }, { onSuccess: () => setDeleteTarget(null) });
+                discardTemplate.mutate(
+                  { id: deleteTarget.id },
+                  { onSuccess: () => setDeleteTarget(null) },
+                );
               }}
               className="bg-destructive hover:bg-destructive/90"
             >

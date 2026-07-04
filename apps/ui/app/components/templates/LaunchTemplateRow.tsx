@@ -49,7 +49,10 @@ export function LaunchTemplateRow({
                 e.stopPropagation();
                 onEdit(id);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
             >
               <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
             </TooltipTrigger>
@@ -62,7 +65,10 @@ export function LaunchTemplateRow({
                 e.stopPropagation();
                 onRequestDiscard(id, label);
               }}
-              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10")}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+              )}
             >
               <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
             </TooltipTrigger>

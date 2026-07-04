@@ -78,7 +78,10 @@ function ItemEditor({
             disabled={index === 0}
             onClick={onMoveUp}
             render={<button type="button" disabled={index === 0} />}
-            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30")}
+            className={cn(
+              ITEM_ACTION_CLASS,
+              "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30",
+            )}
           >
             <ArrowUp className="size-[var(--icon-sm)]" />
           </TooltipTrigger>
@@ -90,7 +93,10 @@ function ItemEditor({
             disabled={index === count - 1}
             onClick={onMoveDown}
             render={<button type="button" disabled={index === count - 1} />}
-            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30")}
+            className={cn(
+              ITEM_ACTION_CLASS,
+              "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30",
+            )}
           >
             <ArrowDown className="size-[var(--icon-sm)]" />
           </TooltipTrigger>
@@ -100,7 +106,10 @@ function ItemEditor({
           <TooltipTrigger
             aria-label={`Remove item ${index + 1}`}
             onClick={onRemove}
-            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-destructive hover:bg-destructive/10")}
+            className={cn(
+              ITEM_ACTION_CLASS,
+              "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+            )}
           >
             <X className="size-[var(--icon-sm)]" />
           </TooltipTrigger>
@@ -190,7 +199,9 @@ function ItemEditor({
         value={item.placement ?? ""}
         onChange={(e) => {
           const value = e.target.value;
-          onChange(value ? { ...item, placement: value } : { target: item.target, command: item.command });
+          onChange(
+            value ? { ...item, placement: value } : { target: item.target, command: item.command },
+          );
         }}
       />
     </div>
@@ -254,7 +265,9 @@ export function SpecEditorDialog({
               index={i}
               count={items.length}
               commands={commands}
-              onChange={(next) => setItems((prev) => prev.map((it, idx) => (idx === i ? next : it)))}
+              onChange={(next) =>
+                setItems((prev) => prev.map((it, idx) => (idx === i ? next : it)))
+              }
               onRemove={() => setItems((prev) => prev.filter((_, idx) => idx !== i))}
               onMoveUp={() => i > 0 && setItems((prev) => moveItem(prev, i, i - 1))}
               onMoveDown={() =>

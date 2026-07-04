@@ -5,6 +5,7 @@ import { command, query } from "@tillerd/client-bindings";
 import { Copy, Download, Plus, Trash2, Upload } from "lucide-react";
 import React from "react";
 
+import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,6 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { hydrateSettings } from "~/lib/settings/context";
 import { cn } from "~/lib/utils";
 
@@ -156,9 +156,7 @@ export function ProfilesSection() {
   const activeId = active?.id ?? null;
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; name: string } | null>(
-    null,
-  );
+  const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; name: string } | null>(null);
   const [importError, setImportError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -179,10 +177,7 @@ export function ProfilesSection() {
 
   const handleCreate = React.useCallback(() => {
     const id = crypto.randomUUID();
-    createProfile.mutate(
-      { id, name: "New profile" },
-      { onSuccess: (p) => setEditingId(p.id) },
-    );
+    createProfile.mutate({ id, name: "New profile" }, { onSuccess: (p) => setEditingId(p.id) });
   }, [createProfile]);
 
   const handleDuplicate = React.useCallback(
@@ -283,7 +278,10 @@ export function ProfilesSection() {
         onExport={handleExport}
       />
 
-      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
           <AlertDialogDescription>

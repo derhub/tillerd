@@ -48,7 +48,9 @@ test("settings editor, Commands create, and Templates sections all render and wo
   // -- Templates view: both sections render (Library always; "This project" with one active) --
   await openView(b, "Templates");
   await (await b.$("h3*=Library")).waitForExist({ timeout: 10_000 });
-  await (await b.$("h3*=This project")).waitForExist({
+  await (
+    await b.$("h3*=This project")
+  ).waitForExist({
     timeout: 10_000,
     timeoutMsg: "the project-scoped Templates section did not render with an active project",
   });

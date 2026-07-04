@@ -1,5 +1,4 @@
 import { Store, useSelector } from "@tanstack/react-store";
-
 import { surfaceStatusChannel, type SurfaceStatusChannelHandle } from "@tillerd/client-bindings";
 
 import { isDesktopHost } from "./transport/core";

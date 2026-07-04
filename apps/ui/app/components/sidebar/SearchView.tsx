@@ -24,7 +24,9 @@ export function SearchView() {
 
   // Workspace project set: names the session groups and scopes session hits to
   // this workspace (session_search is global).
-  const { data: projects = [] } = useQuery(query("projectList", { workspaceId: workspaceId || null }));
+  const { data: projects = [] } = useQuery(
+    query("projectList", { workspaceId: workspaceId || null }),
+  );
   const projectName = React.useMemo(() => {
     const m = new Map(projects.map((p) => [p.id, p.name] as const));
     m.set(UNFILED_ID, "Unfiled");

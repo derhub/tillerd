@@ -44,7 +44,11 @@ describe("launch spec round-trip", () => {
   });
 
   test("placement is omitted, never emitted as null, when absent", () => {
-    const out = serializeLaunchSpec(parseLaunchSpec('{"version":1,"items":[{"target":"terminal","command":{"library_ref":"x"}}]}'));
+    const out = serializeLaunchSpec(
+      parseLaunchSpec(
+        '{"version":1,"items":[{"target":"terminal","command":{"library_ref":"x"}}]}',
+      ),
+    );
     expect(out).not.toContain("placement");
   });
 });

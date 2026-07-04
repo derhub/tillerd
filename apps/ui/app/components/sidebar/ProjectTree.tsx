@@ -2,8 +2,9 @@ import type { Project } from "@tillerd/client-bindings";
 
 import React from "react";
 
-import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
+
+import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import { ProjectRow } from "~/components/sidebar/ProjectRow";
 import { DEFAULT_WORKSPACE_ID, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { setProjectExpanded } from "~/lib/store";
@@ -77,7 +78,7 @@ export function ProjectTree({
   React.useEffect(() => {
     const el = treeRef.current;
     if (el && !el.querySelector('[role="treeitem"][tabindex="0"]')) {
-      const first = el.querySelector<HTMLElement>("[role=\"treeitem\"]");
+      const first = el.querySelector<HTMLElement>('[role="treeitem"]');
       if (first?.dataset.treeId) setActiveId(first.dataset.treeId);
     }
   });
@@ -124,9 +125,11 @@ export function ProjectTree({
         e.preventDefault();
         if (level === "1" && expanded) setProjectExpanded(id, false);
         else if (level === "2" && current.dataset.parentId)
-          focusRow(treeRef.current.querySelector<HTMLElement>(
-            `[role="treeitem"][data-tree-id="${current.dataset.parentId}"]`,
-          ));
+          focusRow(
+            treeRef.current.querySelector<HTMLElement>(
+              `[role="treeitem"][data-tree-id="${current.dataset.parentId}"]`,
+            ),
+          );
         break;
       case "Enter":
         e.preventDefault();

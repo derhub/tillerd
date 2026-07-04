@@ -152,7 +152,10 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {SNOOZE_OPTIONS.map((opt) => (
-                    <DropdownMenuItem key={opt.minutes} onClick={() => handleSnooze(n.id, opt.minutes)}>
+                    <DropdownMenuItem
+                      key={opt.minutes}
+                      onClick={() => handleSnooze(n.id, opt.minutes)}
+                    >
                       {opt.label}
                     </DropdownMenuItem>
                   ))}

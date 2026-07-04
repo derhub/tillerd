@@ -98,7 +98,9 @@ export async function splitPanel(browser: Browser, direction: "right" | "down"):
 // e.g. "Sessions"/"Search"/"Commands"/"Templates"). Scoped to the activity bar's own toolbar so
 // it never collides with an unrelated same-labelled control elsewhere in the chrome.
 export async function openView(browser: Browser, title: string): Promise<void> {
-  const button = await browser.$(`[role="toolbar"][aria-label="Views"] button[aria-label="${title}"]`);
+  const button = await browser.$(
+    `[role="toolbar"][aria-label="Views"] button[aria-label="${title}"]`,
+  );
   await button.waitForExist({ timeout: 10_000 });
   await button.click();
 }

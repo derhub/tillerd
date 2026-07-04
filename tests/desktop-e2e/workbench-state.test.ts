@@ -47,7 +47,9 @@ test("active view and bottom-panel visibility survive an app restart", async () 
     ).waitForExist({ timeout: 10_000, timeoutMsg: "Commands view did not render" });
 
     await (await first.$('[aria-label="Toggle bottom panel"]')).click();
-    await (await first.$('[data-testid="log-viewer"]')).waitForExist({
+    await (
+      await first.$('[data-testid="log-viewer"]')
+    ).waitForExist({
       timeout: 10_000,
       timeoutMsg: "bottom panel did not open on the Logs tab",
     });
@@ -67,7 +69,9 @@ test("active view and bottom-panel visibility survive an app restart", async () 
     await (
       await second.$('[data-testid="commands-empty"], [data-testid="commands-list"]')
     ).waitForExist({ timeout: 15_000, timeoutMsg: "Commands view was not restored after restart" });
-    await (await second.$('[data-testid="log-viewer"]')).waitForExist({
+    await (
+      await second.$('[data-testid="log-viewer"]')
+    ).waitForExist({
       timeout: 15_000,
       timeoutMsg: "bottom panel (Logs) did not stay open after restart",
     });
