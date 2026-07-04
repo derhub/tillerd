@@ -1,6 +1,7 @@
 use orchestrator::app::surface::{
     CloseSurface, DetachSurface, FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces,
     ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, StopSurface, SurfaceView,
+    SwapPlacement,
 };
 use tauri::{AppHandle, Runtime};
 
@@ -89,6 +90,11 @@ transport_query!(
 );
 
 transport_command!(surface_stop(id: String) => StopSurface { id });
+
+transport_command!(
+    surface_swap_placement(session: String, placement_a: String, placement_b: String)
+        => SwapPlacement { session, placement_a, placement_b }
+);
 
 transport_command!(surface_reconcile() => ReconcileSurfaces);
 

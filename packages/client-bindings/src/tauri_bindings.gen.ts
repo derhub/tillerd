@@ -97,6 +97,7 @@ export const commands = {
 	placement: string | null,
 } | null, string>(__TAURI_INVOKE("surface_find_by_placement", args)),
 	surfaceStop: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_stop", args)),
+	surfaceSwapPlacement: (args: { session: string; placementA: string; placementB: string }) => typedError<null, string>(__TAURI_INVOKE("surface_swap_placement", args)),
 	surfaceReconcile: () => typedError<null, string>(__TAURI_INVOKE("surface_reconcile")),
 	sessionList: (args: { projectId: string | null; limit: number | null; offset: number | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list", args)),
 	/**

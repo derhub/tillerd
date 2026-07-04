@@ -234,6 +234,10 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
             serde_json::json!({ "session": "contract", "placement": "main" }),
         ),
         ("surface_stop", serde_json::json!({ "id": "contract" })),
+        (
+            "surface_swap_placement",
+            serde_json::json!({ "session": "contract", "placementA": "a", "placementB": "b" }),
+        ),
         ("surface_reconcile", serde_json::json!({})),
         (
             "session_list",

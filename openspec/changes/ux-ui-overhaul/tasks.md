@@ -12,14 +12,14 @@
 - [ ] 1.3 Build the generic `EntityContextMenu` on the shadcn menu primitive fed by
   `contextmenu`-tagged command defs with row-scope `when` + args; delete
   `context-menu-shell.tsx` after migration
-- [ ] 1.4 Stabilize e2e anchors: inventory `data-testid`/ready-signal selectors used by
+- [x] 1.4 Stabilize e2e anchors: inventory `data-testid`/ready-signal selectors used by
   `tests/desktop-e2e/helpers.ts`, define the workbench-era replacements
 
 ## 2. Backend additive: swap_placement
 
-- [ ] 2.1 TDD `SwapPlacement` command in `crates/orchestrator/src/app/surface/` (atomic
+- [x] 2.1 TDD `SwapPlacement` command in `crates/orchestrator/src/app/surface/` (atomic
   two-row placement swap, error on unresolved placement; scenario tests mirror the spec)
-- [ ] 2.2 Register `surface_swap_placement` via `transport_command!`; regenerate
+- [x] 2.2 Register `surface_swap_placement` via `transport_command!`; regenerate
   bindings; contract test passes
 
 ## 3. Workbench shell

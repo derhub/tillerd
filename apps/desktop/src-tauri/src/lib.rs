@@ -86,6 +86,7 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::surface::surface_list_resumable,
             transport::surface::surface_find_by_placement,
             transport::surface::surface_stop,
+            transport::surface::surface_swap_placement,
             transport::surface::surface_reconcile,
             transport::session::session_list,
             transport::session::session_create,

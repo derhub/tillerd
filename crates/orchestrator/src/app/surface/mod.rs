@@ -29,6 +29,7 @@ pub mod reconcile_surfaces;
 pub mod spawn_surface;
 pub mod status_events;
 pub mod stop_surface;
+pub mod swap_placement;
 
 #[cfg(test)]
 pub(crate) mod test_util;
@@ -50,4 +51,5 @@ pub use stop_surface::StopSurface;
 pub use surface_channel::{
     CloseSurfaceChannel, OpenSurfaceChannel, SurfaceChannelStream, SurfaceClientMsg,
 };
+pub use swap_placement::SwapPlacement;
 pub use view::SurfaceView;
