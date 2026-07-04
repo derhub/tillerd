@@ -18,9 +18,12 @@ import {
   Pin,
   PinOff,
   Play,
+  RotateCcw,
   Search,
   Square,
   Trash2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 import type { CommandDef } from "./types";
@@ -110,6 +113,27 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     title: "Settings",
     keywords: ["preferences", "theme", "keybindings"],
     defaultKeys: { default: "CmdOrCtrl+,", vscode: "CmdOrCtrl+," },
+  },
+  {
+    id: ACTION.viewZoomIn,
+    title: "Zoom in",
+    icon: ZoomIn,
+    keywords: ["zoom", "scale", "font size", "bigger"],
+    defaultKeys: { default: "CmdOrCtrl+=" },
+  },
+  {
+    id: ACTION.viewZoomOut,
+    title: "Zoom out",
+    icon: ZoomOut,
+    keywords: ["zoom", "scale", "font size", "smaller"],
+    defaultKeys: { default: "CmdOrCtrl+-" },
+  },
+  {
+    id: ACTION.viewZoomReset,
+    title: "Reset zoom",
+    icon: RotateCcw,
+    keywords: ["zoom", "scale", "font size", "reset"],
+    defaultKeys: { default: "CmdOrCtrl+0" },
   },
   // Sidebar view switches, projected onto the activity bar. Their `checked` state
   // marks the active view (useWorkbenchCommands seeds `activeView`); selecting the

@@ -226,6 +226,16 @@ export function useBoolGlobalSetting(
   return { value, setValue };
 }
 
+export function useNumberGlobalSetting(
+  key: string,
+  fallback: number,
+): { value: number; setValue: (value: number) => void } {
+  const raw = useSelector(settingsStore, (s) => s.values[key]);
+  const value = typeof raw === "number" ? raw : fallback;
+  const setValue = React.useCallback((next: number) => setGlobalSetting(key, next), [key]);
+  return { value, setValue };
+}
+
 export function useTheme(): { theme: Theme; setTheme: (theme: Theme) => void } {
   // Paint cache (read once) is the pre-hydration fallback; durable value wins once loaded.
   const cachedFallback = React.useMemo(

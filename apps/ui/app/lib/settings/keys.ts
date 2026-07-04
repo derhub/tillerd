@@ -3,6 +3,20 @@ export const TERMINAL_SCHEME_KEY = "terminal.scheme";
 export const DEFAULT_COMMAND_KEY = "default.command";
 export const DEFAULT_TEMPLATE_KEY = "default.template";
 
+// UI zoom (webview zoom factor, General settings / ui-settings-editor spec). 1 is 100%;
+// bounds mirror the Tauri webview zoom polyfill's own range so a clamp never fights the
+// host's clamp.
+export const UI_ZOOM_KEY = "ui.zoom";
+export const DEFAULT_UI_ZOOM = 1;
+export const UI_ZOOM_MIN = 0.5;
+export const UI_ZOOM_MAX = 2;
+export const UI_ZOOM_STEP = 0.1;
+
+export function clampUiZoom(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_UI_ZOOM;
+  return Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, value));
+}
+
 // "Don't ask again" for the close-surface confirmation dialog (ui-panel-compound spec).
 export const PANEL_CLOSE_CONFIRM_SKIP_KEY = "panel.closeConfirm.skip";
 

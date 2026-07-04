@@ -9,6 +9,7 @@
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-set-focus",
+    "core:webview:allow-set-webview-zoom",
     "window-state:default",
     "notification:default"
   ]

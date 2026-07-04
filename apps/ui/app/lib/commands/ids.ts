@@ -9,6 +9,9 @@ export const ACTION = {
   projectOpenNewWindow: "project.open-new-window",
   viewLogs: "view.logs",
   appSettings: "app.settings",
+  viewZoomIn: "view.zoom-in",
+  viewZoomOut: "view.zoom-out",
+  viewZoomReset: "view.zoom-reset",
   // Sidebar view-switch actions (activity bar + palette). Selecting the active
   // view toggles the sidebar (see useWorkbenchCommands).
   viewSessions: "view.sessions",

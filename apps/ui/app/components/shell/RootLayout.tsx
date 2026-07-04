@@ -22,6 +22,8 @@ import { NotificationsProvider } from "~/lib/notifications/context";
 import { SessionContext } from "~/lib/sessionContext";
 import { SettingsProvider } from "~/lib/settings/context";
 import { SETTINGS_OPEN_EVENT } from "~/lib/settings/events";
+import { UI_ZOOM_STEP } from "~/lib/settings/keys";
+import { useUiZoom } from "~/lib/settings/useUiZoom";
 import { DesktopHostProvider } from "~/lib/useDesktopHost";
 import { useWindowEvent } from "~/lib/useWindowEvent";
 import { emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
@@ -78,6 +80,7 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   const [sidebarSize, setSidebarSize] = useSidebarSize();
   const [bottomVisible] = useBottomPanelVisible();
   const [bottomSize, setBottomSize] = useBottomPanelSize();
+  const { zoom, setZoom, reset: resetZoom } = useUiZoom();
 
   useMenuNavigation();
 
@@ -91,8 +94,11 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
     () => ({
       [ACTION.viewLogs]: () => void navigate({ to: "/logs" }),
       [ACTION.appSettings]: () => void navigate({ to: "/settings" }),
+      [ACTION.viewZoomIn]: () => setZoom(zoom + UI_ZOOM_STEP),
+      [ACTION.viewZoomOut]: () => setZoom(zoom - UI_ZOOM_STEP),
+      [ACTION.viewZoomReset]: () => resetZoom(),
     }),
-    [navigate],
+    [navigate, zoom, setZoom, resetZoom],
   );
 
   // The settings editor is a route now (retired popover), but the open signal is a
