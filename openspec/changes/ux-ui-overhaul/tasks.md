@@ -127,7 +127,7 @@
 - [ ] 11.3 Full suite green on macOS and Linux CI
 - [x] 11.4 Update `apps/ui/DESIGN.md` (workbench structure, contrast record), ROADMAP
   0.0.20 checkboxes, CONTEXT.md terms if needed
-- [ ] 11.5 Dog-food coherence pass; file 0.1.x follow-ups; absorb any ship blocker as a
+- [x] 11.5 Dog-food coherence pass; file 0.1.x follow-ups; absorb any ship blocker as a
   task here
 
 ## 12. Usability pass (commands/templates wired into real flows)
@@ -146,7 +146,7 @@
   default template
 - [x] 12.6 Commands view "Run" row action spawns the command in the active session
 - [x] 12.7 Screenshot-driven visual coherence pass, light + dark; before/after captures
-- [ ] 12.8 Full verify + affected e2e green after the pass
+- [x] 12.8 Full verify + affected e2e green after the pass
 
 ## 13. Terminal experience baseline (inferred completeness pass)
 
