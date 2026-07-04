@@ -7,9 +7,8 @@ import "@xterm/xterm/css/xterm.css";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { WS_BASE } from "~/lib/serverUrl";
 import { SessionContext } from "~/lib/sessionContext";
-import { useGlobalSetting } from "~/lib/settings/context";
-import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
-import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
+import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
+import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe } from "~/lib/subscribe";
 
 type Props = {
@@ -179,13 +178,7 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     [onSessionStart, queryClient, setStatus],
   );
 
-  const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
-  const terminalTheme = getTerminalTheme(scheme);
-
-  React.useEffect(() => {
-    const term = termRef.current;
-    if (term) term.options.theme = terminalTheme;
-  }, [terminalTheme]);
+  const terminalTheme = useLiveTerminalTheme(termRef);
 
   React.useEffect(() => {
     openWsRef.current = openWs;

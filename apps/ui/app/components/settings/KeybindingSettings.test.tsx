@@ -4,8 +4,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 /// <reference lib="dom" />
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
+import { CommandCenter } from "~/components/command/CommandCenter";
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { ACTION } from "~/lib/commands/ids";
+import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
@@ -31,6 +33,9 @@ void mock.module("@tillerd/client-bindings", () => ({
     getQueryData: () => undefined,
     invalidateQueries: () => Promise.resolve(),
   }),
+  // CommandCenter's leader-key mount also runs in this suite's "reflects in a sibling
+  // consumer" test; a no-op keeps it from reaching for a real event bus under happy-dom.
+  subscribe: () => ({ listen: () => Promise.resolve(() => {}) }),
 }));
 
 const { _resetForTests, SettingsProvider } = await import("~/lib/settings/context");
@@ -141,5 +146,42 @@ describe("KeybindingSettings", () => {
     renderPanel();
     const resetAll = (await screen.findByTestId("kb-reset-all")) as HTMLButtonElement;
     await waitFor(() => expect(resetAll.disabled).toBe(true));
+  });
+
+  // Guards the exact regression the command-center e2e spec caught: a preset change written
+  // through this settings-editor section must reach every OTHER consumer of the resolved
+  // bindings map (here, the command palette's shortcut hint), not just this component's own
+  // read. Both mount under one SettingsProvider/CommandRegistryProvider, exactly as they do in
+  // the real app (KeybindingSettings inside the /settings route, CommandCenter mounted globally
+  // in RootLayout) -- the shared `settingsStore` singleton is what should carry the write across.
+  test("a preset change reflects in a sibling consumer's resolved bindings", async () => {
+    render(
+      <TooltipProvider>
+        <SettingsProvider resolve={() => Promise.resolve([])}>
+          <CommandRegistryProvider>
+            <RegisterHandlers handlers={{ [ACTION.surfaceSpawn]: () => {} }} />
+            <KeybindingSettings />
+            <CommandCenter />
+          </CommandRegistryProvider>
+        </SettingsProvider>
+      </TooltipProvider>,
+    );
+
+    const select = (await screen.findByLabelText("Keybinding preset")) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "vscode" } });
+    await waitFor(() =>
+      expect(settingSetCalls.find((s) => s.key === "keybindings.preset")).toEqual(
+        expect.objectContaining({ key: "keybindings.preset", valueJson: JSON.stringify("vscode") }),
+      ),
+    );
+
+    fireEvent(window, new CustomEvent("command-center:open"));
+    const palette = await screen.findByTestId("command-center");
+    const items = Array.from(palette.querySelectorAll('[data-slot="command-item"]'));
+    const item = items.find((el) => el.textContent?.includes("New terminal"));
+    // The vscode preset binds "New terminal" to a backtick chord; the default preset does not.
+    await waitFor(() =>
+      expect(item?.querySelector('[data-slot="command-shortcut"]')?.textContent).toContain("`"),
+    );
   });
 });

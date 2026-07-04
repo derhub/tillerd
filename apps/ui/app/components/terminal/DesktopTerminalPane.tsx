@@ -7,9 +7,8 @@ import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
-import { useGlobalSetting } from "~/lib/settings/context";
-import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
-import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
+import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
+import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
 
 // Creates the xterm.js Terminal + DOM canvas exactly once per mount and hands it to the caller via
@@ -144,19 +143,13 @@ export function DesktopTerminalPane(_props: {
   const surfaceIdRef = React.useRef<string | null>(null);
   surfaceIdRef.current = surfaceId;
 
-  const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
-  const terminalTheme = getTerminalTheme(scheme);
   const termRef = React.useRef<Terminal | null>(null);
+  const terminalTheme = useLiveTerminalTheme(termRef);
   const [terminalReady, setTerminalReady] = React.useState(false);
 
   const detach = useMutation(command("surfaceDetach"));
   const detachRef = React.useRef(detach.mutateAsync);
   detachRef.current = detach.mutateAsync;
-
-  React.useEffect(() => {
-    const term = termRef.current;
-    if (term) term.options.theme = terminalTheme;
-  }, [terminalTheme]);
 
   // Mount the Terminal once. Cleanup only fires on a true unmount (deps: []), which is where
   // detachOnUnmount applies -- a placement swap never runs this cleanup.

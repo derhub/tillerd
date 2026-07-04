@@ -67,7 +67,7 @@ export function PanelContent() {
     (leafId: string) => {
       if (!sessionId) return;
       surfaceSpawn.mutate(
-        { sessionId },
+        { sessionId, command: null },
         { onSuccess: (placement) => setContent(leafId, { type: "terminal", placement }) },
       );
     },
