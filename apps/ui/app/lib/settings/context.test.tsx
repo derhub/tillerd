@@ -197,3 +197,24 @@ test("the provider applies the hydrated durable theme to the document", async ()
   await waitFor(() => expect(result.current.theme).toBe("light"));
   expect(document.documentElement.classList.contains("dark")).toBe(false);
 });
+
+test("a pinned startup workspace overrides the restored last-active pointer at launch", async () => {
+  await hydrateSettings(() =>
+    Promise.resolve(
+      listFrom({
+        "view.active-workspace": "ws-last-used",
+        "general.startupWorkspace": "ws-pinned",
+      }),
+    ),
+  );
+
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-pinned");
+});
+
+test("an unset startup workspace leaves the last-active pointer untouched", async () => {
+  await hydrateSettings(() =>
+    Promise.resolve(listFrom({ "view.active-workspace": "ws-last-used" })),
+  );
+
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-last-used");
+});

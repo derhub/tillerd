@@ -6,7 +6,14 @@ import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
 import React from "react";
 
 import { broadcastInvalidate, onRemoteInvalidate } from "../crossWindowSync";
-import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
+import {
+  DEFAULT_THEME,
+  GENERAL_STARTUP_WORKSPACE_KEY,
+  THEME_KEY,
+  VIEW_ACTIVE_WORKSPACE_KEY,
+  isTheme,
+  type Theme,
+} from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
 
 // TanStack Store owns shared client UI state. Server data stays in the Query cache, never here.
@@ -133,6 +140,14 @@ export async function hydrateSettings(
   for (const e of entries) values[e.key] = e.value;
   // Pre-hydration changes win over the listed snapshot so they are not reverted.
   for (const w of pending) values[w.key] = w.value;
+  // Startup workspace (General settings): a pinned workspace overrides the restored
+  // last-active pointer exactly once, here at launch -- not in WorkspaceSwitcher's
+  // per-render scopedId, which would fight the user's later in-session switches and
+  // turn "startup default" into a perpetually-forced workspace.
+  const startupWorkspace = values[GENERAL_STARTUP_WORKSPACE_KEY];
+  if (typeof startupWorkspace === "string" && startupWorkspace) {
+    values[VIEW_ACTIVE_WORKSPACE_KEY] = startupWorkspace;
+  }
   settingsStore.setState((s) => ({ ...s, values }));
   if (isTheme(values[THEME_KEY])) {
     applyTheme(document.documentElement, values[THEME_KEY]);

@@ -39,6 +39,11 @@ export const DEFAULT_TERMINAL_FONT_FAMILY =
   '"Geist Mono Variable", "Cascadia Code", "Fira Code", "JetBrains Mono", monospace';
 export const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
 export type TerminalCursorStyle = "block" | "underline" | "bar";
+export const TERMINAL_CURSOR_STYLES: readonly TerminalCursorStyle[] = [
+  "block",
+  "underline",
+  "bar",
+] as const;
 export const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = "block";
 export const DEFAULT_TERMINAL_CURSOR_BLINK = true;
 export const DEFAULT_TERMINAL_SCROLLBACK = 1000;
@@ -84,6 +89,11 @@ export const WORKBENCH_DEFAULTS = {
   panelSize: 200,
   panelTab: "logs",
 } as const;
+
+// General settings: a pinned workspace overrides the restored last-active pointer exactly
+// once, at launch (see context.tsx's hydrateSettings) -- unset/"" keeps the current
+// last-used behavior.
+export const GENERAL_STARTUP_WORKSPACE_KEY = "general.startupWorkspace";
 
 export const KEYBINDINGS_PRESET_KEY = "keybindings.preset";
 export const KEYBINDINGS_LEADER_KEY = "keybindings.leader";

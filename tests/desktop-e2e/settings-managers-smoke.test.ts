@@ -14,12 +14,14 @@ test("settings editor, Commands create, and Templates sections all render and wo
   // so seed one before visiting it.
   await createProject(b, uniqueName("SettingsSmoke"));
 
-  // -- Settings editor: 5 sections, Keybindings shows its preset select --
+  // -- Settings editor: 7 sections (General, Appearance, Terminal, Keybindings, Profiles,
+  // Themes, and Project -- shown because a project is active), Keybindings shows its preset
+  // select --
   await (await b.$('[aria-label="Settings"]')).click();
   const editor = await b.$('[data-testid="settings-editor"]');
   await editor.waitForExist({ timeout: 10_000 });
   const sectionButtons = await b.$$('nav[aria-label="Settings sections"] button');
-  expect(sectionButtons.length).toBe(5);
+  expect(sectionButtons.length).toBe(7);
 
   await (await b.$('[data-testid="settings-section-keybindings"]')).click();
   await (await b.$('[aria-label="Keybinding preset"]')).waitForExist({ timeout: 10_000 });

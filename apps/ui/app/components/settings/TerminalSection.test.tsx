@@ -85,4 +85,51 @@ describe("TerminalSection", () => {
       ),
     );
   });
+
+  test("changing the font size persists a number", async () => {
+    renderSection({ "terminal.fontSize": 13 });
+
+    const input = await screen.findByLabelText("Terminal font size");
+    fireEvent.change(input, { target: { value: "20" } });
+
+    await waitFor(() =>
+      expect(settingSetCalls).toContainEqual(
+        expect.objectContaining({ key: "terminal.fontSize", valueJson: JSON.stringify(20) }),
+      ),
+    );
+  });
+
+  test("selecting a cursor style persists it", async () => {
+    renderSection({ "terminal.cursorStyle": "block" });
+
+    const trigger = await screen.findByLabelText("Terminal cursor style");
+    await waitFor(() => expect(trigger.textContent).toContain("block"));
+
+    pointerActivate(trigger);
+    await waitFor(() => expect(trigger.getAttribute("aria-expanded")).toBe("true"));
+    const option = await screen.findByText("bar");
+    pointerActivate(option);
+
+    await waitFor(() =>
+      expect(settingSetCalls).toContainEqual(
+        expect.objectContaining({ key: "terminal.cursorStyle", valueJson: JSON.stringify("bar") }),
+      ),
+    );
+  });
+
+  test("toggling copy-on-select persists the boolean", async () => {
+    renderSection({ "terminal.copyOnSelect": false });
+
+    // The switch's accessible name is carried by its own role="switch" element (a wrapping
+    // <label> also associates the hidden native checkbox it renders alongside, so
+    // findByLabelText would match both -- getByRole targets the one with the click handler).
+    const toggle = await screen.findByRole("switch", { name: "Copy on select" });
+    pointerActivate(toggle);
+
+    await waitFor(() =>
+      expect(settingSetCalls).toContainEqual(
+        expect.objectContaining({ key: "terminal.copyOnSelect", valueJson: JSON.stringify(true) }),
+      ),
+    );
+  });
 });

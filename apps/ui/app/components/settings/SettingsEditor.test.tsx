@@ -5,7 +5,7 @@ import {
   createRootRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
@@ -13,6 +13,9 @@ import React from "react";
 // Section nav only: switching sections is a client-side search-param nav (`?section=`), never
 // a full reload, and each section is independently swappable -- stub every section component so
 // this test exercises only SettingsEditor's own routing/nav logic.
+void mock.module("~/components/settings/GeneralSection", () => ({
+  GeneralSection: () => <div data-testid="pane-general" />,
+}));
 void mock.module("~/components/settings/AppearanceSection", () => ({
   AppearanceSection: () => <div data-testid="pane-appearance" />,
 }));
@@ -28,11 +31,16 @@ void mock.module("~/components/settings/ProfilesSection", () => ({
 void mock.module("~/components/settings/ThemesSection", () => ({
   ThemesSection: () => <div data-testid="pane-themes" />,
 }));
+void mock.module("~/components/settings/ProjectSection", () => ({
+  ProjectSection: () => <div data-testid="pane-project" />,
+}));
 
 const { SettingsEditor } = await import("./SettingsEditor");
+const { setActiveProject } = await import("~/lib/store");
 
 afterEach(() => {
   cleanup();
+  setActiveProject(null);
   mock.restore();
 });
 
@@ -97,5 +105,17 @@ describe("SettingsEditor", () => {
   test("deep-links to a section via the ?section= search param", async () => {
     renderEditor("/settings?section=themes");
     await waitFor(() => expect(screen.queryByTestId("pane-themes")).not.toBeNull());
+  });
+
+  test("Project only appears in the nav with an active project", async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.queryByTestId("pane-appearance")).not.toBeNull());
+    expect(screen.queryByTestId("settings-section-project")).toBeNull();
+
+    await act(async () => {
+      setActiveProject("proj-1");
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("settings-section-project")).not.toBeNull());
   });
 });
