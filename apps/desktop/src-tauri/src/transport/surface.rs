@@ -1,7 +1,7 @@
 use orchestrator::app::surface::{
     CloseSurface, DetachSurface, FindSurfaceByPlacement, GetSurfaceById, ListResumableSurfaces,
-    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, StopSurface, SurfaceView,
-    SwapPlacement,
+    ListSurfacesBySession, ReconcileSurfaces, ResolveOrSpawnSurface, SpawnCommandRef, StopSurface,
+    SurfaceView, SwapPlacement,
 };
 use tauri::{AppHandle, Runtime};
 
@@ -101,15 +101,25 @@ transport_command!(surface_reconcile() => ReconcileSurfaces);
 transport_create!(
     /// Spawn a terminal surface: mint a placement, spawn, read the surface back by
     /// placement, then announce `SurfaceStarted` via the non-fatal notable tail.
-    surface_spawn(session_id: String) -> String {
+    /// `command`, when given (library ref or inline), diverges the session's launch
+    /// spec so the surface survives a reconcile.
+    surface_spawn(session_id: String, command: Option<SpawnCommandRef>) -> String {
         let placement = uuid::Uuid::new_v4().to_string();
-        execute: orchestrator::app::surface::SpawnSurface {
-            session: session_id.clone(),
-            kind: "terminal".to_string(),
-            cwd: None,
-            placement: Some(placement.clone()),
-            cols: None,
-            rows: None,
+        execute: {
+            let (command_library_ref, command_executable, command_args) = command
+                .map(SpawnCommandRef::into_dto_fields)
+                .unwrap_or((None, None, Vec::new()));
+            orchestrator::app::surface::SpawnSurface {
+                session: session_id.clone(),
+                kind: "terminal".to_string(),
+                cwd: None,
+                placement: Some(placement.clone()),
+                cols: None,
+                rows: None,
+                command_library_ref,
+                command_executable,
+                command_args,
+            }
         },
         read_back: orchestrator::app::surface::FindSurfaceByPlacement {
             session: session_id.clone(),

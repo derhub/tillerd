@@ -42,7 +42,7 @@ pub use list_resumable_surfaces::ListResumableSurfaces;
 pub use list_surfaces_by_session::ListSurfacesBySession;
 pub use reconcile_surfaces::ReconcileSurfaces;
 pub use resolve_or_spawn::ResolveOrSpawnSurface;
-pub use spawn_surface::SpawnSurface;
+pub use spawn_surface::{SpawnCommandRef, SpawnSurface};
 pub use status_events::{
     confirm_spawn_and_emit, update_status_and_emit, workspace_id_for_session,
     workspace_id_for_surface, CloseSurfaceStatusChannel, OpenSurfaceStatusChannel,

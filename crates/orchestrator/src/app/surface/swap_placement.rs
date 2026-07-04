@@ -67,6 +67,9 @@ mod tests {
             placement: Some(placement.to_owned()),
             cols: None,
             rows: None,
+            command_library_ref: None,
+            command_executable: None,
+            command_args: Vec::new(),
         }
     }
 

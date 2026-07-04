@@ -22,8 +22,10 @@ export const commands = {
 	/**
 	 *  Spawn a terminal surface: mint a placement, spawn, read the surface back by
 	 *  placement, then announce `SurfaceStarted` via the non-fatal notable tail.
+	 *  `command`, when given (library ref or inline), diverges the session's launch
+	 *  spec so the surface survives a reconcile.
 	 */
-	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
+	surfaceSpawn: (args: { sessionId: string; command: ({ libraryRef: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { libraryRef?: never } | null }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
 	surfaceClose: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	logChannel: (args: { channel: Channel<number[]>; req: OpenLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel", args)),
@@ -462,6 +464,15 @@ export type SettingView = {
 	 */
 	value: unknown,
 };
+
+/**
+ *  Wire shape for a spawn-time command reference: camelCase (`libraryRef`) like its
+ *  sibling transport params, unlike the opaque snake_case `command` persisted inside
+ *  a launch spec item's raw JSON blob (`CommandRef`). Transport-only -- `SpawnSurface`
+ *  itself carries the decomposed primitive fields (message-dto: DTO fields are plain
+ *  built-in types; a sum type is reassembled at the edge, not held on the DTO).
+ */
+export type SpawnCommandRef = ({ libraryRef: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { libraryRef?: never };
 
 /**  The boot lifecycle status as seen on the wire. Unchanged from the prior host. */
 export type StatusWire = { state: "booting" } | { state: "openingStore" } | { state: "supervising" } | { state: "ready" } | { state: "failed"; reason: string };

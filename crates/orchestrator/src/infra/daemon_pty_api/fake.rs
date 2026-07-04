@@ -3,12 +3,12 @@
 //! assert the side-effect shape (persist intent -> effect -> record -> reconcile)
 //! without a live daemon.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use tokio::sync::mpsc;
 
-use super::{Output, SpawnRequest, SurfaceOutput};
+use super::{Output, SpawnCommand, SpawnRequest, SurfaceOutput};
 use crate::entities::SurfaceId;
 use crate::shared::{Error, Result};
 
@@ -36,6 +36,9 @@ pub enum RuntimeCall {
 struct State {
     running: HashSet<SurfaceId>,
     calls: Vec<RuntimeCall>,
+    // Most recent `spawn` command payload per surface (test assertion helper, kept
+    // out of `RuntimeCall::Spawn` so existing call-order assertions stay unchanged).
+    commands: HashMap<SurfaceId, Option<SpawnCommand>>,
 }
 
 /// An in-memory runtime fake. `spawn` marks a surface running; `stop`/`close` mark
@@ -110,12 +113,29 @@ impl FakeRuntime {
         self.state.lock().unwrap().calls.clear();
     }
 
+    /// The `command` payload from the most recent `spawn` call for `surface`, or
+    /// `None` if `surface` was never spawned (test assertion helper).
+    pub fn spawn_command(&self, surface: &SurfaceId) -> Option<SpawnCommand> {
+        self.state
+            .lock()
+            .unwrap()
+            .commands
+            .get(surface)
+            .cloned()
+            .flatten()
+    }
+
     fn record(&self, call: RuntimeCall) {
         self.state.lock().unwrap().calls.push(call);
     }
 
     pub async fn spawn(&self, request: SpawnRequest) -> Result<()> {
         self.record(RuntimeCall::Spawn(request.surface.clone()));
+        self.state
+            .lock()
+            .unwrap()
+            .commands
+            .insert(request.surface.clone(), request.command.clone());
         if std::mem::replace(&mut *self.fail_spawn.lock().unwrap(), false) {
             return Err(Error::SurfaceRuntime {
                 surface: request.surface.as_str().to_string(),

@@ -56,6 +56,9 @@ pub(crate) fn spawn(session: &str) -> SpawnSurface {
         placement: Some("main".to_owned()),
         cols: None,
         rows: None,
+        command_library_ref: None,
+        command_executable: None,
+        command_args: Vec::new(),
     }
 }
 

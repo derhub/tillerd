@@ -132,10 +132,10 @@
 
 ## 12. Usability pass (commands/templates wired into real flows)
 
-- [ ] 12.1 Launch executor resolves item commands (library_ref -> stored cli/args/env,
+- [x] 12.1 Launch executor resolves item commands (library_ref -> stored cli/args/env,
   inline -> executable/args) into the PTY spawn — restores launch-execution spec
   compliance dropped in the 0.0.15 rewrite; scenario tests per existing spec
-- [ ] 12.2 `SpawnSurface` accepts an optional command (library ref or inline), appends
+- [x] 12.2 `SpawnSurface` accepts an optional command (library ref or inline), appends
   the item to the session's launch spec (ADR-0030 divergence); transport + bindings
 - [ ] 12.3 New-session flow: template picker (empty / project launch templates /
   library templates); per-project default-template setting honored

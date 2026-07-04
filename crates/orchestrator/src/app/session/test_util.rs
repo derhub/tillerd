@@ -12,15 +12,23 @@ use super::list_sessions_by_project::ListSessionsByProject;
 use super::new_session_cmd::NewSessionCmd;
 
 pub(crate) async fn ctx() -> (Bus<Ctx>, sqlx::SqlitePool) {
+    let (bus, pool, _runtime) = ctx_with_runtime().await;
+    (bus, pool)
+}
+
+/// Like [`ctx`], but also returns the `FakeRuntime` handle for tests that need to
+/// assert what was spawned (e.g. the resolved `SpawnRequest` command payload).
+pub(crate) async fn ctx_with_runtime() -> (Bus<Ctx>, sqlx::SqlitePool, Arc<FakeRuntime>) {
     let pool = migrate::open_memory().await.unwrap();
     let kv = SqliteKv::in_memory().await.unwrap();
+    let runtime = Arc::new(FakeRuntime::new());
     let cx = Ctx::new(
         pool.clone(),
         kv,
         PathBuf::from("/tmp/session-ops-test"),
-        Runtime::Fake(Arc::new(FakeRuntime::new())),
+        Runtime::Fake(runtime.clone()),
     );
-    (Bus::new(cx), pool)
+    (Bus::new(cx), pool, runtime)
 }
 
 pub(crate) fn unfiled() -> ProjectId {

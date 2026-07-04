@@ -157,7 +157,7 @@ fn every_desktop_ipc_command_is_registered_and_accepts_its_arg_shape() {
         ),
         (
             "surface_spawn",
-            serde_json::json!({ "sessionId": "contract" }),
+            serde_json::json!({ "sessionId": "contract", "command": { "libraryRef": "contract" } }),
         ),
         ("surface_close", serde_json::json!({ "id": "contract" })),
         ("surface_detach", serde_json::json!({ "id": "contract" })),
