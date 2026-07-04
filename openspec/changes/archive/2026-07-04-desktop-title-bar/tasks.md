@@ -38,5 +38,5 @@
 
 ## 7. Verify
 
-- [ ] 7.1 `bun test` (apps/ui) green; `cargo nextest run` (apps/desktop) green; type-check + lint clean.
+- [x] 7.1 `bun test` (apps/ui) green; `cargo nextest run` (apps/desktop) green; type-check + lint clean.
 - [ ] 7.2 Manual desktop smoke: drag moves window; minimize/maximize/close work; all four toggles work from both title bar and command palette; visibility persists across restart.
