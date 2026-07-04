@@ -125,7 +125,7 @@
   don't-ask-again persistence; drag-and-drop swap; workbench view switching + state
   restore; settings editor + managers smoke
 - [ ] 11.3 Full suite green on macOS and Linux CI
-- [ ] 11.4 Update `apps/ui/DESIGN.md` (workbench structure, contrast record), ROADMAP
+- [x] 11.4 Update `apps/ui/DESIGN.md` (workbench structure, contrast record), ROADMAP
   0.0.20 checkboxes, CONTEXT.md terms if needed
 - [ ] 11.5 Dog-food coherence pass; file 0.1.x follow-ups; absorb any ship blocker as a
   task here
@@ -166,5 +166,5 @@
 - [x] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
 - [x] 13.9 General + Project settings sections: close-confirmation toggle, startup
   workspace, per-project default template (folds 12.5 scope)
-- [ ] 13.10 Follow-ups filed for 0.1.x: shell integration (prompt marking), cwd
+- [x] 13.10 Follow-ups filed for 0.1.x: shell integration (prompt marking), cwd
   inheritance, session scrollback restore, auto-update — recorded in ROADMAP
