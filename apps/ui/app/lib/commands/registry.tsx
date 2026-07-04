@@ -14,7 +14,7 @@ import {
 } from "./types";
 import { evaluateWhen, type ContextSnapshot } from "./when";
 
-export type { Command, CommandDef, CommandHandler, Surface } from "./types";
+export type { Command, CommandArgs, CommandDef, CommandHandler, Surface } from "./types";
 
 interface RegistryDispatch {
   register: (token: string, handlers: Record<string, CommandHandler>) => void;

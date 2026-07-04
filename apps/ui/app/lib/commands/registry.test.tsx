@@ -55,6 +55,40 @@ describe("command registry", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  test("invoking with an argument payload passes it to the handler", () => {
+    const spy = mock((_args?: { entityId?: string; entityKind?: string }) => {});
+    let run: CommandHandler | undefined;
+    function Runner() {
+      run = useCommands().find((c) => c.id === ACTION.viewLogs)?.run;
+      return null;
+    }
+    render(
+      <CommandRegistryProvider>
+        <Register id={ACTION.viewLogs} handler={spy} />
+        <Runner />
+      </CommandRegistryProvider>,
+    );
+    run?.({ entityId: "session-1", entityKind: "session" });
+    expect(spy).toHaveBeenCalledWith({ entityId: "session-1", entityKind: "session" });
+  });
+
+  test("invoking without arguments still calls the handler with no payload", () => {
+    const spy = mock((_args?: { entityId?: string }) => {});
+    let run: CommandHandler | undefined;
+    function Runner() {
+      run = useCommands().find((c) => c.id === ACTION.viewLogs)?.run;
+      return null;
+    }
+    render(
+      <CommandRegistryProvider>
+        <Register id={ACTION.viewLogs} handler={spy} />
+        <Runner />
+      </CommandRegistryProvider>,
+    );
+    run?.();
+    expect(spy).toHaveBeenCalledWith();
+  });
+
   test("a command with no registered handler is absent from the registry", () => {
     let found: unknown;
     function Runner() {

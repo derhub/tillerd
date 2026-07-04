@@ -5,7 +5,7 @@ import type { ContextSnapshot, WhenExpr } from "./when";
 
 // Where a command appears. A command is projected onto each surface it is tagged
 // for; the palette is the default.
-export type Surface = "palette" | "titlebar" | "contextmenu";
+export type Surface = "palette" | "titlebar" | "contextmenu" | "activitybar" | "statusbar";
 
 // The single, static declaration of a command: identity, presentation, where it
 // appears, its default keys per preset, its availability, and (for toggles) its
@@ -26,7 +26,19 @@ export interface CommandDef {
   toggle?: (ctx: ContextSnapshot) => boolean;
 }
 
-export type CommandHandler = () => void;
+// Target context for a command invocation, e.g. the row a context menu was
+// opened on. Open shape (beyond entityId/entityKind) so a surface can carry
+// extra context without widening this type for every future field.
+export interface CommandArgs {
+  entityId?: string;
+  entityKind?: string;
+  [key: string]: unknown;
+}
+
+// The arg is optional so every existing no-arg handler keeps working
+// unchanged -- only surfaces that carry target context (e.g. contextmenu)
+// invoke with an argument.
+export type CommandHandler = (args?: CommandArgs) => void;
 
 // A definition composed with its resolved handler and (for toggles) checked
 // state. This is what surfaces consume. `run` is a no-op when no handler is

@@ -24,7 +24,7 @@ export function TitleBar() {
               aria-label={command.title}
               aria-pressed={command.checked ?? undefined}
               title={command.title}
-              onClick={command.run}
+              onClick={() => command.run()}
               className={cn(
                 "flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground",
                 "hover:bg-muted hover:text-foreground transition-colors duration-[var(--motion-fast)] ease-standard",

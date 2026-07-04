@@ -2,11 +2,11 @@
 
 ## 1. Foundations
 
-- [ ] 1.1 Install missing shadcn base-nova primitives (dialog, dropdown-menu,
+- [x] 1.1 Install missing shadcn base-nova primitives (dialog, dropdown-menu,
   context-menu/menu, select, input, label, switch, checkbox, badge, textarea,
   toggle-group); verify availability against the live registry, fall back to composing
   from `@base-ui/react` where absent
-- [ ] 1.2 Extend the command manager: `Surface` union gains `activitybar` and
+- [x] 1.2 Extend the command manager: `Surface` union gains `activitybar` and
   `statusbar`; handler invocation gains optional argument payload (backward compatible);
   unit tests for arg passing and surface projection
 - [ ] 1.3 Build the generic `EntityContextMenu` on the shadcn menu primitive fed by
