@@ -161,7 +161,7 @@
   registry-driven via the contextmenu surface
 - [ ] 13.6 Bell + attention: xterm bell event surfaces through the notification center;
   unfocused-window bell raises the native banner path
-- [ ] 13.7 UI zoom setting (webview zoom factor) persisted; window-state persistence
+- [x] 13.7 UI zoom setting (webview zoom factor) persisted; window-state persistence
   verified
 - [ ] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
 - [ ] 13.9 General + Project settings sections: close-confirmation toggle, startup
