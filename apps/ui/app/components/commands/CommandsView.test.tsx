@@ -9,7 +9,9 @@ import React from "react";
 
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { CommandRegistryProvider } from "~/lib/commands/registry";
+import { notificationsStore } from "~/lib/notifications/context";
 import { makeQueryClient } from "~/lib/queryClient";
+import { SessionContext } from "~/lib/sessionContext";
 
 // Command library: list (pinned first, origin badges), create/edit with inline validation,
 // rename/duplicate/pin/delete with prebuilt guards -- exercised through the real registry +
@@ -95,6 +97,7 @@ void mock.module("@tauri-apps/api/core", () => ({
       commands = commands.filter((c) => c.id !== id);
       return null;
     }
+    if (cmd === "surface_spawn") return "p-1";
     return null;
   },
   Channel: class Channel {
@@ -104,19 +107,21 @@ void mock.module("@tauri-apps/api/core", () => ({
 
 const { CommandsView } = await import("./CommandsView");
 
-function renderView() {
+function renderView(sessionId: string | null = null) {
   const queryClient = makeQueryClient();
   setQueryClient(queryClient);
   setReady(true);
   return render(
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <CommandRegistryProvider>
-          <React.Suspense fallback={null}>
-            <CommandsView />
-          </React.Suspense>
-        </CommandRegistryProvider>
-      </TooltipProvider>
+      <SessionContext value={{ sessionId, status: "", setStatus: () => {} }}>
+        <TooltipProvider>
+          <CommandRegistryProvider>
+            <React.Suspense fallback={null}>
+              <CommandsView />
+            </React.Suspense>
+          </CommandRegistryProvider>
+        </TooltipProvider>
+      </SessionContext>
     </QueryClientProvider>,
   );
 }
@@ -127,6 +132,7 @@ afterEach(() => {
   calls.length = 0;
   failNextCreate = false;
   setReady(false);
+  notificationsStore.setState(() => ({ items: [], unread: 0 }));
 });
 
 describe("listing", () => {
@@ -272,5 +278,38 @@ describe("pin", () => {
     fireEvent.click(screen.getByLabelText("Pin Build"));
 
     await waitFor(() => expect(screen.queryByTestId("command-pinned-indicator")).not.toBeNull());
+  });
+});
+
+describe("run", () => {
+  test("running a command with an active session spawns it in that session", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Build", cli: "npm run build" })];
+    renderView("s-1");
+    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+
+    fireEvent.click(screen.getByLabelText("Run Build"));
+
+    await waitFor(() => expect(calls.some((c) => c.cmd === "surface_spawn")).toBe(true));
+    const spawnCall = calls.find((c) => c.cmd === "surface_spawn");
+    expect(spawnCall?.args).toEqual({ sessionId: "s-1", command: { libraryRef: "c-1" } });
+  });
+
+  test("running a command with no active session notifies instead of spawning", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Build" })];
+    renderView(null);
+    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+
+    fireEvent.click(screen.getByLabelText("Run Build"));
+
+    expect(calls.some((c) => c.cmd === "surface_spawn")).toBe(false);
+    expect(notificationsStore.state.items.some((i) => i.category === "command-run")).toBe(true);
+  });
+
+  test("running a prebuilt command is offered too (Run is unguarded by origin)", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Prebuilt Cmd", origin: "prebuilt" })];
+    renderView("s-1");
+    await waitFor(() => expect(screen.queryByText("Prebuilt Cmd")).not.toBeNull());
+
+    expect(screen.getByLabelText("Run Prebuilt Cmd")).not.toBeNull();
   });
 });

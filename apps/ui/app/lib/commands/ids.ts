@@ -48,6 +48,7 @@ export const ACTION = {
   workspaceArchive: "workspace.archive",
   workspaceDelete: "workspace.delete",
   // -- command library row (see CommandsView) --
+  commandRun: "command.run",
   commandEdit: "command.edit",
   commandRename: "command.rename",
   commandDuplicate: "command.duplicate",

@@ -34,23 +34,9 @@ import {
   serializeLaunchSpec,
   type LaunchSpec,
 } from "~/lib/launchSpec";
-import { recordNotification } from "~/lib/notifications/context";
+import { notify } from "~/lib/notifications/notify";
 import { useActiveProject } from "~/lib/store";
 import { useDesktopHost } from "~/lib/useDesktopHost";
-
-function notify(category: string, severity: "info" | "error", message: string): void {
-  recordNotification({
-    id: crypto.randomUUID(),
-    category,
-    severity,
-    title: null,
-    message,
-    detail: null,
-    ts: Date.now(),
-    sessionId: null,
-    surfaceId: null,
-  });
-}
 
 function launchTemplateLabel(
   view: LaunchTemplateView,

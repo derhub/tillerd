@@ -20,6 +20,8 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION } from "~/lib/commands/ids";
 import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { commandListQuery } from "~/lib/data/commands";
+import { notify } from "~/lib/notifications/notify";
+import { SessionContext } from "~/lib/sessionContext";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 
 const PAGE_SIZE = 50;
@@ -30,6 +32,7 @@ const PAGE_SIZE = 50;
 // small fixed set (spec: list SHALL paginate or virtualize).
 export function CommandsView() {
   const isDesktop = useDesktopHost().status === "ready";
+  const { sessionId } = React.use(SessionContext);
   const { data: commands = [] } = useQuery(commandListQuery());
 
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
@@ -45,6 +48,7 @@ export function CommandsView() {
   const pinCommand = useMutation(command("commandPin"));
   const unpinCommand = useMutation(command("commandUnpin"));
   const deleteCommand = useMutation(command("commandDelete"));
+  const spawnSurface = useMutation(command("surfaceSpawn"));
 
   const visible = commands.slice(0, visibleCount);
 
@@ -66,6 +70,21 @@ export function CommandsView() {
       duplicateCommand.mutate({ id, name: `${source.name} copy` });
     },
     [commands, duplicateCommand],
+  );
+
+  // Run row action (usability pass 12.6): spawns the command into the workbench's active
+  // session (SessionContext, lifted from the /session/$id route param at the chrome level).
+  // No active session is a real, reachable state (e.g. commands view open with no session
+  // selected) -- surfaced via the notification center rather than silently doing nothing.
+  const handleRun = React.useCallback(
+    (id: string) => {
+      if (!sessionId) {
+        notify("command-run", "error", "Open a session before running a command.");
+        return;
+      }
+      spawnSurface.mutate({ sessionId, command: { libraryRef: id } });
+    },
+    [sessionId, spawnSurface],
   );
 
   const handleRequestDelete = React.useCallback(
@@ -108,6 +127,9 @@ export function CommandsView() {
 
   const registeredHandlers = React.useMemo(
     () => ({
+      [ACTION.commandRun]: (args?: CommandArgs) => {
+        if (args?.entityId) handleRun(args.entityId);
+      },
       [ACTION.commandEdit]: (args?: CommandArgs) => {
         const target = commands.find((c) => c.id === args?.entityId);
         if (target) {
@@ -133,7 +155,15 @@ export function CommandsView() {
         handleRequestDelete(args.entityId, label);
       },
     }),
-    [commands, handleStartRename, handleDuplicate, pinCommand, unpinCommand, handleRequestDelete],
+    [
+      commands,
+      handleStartRename,
+      handleRun,
+      handleDuplicate,
+      pinCommand,
+      unpinCommand,
+      handleRequestDelete,
+    ],
   );
   useRegisterHandlers(registeredHandlers);
 
@@ -178,6 +208,7 @@ export function CommandsView() {
                 onStartRename={handleStartRename}
                 onConfirmRename={(name) => handleConfirmRename(c.id, name)}
                 onCancelRename={handleCancelRename}
+                onRun={handleRun}
                 onEdit={(id) => {
                   const target = commands.find((row) => row.id === id);
                   if (target) {

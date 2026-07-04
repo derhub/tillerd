@@ -1,3 +1,5 @@
+import type { SpawnCommandRef } from "@tillerd/client-bindings";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { command, query } from "@tillerd/client-bindings";
 import React from "react";
@@ -64,10 +66,10 @@ export function PanelContent() {
   }, []);
 
   const handleSpawn = React.useCallback(
-    (leafId: string) => {
+    (leafId: string, commandRef?: SpawnCommandRef) => {
       if (!sessionId) return;
       surfaceSpawn.mutate(
-        { sessionId, command: null },
+        { sessionId, command: commandRef ?? null },
         { onSuccess: (placement) => setContent(leafId, { type: "terminal", placement }) },
       );
     },

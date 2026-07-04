@@ -1,4 +1,6 @@
-import { useQueries } from "@tanstack/react-query";
+import type { SpawnCommandRef } from "@tillerd/client-bindings";
+
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { query } from "@tillerd/client-bindings";
 import { ArrowUpRight, Columns2, ExternalLink, Rows2 } from "lucide-react";
 import React from "react";
@@ -7,6 +9,7 @@ import { EmptyPanel } from "~/components/shell/EmptyPanel";
 import { Panel } from "~/components/shell/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/shell/PanelGroup";
 import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
+import { commandListQuery } from "~/lib/data/commands";
 import { formatElapsed } from "~/lib/formatElapsed";
 import {
   collectLeaves,
@@ -55,7 +58,7 @@ export function PanelTree({
   onSplit: (leafId: string, direction: "horizontal" | "vertical") => void;
   onSetActiveTab: (groupId: string, tabId: string) => void;
   onClose: (leaf: PanelLeaf) => void;
-  onSpawn: (leafId: string) => void;
+  onSpawn: (leafId: string, command?: SpawnCommandRef) => void;
   onDetach: (leaf: PanelLeaf) => void;
   onReattach: (placement: string) => void;
   onSwapPlacements: (sourceLeafId: string, targetLeafId: string) => void;
@@ -88,6 +91,11 @@ export function PanelTree({
     ]),
   );
   const now = useElapsedTick();
+
+  // Empty panel picker (ui-panel-compound "Empty panel picker", usability pass 12.4): the command
+  // library, so an empty leaf can spawn a terminal running a stored command, not just a login
+  // shell. Cached by TanStack Query, so multiple empty leaves in the same tree share one fetch.
+  const { data: emptyPanelCommands = [] } = useQuery(commandListQuery());
 
   function renderNode(node: PanelNode, path: string): React.ReactNode {
     return node.kind === "group" ? renderGroup(node, path) : renderLeaf(node);
@@ -248,7 +256,13 @@ export function PanelTree({
   function renderContent(content: PanelContent, leafId: string): React.ReactNode {
     switch (content.type) {
       case "empty":
-        return <EmptyPanel onSpawn={() => onSpawn(leafId)} disabled={!sessionId} />;
+        return (
+          <EmptyPanel
+            onSpawn={(cmd) => onSpawn(leafId, cmd)}
+            disabled={!sessionId}
+            commands={emptyPanelCommands}
+          />
+        );
       case "terminal":
         if (detached.has(content.placement)) {
           return <DetachedPlaceholder onReattach={() => onReattach(content.placement)} />;

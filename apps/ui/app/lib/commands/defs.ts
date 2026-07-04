@@ -17,6 +17,7 @@ import {
   Pencil,
   Pin,
   PinOff,
+  Play,
   Search,
   Square,
   Trash2,
@@ -388,7 +389,15 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
   },
 
   // -- command library row -- `menu.canEdit` is false for prebuilt rows, gating
-  // Edit/Rename/Delete off; Duplicate and Pin/Unpin stay available on every origin.
+  // Edit/Rename/Delete off; Run, Duplicate, and Pin/Unpin stay available on every origin.
+  {
+    id: ACTION.commandRun,
+    title: "Run",
+    icon: Play,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow"],
+  },
   {
     id: ACTION.commandEdit,
     title: "Edit",

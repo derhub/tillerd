@@ -1,6 +1,6 @@
 import type { CommandView } from "@tillerd/client-bindings";
 
-import { Copy, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { Copy, Pencil, Pin, PinOff, Play, Trash2 } from "lucide-react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
@@ -21,6 +21,7 @@ export function CommandRow({
   onStartRename,
   onConfirmRename,
   onCancelRename,
+  onRun,
   onEdit,
   onDuplicate,
   onPin,
@@ -33,6 +34,7 @@ export function CommandRow({
   onStartRename: (id: string) => void;
   onConfirmRename: (name: string) => void;
   onCancelRename: () => void;
+  onRun: (id: string) => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onPin: (id: string) => void;
@@ -88,6 +90,22 @@ export function CommandRow({
 
       {isDesktop && (
         <div className="flex items-center gap-0.5 shrink-0">
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={`Run ${command.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRun(command.id);
+              }}
+              className={cn(
+                ROW_ACTION_CLASS,
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+              )}
+            >
+              <Play className="size-[var(--icon-sm)]" strokeWidth={2} />
+            </TooltipTrigger>
+            <TooltipContent>Run</TooltipContent>
+          </Tooltip>
           {canEdit && (
             <Tooltip>
               <TooltipTrigger
