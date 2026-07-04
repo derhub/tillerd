@@ -37,13 +37,15 @@ test("selecting a theme in the settings editor toggles the appearance in real ti
   await editor.waitForExist({ timeout: 10_000 });
   await (await b.$('[aria-label="Theme"]')).waitForExist({ timeout: 10_000 });
 
-  // Cycle light -> dark -> light. Each selection applies live (toggles `.dark` on the root with
-  // no reload), in both directions, repeatedly. State-independent: the test sets each appearance
-  // rather than assuming the persisted starting one.
+  // Cycle light -> dark -> light -> dark. Each selection applies live (toggles `.dark` on the root
+  // with no reload), in both directions, repeatedly. State-independent: the test sets each
+  // appearance rather than assuming the persisted starting one, and ends on dark so the shared app
+  // is left at the product default (dark) for later tests and screenshots.
   const steps: ReadonlyArray<readonly ["light" | "dark", boolean]> = [
     ["light", false],
     ["dark", true],
     ["light", false],
+    ["dark", true],
   ];
   for (const [value, wantDark] of steps) {
     await selectOption(b, "Theme", value);
@@ -52,5 +54,5 @@ test("selecting a theme in the settings editor toggles the appearance in real ti
       timeoutMsg: `selecting ${value} did not ${wantDark ? "add" : "remove"} the dark class`,
     });
   }
-  expect(await hasDarkClass(b)).toBe(false);
+  expect(await hasDarkClass(b)).toBe(true);
 }, 120_000);

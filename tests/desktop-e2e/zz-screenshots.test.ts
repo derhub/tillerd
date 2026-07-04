@@ -30,6 +30,9 @@ afterAll(async () => {
 });
 
 test("capture app states", async () => {
+  // Capture the product default (dark). The shared TILLERD_DIR can carry a theme another spec
+  // persisted, so pin dark before the primary shots; shot 14 opts into light explicitly.
+  await b.execute(() => document.documentElement.classList.add("dark"));
   await shot("01-zero-state");
 
   const project = uniqueName("shotproj");

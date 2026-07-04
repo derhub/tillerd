@@ -26,6 +26,14 @@ export function notificationHeading(event: NotificationWire): string {
   return CATEGORY_LABEL[event.category] ?? "Notification";
 }
 
+// Unread-badge gate: only actionable notifications (warning/error) bump the status-bar bell's
+// unread count. Ambient info events -- boot service-up, orchestrator-status, a terminal the user
+// just started -- record into the feed without lighting the badge, so a fresh launch reads as
+// zero unread. Every event still lands in the notification center regardless.
+export function countsAsUnread(event: Pick<NotificationWire, "severity">): boolean {
+  return event.severity === "warning" || event.severity === "error";
+}
+
 export const SEVERITY_DOT: Record<"info" | "warning" | "error", string> = {
   info: "bg-sky-500",
   warning: "bg-amber-500",

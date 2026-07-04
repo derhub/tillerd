@@ -10,7 +10,7 @@ import { Panel } from "~/components/shell/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/shell/PanelGroup";
 import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
 import { commandListQuery } from "~/lib/data/commands";
-import { formatElapsed } from "~/lib/formatElapsed";
+import { sessionDisplayName, terminalTitle } from "~/lib/panelTitle";
 import {
   collectLeaves,
   DRAG_PANEL_LEAF,
@@ -20,17 +20,6 @@ import {
   type PanelNode,
 } from "~/lib/panelTree";
 import { useElapsedTick } from "~/lib/useElapsedTick";
-
-// Panel title content (ui-panel-compound spec): session name + surface kind, plus elapsed time
-// since the surface's PTY spawned once known. Hidden when spawnedAt is null (never spawned yet).
-function terminalTitle(
-  sessionTitle: string | undefined,
-  spawnedAt: number | null,
-  now: number,
-): string {
-  const base = `${sessionTitle ?? "Session"} · Terminal`;
-  return spawnedAt == null ? base : `${base} · ${formatElapsed(spawnedAt, now)}`;
-}
 
 export function PanelTree({
   tree,
@@ -183,7 +172,11 @@ export function PanelTree({
     // elapsed time since the surface's PTY spawned (hidden while spawned_at is null).
     const title =
       leaf.content.type === "terminal"
-        ? terminalTitle(sessionTitle, spawnedAtByPlacement.get(leaf.content.placement) ?? null, now)
+        ? terminalTitle(
+            sessionDisplayName(sessionTitle, sessionId),
+            spawnedAtByPlacement.get(leaf.content.placement) ?? null,
+            now,
+          )
         : "Empty";
     const actions = {
       split: (direction: "horizontal" | "vertical") => onSplit(leaf.id, direction),

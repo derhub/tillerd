@@ -149,7 +149,12 @@ export function ProjectRow({
             onDoubleClick={isUnfiled ? undefined : onStartEdit}
             data-testid="project-name"
             data-project-id={project.id}
-            className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1 cursor-text"
+            className={cn(
+              "text-[0.75rem] font-medium text-muted-foreground/70 truncate flex-1 cursor-text",
+              // Unfiled is a system section label (small-caps); user-named projects render as
+              // entered, not shouted.
+              isUnfiled && "uppercase tracking-wider",
+            )}
           >
             {project.name}
           </span>

@@ -149,10 +149,14 @@ export async function hydrateSettings(
     values[VIEW_ACTIVE_WORKSPACE_KEY] = startupWorkspace;
   }
   settingsStore.setState((s) => ({ ...s, values }));
-  if (isTheme(values[THEME_KEY])) {
-    applyTheme(document.documentElement, values[THEME_KEY]);
-    writeCachedTheme(localStorage, values[THEME_KEY]);
-  }
+  // Theme is authoritative here, not only in the pre-paint inline script: an install with no
+  // persisted `theme` setting resolves to DEFAULT_THEME (dark) rather than leaving the document
+  // in its unstyled light default. The paint script already defaults dark; this keeps dark the
+  // source of truth even if that script is ever bypassed.
+  const themeValue = values[THEME_KEY];
+  const resolvedTheme: Theme = isTheme(themeValue) ? themeValue : DEFAULT_THEME;
+  applyTheme(document.documentElement, resolvedTheme);
+  writeCachedTheme(localStorage, resolvedTheme);
 }
 
 export function setGlobalSetting(key: string, value: unknown): void {

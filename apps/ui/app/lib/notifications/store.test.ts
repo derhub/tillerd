@@ -2,7 +2,7 @@ import type { NotificationWire } from "@tillerd/client-bindings";
 
 import { expect, test } from "bun:test";
 
-import { boundedPrepend, notificationHeading } from "./store";
+import { boundedPrepend, countsAsUnread, notificationHeading } from "./store";
 
 function ev(id: string, over: Partial<NotificationWire> = {}): NotificationWire {
   return {
@@ -43,4 +43,10 @@ test("notificationHeading falls back to a category label", () => {
 
 test("notificationHeading handles an unrecognised category", () => {
   expect(notificationHeading(ev("1", { category: "future-thing" }))).toBe("Notification");
+});
+
+test("countsAsUnread badges warnings and errors, not ambient info", () => {
+  expect(countsAsUnread(ev("1", { severity: "error" }))).toBe(true);
+  expect(countsAsUnread(ev("1", { severity: "warning" }))).toBe(true);
+  expect(countsAsUnread(ev("1", { severity: "info" }))).toBe(false);
 });

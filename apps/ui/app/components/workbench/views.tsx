@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 
-import { Command, LayoutTemplate, MessagesSquare, Search } from "lucide-react";
+import { Command, LayoutTemplate, Search, SquareTerminal } from "lucide-react";
 
 import { CommandsView } from "~/components/commands/CommandsView";
 import { SearchView } from "~/components/sidebar/SearchView";
@@ -24,7 +24,7 @@ export const VIEW_DEFS: readonly WorkbenchViewDef[] = [
   {
     id: "sessions",
     title: "Sessions",
-    icon: MessagesSquare,
+    icon: SquareTerminal,
     commandId: ACTION.viewSessions,
     // Rendered by SidebarContainer (needs window intent); never invoked here.
     Component: () => null,

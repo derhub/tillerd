@@ -6,7 +6,7 @@ import { getQueryClient, notificationChannel, query } from "@tillerd/client-bind
 import React from "react";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
-import { boundedPrepend, MAX_ITEMS } from "./store";
+import { boundedPrepend, countsAsUnread, MAX_ITEMS } from "./store";
 
 interface NotificationsState {
   items: NotificationWire[];
@@ -18,7 +18,7 @@ export const notificationsStore = new Store<NotificationsState>({ items: [], unr
 export function recordNotification(event: NotificationWire): void {
   notificationsStore.setState((s) => ({
     items: boundedPrepend(s.items, event),
-    unread: s.unread + 1,
+    unread: countsAsUnread(event) ? s.unread + 1 : s.unread,
   }));
 }
 

@@ -67,12 +67,19 @@ export function CommandRow({
           <span
             data-testid="command-name"
             onDoubleClick={isDesktop && canEdit ? () => onStartRename(command.id) : undefined}
-            className={cn("truncate text-[0.833rem] text-foreground", canEdit && "cursor-text")}
+            className={cn(
+              "min-w-0 truncate text-[0.833rem] text-foreground",
+              canEdit && "cursor-text",
+            )}
           >
             {command.name}
           </span>
         )}
-        <span className="truncate text-[0.75rem] text-muted-foreground/60">{command.cli}</span>
+        {/* The cli is secondary: it yields (shrink-3) so a short name is never clipped to make
+            room for it, and it truncates first when the row is genuinely cramped. */}
+        <span className="min-w-0 shrink-[3] truncate text-[0.75rem] text-muted-foreground/60">
+          {command.cli}
+        </span>
       </div>
 
       {command.pinned && (
@@ -89,7 +96,9 @@ export function CommandRow({
       </Badge>
 
       {isDesktop && (
-        <div className="flex items-center gap-0.5 shrink-0">
+        // Hover-revealed actions do not reserve inline width at rest, so short names/clis show in
+        // full; the context menu carries the same actions for keyboard/no-hover reach.
+        <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
           <Tooltip>
             <TooltipTrigger
               aria-label={`Run ${command.name}`}

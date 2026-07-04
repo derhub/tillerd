@@ -198,6 +198,13 @@ test("the provider applies the hydrated durable theme to the document", async ()
   expect(document.documentElement.classList.contains("dark")).toBe(false);
 });
 
+test("hydration with no persisted theme applies the dark default to the document", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+
+  expect(document.documentElement.classList.contains("dark")).toBe(true);
+  expect(localStorage.getItem(THEME_CACHE_KEY)).toBe("dark");
+});
+
 test("a pinned startup workspace overrides the restored last-active pointer at launch", async () => {
   await hydrateSettings(() =>
     Promise.resolve(

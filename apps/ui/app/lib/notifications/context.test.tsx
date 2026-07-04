@@ -37,8 +37,8 @@ void mock.module("@tillerd/client-bindings", () => ({
 
 afterAll(() => mock.restore());
 
-function ev(id: string): NotificationWire {
-  return { id, category: "surface-stopped", severity: "info", message: `m${id}`, ts: Number(id) };
+function ev(id: string, severity: NotificationWire["severity"] = "info"): NotificationWire {
+  return { id, category: "surface-stopped", severity, message: `m${id}`, ts: Number(id) };
 }
 
 function fire(event: NotificationWire): void {
@@ -60,20 +60,29 @@ test("hydrates durable history with zero unread", async () => {
   expect(result.current.unread).toBe(0);
 });
 
-test("a live event prepends and increments unread", async () => {
+test("an actionable live event prepends and increments unread", async () => {
   historyData = [ev("1")];
   const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper() });
   await waitFor(() => expect(result.current.items).toHaveLength(1));
-  act(() => fire(ev("2")));
+  act(() => fire(ev("2", "error")));
   await waitFor(() => expect(result.current.items[0].id).toBe("2"));
   expect(result.current.unread).toBe(1);
+});
+
+test("an ambient info live event prepends without incrementing unread", async () => {
+  historyData = [];
+  const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper() });
+  await waitFor(() => expect(result.current.items).toBeDefined());
+  act(() => fire(ev("boot", "info")));
+  await waitFor(() => expect(result.current.items[0]?.id).toBe("boot"));
+  expect(result.current.unread).toBe(0);
 });
 
 test("markRead clears the unread count", async () => {
   historyData = [];
   const { result } = renderHook(() => useNotifications(), { wrapper: makeWrapper() });
   await waitFor(() => expect(result.current.items).toBeDefined());
-  act(() => fire(ev("1")));
+  act(() => fire(ev("1", "error")));
   await waitFor(() => expect(result.current.unread).toBe(1));
   act(() => result.current.markRead());
   expect(result.current.unread).toBe(0);
