@@ -76,7 +76,11 @@ mod tests {
             id: "w".into(),
             name: "W".into(),
             status: "active".into(),
+            pinned: false,
         };
-        assert_keys(&serde_json::to_value(w).unwrap(), &["id", "name", "status"]);
+        assert_keys(
+            &serde_json::to_value(w).unwrap(),
+            &["id", "name", "status", "pinned"],
+        );
     }
 }

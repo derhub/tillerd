@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 
 import { Command, LayoutTemplate, MessagesSquare, Search } from "lucide-react";
 
+import { SearchView } from "~/components/sidebar/SearchView";
 import { ACTION } from "~/lib/commands/ids";
 
 import { ViewPlaceholder } from "./ViewPlaceholder";
@@ -33,9 +34,7 @@ export const VIEW_DEFS: readonly WorkbenchViewDef[] = [
     title: "Search",
     icon: Search,
     commandId: ACTION.viewSearch,
-    Component: () => (
-      <ViewPlaceholder icon={Search} title="Search" hint="Search across sessions and output." />
-    ),
+    Component: SearchView,
   },
   {
     id: "commands",

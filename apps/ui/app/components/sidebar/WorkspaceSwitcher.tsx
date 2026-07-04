@@ -6,12 +6,22 @@ import {
   type Workspace,
   type WorkspaceActivityView,
 } from "@tillerd/client-bindings";
-import { FolderPlus, ArrowUpRight } from "lucide-react";
+import { FolderPlus, ArrowUpRight, Pin } from "lucide-react";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
+import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
+import { DeleteDialog, type DeleteTarget } from "~/components/sidebar/DeleteDialog";
+import {
+  StopSurfacesDialog,
+  type StopSurfacesTarget,
+} from "~/components/sidebar/EntityDialogs";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { DEFAULT_WORKSPACE_ID } from "~/components/sidebar/sidebar-data";
+import { ACTION } from "~/lib/commands/ids";
+import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
+import { can } from "~/lib/stateModel";
 import { useActiveWorkspace, setActiveWorkspace } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
 import { useDesktopHost } from "~/lib/useDesktopHost";
@@ -39,6 +49,8 @@ export interface WorkspaceSwitcherProps {
   onStartEdit: (id: string) => void;
   onCancelEdit: () => void;
   onRename: (id: string, name: string) => void;
+  onRestore?: (id: string) => void;
+  onRequestDelete?: (target: DeleteTarget) => void;
 }
 
 // Minimal activity signal (full badge styling lands with the 0.0.20 visual pass):
@@ -71,13 +83,18 @@ export function WorkspaceSwitcherList({
   onStartEdit,
   onCancelEdit,
   onRename,
+  onRestore,
+  onRequestDelete,
 }: WorkspaceSwitcherProps) {
+  const active = workspaces.filter((ws) => ws.status !== "archived");
+  const archived = workspaces.filter((ws) => ws.status === "archived");
+
   return (
     <div
       data-testid="workspace-switcher"
       className="flex flex-col gap-0.5 px-3 py-2 border-b border-border/40 shrink-0"
     >
-      {workspaces.map((ws) => (
+      {active.map((ws) => (
         <div key={ws.id} className="flex items-center gap-1">
           {editingId === ws.id ? (
             <InlineRenameInput
@@ -86,21 +103,43 @@ export function WorkspaceSwitcherList({
               onCancel={onCancelEdit}
             />
           ) : (
-            <button
-              type="button"
-              data-testid="workspace-item"
-              data-workspace-id={ws.id}
-              onClick={() => onSelect(ws.id)}
-              onDoubleClick={() => onStartEdit(ws.id)}
-              className={cn(
-                "flex-1 text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-                ws.id === activeId
-                  ? "font-medium bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
+            <EntityContextMenu
+              entityId={ws.id}
+              entityKind="workspace"
+              args={{ label: ws.name }}
+              guards={{
+                "menu.canArchive": can("workspace", "archive", ws),
+                "menu.canDelete": can("workspace", "discard", ws),
+                "menu.pinned": ws.pinned,
+              }}
+              disabled={!isDesktop}
+              className="flex-1 min-w-0"
             >
-              {ws.name}
-            </button>
+              <button
+                type="button"
+                data-testid="workspace-item"
+                data-workspace-id={ws.id}
+                onClick={() => onSelect(ws.id)}
+                onDoubleClick={() => onStartEdit(ws.id)}
+                className={cn(
+                  "w-full text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                  ws.id === activeId
+                    ? "font-medium bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                )}
+              >
+                {ws.name}
+              </button>
+            </EntityContextMenu>
+          )}
+          {ws.pinned && (
+            <Pin
+              size={9}
+              strokeWidth={2}
+              aria-hidden
+              data-testid="workspace-pinned-indicator"
+              className="shrink-0 text-muted-foreground/40"
+            />
           )}
           <ActivityDot activity={activity?.get(ws.id)} />
           {detachedIds.has(ws.id) ? (
@@ -153,6 +192,16 @@ export function WorkspaceSwitcherList({
           <span>New workspace</span>
         </button>
       )}
+      <ArchivedSection count={archived.length}>
+        {archived.map((ws) => (
+          <ArchivedRow
+            key={ws.id}
+            name={ws.name}
+            onRestore={() => onRestore?.(ws.id)}
+            onDelete={() => onRequestDelete?.({ id: ws.id, name: ws.name, kind: "workspace" })}
+          />
+        ))}
+      </ArchivedSection>
     </div>
   );
 }
@@ -162,9 +211,17 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
   const storedActiveWorkspaceId = useActiveWorkspace();
   const [detachedWorkspaces, setDetachedWorkspaces] = React.useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = React.useState<DeleteTarget | null>(null);
+  const [stopTarget, setStopTarget] = React.useState<StopSurfacesTarget | null>(null);
 
   const createWorkspace = useMutation(command("workspaceCreate"));
   const renameWorkspace = useMutation(command("workspaceRename"));
+  const pinWorkspace = useMutation(command("workspacePin"));
+  const unpinWorkspace = useMutation(command("workspaceUnpin"));
+  const archiveWorkspace = useMutation(command("workspaceArchive"));
+  const restoreWorkspace = useMutation(command("workspaceRestore"));
+  const deleteWorkspace = useMutation(command("workspaceDelete"));
+  const stopWorkspaceSurfaces = useMutation(command("workspaceStopSurfaces"));
 
   const { data: workspaces, isFetching: isFetchingWorkspaces } = useSuspenseQuery(
     query("workspaceList"),
@@ -262,8 +319,66 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
     });
   }, []);
 
+  const handleConfirmDelete = React.useCallback(() => {
+    if (!deleteConfirm) return;
+    const { id } = deleteConfirm;
+    deleteWorkspace.mutate({ id }, { onSuccess: () => setDeleteConfirm(null) });
+  }, [deleteConfirm, deleteWorkspace]);
+
+  const handleConfirmStop = React.useCallback(() => {
+    if (!stopTarget) return;
+    stopWorkspaceSurfaces.mutate({ id: stopTarget.id });
+    setStopTarget(null);
+  }, [stopTarget, stopWorkspaceSurfaces]);
+
+  // Row-scoped workspace context-menu handlers (one registration per id).
+  const workspaceHandlers = React.useMemo(
+    () => ({
+      [ACTION.workspaceRename]: (args?: CommandArgs) => {
+        if (args?.entityId) setEditingId(args.entityId);
+      },
+      [ACTION.workspacePin]: (args?: CommandArgs) => {
+        if (args?.entityId) pinWorkspace.mutate({ id: args.entityId });
+      },
+      [ACTION.workspaceUnpin]: (args?: CommandArgs) => {
+        if (args?.entityId) unpinWorkspace.mutate({ id: args.entityId });
+      },
+      [ACTION.workspaceStopSurfaces]: (args?: CommandArgs) => {
+        if (args?.entityId)
+          setStopTarget({
+            id: args.entityId,
+            name: typeof args.label === "string" ? args.label : "",
+            kind: "workspace",
+          });
+      },
+      [ACTION.workspaceArchive]: (args?: CommandArgs) => {
+        if (args?.entityId) archiveWorkspace.mutate({ id: args.entityId });
+      },
+      [ACTION.workspaceDelete]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        setDeleteConfirm({
+          id: args.entityId,
+          name: typeof args.label === "string" ? args.label : "",
+          kind: "workspace",
+        });
+      },
+    }),
+    [pinWorkspace, unpinWorkspace, archiveWorkspace],
+  );
+  useRegisterHandlers(workspaceHandlers);
+
   return (
     <div className="flex flex-col h-full">
+      <DeleteDialog
+        target={deleteConfirm}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={handleConfirmDelete}
+      />
+      <StopSurfacesDialog
+        target={stopTarget}
+        onCancel={() => setStopTarget(null)}
+        onConfirm={handleConfirmStop}
+      />
       <WorkspaceSwitcherList
         workspaces={workspaces}
         activity={activity}
@@ -278,6 +393,8 @@ export function WorkspaceSwitcher({ initialWorkspaceId }: { initialWorkspaceId?:
         onStartEdit={setEditingId}
         onCancelEdit={() => setEditingId(null)}
         onRename={(id, name) => handleRenameWorkspace(id, name)}
+        onRestore={(id) => restoreWorkspace.mutate({ id })}
+        onRequestDelete={(target) => setDeleteConfirm(target)}
       />
       <SessionSidebar activeWorkspaceId={activeWorkspaceId ?? undefined} />
     </div>

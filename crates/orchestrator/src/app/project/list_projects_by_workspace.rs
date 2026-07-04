@@ -19,13 +19,12 @@ pub struct ListProjectsByWorkspace {
     pub after: Option<String>,
 }
 
-/// A `ProjectView` plus the two cursor-key columns (`pinned`, `sort_order`) needed
-/// to mint the continuation cursor without re-querying.
+/// A `ProjectView` plus the cursor-key column (`sort_order`) needed to mint the
+/// continuation cursor without re-querying. `pinned` rides along on `view`.
 #[derive(sqlx::FromRow)]
 struct CursorRow {
     #[sqlx(flatten)]
     view: ProjectView,
-    pinned: i64,
     sort_order: i64,
 }
 
@@ -49,7 +48,7 @@ impl Query<Ctx> for ListProjectsByWorkspace {
         match page {
             Page::All => {
                 let items = sqlx::query_as::<_, ProjectView>(
-                    "SELECT id, name, source_kind, root_path, workspace_id,
+                    "SELECT id, name, source_kind, root_path, workspace_id, pinned,
                             CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM project
                      WHERE workspace_id = ?
@@ -65,7 +64,7 @@ impl Query<Ctx> for ListProjectsByWorkspace {
                 // Fetch one extra to detect whether a next page exists.
                 let fetch = (limit as i64) + 1;
                 let rows = sqlx::query_as::<_, ProjectView>(
-                    "SELECT id, name, source_kind, root_path, workspace_id,
+                    "SELECT id, name, source_kind, root_path, workspace_id, pinned,
                             CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
                      FROM project
                      WHERE workspace_id = ?
@@ -142,7 +141,7 @@ impl Query<Ctx> for ListProjectsByWorkspace {
                 let next = if has_more {
                     page_rows
                         .last()
-                        .map(|r| make_cursor(r.pinned != 0, r.sort_order as u32, &r.view.id))
+                        .map(|r| make_cursor(r.view.pinned, r.sort_order as u32, &r.view.id))
                 } else {
                     None
                 };

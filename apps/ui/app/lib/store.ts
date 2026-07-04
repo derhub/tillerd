@@ -57,10 +57,13 @@ export function setProjectExpanded(projectId: string, expanded: boolean): void {
   setGlobalSetting(sidebarExpandedKey(projectId), expanded);
 }
 
+// Absent pointer means expanded (spec: default expanded); only an explicit stored
+// `false` collapses. Persisted collapse thus survives a restart, and a fresh
+// project group shows its sessions without a first click.
 export function useProjectExpanded(projectId: string) {
   const expanded = useSelector(
     settingsStore,
-    (s) => s.values[sidebarExpandedKey(projectId)] === true,
+    (s) => s.values[sidebarExpandedKey(projectId)] !== false,
   );
   const setExpanded = React.useCallback(
     (val: boolean) => {

@@ -26,10 +26,27 @@ export const ACTION = {
   // build (last entry silently wins). See EntityContextMenu.
   projectOpenNewWindowRow: "project.open-new-window-row",
   projectRename: "project.rename",
+  projectDuplicate: "project.duplicate",
+  projectPin: "project.pin",
+  projectUnpin: "project.unpin",
+  projectMove: "project.move",
+  projectStopSurfaces: "project.stop-surfaces",
+  projectArchive: "project.archive",
   projectDelete: "project.delete",
   sessionRename: "session.rename",
+  sessionDuplicate: "session.duplicate",
+  sessionPin: "session.pin",
+  sessionUnpin: "session.unpin",
+  sessionMove: "session.move",
+  sessionStopSurfaces: "session.stop-surfaces",
   sessionArchive: "session.archive",
   sessionDelete: "session.delete",
+  workspaceRename: "workspace.rename",
+  workspacePin: "workspace.pin",
+  workspaceUnpin: "workspace.unpin",
+  workspaceStopSurfaces: "workspace.stop-surfaces",
+  workspaceArchive: "workspace.archive",
+  workspaceDelete: "workspace.delete",
 } as const;
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];

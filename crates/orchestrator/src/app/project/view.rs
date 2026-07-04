@@ -11,4 +11,5 @@ pub struct ProjectView {
     pub root_path: Option<String>,
     pub workspace_id: String,
     pub status: String,
+    pub pinned: bool,
 }

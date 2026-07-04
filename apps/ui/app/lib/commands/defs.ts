@@ -6,13 +6,18 @@
 import {
   Archive,
   Command,
+  Copy,
   ExternalLink,
+  FolderInput,
   LayoutTemplate,
   MessagesSquare,
   PanelBottom,
   PanelLeft,
   Pencil,
+  Pin,
+  PinOff,
   Search,
+  Square,
   Trash2,
 } from "lucide-react";
 
@@ -182,11 +187,16 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     keywords: ["session", "switch", "go to", "find", "search"],
     defaultKeys: { default: "CmdOrCtrl+P" },
   },
-  // Row-scoped context-menu actions. `menu.projectRow`/`menu.sessionRow` and the
-  // `menu.canRename`/`menu.canDelete` guards are pushed into the context store by
-  // EntityContextMenu while a given row's menu is open (context.ts's setContext
-  // model) -- these defs stay declarative and EntityContextMenu never special-cases
-  // an entity kind or command id.
+  // Row-scoped context-menu actions. `menu.<kind>Row` and the per-row guards
+  // (`menu.canRename`, `menu.canDelete`, `menu.canArchive`, `menu.canMove`,
+  // `menu.pinned`, ...) are pushed into the context store by EntityContextMenu
+  // while a given row's menu is open (context.ts's setContext model) -- these defs
+  // stay declarative and EntityContextMenu never special-cases a kind or id. Pin
+  // and Unpin are one toggle rendered as two guarded defs so the row need only
+  // publish its `menu.pinned` flag. Menu order here is the on-screen order; group
+  // changes drive separators (primary | lifecycle | destructive).
+
+  // -- project row --
   {
     id: ACTION.projectRename,
     title: "Rename",
@@ -194,6 +204,46 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     surfaces: ["contextmenu"],
     group: "primary",
     when: ["menu.projectRow", "menu.canRename"],
+  },
+  {
+    id: ACTION.projectDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canDuplicate"],
+  },
+  {
+    id: ACTION.projectPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canPin", "!menu.pinned"],
+  },
+  {
+    id: ACTION.projectUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canPin", "menu.pinned"],
+  },
+  {
+    id: ACTION.projectMove,
+    title: "Move to workspace",
+    icon: FolderInput,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canMove"],
+  },
+  {
+    id: ACTION.projectStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
   },
   {
     id: ACTION.projectOpenNewWindowRow,
@@ -204,6 +254,14 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     when: ["menu.projectRow"],
   },
   {
+    id: ACTION.projectArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.projectRow", "menu.canArchive"],
+  },
+  {
     id: ACTION.projectDelete,
     title: "Delete",
     icon: Trash2,
@@ -211,6 +269,8 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     group: "destructive",
     when: ["menu.projectRow", "menu.canDelete"],
   },
+
+  // -- session row --
   {
     id: ACTION.sessionRename,
     title: "Rename",
@@ -220,11 +280,51 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     when: ["menu.sessionRow"],
   },
   {
+    id: ACTION.sessionDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.sessionUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.sessionMove,
+    title: "Move to project",
+    icon: FolderInput,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
     id: ACTION.sessionArchive,
     title: "Archive",
     icon: Archive,
     surfaces: ["contextmenu"],
-    group: "primary",
+    group: "lifecycle",
     when: ["menu.sessionRow"],
   },
   {
@@ -234,6 +334,56 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     surfaces: ["contextmenu"],
     group: "destructive",
     when: ["menu.sessionRow"],
+  },
+
+  // -- workspace row (sessions-view switcher) --
+  {
+    id: ACTION.workspaceRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow"],
+  },
+  {
+    id: ACTION.workspacePin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.workspaceUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.workspaceStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow"],
+  },
+  {
+    id: ACTION.workspaceArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.workspaceRow", "menu.canArchive"],
+  },
+  {
+    id: ACTION.workspaceDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.workspaceRow", "menu.canDelete"],
   },
 ];
 

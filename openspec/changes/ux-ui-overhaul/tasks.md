@@ -37,19 +37,19 @@
 
 ## 4. Sidebar views: sessions, search, entity actions
 
-- [ ] 4.1 Sessions view polish: status badges (starting/running/failed/idle from
+- [x] 4.1 Sessions view polish: status badges (starting/running/failed/idle from
   surface status push), expand/collapse persisted, workspace switcher restyled in view
   header
-- [ ] 4.2 Zero state: empty sidebar + center create-project call-to-action
-- [ ] 4.3 Project/session/workspace context menus through `EntityContextMenu` with full
+- [x] 4.2 Zero state: empty sidebar + center create-project call-to-action
+- [x] 4.3 Project/session/workspace context menus through `EntityContextMenu` with full
   action sets (rename, duplicate, pin/unpin, move, stop-surfaces, open-in-new-window,
   archive, delete)
-- [ ] 4.4 Move pickers (project→workspace, session→project) and stop-surfaces
+- [x] 4.4 Move pickers (project→workspace, session→project) and stop-surfaces
   confirmation dialogs
-- [ ] 4.5 Archived sections per entity list with restore + permanent delete
-- [ ] 4.6 Pinned-first ordering with pinned indication across workspace/project/session
+- [x] 4.5 Archived sections per entity list with restore + permanent delete
+- [x] 4.6 Pinned-first ordering with pinned indication across workspace/project/session
   lists
-- [ ] 4.7 Search view: project + session search across the active workspace, grouped
+- [x] 4.7 Search view: project + session search across the active workspace, grouped
   results, navigate on activation
 
 ## 5. Manager views: commands and templates

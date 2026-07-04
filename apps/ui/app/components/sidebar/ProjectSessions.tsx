@@ -1,6 +1,8 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { query } from "@tillerd/client-bindings";
 
+import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
+import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
 import { SessionRow } from "~/components/sidebar/SessionRow";
 import { reorderByDrop } from "~/lib/reorder";
 
@@ -15,6 +17,8 @@ export function ProjectSessions({
   onRenameSession,
   onReorderSessions,
   onArchiveSession,
+  onRestoreSession,
+  onRequestDelete,
 }: {
   projectId: string;
   isDesktop: boolean;
@@ -23,15 +27,19 @@ export function ProjectSessions({
   onCancelEdit: () => void;
   onRenameSession: (sessionId: string, newName: string) => void;
   onReorderSessions: (orderedIds: string[]) => void;
-  onArchiveSession: (id: string, currentPath: string) => void;
+  onArchiveSession: (id: string) => void;
+  onRestoreSession: (id: string) => void;
+  onRequestDelete: (target: DeleteTarget) => void;
 }) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPending } = useInfiniteQuery(
     query.infinite("sessionList", { projectId, limit: null, offset: null }),
   );
   const sessions = data?.pages.flat() ?? [];
+  const active = sessions.filter((s) => s.status !== "archived");
+  const archived = sessions.filter((s) => s.status === "archived");
 
   const handleSessionDrop = (sourceId: string, targetId: string) => {
-    const ids = sessions.map((s) => s.id);
+    const ids = active.map((s) => s.id);
     const next = reorderByDrop(ids, sourceId, targetId);
     if (next !== ids) onReorderSessions(next);
   };
@@ -49,19 +57,32 @@ export function ProjectSessions({
 
   return (
     <div className="flex flex-col gap-px">
-      {sessions.map((s) => (
+      {active.map((s) => (
         <SessionRow
           key={s.id}
           session={s}
+          projectId={projectId}
           isDesktop={isDesktop}
           isEditing={editingId === s.id}
           onStartEdit={() => onStartEditSession(s.id)}
           onCancelEdit={onCancelEdit}
           onRename={(newName) => onRenameSession(s.id, newName)}
-          onArchive={() => onArchiveSession(s.id, window.location.pathname)}
+          onArchive={() => onArchiveSession(s.id)}
           onSessionDrop={handleSessionDrop}
         />
       ))}
+      <ArchivedSection count={archived.length} className="mt-0.5">
+        {archived.map((s) => (
+          <ArchivedRow
+            key={s.id}
+            name={s.title || s.id.slice(0, 8)}
+            onRestore={() => onRestoreSession(s.id)}
+            onDelete={() =>
+              onRequestDelete({ id: s.id, name: s.title || s.id.slice(0, 8), kind: "session" })
+            }
+          />
+        ))}
+      </ArchivedSection>
       {hasNextPage && (
         <button
           type="button"

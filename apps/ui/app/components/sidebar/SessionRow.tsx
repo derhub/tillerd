@@ -1,13 +1,23 @@
 import type { Session } from "@tillerd/client-bindings";
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Archive } from "lucide-react";
+import { Archive, Pin } from "lucide-react";
 import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
+import { useSessionBadge, type SessionBadge } from "~/lib/sessionStatus";
 import { cn } from "~/lib/utils";
+
+// Surface-runtime badge colors (fed by the surface-status push channel). Idle is
+// muted; running/starting/failed carry semantic hues.
+const BADGE_CLASS: Record<SessionBadge, string> = {
+  running: "bg-emerald-500/80",
+  starting: "bg-amber-500/80",
+  failed: "bg-red-500/80",
+  idle: "bg-muted-foreground/30",
+};
 
 function ActiveSessionLink({
   sessionId,
@@ -38,6 +48,7 @@ function ActiveSessionLink({
 
 export function SessionRow({
   session,
+  projectId,
   isDesktop,
   isEditing,
   onStartEdit,
@@ -47,6 +58,7 @@ export function SessionRow({
   onSessionDrop,
 }: {
   session: Session;
+  projectId: string;
   isDesktop: boolean;
   isEditing: boolean;
   onStartEdit: () => void;
@@ -57,6 +69,7 @@ export function SessionRow({
 }) {
   const label = session.title || session.id.slice(0, 8);
   const [dragOver, setDragOver] = React.useState(false);
+  const badge = useSessionBadge(session.id);
 
   if (isEditing) {
     return (
@@ -74,7 +87,8 @@ export function SessionRow({
     <EntityContextMenu
       entityId={session.id}
       entityKind="session"
-      args={{ label }}
+      args={{ label, projectId }}
+      guards={{ "menu.pinned": session.pinned }}
       disabled={!isDesktop}
       draggable={isDesktop}
       onDragStart={
@@ -111,10 +125,23 @@ export function SessionRow({
       )}
     >
       <ActiveSessionLink sessionId={session.id} onDoubleClick={onStartEdit}>
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500/80" />
+        <span
+          data-testid="session-status"
+          data-status={badge}
+          className={cn("w-1.5 h-1.5 rounded-full shrink-0", BADGE_CLASS[badge])}
+        />
         <span className="truncate text-[0.833rem]">{label}</span>
       </ActiveSessionLink>
 
+      {session.pinned && (
+        <Pin
+          size={9}
+          strokeWidth={2}
+          aria-hidden
+          data-testid="session-pinned-indicator"
+          className="shrink-0 text-muted-foreground/40"
+        />
+      )}
       {isDesktop && (
         <button
           type="button"

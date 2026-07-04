@@ -1,9 +1,10 @@
 import type { Project } from "@tillerd/client-bindings";
 
-import { ArrowUpRight, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronRight, Pin, Plus } from "lucide-react";
 import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
+import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
@@ -28,6 +29,8 @@ export function ProjectRow({
   projectIds,
   onNewSession,
   onArchiveSession,
+  onRestoreSession,
+  onRequestDelete,
   onFocusDetached,
 }: {
   project: Project;
@@ -43,7 +46,9 @@ export function ProjectRow({
   onReorderProjects: (orderedIds: string[]) => void;
   projectIds: string[];
   onNewSession: () => void;
-  onArchiveSession: (id: string, currentPath: string) => void;
+  onArchiveSession: (id: string) => void;
+  onRestoreSession: (id: string) => void;
+  onRequestDelete: (target: DeleteTarget) => void;
   onFocusDetached: () => void;
 }) {
   const [dragOver, setDragOver] = React.useState(false);
@@ -67,10 +72,15 @@ export function ProjectRow({
       <EntityContextMenu
         entityId={project.id}
         entityKind="project"
-        args={{ label: project.name }}
+        args={{ label: project.name, workspaceId: project.workspaceId }}
         guards={{
           "menu.canRename": !isUnfiled,
+          "menu.canDuplicate": !isUnfiled,
+          "menu.canPin": !isUnfiled,
+          "menu.canMove": can("project", "move", project),
+          "menu.canArchive": can("project", "archive", project),
           "menu.canDelete": can("project", "discard", project),
+          "menu.pinned": project.pinned,
         }}
         disabled={!isDesktop}
         draggable={draggable}
@@ -131,6 +141,15 @@ export function ProjectRow({
             {project.name}
           </span>
         )}
+        {project.pinned && (
+          <Pin
+            size={9}
+            strokeWidth={2}
+            aria-hidden
+            data-testid="project-pinned-indicator"
+            className="shrink-0 text-muted-foreground/40"
+          />
+        )}
         {detached && (
           <button
             type="button"
@@ -171,6 +190,8 @@ export function ProjectRow({
           onRenameSession={onRenameSession}
           onReorderSessions={onReorderSessions}
           onArchiveSession={onArchiveSession}
+          onRestoreSession={onRestoreSession}
+          onRequestDelete={onRequestDelete}
         />
       )}
     </div>

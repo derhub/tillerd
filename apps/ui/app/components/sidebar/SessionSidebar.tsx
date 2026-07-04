@@ -1,17 +1,24 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { command, reorder } from "@tillerd/client-bindings";
+import { command, query, reorder } from "@tillerd/client-bindings";
 import React from "react";
 
 import { DeleteDialog, type DeleteTarget } from "~/components/sidebar/DeleteDialog";
+import {
+  MovePickerDialog,
+  StopSurfacesDialog,
+  type MoveTarget,
+  type StopSurfacesTarget,
+} from "~/components/sidebar/EntityDialogs";
 import { NewProjectButton } from "~/components/sidebar/NewProjectButton";
 import { ProjectTree, type ProjectTreeHandlers } from "~/components/sidebar/ProjectTree";
 import { SessionSearchDialog } from "~/components/sidebar/SessionSearchDialog";
-import { useSidebarData } from "~/components/sidebar/sidebar-data";
+import { UNFILED_ID, useSidebarData } from "~/components/sidebar/sidebar-data";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION, SESSION_SEARCH_ACTION_ID } from "~/lib/commands/ids";
 import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
+import { mountSessionStatus } from "~/lib/sessionStatus";
 import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
 import { useDesktopHost } from "~/lib/useDesktopHost";
@@ -32,10 +39,15 @@ const newSessionArgs = (projectId: string) => ({
 });
 
 // The row's display name, carried in a context-menu command's args (see
-// EntityContextMenu) for the delete-confirmation dialog -- the row itself, not
-// this component, knows the project/session name for an arbitrary entityId.
+// EntityContextMenu) for confirmation/picker dialogs -- the row itself, not this
+// component, knows the project/session name for an arbitrary entityId.
 function labelArg(args: CommandArgs | undefined): string {
   return typeof args?.label === "string" ? args.label : "";
+}
+
+function stringArg(args: CommandArgs | undefined, key: string): string {
+  const v = args?.[key];
+  return typeof v === "string" ? v : "";
 }
 
 export function SessionSidebar({
@@ -53,19 +65,41 @@ export function SessionSidebar({
     setActiveProject(propActiveProjectId);
   }
 
+  // Move-to-workspace targets; a light non-suspense read (the switcher already
+  // suspends on this list, so it is warm) used only to populate the picker.
+  const { data: workspaces = [] } = useQuery(query("workspaceList"));
+
   const createProject = useMutation(command("projectCreate"));
   const createSession = useMutation(command("sessionCreate"));
   const renameProject = useMutation(command("projectRename"));
   const renameSession = useMutation(command("sessionRename"));
+  const archiveProject = useMutation(command("projectArchive"));
   const archiveSession = useMutation(command("sessionArchive"));
+  const restoreProject = useMutation(command("projectRestore"));
+  const restoreSession = useMutation(command("sessionRestore"));
   const deleteProject = useMutation(command("projectDelete"));
   const deleteSession = useMutation(command("sessionDelete"));
+  const duplicateProject = useMutation(command("projectDuplicate"));
+  const duplicateSession = useMutation(command("sessionDuplicate"));
+  const pinProject = useMutation(command("projectPin"));
+  const unpinProject = useMutation(command("projectUnpin"));
+  const pinSession = useMutation(command("sessionPin"));
+  const unpinSession = useMutation(command("sessionUnpin"));
+  const moveProject = useMutation(command("projectMove"));
+  const moveSession = useMutation(command("sessionMove"));
+  const stopProjectSurfaces = useMutation(command("projectStopSurfaces"));
+  const stopSessionSurfaces = useMutation(command("sessionStopSurfaces"));
   const reorderProjects = useMutation(reorder("projectReorder"));
   const reorderSessions = useMutation(reorder("sessionReorder"));
 
   const [detachedProjects, setDetachedProjects] = React.useState<Set<string>>(() => new Set());
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = React.useState<DeleteTarget | null>(null);
+  const [moveTarget, setMoveTarget] = React.useState<MoveTarget | null>(null);
+  const [stopTarget, setStopTarget] = React.useState<StopSurfacesTarget | null>(null);
+
+  // One per-window subscription feeding the session-row status badges.
+  React.useEffect(() => mountSessionStatus(), []);
 
   const handleOpenInNewWindow = React.useCallback((projectId: string) => {
     void openWindow(projectLabel(projectId), projectQuery(projectId, null));
@@ -132,19 +166,19 @@ export function SessionSidebar({
     [isDesktop, navigate, createSession],
   );
 
-  const handleArchiveSession = React.useCallback(
-    (sessId: string, currentPath: string) => {
-      if (!isDesktop) return;
-      archiveSession.mutate(
-        { id: sessId },
-        {
-          onSuccess: () => {
-            if (currentPath === `/session/${sessId}`) void navigate({ to: "/" } as never);
-          },
-        },
-      );
+  const navHomeIfActiveSession = React.useCallback(
+    (sessId: string) => {
+      if (window.location.pathname === `/session/${sessId}`) void navigate({ to: "/" } as never);
     },
-    [isDesktop, navigate, archiveSession],
+    [navigate],
+  );
+
+  const handleArchiveSession = React.useCallback(
+    (sessId: string) => {
+      if (!isDesktop) return;
+      archiveSession.mutate({ id: sessId }, { onSuccess: () => navHomeIfActiveSession(sessId) });
+    },
+    [isDesktop, archiveSession, navHomeIfActiveSession],
   );
 
   const handleRenameProject = React.useCallback(
@@ -171,15 +205,32 @@ export function SessionSidebar({
     const { id, kind } = deleteConfirm;
     const onSuccess = () => {
       setDeleteConfirm(null);
-      if (kind === "session" && window.location.pathname === `/session/${id}`) {
-        void navigate({ to: "/" } as never);
-      } else if (kind === "project") {
-        void navigate({ to: "/" } as never);
-      }
+      if (kind === "session") navHomeIfActiveSession(id);
+      else void navigate({ to: "/" } as never);
     };
     if (kind === "project") deleteProject.mutate({ id }, { onSuccess });
-    else deleteSession.mutate({ id }, { onSuccess });
-  }, [isDesktop, deleteConfirm, navigate, deleteProject, deleteSession]);
+    else if (kind === "session") deleteSession.mutate({ id }, { onSuccess });
+  }, [isDesktop, deleteConfirm, navigate, deleteProject, deleteSession, navHomeIfActiveSession]);
+
+  const handlePickMove = React.useCallback(
+    (targetId: string) => {
+      if (!moveTarget) return;
+      if (moveTarget.kind === "project") {
+        moveProject.mutate({ id: moveTarget.id, workspaceId: targetId });
+      } else {
+        moveSession.mutate({ id: moveTarget.id, targetProjectId: targetId });
+      }
+      setMoveTarget(null);
+    },
+    [moveTarget, moveProject, moveSession],
+  );
+
+  const handleConfirmStop = React.useCallback(() => {
+    if (!stopTarget) return;
+    if (stopTarget.kind === "project") stopProjectSurfaces.mutate({ id: stopTarget.id });
+    else if (stopTarget.kind === "session") stopSessionSurfaces.mutate({ id: stopTarget.id });
+    setStopTarget(null);
+  }, [stopTarget, stopProjectSurfaces, stopSessionSurfaces]);
 
   const handleReorderProjects = React.useCallback(
     (orderedIds: string[]) => {
@@ -195,6 +246,19 @@ export function SessionSidebar({
     [isDesktop, reorderSessions],
   );
 
+  // Move-to-project targets: the workspace's named projects plus Unfiled, minus the
+  // session's current project. Computed from the already-fetched sidebar list.
+  const projectMoveTargets = React.useCallback(
+    (excludeProjectId: string) => {
+      const named = projects
+        .filter((p) => p.id !== UNFILED_ID && p.id !== excludeProjectId && p.status !== "archived")
+        .map((p) => ({ id: p.id, name: p.name }));
+      if (excludeProjectId !== UNFILED_ID) named.push({ id: UNFILED_ID, name: "Unfiled" });
+      return named;
+    },
+    [projects],
+  );
+
   const sidebarHandlers = React.useMemo(() => {
     const targetProjectId = (): string => activeProjectId ?? projects[0]?.id ?? "";
     return {
@@ -204,14 +268,43 @@ export function SessionSidebar({
         window.dispatchEvent(new CustomEvent(SESSION_SEARCH_OPEN_EVENT)),
       [ACTION.projectOpenNewWindow]: () => handleOpenInNewWindow(targetProjectId()),
       // Row-scoped context-menu actions -- EntityContextMenu passes the
-      // right-clicked row's entityId (and, where needed, its label) as args;
-      // this is the one place each handler is registered, per the registry's
+      // right-clicked row's entityId (and, where needed, its label / parent id) as
+      // args; this is the one place each handler is registered, per the registry's
       // one-handler-per-id model.
       [ACTION.projectOpenNewWindowRow]: (args?: CommandArgs) => {
         if (args?.entityId) handleOpenInNewWindow(args.entityId);
       },
       [ACTION.projectRename]: (args?: CommandArgs) => {
         if (args?.entityId) setEditingId(args.entityId);
+      },
+      [ACTION.projectDuplicate]: (args?: CommandArgs) => {
+        if (args?.entityId) duplicateProject.mutate({ sourceId: args.entityId, name: null });
+      },
+      [ACTION.projectPin]: (args?: CommandArgs) => {
+        if (args?.entityId) pinProject.mutate({ id: args.entityId });
+      },
+      [ACTION.projectUnpin]: (args?: CommandArgs) => {
+        if (args?.entityId) unpinProject.mutate({ id: args.entityId });
+      },
+      [ACTION.projectMove]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        setMoveTarget({
+          id: args.entityId,
+          name: labelArg(args),
+          kind: "project",
+          targets: workspaces
+            .filter((w) => w.id !== stringArg(args, "workspaceId") && w.status !== "archived")
+            .map((w) => ({ id: w.id, name: w.name })),
+        });
+      },
+      [ACTION.projectStopSurfaces]: (args?: CommandArgs) => {
+        if (args?.entityId)
+          setStopTarget({ id: args.entityId, name: labelArg(args), kind: "project" });
+      },
+      [ACTION.projectArchive]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        const id = args.entityId;
+        archiveProject.mutate({ id }, { onSuccess: () => void navigate({ to: "/" } as never) });
       },
       [ACTION.projectDelete]: (args?: CommandArgs) => {
         if (!args?.entityId) return;
@@ -220,8 +313,30 @@ export function SessionSidebar({
       [ACTION.sessionRename]: (args?: CommandArgs) => {
         if (args?.entityId) setEditingId(args.entityId);
       },
+      [ACTION.sessionDuplicate]: (args?: CommandArgs) => {
+        if (args?.entityId) duplicateSession.mutate({ id: args.entityId });
+      },
+      [ACTION.sessionPin]: (args?: CommandArgs) => {
+        if (args?.entityId) pinSession.mutate({ id: args.entityId });
+      },
+      [ACTION.sessionUnpin]: (args?: CommandArgs) => {
+        if (args?.entityId) unpinSession.mutate({ id: args.entityId });
+      },
+      [ACTION.sessionMove]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        setMoveTarget({
+          id: args.entityId,
+          name: labelArg(args),
+          kind: "session",
+          targets: projectMoveTargets(stringArg(args, "projectId")),
+        });
+      },
+      [ACTION.sessionStopSurfaces]: (args?: CommandArgs) => {
+        if (args?.entityId)
+          setStopTarget({ id: args.entityId, name: labelArg(args), kind: "session" });
+      },
       [ACTION.sessionArchive]: (args?: CommandArgs) => {
-        if (args?.entityId) handleArchiveSession(args.entityId, window.location.pathname);
+        if (args?.entityId) handleArchiveSession(args.entityId);
       },
       [ACTION.sessionDelete]: (args?: CommandArgs) => {
         if (!args?.entityId) return;
@@ -231,10 +346,20 @@ export function SessionSidebar({
   }, [
     activeProjectId,
     projects,
+    workspaces,
+    navigate,
     handleNewProject,
     handleNewSession,
     handleOpenInNewWindow,
     handleArchiveSession,
+    duplicateProject,
+    duplicateSession,
+    pinProject,
+    unpinProject,
+    pinSession,
+    unpinSession,
+    archiveProject,
+    projectMoveTargets,
   ]);
   useRegisterHandlers(sidebarHandlers);
 
@@ -250,7 +375,10 @@ export function SessionSidebar({
     onReorderProjects: handleReorderProjects,
     onReorderSessions: handleReorderSessions,
     onNewSession: (id) => handleNewSession(id),
-    onArchiveSession: handleArchiveSession,
+    onArchiveSession: (id) => handleArchiveSession(id),
+    onRestoreProject: (id) => restoreProject.mutate({ id }),
+    onRestoreSession: (id) => restoreSession.mutate({ id }),
+    onRequestDelete: (target) => setDeleteConfirm(target),
     onFocusDetached: handleReattachProject,
   };
 
@@ -261,6 +389,16 @@ export function SessionSidebar({
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={() => handleConfirmDelete()}
       />
+      <MovePickerDialog
+        target={moveTarget}
+        onCancel={() => setMoveTarget(null)}
+        onPick={handlePickMove}
+      />
+      <StopSurfacesDialog
+        target={stopTarget}
+        onCancel={() => setStopTarget(null)}
+        onConfirm={handleConfirmStop}
+      />
 
       <SessionSearchDialog />
 
@@ -270,7 +408,21 @@ export function SessionSidebar({
 
       <ScrollArea className="flex-1 min-h-0">
         {projects.length === 0 ? (
-          <p className="px-3 py-3 text-[0.917rem] text-muted-foreground/50 italic">No projects</p>
+          <div
+            data-testid="sidebar-empty"
+            className="flex flex-col items-center gap-1 px-4 py-8 text-center"
+          >
+            <p className="text-[0.833rem] text-muted-foreground/60">No projects yet</p>
+            {isDesktop && (
+              <button
+                type="button"
+                onClick={() => handleNewProject()}
+                className="text-[0.833rem] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Create a project
+              </button>
+            )}
+          </div>
         ) : (
           <ProjectTree projects={projects} handlers={treeHandlers} />
         )}

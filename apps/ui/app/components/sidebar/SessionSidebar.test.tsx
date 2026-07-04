@@ -15,7 +15,7 @@ import { afterEach, expect, test, describe, mock } from "bun:test";
 import React, { type ReactNode } from "react";
 
 import { CommandRegistryProvider } from "~/lib/commands/registry";
-import { resetUiStore } from "~/lib/store";
+import { resetUiStore, setProjectExpanded } from "~/lib/store";
 
 // Renders real useSidebarData/ProjectRow through the data layer (mocked invoke + Query cache),
 // inside a real router + Suspense boundary so no global mocks leak into sibling test files.
@@ -189,8 +189,11 @@ describe("lazy per-project session loading", () => {
     return toggle as HTMLElement;
   }
 
+  // Groups default to expanded (spec: default expanded); collapse explicitly to
+  // assert the collapsed group mounts no session read.
   test("a collapsed project in the main window fetches no sessions", async () => {
     setTreeData([project("p-1", "Project One", "ws-a")], [session("s-1", "p-1", "Hidden S1")]);
+    setProjectExpanded("p-1", false);
 
     renderSidebar(<SessionSidebar />);
 
@@ -201,9 +204,11 @@ describe("lazy per-project session loading", () => {
 
   test("expanding a project loads and renders its first page", async () => {
     setTreeData([project("p-1", "Project One", "ws-a")], [session("s-1", "p-1", "Revealed S1")]);
+    setProjectExpanded("p-1", false);
 
     renderSidebar(<SessionSidebar />);
     await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+    expect(screen.queryByText("Revealed S1")).toBeNull();
 
     fireEvent.click(expandToggle("p-1"));
 

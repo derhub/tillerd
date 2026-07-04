@@ -1,5 +1,7 @@
 import type { Project } from "@tillerd/client-bindings";
 
+import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
+import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
 import { ProjectRow } from "~/components/sidebar/ProjectRow";
 import { DEFAULT_WORKSPACE_ID, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 
@@ -15,7 +17,10 @@ export interface ProjectTreeHandlers {
   onReorderProjects: (orderedIds: string[]) => void;
   onReorderSessions: (orderedIds: string[]) => void;
   onNewSession: (projectId: string) => void;
-  onArchiveSession: (id: string, currentPath: string) => void;
+  onArchiveSession: (id: string) => void;
+  onRestoreProject: (id: string) => void;
+  onRestoreSession: (id: string) => void;
+  onRequestDelete: (target: DeleteTarget) => void;
   onFocusDetached: (projectId: string) => void;
 }
 
@@ -27,6 +32,7 @@ const UNFILED_PROJECT: Project = {
   rootPath: null,
   workspaceId: DEFAULT_WORKSPACE_ID,
   status: "active",
+  pinned: false,
 };
 
 export function ProjectTree({
@@ -36,8 +42,11 @@ export function ProjectTree({
   projects: Project[];
   handlers: ProjectTreeHandlers;
 }) {
-  const namedProjects = projects.filter((p) => p.id !== UNFILED_ID);
-  const namedProjectIds = namedProjects.map((p) => p.id);
+  // The list read returns active + archived rows (status computed server-side);
+  // the archived ones drop into their own collapsed section, out of the flow.
+  const activeNamed = projects.filter((p) => p.id !== UNFILED_ID && p.status !== "archived");
+  const archived = projects.filter((p) => p.status === "archived");
+  const activeNamedIds = activeNamed.map((p) => p.id);
 
   const rowFor = (project: Project, projectIds: string[]) => (
     <ProjectRow
@@ -56,14 +65,26 @@ export function ProjectTree({
       onReorderProjects={handlers.onReorderProjects}
       onNewSession={() => handlers.onNewSession(project.id)}
       onArchiveSession={handlers.onArchiveSession}
+      onRestoreSession={handlers.onRestoreSession}
+      onRequestDelete={handlers.onRequestDelete}
       onFocusDetached={() => handlers.onFocusDetached(project.id)}
     />
   );
 
   return (
     <div className="flex flex-col gap-3 py-1">
-      {namedProjects.map((proj) => rowFor(proj, namedProjectIds))}
+      {activeNamed.map((proj) => rowFor(proj, activeNamedIds))}
       {rowFor(UNFILED_PROJECT, [])}
+      <ArchivedSection count={archived.length}>
+        {archived.map((p) => (
+          <ArchivedRow
+            key={p.id}
+            name={p.name}
+            onRestore={() => handlers.onRestoreProject(p.id)}
+            onDelete={() => handlers.onRequestDelete({ id: p.id, name: p.name, kind: "project" })}
+          />
+        ))}
+      </ArchivedSection>
     </div>
   );
 }
