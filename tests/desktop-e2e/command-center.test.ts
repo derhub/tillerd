@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 
-import { type Browser } from "./helpers";
+import { createProject, openTerminal, uniqueName, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
 // The command center is a leader-activated fuzzy palette over the chrome actions. The native leader
@@ -105,6 +105,13 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
     });
   }
 
+  // The palette lists only commands with a live handler; "New terminal" registers with the
+  // session panel view, so a session must be mounted for its hint to exist at all. Create
+  // one and stay on its route for every hint assertion below.
+  await createProject(b, uniqueName("kbproj"));
+  await openTerminal(b);
+  const sessionUrl = await b.getUrl();
+
   // Switch the preset to vscode through the settings editor's Keybindings section (vscode binds
   // New terminal to a backtick chord; the default does not). The settings-open event now
   // navigates to /settings (retired popover); Keybindings is not the default section, so select
@@ -115,8 +122,14 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
   await (await b.$('select[aria-label="Keybinding preset"]')).waitForExist({ timeout: 10_000 });
   await selectValue(b, "Keybinding preset", "vscode");
 
-  // The settings editor is a normal route now, not an overlay -- nothing to dismiss before
-  // opening the palette (CommandCenter renders regardless of the current route).
+  // Back to the session route: /settings replaces the panel view, unmounting the
+  // session-scoped handlers the hint assertion depends on.
+  await b.execute((u: string) => {
+    window.history.pushState({}, "", new URL(u).pathname);
+    window.dispatchEvent(new Event("popstate"));
+  }, sessionUrl);
+  await (await b.$(".xterm")).waitForExist({ timeout: 10_000 });
+
   await openPalette(b);
   await (await b.$('[data-testid="command-center"]')).waitForExist({ timeout: 10_000 });
   await b.waitUntil(async () => (await newTerminalHint(b)).includes("`"), {
