@@ -41,9 +41,12 @@ the ring token at every stop.
 
 ### Requirement: Token pairs meet WCAG AA contrast
 
-Every foreground/background token pairing used in chrome, in both light and dark mode,
-SHALL meet WCAG AA contrast (4.5:1 normal text, 3:1 large text and UI components). The
-verified pairings SHALL be recorded in DESIGN.md.
+Every foreground/background token pairing rendered as text at rest or as an interactive
+state, in both light and dark mode, SHALL meet WCAG AA contrast (4.5:1 normal text, 3:1
+large text and UI components). The verified pairings SHALL be recorded in DESIGN.md.
+A pairing never rendered at rest, or a deliberate sub-threshold hairline whose
+interactive states pass independently, MAY fall below the threshold when DESIGN.md
+records the measured ratio and the rationale.
 
 #### Scenario: Muted text on background passes
 
