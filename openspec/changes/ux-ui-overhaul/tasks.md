@@ -129,3 +129,42 @@
   0.0.20 checkboxes, CONTEXT.md terms if needed
 - [ ] 11.5 Dog-food coherence pass; file 0.1.x follow-ups; absorb any ship blocker as a
   task here
+
+## 12. Usability pass (commands/templates wired into real flows)
+
+- [ ] 12.1 Launch executor resolves item commands (library_ref -> stored cli/args/env,
+  inline -> executable/args) into the PTY spawn — restores launch-execution spec
+  compliance dropped in the 0.0.15 rewrite; scenario tests per existing spec
+- [ ] 12.2 `SpawnSurface` accepts an optional command (library ref or inline), appends
+  the item to the session's launch spec (ADR-0030 divergence); transport + bindings
+- [ ] 12.3 New-session flow: template picker (empty / project launch templates /
+  library templates); per-project default-template setting honored
+- [ ] 12.4 Empty panel picker lists Terminal (login shell) + command-library entries
+  (pinned first); picking spawns a terminal running that command
+- [ ] 12.5 Settings: Terminal gains font size, scrollback, cursor style/blink; General
+  section (close-confirmation toggle, startup workspace); Project scope section with
+  default template
+- [ ] 12.6 Commands view "Run" row action spawns the command in the active session
+- [ ] 12.7 Screenshot-driven visual coherence pass, light + dark; before/after captures
+- [ ] 12.8 Full verify + affected e2e green after the pass
+
+## 13. Terminal experience baseline (inferred completeness pass)
+
+- [ ] 13.1 Find-in-terminal: search overlay per pane (match highlight, next/prev,
+  case toggle), palette command + keybinding, xterm search addon
+- [ ] 13.2 Clickable links in terminal output (URL detection + OSC 8), open via system
+- [ ] 13.3 Copy/paste hygiene: copy-on-select setting, bracketed-paste verified,
+  confirm-before-paste for multi-line clipboard (setting-gated)
+- [ ] 13.4 Terminal settings: font size, font family, line height, cursor style/blink,
+  scrollback size — applied live to mounted terminals via the reactive settings path
+- [ ] 13.5 Terminal context menu: copy, paste, select all, clear, search selection —
+  registry-driven via the contextmenu surface
+- [ ] 13.6 Bell + attention: xterm bell event surfaces through the notification center;
+  unfocused-window bell raises the native banner path
+- [ ] 13.7 UI zoom setting (webview zoom factor) persisted; window-state persistence
+  verified
+- [ ] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
+- [ ] 13.9 General + Project settings sections: close-confirmation toggle, startup
+  workspace, per-project default template (folds 12.5 scope)
+- [ ] 13.10 Follow-ups filed for 0.1.x: shell integration (prompt marking), cwd
+  inheritance, session scrollback restore, auto-update — recorded in ROADMAP

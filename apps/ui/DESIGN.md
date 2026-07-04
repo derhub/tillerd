@@ -281,9 +281,20 @@ intentional and load-bearing — dense developer tool, not a content site.
 The app occupies the full viewport (`h-dvh`, `overflow: hidden`). No
 scrolling at the shell level — each panel manages its own overflow.
 
-**Panel system:** Resizable split panes (horizontal and vertical). Sidebar
-lives in a fixed-width left panel; the remainder is a resizable panel group
-for terminal, diff, and agent views.
+**Workbench regions (0.0.20):** the shell composes five chrome regions around
+the panel-area content outlet — title bar (top, native window decorations,
+toggle toolbar), activity bar (far-left icon strip switching sidebar views:
+Sessions, Search, Commands, Templates), primary sidebar (hosts the active
+view), bottom panel (tabbed: Logs, Notifications), and status bar (bottom:
+service health + workspace/session context left; notification bell + settings
+right). Sidebar and bottom panel are independently hideable and drag-resizable;
+hidden regions occupy no space. Active view, visibilities, sizes, and the
+bottom panel's active tab persist through the settings store. The activity
+bar's active-view edge is the workbench's single primary-accent moment.
+
+**Panel system:** Resizable split panes (horizontal and vertical) inside the
+content outlet; panels bind surfaces by placement. Manager surfaces (settings
+editor, logs route) render in the panel area as routes, not domain surfaces.
 
 **Spacing scale** (base: 12px):
 

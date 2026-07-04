@@ -63,8 +63,12 @@ A session's geometry only: splits and tabs of panels. Binds surfaces by placemen
 _Avoid_: layout-as-authority
 
 **Chrome**:
-App-shell UI that is not a surface and not session-scoped (sidebar, host-status badge). Outside the surface model.
+App-shell UI that is not a surface and not session-scoped (title bar, activity bar, sidebar, bottom panel, status bar). Outside the surface model.
 _Avoid_: panel, surface
+
+**Sidebar view**:
+One of the activity bar's switchable sidebar contents (Sessions, Search, Commands, Templates). Chrome, not a surface; exactly one is active.
+_Avoid_: tab, panel
 
 ### Identity
 

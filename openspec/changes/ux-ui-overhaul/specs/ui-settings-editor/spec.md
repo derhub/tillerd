@@ -6,7 +6,8 @@
 
 The application SHALL present a full settings editor at its own route, rendered in the
 panel area (not a session surface, consuming no placement). The editor SHALL present
-navigable sections: Appearance, Terminal, Keybindings, Profiles, and Themes. It SHALL
+navigable sections: General, Appearance, Terminal, Keybindings, Profiles, Themes, and —
+when a project context is active — Project. It SHALL
 render immediately without waiting on background services and SHALL be reachable from the
 status bar, the command palette, and the activity bar's settings affordance.
 
@@ -42,8 +43,10 @@ flash).
 
 ### Requirement: Terminal settings
 
-The Terminal section SHALL let the user select a terminal color scheme, applied to
-existing and new terminal surfaces without restarting them and persisted across relaunch.
+The Terminal section SHALL let the user set the terminal color scheme, font size, font
+family, line height, cursor style, cursor blink, scrollback size, copy-on-select, and
+confirm-before-paste — each applied to existing and new terminal surfaces without
+restarting them and persisted across relaunch.
 
 #### Scenario: Selecting a scheme applies to terminals
 
@@ -54,6 +57,29 @@ existing and new terminal surfaces without restarting them and persisted across 
 
 - **WHEN** a terminal surface is created and a non-default scheme was previously chosen
 - **THEN** the surface resolves and applies the persisted scheme
+
+### Requirement: General settings
+
+The General section SHALL offer: the close-surface confirmation toggle (mirrors the
+dialog's don't-ask-again preference), the startup workspace (last-used or a pinned
+choice), and the UI zoom level (applied live, persisted).
+
+#### Scenario: Zoom applies live
+
+- **WHEN** the user changes the UI zoom level
+- **THEN** the window content scales immediately and the level persists across relaunch
+
+### Requirement: Project settings
+
+When a project context is active, the Project section SHALL expose project-scoped
+settings, at minimum the project's default launch template (used by the new-session
+flow); values persist in the project scope of the settings store.
+
+#### Scenario: Default template honored
+
+- **WHEN** a project's default template is set and the user creates a session with the
+  plain new-session control
+- **THEN** the session instantiates that template
 
 ### Requirement: Keybinding settings
 
