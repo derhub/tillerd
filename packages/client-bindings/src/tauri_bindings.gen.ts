@@ -142,6 +142,7 @@ export const commands = {
 	cli: string,
 	args: string[],
 	env: { [key in string]: string },
+	pinned: boolean,
 } | null, string>(__TAURI_INVOKE("command_get", args)),
 	commandDelete: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("command_delete", args)),
 	commandRename: (args: { id: string; name: string }) => typedError<null, string>(__TAURI_INVOKE("command_rename", args)),
@@ -255,6 +256,7 @@ export type CommandView = {
 	cli: string,
 	args: string[],
 	env: { [key in string]: string },
+	pinned: boolean,
 };
 
 export type CreateCommandRequest = {

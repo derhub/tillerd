@@ -8,7 +8,7 @@ use crate::shared::pagination::{Listing, Page};
 use crate::shared::Result;
 
 /// Projection columns for the `CommandView` read model.
-const SELECT: &str = "SELECT id, name, origin, cli, args_json, env_json
+const SELECT: &str = "SELECT id, name, origin, cli, args_json, env_json, pinned
                       FROM command
                       WHERE deleted_at IS NULL";
 

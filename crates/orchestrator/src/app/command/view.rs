@@ -20,4 +20,5 @@ pub struct CommandView {
     pub args: Vec<String>,
     #[sqlx(rename = "env_json", json)]
     pub env: HashMap<String, String>,
+    pub pinned: bool,
 }
