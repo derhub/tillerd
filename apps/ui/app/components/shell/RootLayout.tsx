@@ -2,7 +2,6 @@ import { Outlet, useNavigate, useParams, useSearch } from "@tanstack/react-route
 import React from "react";
 
 import { CommandCenter } from "~/components/command/CommandCenter";
-import { SETTINGS_OPEN_EVENT } from "~/components/settings/SettingsPanel";
 import { useArmReattachOnClose } from "~/components/shell/hooks/useArmReattachOnClose";
 import { useDetachedPanels } from "~/components/shell/hooks/useDetachedPanels";
 import { useMenuCommands } from "~/components/shell/hooks/useMenuCommands";
@@ -22,7 +21,9 @@ import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/regist
 import { NotificationsProvider } from "~/lib/notifications/context";
 import { SessionContext } from "~/lib/sessionContext";
 import { SettingsProvider } from "~/lib/settings/context";
+import { SETTINGS_OPEN_EVENT } from "~/lib/settings/events";
 import { DesktopHostProvider } from "~/lib/useDesktopHost";
+import { useWindowEvent } from "~/lib/useWindowEvent";
 import { emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
 import { parseWindowIntent, type WindowIntent } from "~/lib/windows";
 import {
@@ -89,10 +90,15 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   const navHandlers = React.useMemo(
     () => ({
       [ACTION.viewLogs]: () => void navigate({ to: "/logs" }),
-      [ACTION.appSettings]: () => window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)),
+      [ACTION.appSettings]: () => void navigate({ to: "/settings" }),
     }),
     [navigate],
   );
+
+  // The settings editor is a route now (retired popover), but the open signal is a
+  // load-bearing contract (status bar gear, native menu, e2e) -- keep honoring it by
+  // navigating instead of toggling a popover's open state.
+  useWindowEvent(SETTINGS_OPEN_EVENT, () => void navigate({ to: "/settings" }));
 
   // Stable element so a resize-driven re-render of the shell never re-renders the
   // panel-area content (terminals). defaultSize is read once at mount by the panel.

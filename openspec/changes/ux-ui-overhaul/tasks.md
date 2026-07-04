@@ -65,15 +65,15 @@
 
 ## 6. Settings editor
 
-- [ ] 6.1 `/settings` route rendering the editor shell with section navigation
+- [x] 6.1 `/settings` route rendering the editor shell with section navigation
   (Appearance, Terminal, Keybindings, Profiles, Themes)
-- [ ] 6.2 Appearance + Terminal sections (theme, terminal scheme — behavior unchanged,
+- [x] 6.2 Appearance + Terminal sections (theme, terminal scheme — behavior unchanged,
   shadcn controls); retire the settings popover
-- [ ] 6.3 Keybindings section: preset selector + per-command override list relocated
+- [x] 6.3 Keybindings section: preset selector + per-command override list relocated
   from the popover
-- [ ] 6.4 Profiles section: list/create/activate/rename/duplicate/delete(confirmed)/
+- [x] 6.4 Profiles section: list/create/activate/rename/duplicate/delete(confirmed)/
   import/export
-- [ ] 6.5 Themes section: list/activate/import/export/delete with prebuilt guard
+- [x] 6.5 Themes section: list/activate/import/export/delete with prebuilt guard
 
 ## 7. Bottom panel content: notifications and logs
 

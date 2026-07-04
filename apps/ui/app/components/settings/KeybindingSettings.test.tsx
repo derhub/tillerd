@@ -101,4 +101,42 @@ describe("KeybindingSettings", () => {
       expect(ACTION.surfaceClose in JSON.parse(JSON.parse(written!.valueJson))).toBe(false);
     });
   });
+
+  test("the per-command reset button is disabled with no override and clears one when enabled", async () => {
+    renderPanel({
+      "keybindings.overrides": JSON.stringify({ [ACTION.surfaceClose]: "CmdOrCtrl+Shift+W" }),
+    });
+    const resetBtn = (await screen.findByTestId(
+      `kb-${ACTION.surfaceClose}-reset`,
+    )) as HTMLButtonElement;
+    await waitFor(() => expect(resetBtn.disabled).toBe(false));
+
+    fireEvent.click(resetBtn);
+    await waitFor(() => {
+      const written = settingSetCalls.findLast((s) => s.key === "keybindings.overrides");
+      expect(written).toBeDefined();
+      expect(ACTION.surfaceClose in JSON.parse(JSON.parse(written!.valueJson))).toBe(false);
+    });
+  });
+
+  test("reset-all is disabled with no overrides and clears every override when enabled", async () => {
+    renderPanel({
+      "keybindings.overrides": JSON.stringify({ [ACTION.surfaceClose]: "CmdOrCtrl+Shift+W" }),
+    });
+    const resetAll = (await screen.findByTestId("kb-reset-all")) as HTMLButtonElement;
+    await waitFor(() => expect(resetAll.disabled).toBe(false));
+
+    fireEvent.click(resetAll);
+    await waitFor(() => {
+      const written = settingSetCalls.findLast((s) => s.key === "keybindings.overrides");
+      expect(written).toBeDefined();
+      expect(JSON.parse(written!.valueJson)).toBe("{}");
+    });
+  });
+
+  test("reset-all stays disabled while there are no overrides", async () => {
+    renderPanel();
+    const resetAll = (await screen.findByTestId("kb-reset-all")) as HTMLButtonElement;
+    await waitFor(() => expect(resetAll.disabled).toBe(true));
+  });
 });

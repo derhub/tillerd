@@ -1,8 +1,8 @@
-import { Undo2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Settings, Undo2 } from "lucide-react";
 
 import { ServiceHealthIndicator } from "~/components/health/ServiceHealthIndicator";
 import { NotificationIndicator } from "~/components/notifications/NotificationIndicator";
-import { SettingsPanel } from "~/components/settings/SettingsPanel";
 import { closeSelf } from "~/lib/windows";
 import { showBottomPanelTab } from "~/lib/workbench";
 
@@ -31,7 +31,14 @@ export function StatusBar({ showReattach }: { showReattach: boolean }) {
           </button>
         ) : null}
         <NotificationIndicator onActivate={() => showBottomPanelTab("notifications")} />
-        <SettingsPanel />
+        {/* Retired popover -> the settings editor is a route now (ui-settings-editor spec). */}
+        <Link
+          to="/settings"
+          aria-label="Settings"
+          className="flex items-center justify-center rounded-sm bg-black/60 w-6 h-6 text-muted-foreground hover:text-foreground"
+        >
+          <Settings size={13} />
+        </Link>
       </div>
     </footer>
   );

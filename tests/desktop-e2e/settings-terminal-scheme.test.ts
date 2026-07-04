@@ -3,23 +3,24 @@ import { expect, test } from "bun:test";
 import { createProject, openTerminal, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
-// Changing the terminal color scheme in the settings panel must re-theme an already-mounted
-// terminal live (no respawn). The terminal pane's background tracks the scheme, so it is the
-// observable proxy: github-dark = rgb(13, 17, 23), github-light = rgb(255, 255, 255). This guards
-// the cross-component reactive path (panel write -> shared state -> mounted terminal re-render),
-// which a per-component setting read silently broke.
+// Changing the terminal color scheme in the settings editor's Terminal section must re-theme an
+// already-mounted terminal live (no respawn). The terminal pane's background tracks the scheme,
+// so it is the observable proxy: github-dark = rgb(13, 17, 23), github-light = rgb(255, 255, 255).
+// This guards the cross-component reactive path (section write -> shared state -> mounted
+// terminal re-render), which a per-component setting read silently broke.
 
-async function selectValue(b: Browser, ariaLabel: string, value: string): Promise<void> {
-  await b.execute(
-    (label: string, v: string) => {
-      const el = document.querySelector<HTMLSelectElement>(`select[aria-label="${label}"]`);
-      if (!el) throw new Error(`select not found: ${label}`);
-      el.value = v;
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    },
-    ariaLabel,
-    value,
-  );
+// The Terminal scheme control is a shadcn/base-ui Select (a button trigger + a portaled
+// listbox), not a native <select> -- open it and click the option by its visible text via a
+// genuine WebDriver click (see settings-theme.test.ts for why a synthetic click is unreliable).
+async function selectOption(
+  b: Browser,
+  triggerAriaLabel: string,
+  optionText: string,
+): Promise<void> {
+  await (await b.$(`[aria-label="${triggerAriaLabel}"]`)).click();
+  const option = await b.$(`//*[@data-slot="select-item" and contains(., "${optionText}")]`);
+  await option.waitForExist({ timeout: 10_000 });
+  await option.click();
 }
 
 function terminalBackground(b: Browser): Promise<string> {
@@ -35,19 +36,22 @@ test("changing the terminal scheme re-themes a mounted terminal live", async () 
   await createProject(b, "scheme-e2e");
   await openTerminal(b);
 
+  // Navigate to the settings editor and switch to its Terminal section (not the default).
   await (await b.$('[aria-label="Settings"]')).click();
-  const schemeSelect = await b.$('select[aria-label="Terminal scheme"]');
-  await schemeSelect.waitForExist({ timeout: 10_000 });
+  await (await b.$('[data-testid="settings-editor"]')).waitForExist({ timeout: 10_000 });
+  await (await b.$('[data-testid="settings-section-terminal"]')).click();
+  const schemeTrigger = await b.$('[aria-label="Terminal scheme"]');
+  await schemeTrigger.waitForExist({ timeout: 10_000 });
 
   // Establish a known scheme on the mounted terminal (state-independent), then flip it; the
   // background flips live with no respawn. dark = rgb(13, 17, 23), light = rgb(255, 255, 255).
-  await selectValue(b, "Terminal scheme", "github-dark");
+  await selectOption(b, "Terminal scheme", "github-dark");
   await b.waitUntil(async () => (await terminalBackground(b)) === "rgb(13, 17, 23)", {
     timeout: 15_000,
     timeoutMsg: "setting the dark scheme did not reach the mounted terminal",
   });
 
-  await selectValue(b, "Terminal scheme", "github-light");
+  await selectOption(b, "Terminal scheme", "github-light");
   await b.waitUntil(async () => (await terminalBackground(b)) === "rgb(255, 255, 255)", {
     timeout: 10_000,
     timeoutMsg: "terminal scheme change did not reach the mounted terminal",
