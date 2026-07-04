@@ -1,4 +1,5 @@
 import type { SurfaceChannelHandle } from "@tillerd/client-bindings";
+import type { FitAddon } from "@xterm/addon-fit";
 import type { IDisposable, Terminal } from "@xterm/xterm";
 
 import { useMutation } from "@tanstack/react-query";
@@ -6,10 +7,13 @@ import { command, runCommand, surfaceChannel } from "@tillerd/client-bindings";
 import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
+
+import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
 
 // Creates the xterm.js Terminal + DOM canvas exactly once per mount and hands it to the caller via
 // termRef/setTerminalReady before resolving -- this survives a placement swap (panel-placement-swap
@@ -21,6 +25,7 @@ async function mountTerminal(
   containerRef: React.RefObject<HTMLDivElement | null>,
   terminalTheme: ReturnType<typeof getTerminalTheme>,
   termRef: React.RefObject<Terminal | null>,
+  fitAddonRef: React.RefObject<FitAddon | null>,
   setTerminalReady: (ready: boolean) => void,
   detachOnUnmount: boolean,
   surfaceIdRef: React.RefObject<string | null>,
@@ -30,6 +35,8 @@ async function mountTerminal(
   const { FitAddon } = await lazyFitAddon();
   if (abort.cancelled) return () => {};
 
+  // Construction options mirror the setting defaults; useTerminalPaneExtras re-applies the live
+  // values on attach and on every subsequent change.
   const term = new Terminal({
     allowProposedApi: true,
     cursorBlink: true,
@@ -39,6 +46,7 @@ async function mountTerminal(
   });
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
+  fitAddonRef.current = fitAddon;
 
   if (containerRef.current) {
     term.open(containerRef.current);
@@ -62,6 +70,7 @@ async function mountTerminal(
     }
     term.dispose();
     termRef.current = null;
+    fitAddonRef.current = null;
   };
 }
 
@@ -75,6 +84,7 @@ async function bindChannel(
   placement: string,
   setSurfaceId: (id: string) => void,
   setStatus: (s: string) => void,
+  sendInputRef: React.RefObject<((bytes: number[]) => void) | null>,
 ): Promise<() => void> {
   const view = await runCommand("surfaceResolveOrSpawn", {
     session: sessionId,
@@ -118,10 +128,13 @@ async function bindChannel(
   const onResize: IDisposable = term.onResize(({ cols, rows }) => {
     void handle.send({ kind: "resize", cols, rows });
   });
+  // Publish the input path so the extras layer (path drop) can write to this surface's PTY.
+  sendInputRef.current = (bytes) => void handle.send({ kind: "input", bytes });
 
   return () => {
     onData.dispose();
     onResize.dispose();
+    sendInputRef.current = null;
     void handle.close();
   };
 }
@@ -144,12 +157,26 @@ export function DesktopTerminalPane(_props: {
   surfaceIdRef.current = surfaceId;
 
   const termRef = React.useRef<Terminal | null>(null);
+  const fitAddonRef = React.useRef<FitAddon | null>(null);
+  const sendInputRef = React.useRef<((bytes: number[]) => void) | null>(null);
   const terminalTheme = useLiveTerminalTheme(termRef);
   const [terminalReady, setTerminalReady] = React.useState(false);
 
   const detach = useMutation(command("surfaceDetach"));
   const detachRef = React.useRef(detach.mutateAsync);
   detachRef.current = detach.mutateAsync;
+
+  const getSurfaceId = React.useCallback(() => surfaceIdRef.current, []);
+  const writeInput = React.useCallback((text: string) => {
+    sendInputRef.current?.(Array.from(new TextEncoder().encode(text)));
+  }, []);
+  const extras = useTerminalPaneExtras({
+    sessionId: _props.sessionId,
+    getSurfaceId,
+    writeInput,
+    containerRef,
+  });
+  const attach = extras.attach;
 
   // Mount the Terminal once. Cleanup only fires on a true unmount (deps: []), which is where
   // detachOnUnmount applies -- a placement swap never runs this cleanup.
@@ -161,6 +188,7 @@ export function DesktopTerminalPane(_props: {
         containerRef,
         terminalTheme,
         termRef,
+        fitAddonRef,
         setTerminalReady,
         detachOnUnmount,
         surfaceIdRef,
@@ -176,6 +204,12 @@ export function DesktopTerminalPane(_props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Attach the pane extras (search/links/bell/copy-paste/drop) once the Terminal exists.
+  React.useEffect(() => {
+    if (!terminalReady || !termRef.current || !fitAddonRef.current) return () => {};
+    return bridgeSubscribe(attach(termRef.current, fitAddonRef.current));
+  }, [terminalReady, attach]);
+
   // Bind (or rebind) the data channel whenever the placement's backing surface may have changed.
   React.useEffect(() => {
     if (!terminalReady || !termRef.current || !_props.sessionId) return () => {};
@@ -188,6 +222,7 @@ export function DesktopTerminalPane(_props: {
         _props.placement,
         setSurfaceId,
         setStatus,
+        sendInputRef,
       ),
     );
     return () => {
@@ -204,20 +239,25 @@ export function DesktopTerminalPane(_props: {
         : "bg-terminal-muted";
 
   return (
-    <div
-      className="h-full w-full relative"
+    <EntityContextMenu
+      entityId={surfaceId ?? _props.placement}
+      entityKind="terminal"
+      guards={{ "menu.hasSelection": extras.hasSelection }}
+      className="h-full w-full relative block"
       style={{ background: terminalTheme.background }}
       data-surface-id={surfaceId ?? undefined}
+      onPointerDownCapture={extras.onPointerDownCapture}
     >
       <div
         ref={containerRef}
         className="h-full w-full"
         style={{ padding: "0.333rem 0.333rem 0" }}
       />
+      {extras.overlay}
       <div className="absolute top-2 right-3 flex items-center gap-1.5 pointer-events-none">
         <span className={`w-2 h-2 rounded-full inline-block ${dotColorClass}`} />
         <span className="text-terminal-muted text-[0.917rem]">{status}</span>
       </div>
-    </div>
+    </EntityContextMenu>
   );
 }

@@ -20,6 +20,35 @@ export function clampUiZoom(value: number): number {
 // "Don't ask again" for the close-surface confirmation dialog (ui-panel-compound spec).
 export const PANEL_CLOSE_CONFIRM_SKIP_KEY = "panel.closeConfirm.skip";
 
+// Terminal typography and buffer settings (ui-terminal-pane spec). Read on the pane and applied
+// live to mounted terminals via useLiveTerminalTypography. Defaults mirror the hardcoded xterm
+// construction options predating the settings path.
+export const TERMINAL_FONT_SIZE_KEY = "terminal.fontSize";
+export const TERMINAL_FONT_FAMILY_KEY = "terminal.fontFamily";
+export const TERMINAL_LINE_HEIGHT_KEY = "terminal.lineHeight";
+export const TERMINAL_CURSOR_STYLE_KEY = "terminal.cursorStyle";
+export const TERMINAL_CURSOR_BLINK_KEY = "terminal.cursorBlink";
+export const TERMINAL_SCROLLBACK_KEY = "terminal.scrollback";
+
+// Clipboard hygiene settings (ui-terminal-pane spec).
+export const TERMINAL_COPY_ON_SELECT_KEY = "terminal.copyOnSelect";
+export const TERMINAL_CONFIRM_PASTE_KEY = "terminal.confirmPaste";
+
+export const DEFAULT_TERMINAL_FONT_SIZE = 13;
+export const DEFAULT_TERMINAL_FONT_FAMILY =
+  '"Geist Mono Variable", "Cascadia Code", "Fira Code", "JetBrains Mono", monospace';
+export const DEFAULT_TERMINAL_LINE_HEIGHT = 1;
+export type TerminalCursorStyle = "block" | "underline" | "bar";
+export const DEFAULT_TERMINAL_CURSOR_STYLE: TerminalCursorStyle = "block";
+export const DEFAULT_TERMINAL_CURSOR_BLINK = true;
+export const DEFAULT_TERMINAL_SCROLLBACK = 1000;
+export const DEFAULT_TERMINAL_COPY_ON_SELECT = false;
+export const DEFAULT_TERMINAL_CONFIRM_PASTE = false;
+
+export function isTerminalCursorStyle(value: unknown): value is TerminalCursorStyle {
+  return value === "block" || value === "underline" || value === "bar";
+}
+
 // View pointers : durable UI position, one settings key per target so
 // concurrent windows never read-modify-write clobber each other.
 export const VIEW_ACTIVE_WORKSPACE_KEY = "view.active-workspace";

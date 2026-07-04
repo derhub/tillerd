@@ -231,7 +231,7 @@ export function useNumberGlobalSetting(
   fallback: number,
 ): { value: number; setValue: (value: number) => void } {
   const raw = useSelector(settingsStore, (s) => s.values[key]);
-  const value = typeof raw === "number" ? raw : fallback;
+  const value = typeof raw === "number" && Number.isFinite(raw) ? raw : fallback;
   const setValue = React.useCallback((next: number) => setGlobalSetting(key, next), [key]);
   return { value, setValue };
 }

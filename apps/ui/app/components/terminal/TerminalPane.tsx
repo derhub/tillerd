@@ -1,6 +1,9 @@
+import type { FitAddon } from "@xterm/addon-fit";
+
 import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { scalarString } from "~/lib/json";
 import "@xterm/xterm/css/xterm.css";
 
@@ -11,6 +14,8 @@ import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe } from "~/lib/subscribe";
 
+import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
+
 type Props = {
   sessionId: string | null;
   onSessionStart?: (id: string) => void;
@@ -19,10 +24,12 @@ type Props = {
 async function bindTerminalPane(
   containerRef: React.RefObject<HTMLDivElement | null>,
   termRef: React.RefObject<import("@xterm/xterm").Terminal | null>,
+  fitAddonRef: React.RefObject<FitAddon | null>,
   wsRef: React.RefObject<WebSocket | null>,
   coalesceBufRef: React.RefObject<Uint8Array[]>,
   coalesceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
   openWs: (id: string | null) => void,
+  setReady: (ready: boolean) => void,
   sessionId: string | null,
   terminalTheme: ReturnType<typeof getTerminalTheme>,
 ): Promise<() => void> {
@@ -38,12 +45,14 @@ async function bindTerminalPane(
   });
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
+  fitAddonRef.current = fitAddon;
 
   if (containerRef.current) {
     term.open(containerRef.current);
     fitAddon.fit();
   }
   termRef.current = term;
+  setReady(true);
 
   term.onData((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -72,20 +81,40 @@ async function bindTerminalPane(
     ro.disconnect();
     term.dispose();
     termRef.current = null;
+    fitAddonRef.current = null;
   };
 }
 
 export function TerminalPane({ sessionId, onSessionStart }: Props) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const termRef = React.useRef<import("@xterm/xterm").Terminal | null>(null);
+  const fitAddonRef = React.useRef<FitAddon | null>(null);
   const wsRef = React.useRef<WebSocket | null>(null);
   const openWsRef = React.useRef<((id: string | null) => void) | null>(null);
   const queryClient = useQueryClient();
   const { setStatus } = React.use(SessionContext);
   const [_connected, setConnected] = React.useState(false);
+  const [ready, setReady] = React.useState(false);
   const [crashedSessionId, setCrashedSessionId] = React.useState<string | null>(null);
   const coalesceBufRef = React.useRef<Uint8Array[]>([]);
   const coalesceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getSurfaceId = React.useCallback(() => null, []);
+  const writeInput = React.useCallback((text: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({ type: "input", bytes: Array.from(new TextEncoder().encode(text)) }),
+      );
+    }
+  }, []);
+  const extras = useTerminalPaneExtras({
+    sessionId,
+    getSurfaceId,
+    writeInput,
+    containerRef,
+    isDesktop: false,
+  });
+  const attach = extras.attach;
 
   const openWs = React.useCallback(
     (id: string | null) => {
@@ -186,10 +215,12 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
       bindTerminalPane(
         containerRef,
         termRef,
+        fitAddonRef,
         wsRef,
         coalesceBufRef,
         coalesceTimerRef,
         openWs,
+        setReady,
         sessionId,
         terminalTheme,
       ),
@@ -198,6 +229,12 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     // site; the scheme effect above pushes live theme updates without rebinding the socket.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Attach the pane extras (search/links/bell/copy-paste/typography) once the Terminal exists.
+  React.useEffect(() => {
+    if (!ready || !termRef.current || !fitAddonRef.current) return () => {};
+    return subscribe(attach(termRef.current, fitAddonRef.current));
+  }, [ready, attach]);
 
   const _interrupt = React.useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: "interrupt" }));
@@ -222,12 +259,20 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
   }, [crashedSessionId]);
 
   return (
-    <div className="h-full w-full relative" style={{ background: terminalTheme.background }}>
+    <EntityContextMenu
+      entityId={sessionId ?? "terminal"}
+      entityKind="terminal"
+      guards={{ "menu.hasSelection": extras.hasSelection }}
+      className="h-full w-full relative block"
+      style={{ background: terminalTheme.background }}
+      onPointerDownCapture={extras.onPointerDownCapture}
+    >
       <div
         ref={containerRef}
         className="h-full w-full"
         style={{ padding: "0.333rem 0.333rem 0" }}
       />
+      {extras.overlay}
       {crashedSessionId && (
         // Surface failure overlay (ui-terminal-pane spec): terminal-token styled, distinct from
         // the service-health indicator.
@@ -250,6 +295,6 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
           </button>
         </div>
       )}
-    </div>
+    </EntityContextMenu>
   );
 }

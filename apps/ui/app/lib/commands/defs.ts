@@ -5,9 +5,11 @@
 
 import {
   Archive,
+  ClipboardPaste,
   Command,
   Copy,
   Download,
+  Eraser,
   ExternalLink,
   FolderInput,
   LayoutTemplate,
@@ -21,6 +23,7 @@ import {
   RotateCcw,
   Search,
   Square,
+  TextSelect,
   Trash2,
   ZoomIn,
   ZoomOut,
@@ -212,6 +215,16 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     title: SESSION_SEARCH_TITLE,
     keywords: ["session", "switch", "go to", "find", "search"],
     defaultKeys: { default: "CmdOrCtrl+P" },
+  },
+  // Find in terminal (ui-terminal-pane spec). The accelerator also fires from inside the pane:
+  // useGlobalShortcuts skips events while `.xterm` holds focus, so the pane catches CmdOrCtrl+F
+  // via xterm's key handler and the palette entry covers the unfocused case.
+  {
+    id: ACTION.terminalFind,
+    title: "Find in terminal",
+    icon: Search,
+    keywords: ["find", "search", "terminal", "scrollback"],
+    defaultKeys: { default: "CmdOrCtrl+F" },
   },
   // Row-scoped context-menu actions. `menu.<kind>Row` and the per-row guards
   // (`menu.canRename`, `menu.canDelete`, `menu.canArchive`, `menu.canMove`,
@@ -531,6 +544,50 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     surfaces: ["contextmenu"],
     group: "destructive",
     when: ["menu.launchTemplateRow"],
+  },
+
+  // -- terminal pane context menu (ui-terminal-pane spec). Scoped by `menu.terminalRow`; the
+  // registered handlers act on the focused terminal via activeTerminalStore. Copy and
+  // "Search selection" only apply with a live selection, gated by `menu.hasSelection`.
+  {
+    id: ACTION.terminalCopy,
+    title: "Copy",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow", "menu.hasSelection"],
+  },
+  {
+    id: ACTION.terminalPaste,
+    title: "Paste",
+    icon: ClipboardPaste,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow"],
+  },
+  {
+    id: ACTION.terminalSelectAll,
+    title: "Select all",
+    icon: TextSelect,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow"],
+  },
+  {
+    id: ACTION.terminalSearchSelection,
+    title: "Search selection",
+    icon: Search,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow", "menu.hasSelection"],
+  },
+  {
+    id: ACTION.terminalClear,
+    title: "Clear",
+    icon: Eraser,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.terminalRow"],
   },
 ];
 

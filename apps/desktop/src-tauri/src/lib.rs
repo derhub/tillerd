@@ -205,6 +205,8 @@ pub fn run() {
     );
     // Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
     let builder = builder.plugin(tauri_plugin_notification::init());
+    // Opens terminal links in the system browser (ui-terminal-pane "Clickable links").
+    let builder = builder.plugin(tauri_plugin_opener::init());
     #[cfg(debug_assertions)]
     specta_builder()
         .export(

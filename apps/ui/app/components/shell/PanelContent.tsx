@@ -25,6 +25,7 @@ import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
 import { useBoolGlobalSetting } from "~/lib/settings/context";
 import { PANEL_CLOSE_CONFIRM_SKIP_KEY } from "~/lib/settings/keys";
+import { terminalCommandHandlers } from "~/lib/terminal/activeTerminal";
 import { useDelayedTrue } from "~/lib/useDelayedTrue";
 import { useDesktopHost } from "~/lib/useDesktopHost";
 import { usePanelTree } from "~/lib/usePanelTree";
@@ -168,11 +169,19 @@ export function PanelContent() {
     detach,
   });
 
-  if (host.status === "web") return <TerminalPane sessionId={sessionId} />;
+  if (host.status === "web") {
+    return (
+      <>
+        <RegisterHandlers handlers={terminalCommandHandlers} />
+        <TerminalPane sessionId={sessionId} />
+      </>
+    );
+  }
 
   return (
     <div className="h-full w-full" onPointerDownCapture={onContentPointerDown}>
       <RegisterHandlers handlers={panelHandlers} />
+      <RegisterHandlers handlers={terminalCommandHandlers} />
       {bootRegion === "content" ? (
         <PanelTree
           tree={tree}

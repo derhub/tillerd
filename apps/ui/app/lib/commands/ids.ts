@@ -67,6 +67,15 @@ export const ACTION = {
   // -- project launch-template row (see TemplatesView) --
   launchTemplateEdit: "launch-template.edit",
   launchTemplateDiscard: "launch-template.discard",
+  // -- terminal pane (find overlay + context menu; see TerminalPane/DesktopTerminalPane) --
+  // Handlers register centrally (PanelContent) and act on the focused terminal via
+  // activeTerminalStore, so a single id serves every mounted pane without collision.
+  terminalFind: "terminal.find",
+  terminalCopy: "terminal.copy",
+  terminalPaste: "terminal.paste",
+  terminalSelectAll: "terminal.select-all",
+  terminalClear: "terminal.clear",
+  terminalSearchSelection: "terminal.search-selection",
 } as const;
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];

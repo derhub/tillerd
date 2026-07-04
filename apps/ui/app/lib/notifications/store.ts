@@ -15,6 +15,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   "surface-started": "Terminal started",
   "surface-stopped": "Terminal stopped",
   "surface-error": "Terminal error",
+  "surface-bell": "Terminal bell",
   "service-up": "Service up",
   "service-down": "Service down",
   "orchestrator-status": "Status",
