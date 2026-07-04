@@ -1,6 +1,7 @@
 import { ArrowUpRight, Columns2, ExternalLink, Rows2 } from "lucide-react";
+import React from "react";
 
-import type { PanelContent, PanelGroupNode, PanelLeaf, PanelNode } from "~/lib/panelTree";
+import { DRAG_PANEL_LEAF, type PanelContent, type PanelGroupNode, type PanelLeaf, type PanelNode } from "~/lib/panelTree";
 
 import { EmptyPanel } from "~/components/shell/EmptyPanel";
 import { Panel } from "~/components/shell/Panel";
@@ -11,25 +12,37 @@ export function PanelTree({
   tree,
   totalPanels,
   sessionId,
+  sessionTitle,
   detached,
+  closingLeafIds,
+  reloadEpoch,
   onSplit,
   onSetActiveTab,
   onClose,
   onSpawn,
   onDetach,
   onReattach,
+  onSwapPlacements,
 }: {
   tree: PanelNode;
   totalPanels: number;
   sessionId: string | null;
+  sessionTitle?: string;
   detached: Set<string>;
+  closingLeafIds: Set<string>;
+  reloadEpoch: Record<string, number>;
   onSplit: (leafId: string, direction: "horizontal" | "vertical") => void;
   onSetActiveTab: (groupId: string, tabId: string) => void;
   onClose: (leaf: PanelLeaf) => void;
   onSpawn: (leafId: string) => void;
   onDetach: (leaf: PanelLeaf) => void;
   onReattach: (placement: string) => void;
+  onSwapPlacements: (sourceLeafId: string, targetLeafId: string) => void;
 }) {
+  // Drag/drop is transient UI state, not part of the persisted layout tree
+  // (panel-placement-swap spec: geometry is unchanged, only the surface binding swaps).
+  const [draggingLeafId, setDraggingLeafId] = React.useState<string | null>(null);
+  const [dropTargetLeafId, setDropTargetLeafId] = React.useState<string | null>(null);
   function renderNode(node: PanelNode, path: string): React.ReactNode {
     return node.kind === "group" ? renderGroup(node, path) : renderLeaf(node);
   }
@@ -112,16 +125,51 @@ export function PanelTree({
   }
 
   function renderLeaf(leaf: PanelLeaf): React.ReactNode {
-    const title = leaf.content.type === "terminal" ? "Terminal" : "Empty";
+    // Title content (ui-panel-compound "Panel title content"): session name + surface kind.
+    // Elapsed-since-spawn is not included -- SurfaceView carries no spawn timestamp yet (see
+    // report); revisit once the orchestrator exposes one.
+    const title =
+      leaf.content.type === "terminal" ? `${sessionTitle ?? "Session"} · Terminal` : "Empty";
     const actions = {
       split: (direction: "horizontal" | "vertical") => onSplit(leaf.id, direction),
       close: () => onClose(leaf),
     };
+    const isTerminal = leaf.content.type === "terminal";
+    const isDropTarget = dropTargetLeafId === leaf.id;
 
     return (
       <Panel.Provider key={leaf.id} id={leaf.id} title={title} actions={actions}>
-        <Panel.Frame>
-          <Panel.Header>
+        <Panel.Frame
+          isClosing={closingLeafIds.has(leaf.id)}
+          isDropTarget={isDropTarget}
+          onDragOver={(e) => {
+            if (!isTerminal || draggingLeafId === leaf.id) return;
+            if (e.dataTransfer.types.includes(DRAG_PANEL_LEAF)) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setDropTargetLeafId(leaf.id);
+            }
+          }}
+          onDragLeave={() => setDropTargetLeafId((id) => (id === leaf.id ? null : id))}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDropTargetLeafId(null);
+            const sourceId = e.dataTransfer.getData(DRAG_PANEL_LEAF);
+            if (sourceId && sourceId !== leaf.id && isTerminal) onSwapPlacements(sourceId, leaf.id);
+          }}
+        >
+          <Panel.Header
+            draggable={isTerminal}
+            onDragStart={(e) => {
+              e.dataTransfer.setData(DRAG_PANEL_LEAF, leaf.id);
+              e.dataTransfer.effectAllowed = "move";
+              setDraggingLeafId(leaf.id);
+            }}
+            onDragEnd={() => {
+              setDraggingLeafId(null);
+              setDropTargetLeafId(null);
+            }}
+          >
             <Panel.Title />
             <Panel.Toolbar>
               <Panel.Toolbar.Button
@@ -164,6 +212,7 @@ export function PanelTree({
             sessionId={sessionId}
             placement={content.placement}
             cwd=""
+            reloadKey={reloadEpoch[content.placement] ?? 0}
           />
         );
     }

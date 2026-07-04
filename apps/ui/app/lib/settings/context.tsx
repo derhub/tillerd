@@ -216,6 +216,16 @@ export function useGlobalSetting(
   return { value, setValue };
 }
 
+export function useBoolGlobalSetting(
+  key: string,
+  fallback: boolean,
+): { value: boolean; setValue: (value: boolean) => void } {
+  const raw = useSelector(settingsStore, (s) => s.values[key]);
+  const value = typeof raw === "boolean" ? raw : fallback;
+  const setValue = React.useCallback((next: boolean) => setGlobalSetting(key, next), [key]);
+  return { value, setValue };
+}
+
 export function useTheme(): { theme: Theme; setTheme: (theme: Theme) => void } {
   // Paint cache (read once) is the pre-hydration fallback; durable value wins once loaded.
   const cachedFallback = React.useMemo(

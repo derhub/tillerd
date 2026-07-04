@@ -7,34 +7,14 @@ import "@xterm/xterm/css/xterm.css";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { WS_BASE } from "~/lib/serverUrl";
 import { SessionContext } from "~/lib/sessionContext";
+import { useGlobalSetting } from "~/lib/settings/context";
+import { TERMINAL_SCHEME_KEY } from "~/lib/settings/keys";
+import { DEFAULT_TERMINAL_SCHEME, getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { subscribe } from "~/lib/subscribe";
 
 type Props = {
   sessionId: string | null;
   onSessionStart?: (id: string) => void;
-};
-
-const TERM_THEME = {
-  background: "#0d1117",
-  foreground: "#e6edf3",
-  cursor: "#e6edf3",
-  selectionBackground: "#264f78",
-  black: "#484f58",
-  red: "#ff7b72",
-  green: "#3fb950",
-  yellow: "#d29922",
-  blue: "#58a6ff",
-  magenta: "#bc8cff",
-  cyan: "#39c5cf",
-  white: "#b1bac4",
-  brightBlack: "#6e7681",
-  brightRed: "#ffa198",
-  brightGreen: "#56d364",
-  brightYellow: "#e3b341",
-  brightBlue: "#79c0ff",
-  brightMagenta: "#d2a8ff",
-  brightCyan: "#56d4dd",
-  brightWhite: "#f0f6fc",
 };
 
 async function bindTerminalPane(
@@ -45,6 +25,7 @@ async function bindTerminalPane(
   coalesceTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
   openWs: (id: string | null) => void,
   sessionId: string | null,
+  terminalTheme: ReturnType<typeof getTerminalTheme>,
 ): Promise<() => void> {
   const { Terminal } = await lazyXterm();
   const { FitAddon } = await lazyFitAddon();
@@ -52,9 +33,9 @@ async function bindTerminalPane(
   const term = new Terminal({
     allowProposedApi: true,
     cursorBlink: true,
-    fontFamily: '"Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
+    fontFamily: '"Geist Mono Variable", "Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
     fontSize: 13,
-    theme: TERM_THEME,
+    theme: terminalTheme,
   });
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);
@@ -198,6 +179,14 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
     [onSessionStart, queryClient, setStatus],
   );
 
+  const { value: scheme } = useGlobalSetting(TERMINAL_SCHEME_KEY, DEFAULT_TERMINAL_SCHEME);
+  const terminalTheme = getTerminalTheme(scheme);
+
+  React.useEffect(() => {
+    const term = termRef.current;
+    if (term) term.options.theme = terminalTheme;
+  }, [terminalTheme]);
+
   React.useEffect(() => {
     openWsRef.current = openWs;
     return subscribe(
@@ -209,9 +198,11 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
         coalesceTimerRef,
         openWs,
         sessionId,
+        terminalTheme,
       ),
     );
-    // sessionId intentionally excluded: reconnect is handled via key prop at call site
+    // sessionId/terminalTheme intentionally excluded: reconnect is handled via key prop at call
+    // site; the scheme effect above pushes live theme updates without rebinding the socket.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -238,54 +229,29 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
   }, [crashedSessionId]);
 
   return (
-    <div className="h-full w-full relative" style={{ background: "#0d1117" }}>
+    <div className="h-full w-full relative" style={{ background: terminalTheme.background }}>
       <div
         ref={containerRef}
         className="h-full w-full"
         style={{ padding: "0.333rem 0.333rem 0" }}
       />
       {crashedSessionId && (
+        // Surface failure overlay (ui-terminal-pane spec): terminal-token styled, distinct from
+        // the service-health indicator.
         <div
-          style={{
-            position: "absolute",
-            bottom: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#21262d",
-            border: "1px solid #30363d",
-            borderRadius: "6px",
-            padding: "0.75rem 1rem",
-            display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            color: "#e6edf3",
-            fontSize: "13px",
-          }}
+          data-testid="terminal-failure-overlay"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-md border border-terminal-border bg-terminal-surface px-4 py-3 text-[0.917rem] text-terminal-fg"
         >
-          <span style={{ color: "#ff7b72" }}>Session ended unexpectedly —</span>
+          <span className="text-terminal-error">Session ended unexpectedly —</span>
           <button
             onClick={handleRecover}
-            style={{
-              background: "#238636",
-              border: "none",
-              borderRadius: "4px",
-              color: "#fff",
-              padding: "0.25rem 0.75rem",
-              cursor: "pointer",
-            }}
+            className="rounded-sm bg-terminal-success px-3 py-1 text-terminal-fg transition-colors duration-[var(--motion-fast)] ease-standard hover:brightness-110"
           >
             Resume
           </button>
           <button
             onClick={handleDismiss}
-            style={{
-              background: "transparent",
-              border: "1px solid #30363d",
-              borderRadius: "4px",
-              color: "#8b949e",
-              padding: "0.25rem 0.75rem",
-              cursor: "pointer",
-            }}
+            className="rounded-sm border border-terminal-border px-3 py-1 text-terminal-muted transition-colors duration-[var(--motion-fast)] ease-standard hover:text-terminal-fg"
           >
             Dismiss
           </button>

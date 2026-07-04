@@ -39,23 +39,77 @@ function PanelProvider({
   );
 }
 
-function PanelFrame({ children, className }: { children: React.ReactNode; className?: string }) {
+function PanelFrame({
+  children,
+  className,
+  isClosing,
+  isDropTarget,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  isClosing?: boolean;
+  isDropTarget?: boolean;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+}) {
   const { state } = usePanelContext();
+  // Opacity-only lifecycle fade (ui-panel-compound "Panel lifecycle motion"): a leaf fades in on
+  // its first paint via this mount flag, and a closing leaf fades out before the caller actually
+  // removes it from the tree (see PanelContent's closingLeafIds delay). No size/layout animation.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   return (
     <div
-      className={cn("group/panel flex flex-col h-full min-h-0 min-w-0", className)}
+      className={cn(
+        "group/panel flex flex-col h-full min-h-0 min-w-0",
+        "transition-opacity duration-[var(--motion-fast)] ease-standard motion-reduce:transition-none",
+        isClosing ? "opacity-0 pointer-events-none" : mounted ? "opacity-100" : "opacity-0",
+        isDropTarget && "ring-1 ring-inset ring-primary",
+        className,
+      )}
       data-panel-id={state.id}
+      data-state={isClosing ? "closing" : mounted ? "entered" : "entering"}
+      data-testid={isDropTarget ? "panel-drop-target-active" : undefined}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {children}
     </div>
   );
 }
 
-function PanelHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+function PanelHeader({
+  children,
+  className,
+  draggable,
+  onDragStart,
+  onDragEnd,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+}) {
   return (
     <div
-      className={cn("flex items-center shrink-0 px-4 gap-1.5", className)}
+      className={cn(
+        "flex items-center shrink-0 px-4 gap-1.5",
+        draggable && "cursor-grab active:cursor-grabbing",
+        className,
+      )}
       style={{ height: "var(--panel-header-height, 2.5rem)" }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       {children}
     </div>

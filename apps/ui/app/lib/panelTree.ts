@@ -31,6 +31,9 @@ export type PanelGroupNode = {
 
 export type PanelNode = PanelGroupNode | PanelLeaf;
 
+// dataTransfer key for the panel-header drag source (placement swap, panel-placement-swap spec).
+export const DRAG_PANEL_LEAF = "application/x-tillerd-panel-leaf";
+
 function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -136,4 +139,19 @@ export function countLeaves(tree: PanelNode): number {
 export function collectLeaves(tree: PanelNode): PanelLeaf[] {
   if (tree.kind === "panel") return [tree];
   return tree.children.flatMap(collectLeaves);
+}
+
+// Pure predicate for the close-surface confirmation gate (ui-panel-compound spec): only a
+// surface-bound leaf has a PTY to terminate, and the "don't ask again" preference short-circuits it.
+export function shouldConfirmClose(leaf: PanelLeaf, skipConfirm: boolean): boolean {
+  return leaf.content.type === "terminal" && !skipConfirm;
+}
+
+export function findLeaf(tree: PanelNode, targetId: string): PanelLeaf | undefined {
+  if (tree.kind === "panel") return tree.id === targetId ? tree : undefined;
+  for (const child of tree.children) {
+    const found = findLeaf(child, targetId);
+    if (found) return found;
+  }
+  return undefined;
 }

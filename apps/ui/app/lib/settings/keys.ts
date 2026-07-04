@@ -3,6 +3,9 @@ export const TERMINAL_SCHEME_KEY = "terminal.scheme";
 export const DEFAULT_COMMAND_KEY = "default.command";
 export const DEFAULT_TEMPLATE_KEY = "default.template";
 
+// "Don't ask again" for the close-surface confirmation dialog (ui-panel-compound spec).
+export const PANEL_CLOSE_CONFIRM_SKIP_KEY = "panel.closeConfirm.skip";
+
 // View pointers : durable UI position, one settings key per target so
 // concurrent windows never read-modify-write clobber each other.
 export const VIEW_ACTIVE_WORKSPACE_KEY = "view.active-workspace";

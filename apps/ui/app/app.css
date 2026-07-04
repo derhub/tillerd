@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "./styles/themes/light-2026.css";
 @import "./styles/themes/dark-2026.css";
 
@@ -49,6 +50,14 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* Terminal token slots (DESIGN.md) -- theme-independent, hardcoded dark. */
+  --color-terminal-bg: var(--terminal-bg);
+  --color-terminal-fg: var(--terminal-fg);
+  --color-terminal-surface: var(--terminal-surface);
+  --color-terminal-border: var(--terminal-border);
+  --color-terminal-error: var(--terminal-error);
+  --color-terminal-success: var(--terminal-success);
+  --color-terminal-muted: var(--terminal-muted);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -97,6 +106,17 @@ body {
 :root {
   --panel-header-height: 2.5rem;
   --toolbar-height: 2.8rem;
+
+  /* -- Terminal palette (DESIGN.md) --------------------------------------
+     Hardcoded dark, theme-independent -- the terminal canvas never follows
+     the host light/dark mode. */
+  --terminal-bg: #0d1117;
+  --terminal-fg: #e6edf3;
+  --terminal-surface: #21262d;
+  --terminal-border: #30363d;
+  --terminal-error: #ff7b72;
+  --terminal-success: #238636;
+  --terminal-muted: #8b949e;
 
   /* -- Motion scale ------------------------------------------------------
      Named transition durations for shell interactions. Theme-independent.

@@ -8,6 +8,8 @@ import {
   serializeLayout,
   deserializeLayout,
   countLeaves,
+  findLeaf,
+  shouldConfirmClose,
   type PanelNode,
   type PanelLeaf,
   type PanelGroupNode,
@@ -116,6 +118,44 @@ describe("serialize / deserialize", () => {
   test("falls back to DEFAULT_LAYOUT on corrupt data in usePanelTree context", () => {
     expect(() => deserializeLayout("not json")).toThrow();
     expect(() => deserializeLayout('{"kind":"invalid"}')).toThrow();
+  });
+});
+
+describe("findLeaf", () => {
+  test("finds a top-level leaf by id", () => {
+    const tree = leaf("a");
+    expect(findLeaf(tree, "a")).toBe(tree);
+  });
+
+  test("finds a nested leaf by id", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
+      children: [leaf("a"), leaf("b")],
+    };
+    expect(findLeaf(tree, "b")).toMatchObject({ id: "b" });
+  });
+
+  test("returns undefined when the id is absent", () => {
+    expect(findLeaf(leaf("a"), "z")).toBeUndefined();
+  });
+});
+
+describe("shouldConfirmClose", () => {
+  test("confirms a terminal leaf when no preference is stored", () => {
+    const terminal: PanelLeaf = { ...leaf("a"), content: { type: "terminal", placement: "p1" } };
+    expect(shouldConfirmClose(terminal, false)).toBe(true);
+  });
+
+  test("skips confirmation when don't-ask-again is set", () => {
+    const terminal: PanelLeaf = { ...leaf("a"), content: { type: "terminal", placement: "p1" } };
+    expect(shouldConfirmClose(terminal, true)).toBe(false);
+  });
+
+  test("never confirms an empty leaf (no PTY to terminate)", () => {
+    expect(shouldConfirmClose(leaf("a"), false)).toBe(false);
   });
 });
 

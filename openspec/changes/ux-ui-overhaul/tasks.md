@@ -86,18 +86,18 @@
 
 - [ ] 8.1 Panel title: session name + surface kind + elapsed since spawn (orchestrator
   `spawned_at`); toolbar tooltips on all icon buttons
-- [ ] 8.2 Close-surface confirmation dialog with persisted don't-ask-again; hard remove
+- [x] 8.2 Close-surface confirmation dialog with persisted don't-ask-again; hard remove
   (spec item dropped, PTY terminated)
-- [ ] 8.3 Empty panel picker listing surface kinds; split buttons create empty leaf →
+- [x] 8.3 Empty panel picker listing surface kinds; split buttons create empty leaf →
   picker spawns into the leaf placement
-- [ ] 8.4 Panel drag-and-drop swap: header drag, drop-target highlight, cancel outside
+- [x] 8.4 Panel drag-and-drop swap: header drag, drop-target highlight, cancel outside
   targets, `surface_swap_placement` on drop
-- [ ] 8.5 Divider double-click reset to equal split
-- [ ] 8.6 Lifecycle motion: opacity-only fades on panel create/destroy and layout
+- [x] 8.5 Divider double-click reset to equal split
+- [x] 8.6 Lifecycle motion: opacity-only fades on panel create/destroy and layout
   changes using frozen motion tokens
-- [ ] 8.7 Terminal: bundle Geist Mono default font; scheme selection applies live and
+- [x] 8.7 Terminal: bundle Geist Mono default font; scheme selection applies live and
   maps terminal token slots; tokenize the crash overlay (remove inline styles)
-- [ ] 8.8 Verify terminal copy/paste on macOS and Linux; fix any webview conflicts
+- [x] 8.8 Verify terminal copy/paste on macOS and Linux; fix any webview conflicts
 
 ## 9. Native menus
 
