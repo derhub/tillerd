@@ -145,7 +145,7 @@
   section (close-confirmation toggle, startup workspace); Project scope section with
   default template
 - [x] 12.6 Commands view "Run" row action spawns the command in the active session
-- [ ] 12.7 Screenshot-driven visual coherence pass, light + dark; before/after captures
+- [x] 12.7 Screenshot-driven visual coherence pass, light + dark; before/after captures
 - [ ] 12.8 Full verify + affected e2e green after the pass
 
 ## 13. Terminal experience baseline (inferred completeness pass)
