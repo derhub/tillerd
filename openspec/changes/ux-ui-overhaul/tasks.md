@@ -121,7 +121,7 @@
 
 - [ ] 11.1 Performance pass: chrome responsive under multiple streaming surfaces; no
   unbounded memory growth across session switches
-- [ ] 11.2 New e2e specs: panel split + spawn in new leaf; close-surface confirm +
+- [x] 11.2 New e2e specs: panel split + spawn in new leaf; close-surface confirm +
   don't-ask-again persistence; drag-and-drop swap; workbench view switching + state
   restore; settings editor + managers smoke
 - [ ] 11.3 Full suite green on macOS and Linux CI
