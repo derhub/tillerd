@@ -47,7 +47,7 @@ function ActionButton({
         aria-label={label}
         disabled={disabled}
         onClick={onClick}
-        className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+        className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
       >
         {children}
       </TooltipTrigger>
@@ -99,10 +99,10 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
         </span>
         <div className="flex items-center gap-1">
           <ActionButton label="Mark all read" onClick={() => markAllReadMutation.mutate(undefined)}>
-            <CheckCheck className="size-3.5" />
+            <CheckCheck className="size-[var(--icon-md)]" />
           </ActionButton>
           <ActionButton label="Disregard all" onClick={handleDisregardAll}>
-            <Trash2 className="size-3.5" />
+            <Trash2 className="size-[var(--icon-md)]" />
           </ActionButton>
         </div>
       </div>
@@ -135,20 +135,20 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
                 label={`Mark read: ${notificationHeading(n)}`}
                 onClick={() => markReadMutation.mutate({ id: n.id })}
               >
-                <CircleCheck className="size-3.5" />
+                <CircleCheck className="size-[var(--icon-md)]" />
               </ActionButton>
               <ActionButton
                 label={`Disregard: ${notificationHeading(n)}`}
                 onClick={() => handleDisregard(n.id)}
               >
-                <Trash2 className="size-3.5" />
+                <Trash2 className="size-[var(--icon-md)]" />
               </ActionButton>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label={`Snooze: ${notificationHeading(n)}`}
-                  className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <Clock className="size-3.5" />
+                  <Clock className="size-[var(--icon-md)]" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {SNOOZE_OPTIONS.map((opt) => (
@@ -176,26 +176,30 @@ export function NotificationIndicator({ onActivate }: { onActivate?: () => void 
   if (host.status === "web") return null;
 
   const badge = unread > 9 ? "9+" : String(unread);
+  const label = `Notifications: ${unread} unread`;
 
   return (
-    <button
-      type="button"
-      aria-label={`Notifications: ${unread} unread`}
-      onClick={() => {
-        markRead();
-        onActivate?.();
-      }}
-      className="relative flex items-center justify-center rounded-sm bg-black/60 px-2 h-6 select-none text-muted-foreground hover:text-foreground transition-colors duration-[var(--motion-fast)] ease-standard"
-    >
-      <Bell className="size-3.5" />
-      {unread > 0 ? (
-        <span
-          data-testid="notification-unread"
-          className="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 rounded-full bg-red-500 text-[0.6rem] leading-[0.875rem] text-white text-center"
-        >
-          {badge}
-        </span>
-      ) : null}
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        aria-label={label}
+        onClick={() => {
+          markRead();
+          onActivate?.();
+        }}
+        className="relative flex items-center justify-center rounded-sm px-2 h-6 select-none text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <Bell className="size-[var(--icon-md)]" />
+        {unread > 0 ? (
+          <span
+            data-testid="notification-unread"
+            className="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 rounded-full bg-red-500 text-[0.6rem] leading-[0.875rem] text-white text-center"
+          >
+            {badge}
+          </span>
+        ) : null}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }

@@ -134,11 +134,10 @@ export function WorkspaceSwitcherList({
           )}
           {ws.pinned && (
             <Pin
-              size={9}
               strokeWidth={2}
               aria-hidden
               data-testid="workspace-pinned-indicator"
-              className="shrink-0 text-muted-foreground/40"
+              className="shrink-0 text-muted-foreground/40 size-[var(--icon-sm)]"
             />
           )}
           <ActivityDot activity={activity?.get(ws.id)} />
@@ -155,7 +154,7 @@ export function WorkspaceSwitcherList({
                 "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
               )}
             >
-              <ArrowUpRight size={10} strokeWidth={2} />
+              <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
             </button>
           ) : (
             isDesktop && (
@@ -171,7 +170,7 @@ export function WorkspaceSwitcherList({
                   "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
                 )}
               >
-                <ArrowUpRight size={10} strokeWidth={2} />
+                <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
               </button>
             )
           )}
@@ -188,7 +187,7 @@ export function WorkspaceSwitcherList({
           )}
           title="New workspace"
         >
-          <FolderPlus size={11} strokeWidth={2} />
+          <FolderPlus strokeWidth={2} className="size-[var(--icon-sm)]" />
           <span>New workspace</span>
         </button>
       )}

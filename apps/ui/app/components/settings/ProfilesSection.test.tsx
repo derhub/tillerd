@@ -5,6 +5,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
+import { TooltipProvider } from "~/components/ui/tooltip";
 import { makeQueryClient } from "~/lib/queryClient";
 
 // Profile management: activating/renaming/duplicating/deleting a profile, and the spec's guard
@@ -56,7 +57,9 @@ function renderSection() {
   setReady(true);
   return render(
     <QueryClientProvider client={client}>
-      <ProfilesSection />
+      <TooltipProvider>
+        <ProfilesSection />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }

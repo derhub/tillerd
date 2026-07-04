@@ -107,15 +107,15 @@
 
 ## 10. Visual, accessibility, cross-platform pass
 
-- [ ] 10.1 Icons/spacing/density/typography sweep across all chrome to DESIGN.md tokens;
+- [x] 10.1 Icons/spacing/density/typography sweep across all chrome to DESIGN.md tokens;
   one primary moment per view
-- [ ] 10.2 ARIA roles/names/states on all interactive chrome; tooltips on every
+- [x] 10.2 ARIA roles/names/states on all interactive chrome; tooltips on every
   icon-only button
-- [ ] 10.3 Keyboard navigation: Tab/arrow/Enter/Escape traversal across sidebar tree,
+- [x] 10.3 Keyboard navigation: Tab/arrow/Enter/Escape traversal across sidebar tree,
   panel actions, menus, dialogs; visible focus rings
-- [ ] 10.4 WCAG AA contrast check of all token pairs in both themes; record results in
+- [x] 10.4 WCAG AA contrast check of all token pairs in both themes; record results in
   DESIGN.md
-- [ ] 10.5 Light-mode sweep of every component (terminal stays dark)
+- [x] 10.5 Light-mode sweep of every component (terminal stays dark)
 
 ## 11. Performance, E2E, coherence
 

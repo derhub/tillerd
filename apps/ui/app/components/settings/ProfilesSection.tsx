@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { hydrateSettings } from "~/lib/settings/context";
 import { cn } from "~/lib/utils";
@@ -65,10 +66,12 @@ export function ProfilesList({
           ) : (
             <button
               type="button"
+              aria-current={p.id === activeId ? "true" : undefined}
               onDoubleClick={() => onStartEdit(p.id)}
               onClick={() => onActivate(p.id)}
               className={cn(
                 "flex-1 text-left truncate text-[0.917rem] px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 p.id === activeId
                   ? "font-medium bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -85,30 +88,39 @@ export function ProfilesList({
               Active
             </span>
           )}
-          <button
-            type="button"
-            aria-label={`Duplicate ${p.name}`}
-            onClick={() => onDuplicate(p.id)}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            <Copy size={12} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Export ${p.name}`}
-            onClick={() => onExport(p.id)}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            <Download size={12} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Delete ${p.name}`}
-            onClick={() => onRequestDelete(p.id, p.name)}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 size={12} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              aria-label={`Duplicate ${p.name}`}
+              onClick={() => onDuplicate(p.id)}
+              className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Copy className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>Duplicate</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              aria-label={`Export ${p.name}`}
+              onClick={() => onExport(p.id)}
+              className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Download className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>Export</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              aria-label={`Delete ${p.name}`}
+              onClick={() => onRequestDelete(p.id, p.name)}
+              className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Trash2 className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
         </li>
       ))}
     </ul>
@@ -244,11 +256,11 @@ export function ProfilesSection() {
             }}
           />
           <Button variant="ghost" size="xs" onClick={() => fileInputRef.current?.click()}>
-            <Upload size={11} />
+            <Upload className="size-[var(--icon-sm)]" />
             Import
           </Button>
           <Button variant="outline" size="xs" onClick={handleCreate}>
-            <Plus size={11} />
+            <Plus className="size-[var(--icon-sm)]" />
             New profile
           </Button>
         </div>

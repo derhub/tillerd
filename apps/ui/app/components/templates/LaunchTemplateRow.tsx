@@ -1,7 +1,11 @@
 import { Pencil, Trash2 } from "lucide-react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+
+const ROW_ACTION_CLASS =
+  "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // One project launch-template row. Unlike a library template this carries no
 // name (spec: label derived from the spec, e.g. the first item's command) and
@@ -38,36 +42,32 @@ export function LaunchTemplateRow({
 
       {isDesktop && (
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            type="button"
-            aria-label={`Edit ${label}`}
-            title="Edit"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(id);
-            }}
-            className={cn(
-              "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-            )}
-          >
-            <Pencil size={11} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Discard ${label}`}
-            title="Discard"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRequestDiscard(id, label);
-            }}
-            className={cn(
-              "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
-            )}
-          >
-            <Trash2 size={11} strokeWidth={2} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={`Edit ${label}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(id);
+              }}
+              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+            >
+              <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={`Discard ${label}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestDiscard(id, label);
+              }}
+              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10")}
+            >
+              <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
+            </TooltipTrigger>
+            <TooltipContent>Discard</TooltipContent>
+          </Tooltip>
         </div>
       )}
     </EntityContextMenu>

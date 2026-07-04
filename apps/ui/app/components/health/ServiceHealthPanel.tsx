@@ -63,7 +63,7 @@ function HealthRow({
         type="button"
         aria-label={`Show logs for ${name}`}
         onClick={() => showBottomPanelTab("logs", { logsService })}
-        className="ml-auto text-muted-foreground underline hover:text-foreground"
+        className="ml-auto text-muted-foreground underline hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
       >
         logs
       </button>

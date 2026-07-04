@@ -7,6 +7,7 @@ import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
+import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { reorderByDrop } from "~/lib/reorder";
 import { can } from "~/lib/stateModel";
@@ -53,6 +54,7 @@ export function ProjectRow({
 }) {
   const [dragOver, setDragOver] = React.useState(false);
   const [expanded, setExpanded] = useProjectExpanded(project.id);
+  const { activeId, setActiveId } = useTreeNav();
 
   const isUnfiled = project.id === UNFILED_ID;
   const isEditing = editingId === project.id;
@@ -73,6 +75,15 @@ export function ProjectRow({
         entityId={project.id}
         entityKind="project"
         args={{ label: project.name, workspaceId: project.workspaceId }}
+        role="treeitem"
+        aria-level={1}
+        aria-expanded={expanded}
+        aria-label={project.name}
+        data-tree-id={project.id}
+        data-level="1"
+        data-expanded={expanded}
+        tabIndex={activeId === project.id ? 0 : -1}
+        onFocus={() => setActiveId(project.id)}
         guards={{
           "menu.canRename": !isUnfiled,
           "menu.canDuplicate": !isUnfiled,
@@ -111,6 +122,7 @@ export function ProjectRow({
       >
         <button
           type="button"
+          tabIndex={-1}
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
@@ -119,9 +131,9 @@ export function ProjectRow({
           className="flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted"
         >
           {expanded ? (
-            <ChevronDown size={10} strokeWidth={2} />
+            <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
           ) : (
-            <ChevronRight size={10} strokeWidth={2} />
+            <ChevronRight strokeWidth={2} className="size-[var(--icon-sm)]" />
           )}
         </button>
         {isEditing ? (
@@ -143,16 +155,16 @@ export function ProjectRow({
         )}
         {project.pinned && (
           <Pin
-            size={9}
             strokeWidth={2}
             aria-hidden
             data-testid="project-pinned-indicator"
-            className="shrink-0 text-muted-foreground/40"
+            className="shrink-0 text-muted-foreground/40 size-[var(--icon-sm)]"
           />
         )}
         {detached && (
           <button
             type="button"
+            tabIndex={-1}
             onClick={onFocusDetached}
             aria-label={`Re-attach ${project.name}`}
             title={`${project.name} is in another window — click to re-attach`}
@@ -162,12 +174,13 @@ export function ProjectRow({
               "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
             )}
           >
-            <ArrowUpRight size={10} strokeWidth={2} />
+            <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
           </button>
         )}
         {isDesktop && (
           <button
             type="button"
+            tabIndex={-1}
             onClick={onNewSession}
             className={cn(
               "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
@@ -175,7 +188,7 @@ export function ProjectRow({
             )}
             title={`New session in ${project.name}`}
           >
-            <Plus size={10} strokeWidth={2} />
+            <Plus strokeWidth={2} className="size-[var(--icon-sm)]" />
           </button>
         )}
       </EntityContextMenu>

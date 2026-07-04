@@ -249,7 +249,7 @@ export function TemplatesView() {
               data-testid="template-import-button"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload size={11} />
+              <Upload className="size-[var(--icon-sm)]" />
               Import
             </Button>
           </div>
@@ -298,7 +298,7 @@ export function TemplatesView() {
                       setEditorTarget({ kind: "create" });
                     }}
                   >
-                    <Plus size={11} />
+                    <Plus className="size-[var(--icon-sm)]" />
                     New
                   </Button>
                 )}
@@ -408,7 +408,7 @@ export function TemplatesView() {
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="px-3 pb-1 text-[0.75rem] font-medium uppercase tracking-wider text-muted-foreground/70">
+    <h3 className="px-3 pb-1 text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
       {children}
     </h3>
   );

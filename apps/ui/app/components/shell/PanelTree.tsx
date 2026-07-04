@@ -212,18 +212,18 @@ export function PanelTree({
             <Panel.Title />
             <Panel.Toolbar>
               <Panel.Toolbar.Button
-                icon={<Columns2 size={12} />}
+                icon={<Columns2 className="size-[var(--icon-md)]" />}
                 label="Split right"
                 onClick={() => onSplit(leaf.id, "horizontal")}
               />
               <Panel.Toolbar.Button
-                icon={<Rows2 size={12} />}
+                icon={<Rows2 className="size-[var(--icon-md)]" />}
                 label="Split down"
                 onClick={() => onSplit(leaf.id, "vertical")}
               />
               {leaf.content.type === "terminal" && !detached.has(leaf.content.placement) && (
                 <Panel.Toolbar.Button
-                  icon={<ExternalLink size={12} />}
+                  icon={<ExternalLink className="size-[var(--icon-md)]" />}
                   label="Detach"
                   onClick={() => onDetach(leaf)}
                 />
@@ -273,10 +273,10 @@ function DetachedPlaceholder({ onReattach }: { onReattach: () => void }) {
         type="button"
         onClick={onReattach}
         aria-label="Re-attach detached window"
-        className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
+        className="flex items-center gap-1 px-2 h-6 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span>Re-attach</span>
-        <ArrowUpRight size={12} />
+        <ArrowUpRight className="size-[var(--icon-sm)]" />
       </button>
     </div>
   );

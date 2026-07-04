@@ -5,7 +5,11 @@ import { Copy, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { Badge } from "~/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
+
+const ROW_ACTION_CLASS =
+  "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // One command-library row. Prebuilt rows never offer Edit/Rename/Delete (`canEdit`
 // gates the def's `when` and this row's own hover buttons identically -- the
@@ -71,84 +75,79 @@ export function CommandRow({
 
       {command.pinned && (
         <Pin
-          size={9}
           strokeWidth={2}
           aria-hidden
           data-testid="command-pinned-indicator"
-          className="shrink-0 text-muted-foreground/40"
+          className="shrink-0 size-[var(--icon-sm)] text-muted-foreground/40"
         />
       )}
 
-      <Badge variant="outline" className="shrink-0 text-[0.7rem]" data-testid="command-origin-badge">
+      <Badge variant="outline" className="shrink-0" data-testid="command-origin-badge">
         {command.origin}
       </Badge>
 
       {isDesktop && (
         <div className="flex items-center gap-0.5 shrink-0">
           {canEdit && (
-            <button
-              type="button"
-              aria-label={`Edit ${command.name}`}
-              title="Edit"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(command.id);
-              }}
-              className={cn(
-                "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-              )}
-            >
-              <Pencil size={11} strokeWidth={2} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={`Edit ${command.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(command.id);
+                }}
+                className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+              >
+                <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
+              </TooltipTrigger>
+              <TooltipContent>Edit</TooltipContent>
+            </Tooltip>
           )}
-          <button
-            type="button"
-            aria-label={`Duplicate ${command.name}`}
-            title="Duplicate"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDuplicate(command.id);
-            }}
-            className={cn(
-              "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-            )}
-          >
-            <Copy size={11} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            aria-label={command.pinned ? `Unpin ${command.name}` : `Pin ${command.name}`}
-            title={command.pinned ? "Unpin" : "Pin"}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (command.pinned) onUnpin(command.id);
-              else onPin(command.id);
-            }}
-            className={cn(
-              "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {command.pinned ? <PinOff size={11} strokeWidth={2} /> : <Pin size={11} strokeWidth={2} />}
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              aria-label={`Delete ${command.name}`}
-              title="Delete"
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={`Duplicate ${command.name}`}
               onClick={(e) => {
                 e.stopPropagation();
-                onRequestDelete(command.id, command.name);
+                onDuplicate(command.id);
               }}
-              className={cn(
-                "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-                "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
-              )}
+              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
             >
-              <Trash2 size={11} strokeWidth={2} />
-            </button>
+              <Copy className="size-[var(--icon-sm)]" strokeWidth={2} />
+            </TooltipTrigger>
+            <TooltipContent>Duplicate</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={command.pinned ? `Unpin ${command.name}` : `Pin ${command.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (command.pinned) onUnpin(command.id);
+                else onPin(command.id);
+              }}
+              className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-foreground hover:bg-muted")}
+            >
+              {command.pinned ? (
+                <PinOff className="size-[var(--icon-sm)]" strokeWidth={2} />
+              ) : (
+                <Pin className="size-[var(--icon-sm)]" strokeWidth={2} />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>{command.pinned ? "Unpin" : "Pin"}</TooltipContent>
+          </Tooltip>
+          {canEdit && (
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={`Delete ${command.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRequestDelete(command.id, command.name);
+                }}
+                className={cn(ROW_ACTION_CLASS, "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10")}
+              >
+                <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
           )}
         </div>
       )}

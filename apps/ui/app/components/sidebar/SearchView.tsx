@@ -72,6 +72,14 @@ export function SearchView() {
           autoFocus
           value={term}
           onChange={(e) => setTerm(e.target.value)}
+          // Escape clears this resident search (innermost-overlay rule: it has no
+          // dismiss chrome, so Escape empties it in place).
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && term) {
+              e.preventDefault();
+              setTerm("");
+            }
+          }}
           placeholder="Search projects and sessions…"
           data-testid="search-view-input"
           className="h-7 text-[0.833rem]"
@@ -154,7 +162,9 @@ function ResultRow({
         "text-muted-foreground hover:text-foreground hover:bg-muted/50",
       )}
     >
-      {icon && <MessagesSquare size={11} strokeWidth={2} className="shrink-0 opacity-60" />}
+      {icon && (
+        <MessagesSquare strokeWidth={2} className="shrink-0 opacity-60 size-[var(--icon-sm)]" />
+      )}
       <span className="truncate">{label}</span>
     </button>
   );

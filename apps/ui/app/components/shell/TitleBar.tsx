@@ -1,3 +1,4 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { useSurfaceCommands } from "~/lib/commands/registry";
 import { cn } from "~/lib/utils";
 
@@ -18,21 +19,26 @@ export function TitleBar() {
         {commands.map((command) => {
           const Icon = command.icon;
           return (
-            <button
-              key={command.id}
-              type="button"
-              aria-label={command.title}
-              aria-pressed={command.checked ?? undefined}
-              title={command.title}
-              onClick={() => command.run()}
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground",
-                "hover:bg-muted hover:text-foreground transition-colors duration-[var(--motion-fast)] ease-standard",
-                command.checked && "bg-muted text-foreground",
-              )}
-            >
-              {Icon ? <Icon size={15} /> : <span>{command.title.charAt(0)}</span>}
-            </button>
+            <Tooltip key={command.id}>
+              <TooltipTrigger
+                aria-label={command.title}
+                aria-pressed={command.checked ?? undefined}
+                onClick={() => command.run()}
+                className={cn(
+                  "flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground",
+                  "hover:bg-muted hover:text-foreground transition-colors duration-[var(--motion-fast)] ease-standard",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  command.checked && "bg-muted text-foreground",
+                )}
+              >
+                {Icon ? (
+                  <Icon className="size-[var(--icon-lg)]" />
+                ) : (
+                  <span>{command.title.charAt(0)}</span>
+                )}
+              </TooltipTrigger>
+              <TooltipContent>{command.title}</TooltipContent>
+            </Tooltip>
           );
         })}
       </div>

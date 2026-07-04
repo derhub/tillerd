@@ -13,7 +13,7 @@ export function NewProjectButton({ onClick }: { onClick: () => void }) {
       )}
       title="New project"
     >
-      <FolderPlus size={11} strokeWidth={2} />
+      <FolderPlus strokeWidth={2} className="size-[var(--icon-sm)]" />
       <span>New project</span>
     </button>
   );

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 /// <reference lib="dom" />
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 
+import { TooltipProvider } from "~/components/ui/tooltip";
 import { ACTION } from "~/lib/commands/ids";
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
@@ -50,9 +51,11 @@ function listFrom(initial: Record<string, unknown>): SettingView[] {
 function renderPanel(initial: Record<string, unknown> = {}) {
   const list = listFrom(initial);
   render(
-    <SettingsProvider resolve={() => Promise.resolve(list)}>
-      <KeybindingSettings />
-    </SettingsProvider>,
+    <TooltipProvider>
+      <SettingsProvider resolve={() => Promise.resolve(list)}>
+        <KeybindingSettings />
+      </SettingsProvider>
+    </TooltipProvider>,
   );
   return settingSetCalls;
 }

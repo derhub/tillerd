@@ -7,6 +7,7 @@ import { setQueryClient, setReady } from "@tillerd/client-bindings";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
+import { TooltipProvider } from "~/components/ui/tooltip";
 import { CommandRegistryProvider } from "~/lib/commands/registry";
 import { makeQueryClient } from "~/lib/queryClient";
 
@@ -111,11 +112,13 @@ function renderView() {
   setReady(true);
   return render(
     <QueryClientProvider client={queryClient}>
-      <CommandRegistryProvider>
-        <React.Suspense fallback={null}>
-          <CommandsView />
-        </React.Suspense>
-      </CommandRegistryProvider>
+      <TooltipProvider>
+        <CommandRegistryProvider>
+          <React.Suspense fallback={null}>
+            <CommandsView />
+          </React.Suspense>
+        </CommandRegistryProvider>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -246,17 +249,24 @@ describe("edit", () => {
 });
 
 describe("delete", () => {
-  test("deleting a custom command removes it from the list after confirmation", async () => {
-    commands = [makeCommand({ id: "c-1", name: "Build" })];
-    renderView();
-    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+  // Confirmation round-trip (AlertDialog + mutation settle) already ran close to Bun's 5s
+  // default even before this sweep; the added row Tooltips push it over on a loaded machine,
+  // so this one test gets a longer timeout rather than the whole suite.
+  test(
+    "deleting a custom command removes it from the list after confirmation",
+    async () => {
+      commands = [makeCommand({ id: "c-1", name: "Build" })];
+      renderView();
+      await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
 
-    fireEvent.click(screen.getByLabelText("Delete Build"));
-    await waitFor(() => expect(screen.queryByTestId("command-delete-confirm")).not.toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      fireEvent.click(screen.getByLabelText("Delete Build"));
+      await waitFor(() => expect(screen.queryByTestId("command-delete-confirm")).not.toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
-    await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-  });
+      await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
+    },
+    10000,
+  );
 });
 
 describe("pin", () => {

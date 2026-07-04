@@ -54,7 +54,7 @@ export function PanelZeroState() {
         data-testid="panel-create-project"
         className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
       >
-        <FolderPlus className="size-6 text-muted-foreground/40" aria-hidden />
+        <FolderPlus className="size-[var(--icon-lg)] text-muted-foreground/40" aria-hidden />
         <div className="flex flex-col gap-1">
           <p className="text-sm font-medium">No projects yet</p>
           <p className="text-[0.833rem] text-muted-foreground/60">

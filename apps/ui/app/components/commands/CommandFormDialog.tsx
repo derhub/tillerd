@@ -13,6 +13,10 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+
+const REMOVE_ROW_CLASS =
+  "flex items-center justify-center w-7 h-7 shrink-0 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export interface CommandFormValues {
   name: string;
@@ -140,7 +144,7 @@ export function CommandFormDialog({
                 data-testid="command-form-add-arg"
                 onClick={() => setArgs((prev) => [...prev, ""])}
               >
-                <Plus size={11} />
+                <Plus className="size-[var(--icon-sm)]" />
                 Add
               </Button>
             </div>
@@ -154,14 +158,16 @@ export function CommandFormDialog({
                     setArgs((prev) => prev.map((a, idx) => (idx === i ? e.target.value : a)))
                   }
                 />
-                <button
-                  type="button"
-                  aria-label={`Remove argument ${i + 1}`}
-                  onClick={() => setArgs((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="flex items-center justify-center w-7 h-7 shrink-0 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                >
-                  <X size={12} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    aria-label={`Remove argument ${i + 1}`}
+                    onClick={() => setArgs((prev) => prev.filter((_, idx) => idx !== i))}
+                    className={REMOVE_ROW_CLASS}
+                  >
+                    <X className="size-[var(--icon-sm)]" />
+                  </TooltipTrigger>
+                  <TooltipContent>Remove argument</TooltipContent>
+                </Tooltip>
               </div>
             ))}
           </div>
@@ -177,7 +183,7 @@ export function CommandFormDialog({
                 data-testid="command-form-add-env"
                 onClick={() => setEnvRows((prev) => [...prev, { key: "", value: "" }])}
               >
-                <Plus size={11} />
+                <Plus className="size-[var(--icon-sm)]" />
                 Add
               </Button>
             </div>
@@ -205,14 +211,16 @@ export function CommandFormDialog({
                     )
                   }
                 />
-                <button
-                  type="button"
-                  aria-label={`Remove environment variable ${i + 1}`}
-                  onClick={() => setEnvRows((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="flex items-center justify-center w-7 h-7 shrink-0 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                >
-                  <X size={12} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    aria-label={`Remove environment variable ${i + 1}`}
+                    onClick={() => setEnvRows((prev) => prev.filter((_, idx) => idx !== i))}
+                    className={REMOVE_ROW_CLASS}
+                  >
+                    <X className="size-[var(--icon-sm)]" />
+                  </TooltipTrigger>
+                  <TooltipContent>Remove environment variable</TooltipContent>
+                </Tooltip>
               </div>
             ))}
           </div>

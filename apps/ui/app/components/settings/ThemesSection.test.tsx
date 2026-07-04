@@ -5,6 +5,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
+import { TooltipProvider } from "~/components/ui/tooltip";
 import { makeQueryClient } from "~/lib/queryClient";
 
 // Theme management: list with active indicated, activate/export/delete -- prebuilt themes are
@@ -60,7 +61,9 @@ function renderSection() {
   setReady(true);
   return render(
     <QueryClientProvider client={client}>
-      <ThemesSection />
+      <TooltipProvider>
+        <ThemesSection />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }

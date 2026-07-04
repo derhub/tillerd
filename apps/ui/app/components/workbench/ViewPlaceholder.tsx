@@ -20,7 +20,7 @@ export function ViewPlaceholder({
         </span>
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="size-5 text-muted-foreground/40" aria-hidden />
+        <Icon className="size-[var(--icon-lg)] text-muted-foreground/40" aria-hidden />
         <p className="text-[0.833rem] text-muted-foreground/60">{hint}</p>
       </div>
     </div>

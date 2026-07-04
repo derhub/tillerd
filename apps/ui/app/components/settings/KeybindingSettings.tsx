@@ -1,6 +1,7 @@
 import { RotateCcw } from "lucide-react";
 import React from "react";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { COMMAND_DEFS } from "~/lib/commands/defs";
 import {
   DEFAULT_PRESET,
@@ -40,7 +41,7 @@ function OverrideRow({
         <input
           aria-label={`Binding for ${title}`}
           data-testid={`kb-${id}`}
-          className="w-32 bg-transparent border border-border/40 rounded-sm px-1 py-0.5 text-right tabular-nums"
+          className="w-32 bg-transparent border border-border/40 rounded-sm px-1 py-0.5 text-right tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={value}
           onChange={(e) => setEdit(e.target.value)}
           onBlur={() => {
@@ -51,16 +52,19 @@ function OverrideRow({
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
         />
-        <button
-          type="button"
-          aria-label={`Reset ${title} to default`}
-          data-testid={`kb-${id}-reset`}
-          disabled={!hasOverride}
-          onClick={() => onReset(id)}
-          className="flex items-center justify-center w-5 h-5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-standard"
-        >
-          <RotateCcw size={11} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            aria-label={`Reset ${title} to default`}
+            data-testid={`kb-${id}-reset`}
+            disabled={!hasOverride}
+            onClick={() => onReset(id)}
+            className="flex items-center justify-center w-5 h-5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <RotateCcw className="size-[var(--icon-sm)]" />
+          </TooltipTrigger>
+          <TooltipContent>Reset to default</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
@@ -105,13 +109,15 @@ export function KeybindingSettings() {
   return (
     <div className="flex flex-col gap-2" data-testid="keybinding-settings">
       <div className="flex items-center justify-between gap-3">
-        <div className="font-medium text-foreground">Keybindings</div>
+        <h2 className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
+          Keybindings
+        </h2>
         <button
           type="button"
           data-testid="kb-reset-all"
           disabled={!hasAnyOverride}
           onClick={resetAll}
-          className="text-[0.833rem] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-standard"
+          className="text-[0.833rem] text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           Reset all
         </button>
@@ -121,7 +127,7 @@ export function KeybindingSettings() {
         <span className="text-muted-foreground">Preset</span>
         <select
           aria-label="Keybinding preset"
-          className="bg-transparent border border-border/40 rounded-sm px-1 py-0.5"
+          className="bg-transparent border border-border/40 rounded-sm px-1 py-0.5 outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={isPresetName(preset) ? preset : DEFAULT_PRESET}
           onChange={(e) => setPreset(e.target.value)}
         >

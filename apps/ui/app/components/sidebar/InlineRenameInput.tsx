@@ -18,8 +18,11 @@ export function InlineRenameInput({
   const [value, setValue] = React.useState(initialValue);
   const [error, setError] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Captured pre-focus: Escape must hand focus back to the row that launched the rename.
+  const triggerRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
+    triggerRef.current = document.activeElement as HTMLElement | null;
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
@@ -32,7 +35,10 @@ export function InlineRenameInput({
       }
       onConfirm(value);
     } else if (e.key === "Escape") {
+      const trigger = triggerRef.current;
       onCancel();
+      // Blur-cancel must NOT steal focus back; only Escape restores it to the row.
+      if (trigger?.isConnected) trigger.focus();
     }
   };
 
@@ -52,7 +58,7 @@ export function InlineRenameInput({
       onKeyDown={handleKeyDown}
       onBlur={onCancel}
       className={cn(
-        "flex-1 px-2 py-1 text-sm rounded-sm border-none bg-muted focus:outline-none focus:ring-1 focus:ring-ring",
+        "flex-1 px-2 py-1 text-[0.833rem] rounded-sm border-none bg-muted focus:outline-none focus:ring-1 focus:ring-ring",
         error && "ring-1 ring-red-500",
       )}
       aria-label="Rename input"

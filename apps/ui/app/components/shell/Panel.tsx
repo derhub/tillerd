@@ -177,7 +177,13 @@ function PanelToolbarButton({
 function PanelCloseButton({ totalPanels }: { totalPanels: number }) {
   const { actions } = usePanelContext();
   if (totalPanels <= 1) return null;
-  return <PanelToolbarButton icon={<X size={12} />} label="Close panel" onClick={actions.close} />;
+  return (
+    <PanelToolbarButton
+      icon={<X className="size-[var(--icon-md)]" />}
+      label="Close panel"
+      onClick={actions.close}
+    />
+  );
 }
 
 function PanelContent({ children, className }: { children: React.ReactNode; className?: string }) {

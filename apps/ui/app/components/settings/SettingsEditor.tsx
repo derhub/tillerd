@@ -48,6 +48,7 @@ export function SettingsEditor() {
             onClick={() => select(s.id)}
             className={cn(
               "text-left px-2 h-7 rounded-sm text-[0.917rem] transition-colors duration-[var(--motion-fast)] ease-standard",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               active === s.id
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",

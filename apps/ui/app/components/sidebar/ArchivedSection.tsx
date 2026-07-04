@@ -24,12 +24,12 @@ export function ArchivedSection({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="archived-toggle"
-        className="flex items-center gap-1 px-3 py-0.5 text-[0.75rem] uppercase tracking-wider text-muted-foreground/50 hover:text-foreground"
+        className="flex items-center gap-1 px-3 py-0.5 text-[0.75rem] font-medium uppercase tracking-wider text-muted-foreground/50 hover:text-foreground"
       >
         {open ? (
-          <ChevronDown size={10} strokeWidth={2} />
+          <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
         ) : (
-          <ChevronRight size={10} strokeWidth={2} />
+          <ChevronRight strokeWidth={2} className="size-[var(--icon-sm)]" />
         )}
         <span>Archived ({count})</span>
       </button>
@@ -64,7 +64,7 @@ export function ArchivedRow({
         title="Restore"
         className="opacity-0 group-hover:opacity-100 flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted"
       >
-        <ArchiveRestore size={10} strokeWidth={2} />
+        <ArchiveRestore strokeWidth={2} className="size-[var(--icon-sm)]" />
       </button>
       <button
         type="button"
@@ -73,7 +73,7 @@ export function ArchivedRow({
         title="Delete permanently"
         className="opacity-0 group-hover:opacity-100 flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-destructive hover:bg-muted"
       >
-        <Trash2 size={10} strokeWidth={2} />
+        <Trash2 strokeWidth={2} className="size-[var(--icon-sm)]" />
       </button>
     </div>
   );

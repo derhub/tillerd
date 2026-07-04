@@ -153,7 +153,7 @@ export function CommandsView() {
               setFormTarget("create");
             }}
           >
-            <Plus size={11} />
+            <Plus className="size-[var(--icon-sm)]" />
             New
           </Button>
         )}
@@ -196,7 +196,7 @@ export function CommandsView() {
                 type="button"
                 data-testid="commands-show-more"
                 onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
-                className="text-left text-[0.833rem] text-muted-foreground hover:text-foreground px-3 h-7"
+                className="text-left text-[0.833rem] text-muted-foreground hover:text-foreground px-3 h-7 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Show more ({commands.length - visibleCount} remaining)
               </button>

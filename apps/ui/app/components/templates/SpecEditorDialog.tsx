@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { commandListQuery } from "~/lib/data/commands";
 import {
   isLibraryRef,
@@ -22,6 +23,9 @@ import {
   type LaunchSpec,
 } from "~/lib/launchSpec";
 import { cn } from "~/lib/utils";
+
+const ITEM_ACTION_CLASS =
+  "flex items-center justify-center w-6 h-6 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 function moveItem<T>(items: T[], from: number, to: number): T[] {
   const next = items.slice();
@@ -65,32 +69,43 @@ function ItemEditor({
       <div className="flex items-center gap-2">
         <span className="text-[0.75rem] text-muted-foreground/60 shrink-0">Item {index + 1}</span>
         <div className="flex-1" />
-        <button
-          type="button"
-          aria-label="Move up"
-          disabled={index === 0}
-          onClick={onMoveUp}
-          className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
-        >
-          <ArrowUp size={11} />
-        </button>
-        <button
-          type="button"
-          aria-label="Move down"
-          disabled={index === count - 1}
-          onClick={onMoveDown}
-          className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30"
-        >
-          <ArrowDown size={11} />
-        </button>
-        <button
-          type="button"
-          aria-label={`Remove item ${index + 1}`}
-          onClick={onRemove}
-          className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-        >
-          <X size={12} />
-        </button>
+        <Tooltip>
+          {/* `disabled` on TooltipTrigger only suppresses the tooltip popup, not the
+              rendered element -- pass it through `render` so the button itself is
+              actually disabled (native semantics + the disabled: variant below). */}
+          <TooltipTrigger
+            aria-label="Move up"
+            disabled={index === 0}
+            onClick={onMoveUp}
+            render={<button type="button" disabled={index === 0} />}
+            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30")}
+          >
+            <ArrowUp className="size-[var(--icon-sm)]" />
+          </TooltipTrigger>
+          <TooltipContent>Move up</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            aria-label="Move down"
+            disabled={index === count - 1}
+            onClick={onMoveDown}
+            render={<button type="button" disabled={index === count - 1} />}
+            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30")}
+          >
+            <ArrowDown className="size-[var(--icon-sm)]" />
+          </TooltipTrigger>
+          <TooltipContent>Move down</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            aria-label={`Remove item ${index + 1}`}
+            onClick={onRemove}
+            className={cn(ITEM_ACTION_CLASS, "text-muted-foreground hover:text-destructive hover:bg-destructive/10")}
+          >
+            <X className="size-[var(--icon-sm)]" />
+          </TooltipTrigger>
+          <TooltipContent>Remove item</TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="flex items-center gap-1">
@@ -99,7 +114,7 @@ function ItemEditor({
           aria-pressed={isLibrary}
           onClick={() => onChange({ ...item, command: { library_ref: "" } })}
           className={cn(
-            "h-6 px-2 rounded-sm text-[0.75rem]",
+            "h-6 px-2 rounded-sm text-[0.75rem] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             isLibrary ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50",
           )}
         >
@@ -110,7 +125,7 @@ function ItemEditor({
           aria-pressed={!isLibrary}
           onClick={() => onChange({ ...item, command: { executable: "", args: [] } })}
           className={cn(
-            "h-6 px-2 rounded-sm text-[0.75rem]",
+            "h-6 px-2 rounded-sm text-[0.75rem] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             !isLibrary ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50",
           )}
         >
@@ -124,7 +139,7 @@ function ItemEditor({
           data-testid="spec-item-command"
           value={isLibraryRef(item.command) ? item.command.library_ref : ""}
           onChange={(e) => onChange({ ...item, command: { library_ref: e.target.value } })}
-          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-[0.833rem]"
+          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-[0.833rem] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="">Select a command…</option>
           {commands.map((c) => (
@@ -254,7 +269,7 @@ export function SpecEditorDialog({
             data-testid="spec-add-item"
             onClick={() => setItems((prev) => [...prev, newLibraryItem()])}
           >
-            <Plus size={12} />
+            <Plus className="size-[var(--icon-md)]" />
             Add item
           </Button>
         </div>

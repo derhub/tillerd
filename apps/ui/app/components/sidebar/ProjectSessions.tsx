@@ -56,7 +56,7 @@ export function ProjectSessions({
   }
 
   return (
-    <div className="flex flex-col gap-px">
+    <div role="group" className="flex flex-col gap-px">
       {active.map((s) => (
         <SessionRow
           key={s.id}

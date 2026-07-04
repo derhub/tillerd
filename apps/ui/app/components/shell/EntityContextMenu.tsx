@@ -89,7 +89,7 @@ export function EntityContextMenu({
                 variant={command.group === "destructive" ? "destructive" : "default"}
                 onClick={() => command.run(runArgs)}
               >
-                {Icon && <Icon size={12} />}
+                {Icon && <Icon className="size-[var(--icon-sm)]" />}
                 <span>{command.title}</span>
               </ContextMenuItem>
             </React.Fragment>

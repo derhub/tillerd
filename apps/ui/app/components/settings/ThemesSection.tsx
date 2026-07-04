@@ -6,6 +6,7 @@ import { Download, Trash2, Upload } from "lucide-react";
 import React from "react";
 
 import { Button } from "~/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 
 export interface ThemesListProps {
@@ -33,9 +34,11 @@ export function ThemesList({ themes, activeId, onActivate, onExport, onDelete }:
         >
           <button
             type="button"
+            aria-current={t.id === activeId ? "true" : undefined}
             onClick={() => onActivate(t.id)}
             className={cn(
               "flex-1 text-left truncate text-[0.917rem] px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               t.id === activeId
                 ? "font-medium bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -52,24 +55,30 @@ export function ThemesList({ themes, activeId, onActivate, onExport, onDelete }:
               Active
             </span>
           )}
-          <button
-            type="button"
-            aria-label={`Export ${t.name}`}
-            onClick={() => onExport(t.id)}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            <Download size={12} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              aria-label={`Export ${t.name}`}
+              onClick={() => onExport(t.id)}
+              className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Download className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>Export</TooltipContent>
+          </Tooltip>
           {/* Prebuilt themes carry no delete affordance -- the spec's prebuilt guard. */}
           {t.origin === "custom" && (
-            <button
-              type="button"
-              aria-label={`Delete ${t.name}`}
-              onClick={() => onDelete(t.id)}
-              className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 size={12} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger
+                type="button"
+                aria-label={`Delete ${t.name}`}
+                onClick={() => onDelete(t.id)}
+                className="flex items-center justify-center w-6 h-6 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <Trash2 className="size-[var(--icon-sm)]" />
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
           )}
         </li>
       ))}
@@ -172,7 +181,7 @@ export function ThemesSection() {
             }}
           />
           <Button variant="ghost" size="xs" onClick={() => fileInputRef.current?.click()}>
-            <Upload size={11} />
+            <Upload className="size-[var(--icon-sm)]" />
             Import
           </Button>
         </div>

@@ -6,6 +6,7 @@ import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
+import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
 import { useSessionBadge, type SessionBadge } from "~/lib/sessionStatus";
 import { cn } from "~/lib/utils";
@@ -21,19 +22,22 @@ const BADGE_CLASS: Record<SessionBadge, string> = {
 
 function ActiveSessionLink({
   sessionId,
+  isActive,
   onDoubleClick,
   children,
 }: {
   sessionId: string;
+  isActive: boolean;
   onDoubleClick?: () => void;
   children: React.ReactNode;
 }) {
-  const state = useRouterState();
-  const isActive = state.location.pathname === `/session/${sessionId}`;
   return (
     <Link
       to={`/session/${sessionId}` as never}
       onDoubleClick={onDoubleClick}
+      // The treeitem row owns focus (roving tabindex); the link is activated via
+      // its Enter handler, so it stays out of the tab order.
+      tabIndex={-1}
       className={cn(
         "flex items-center gap-2 flex-1 h-7 text-[0.917rem] rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard min-w-0",
         isActive
@@ -70,6 +74,9 @@ export function SessionRow({
   const label = session.title || session.id.slice(0, 8);
   const [dragOver, setDragOver] = React.useState(false);
   const badge = useSessionBadge(session.id);
+  const { activeId, setActiveId } = useTreeNav();
+  const routerState = useRouterState();
+  const isActive = routerState.location.pathname === `/session/${session.id}`;
 
   if (isEditing) {
     return (
@@ -88,6 +95,15 @@ export function SessionRow({
       entityId={session.id}
       entityKind="session"
       args={{ label, projectId }}
+      role="treeitem"
+      aria-level={2}
+      aria-selected={isActive}
+      aria-label={label}
+      data-tree-id={session.id}
+      data-level="2"
+      data-parent-id={projectId}
+      tabIndex={activeId === session.id ? 0 : -1}
+      onFocus={() => setActiveId(session.id)}
       guards={{ "menu.pinned": session.pinned }}
       disabled={!isDesktop}
       draggable={isDesktop}
@@ -124,7 +140,7 @@ export function SessionRow({
         dragOver && "ring-1 ring-ring",
       )}
     >
-      <ActiveSessionLink sessionId={session.id} onDoubleClick={onStartEdit}>
+      <ActiveSessionLink sessionId={session.id} isActive={isActive} onDoubleClick={onStartEdit}>
         <span
           data-testid="session-status"
           data-status={badge}
@@ -135,16 +151,16 @@ export function SessionRow({
 
       {session.pinned && (
         <Pin
-          size={9}
           strokeWidth={2}
           aria-hidden
           data-testid="session-pinned-indicator"
-          className="shrink-0 text-muted-foreground/40"
+          className="shrink-0 text-muted-foreground/40 size-[var(--icon-sm)]"
         />
       )}
       {isDesktop && (
         <button
           type="button"
+          tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onArchive();
@@ -155,7 +171,7 @@ export function SessionRow({
           )}
           title="Archive session"
         >
-          <Archive size={10} strokeWidth={2} />
+          <Archive strokeWidth={2} className="size-[var(--icon-sm)]" />
         </button>
       )}
     </EntityContextMenu>

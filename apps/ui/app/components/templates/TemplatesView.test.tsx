@@ -7,6 +7,7 @@ import { setQueryClient, setReady } from "@tillerd/client-bindings";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
+import { TooltipProvider } from "~/components/ui/tooltip";
 import { CommandRegistryProvider } from "~/lib/commands/registry";
 import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec, type LaunchSpec } from "~/lib/launchSpec";
 import { makeQueryClient } from "~/lib/queryClient";
@@ -132,11 +133,13 @@ function renderView() {
   setReady(true);
   return render(
     <QueryClientProvider client={queryClient}>
-      <CommandRegistryProvider>
-        <React.Suspense fallback={null}>
-          <TemplatesView />
-        </React.Suspense>
-      </CommandRegistryProvider>
+      <TooltipProvider>
+        <CommandRegistryProvider>
+          <React.Suspense fallback={null}>
+            <TemplatesView />
+          </React.Suspense>
+        </CommandRegistryProvider>
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
@@ -231,21 +234,28 @@ describe("project launch templates", () => {
     expect(calls.some((c) => c.cmd === "launch_template_create")).toBe(false);
   });
 
-  test("discarding a launch template removes it from the project", async () => {
-    setActiveProject(PROJECT_ID);
-    commands = [makeCommand({ id: "cmd-1", name: "Build" })];
-    launchTemplates = [
-      { id: "lt-1", projectId: PROJECT_ID, specVersion: CURRENT_SPEC_VERSION, specJson: serializeLaunchSpec(specWithCommand("cmd-1")) },
-    ];
-    renderView();
-    await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
+  // Confirmation round-trip (AlertDialog + mutation settle) already runs close to Bun's 5s
+  // default even before this sweep; the added row Tooltip pushes it closer on a loaded
+  // machine, so this one test gets a longer timeout rather than the whole suite.
+  test(
+    "discarding a launch template removes it from the project",
+    async () => {
+      setActiveProject(PROJECT_ID);
+      commands = [makeCommand({ id: "cmd-1", name: "Build" })];
+      launchTemplates = [
+        { id: "lt-1", projectId: PROJECT_ID, specVersion: CURRENT_SPEC_VERSION, specJson: serializeLaunchSpec(specWithCommand("cmd-1")) },
+      ];
+      renderView();
+      await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
 
-    fireEvent.click(screen.getByLabelText("Discard Build"));
-    await waitFor(() => expect(screen.queryByTestId("launch-template-discard-confirm")).not.toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+      fireEvent.click(screen.getByLabelText("Discard Build"));
+      await waitFor(() => expect(screen.queryByTestId("launch-template-discard-confirm")).not.toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
-    await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-  });
+      await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
+    },
+    10000,
+  );
 });
 
 describe("import", () => {

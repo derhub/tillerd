@@ -36,10 +36,11 @@ export function EmptyPanel({ onSpawn, disabled }: { onSpawn: () => void; disable
             className={cn(
               "flex items-center gap-3 rounded-sm border border-border/60 px-3 py-2.5 text-left",
               "hover:border-primary/50 hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:opacity-40 disabled:pointer-events-none",
             )}
           >
-            <kind.icon size={16} className="text-muted-foreground shrink-0" />
+            <kind.icon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
             <span className="flex flex-col min-w-0">
               <span className="text-[0.917rem] text-foreground">{kind.label}</span>
               <span className="text-[0.75rem] text-muted-foreground/60 truncate">

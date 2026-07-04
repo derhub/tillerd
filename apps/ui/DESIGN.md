@@ -432,6 +432,50 @@ Every color token has a light-mode counterpart (`light-2026.css`, `:root`) mirro
 - **The terminal palette is exempt** — `terminal-*` tokens stay GitHub-dark in both themes, so the
   terminal canvas is dark even in light mode (by design; do not theme it).
 
+## Contrast (WCAG AA)
+
+Verified token pairings for every fg/bg combination actually used in chrome, both themes.
+Thresholds: 4.5:1 normal text, 3:1 large text / UI components (WCAG 2 AA). Token *values* are
+frozen at 0.0.6 — failures below are recorded as findings, not fixed by changing palette values.
+
+| Pair (fg on bg) | Kind | Dark | Light |
+|---|---|---|---|
+| foreground / background | text | 9.48:1 PASS | 15.64:1 PASS |
+| muted-foreground / background | text | 5.18:1 PASS | 6.04:1 PASS |
+| foreground / card | text | 8.77:1 PASS | 16.29:1 PASS |
+| muted-foreground / card | text | 4.80:1 PASS | 6.29:1 PASS |
+| popover-foreground / popover | text | 8.77:1 PASS | 16.29:1 PASS |
+| muted-foreground / popover | text | 4.80:1 PASS | 6.29:1 PASS |
+| foreground / muted | text | 7.50:1 PASS | 13.54:1 PASS |
+| muted-foreground / muted | text | 4.10:1 **FAIL** | 5.23:1 PASS |
+| foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
+| secondary-foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
+| accent-foreground / accent | text | 11.79:1 PASS | 11.66:1 PASS |
+| primary-foreground / primary | text | 4.79:1 PASS | 5.39:1 PASS |
+| destructive / background | text | 7.10:1 PASS | 7.17:1 PASS |
+| destructive / card | text | 6.57:1 PASS | 7.47:1 PASS |
+| destructive / muted | text | 5.62:1 PASS | 6.21:1 PASS |
+| ring / background | ui (3:1) | 5.09:1 PASS | 5.18:1 PASS |
+| ring / card | ui (3:1) | 4.71:1 PASS | 5.39:1 PASS |
+| border / background | ui (3:1) | 1.23:1 **FAIL** | 1.21:1 **FAIL** |
+
+**Findings:**
+- `muted-foreground` on `muted` fails AA in dark mode only (4.10:1, needs 4.5:1). Audited every
+  usage in swept chrome: every static occurrence pairs `bg-muted` with `text-foreground` (the
+  ghost-hover pattern always flips text to `foreground` on the same transition that applies
+  `bg-muted`), so this pairing is never rendered at rest — recorded as a finding, no usage change
+  needed. If a future component pairs `muted-foreground` text directly on a resting `bg-muted`
+  surface in dark mode, it will fail AA and must use `foreground` instead.
+- `border` on `background` fails the 3:1 UI-component threshold in both themes (1.2:1) — the
+  1px border token is a low-contrast hairline by design (DESIGN.md: borders read as tonal
+  separators, not shape-defining outlines). Per WCAG 1.4.11, this applies to graphical objects
+  required to identify a UI component; treated as a design tradeoff for decorative/structural
+  separators (panel edges, dividers) rather than a required affordance boundary. Where a border
+  is the *only* affordance for an interactive control (e.g. `button-outline`), the control is
+  never presented without accompanying text and a visible focus ring (`ring` token, which
+  independently passes 3:1 above), so operability doesn't depend on the border being perceivable.
+  Token value is frozen — no fix available without a palette change; recorded as a known finding.
+
 ## Do's and Don'ts
 
 - Do use {colors.border} 1px borders for all surface separation — never
