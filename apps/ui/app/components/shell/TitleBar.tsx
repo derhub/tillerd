@@ -1,25 +1,20 @@
 import { useSurfaceCommands } from "~/lib/commands/registry";
 import { cn } from "~/lib/utils";
 
-// The top band of the window. The OS draws the native window controls at the top
-// left (macOS traffic lights, via `titleBarStyle: "Overlay"`), so this component
-// draws no control buttons -- the left area is just a drag region the controls sit
-// over. The command toolbar is right-aligned at the end of the title bar. The bar
-// stays near the native macOS title-bar height (h-8 / 32px) so the vertically
-// centered toolbar lines up with the OS traffic lights (which the OS pins near the
-// top and cannot be moved without a plugin); a taller bar would leave dead space
-// below the lights. The toolbar projects the commands tagged for the `titlebar`
-// surface, so adding a button is a command-definition edit, not a change here.
+// No left buttons: `titleBarStyle: "Overlay"` makes the OS draw the macOS traffic
+// lights top-left over a bare drag region. The lights are OS-pinned and unmovable, so
+// `--toolbar-height` and the toolbar's `pr-5` are tuned to align with and mirror them.
 export function TitleBar() {
   const commands = useSurfaceCommands("titlebar");
 
   return (
     <div
       data-tauri-drag-region
-      className="flex h-8 shrink-0 items-center border-b border-border/40 bg-background select-none"
+      style={{ height: "var(--toolbar-height, 2.333rem)" }}
+      className="flex shrink-0 items-center border-b border-border/40 bg-background select-none"
     >
       <div data-tauri-drag-region className="flex-1 self-stretch" />
-      <div className="flex items-center gap-1 pr-3">
+      <div className="flex items-center gap-1 pr-5">
         {commands.map((command) => {
           const Icon = command.icon;
           return (
