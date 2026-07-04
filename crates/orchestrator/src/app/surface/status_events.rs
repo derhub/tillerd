@@ -33,6 +33,11 @@ struct SurfaceStatusChanged<'a> {
 /// caller's responsibility to supply -- the entity chain (surface -> session ->
 /// project -> workspace) is FK-enforced, so every call site either already has it
 /// in scope or resolves it once via `workspace_id_for_session`/`workspace_id_for_surface`.
+///
+/// Every production call site that passes `Live` does so right after a
+/// successful `runtime.spawn()` (fresh spawn goes through
+/// `confirm_spawn_and_emit` below instead) -- a respawn of an existing
+/// idle/failed row, so `spawned_at` is stamped here too.
 pub async fn update_status_and_emit(
     cx: &Ctx,
     id: &SurfaceId,
@@ -40,13 +45,17 @@ pub async fn update_status_and_emit(
     status: SurfaceStatus,
 ) -> Result<()> {
     SurfaceRepo::update_status(cx.db(), id, status).await?;
+    if status == SurfaceStatus::Live {
+        SurfaceRepo::set_spawned_at(cx.db(), id, super::common::now_ms()).await?;
+    }
     emit_status(cx, id, workspace_id, status).await;
     Ok(())
 }
 
 /// Confirm a fresh spawn: `pending -> live` only. An immediately-dying PTY's
 /// exit frame can land before this confirmation; the conditional write loses to
-/// that terminal record instead of resurrecting a dead surface as live.
+/// that terminal record instead of resurrecting a dead surface as live. Stamps
+/// `spawned_at` in the same call, only when the transition actually lands.
 pub async fn confirm_spawn_and_emit(
     cx: &Ctx,
     id: &SurfaceId,
@@ -56,6 +65,7 @@ pub async fn confirm_spawn_and_emit(
         SurfaceRepo::update_status_from(cx.db(), id, SurfaceStatus::Pending, SurfaceStatus::Live)
             .await?;
     if transitioned {
+        SurfaceRepo::set_spawned_at(cx.db(), id, super::common::now_ms()).await?;
         emit_status(cx, id, workspace_id, SurfaceStatus::Live).await;
     }
     Ok(())
@@ -286,6 +296,83 @@ mod tests {
         assert!(
             sink.0.lock().unwrap().is_empty(),
             "no live push for a confirmation that did not transition"
+        );
+    }
+
+    // Scenario: spawned_at is null until a spawn is confirmed, then stamped.
+    #[tokio::test]
+    async fn confirm_spawn_stamps_spawned_at() {
+        let cx = ctx().await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
+
+        let (before,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(surface_id.as_str())
+                .fetch_one(cx.db())
+                .await
+                .unwrap();
+        assert_eq!(before, None, "pending surface has no spawn timestamp yet");
+
+        confirm_spawn_and_emit(&cx, &surface_id, &workspace_id)
+            .await
+            .unwrap();
+
+        let (after,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(surface_id.as_str())
+                .fetch_one(cx.db())
+                .await
+                .unwrap();
+        assert!(after.is_some(), "confirmed spawn must stamp spawned_at");
+    }
+
+    // Scenario: a lost confirm race (dead-on-arrival PTY) must not stamp a
+    // spawn that never actually transitioned to live.
+    #[tokio::test]
+    async fn confirm_spawn_does_not_stamp_spawned_at_when_it_loses_the_race() {
+        let cx = ctx().await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
+
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Failed)
+            .await
+            .unwrap();
+
+        confirm_spawn_and_emit(&cx, &surface_id, &workspace_id)
+            .await
+            .unwrap();
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(surface_id.as_str())
+                .fetch_one(cx.db())
+                .await
+                .unwrap();
+        assert_eq!(
+            spawned_at, None,
+            "a confirmation that lost the race must not stamp a spawn time"
+        );
+    }
+
+    // Scenario: a respawn (resume/reconcile path) stamps spawned_at via the
+    // generic Live transition, not just the pending->live confirm path.
+    #[tokio::test]
+    async fn live_transition_via_update_status_and_emit_stamps_spawned_at() {
+        let cx = ctx().await;
+        let (surface_id, workspace_id) = seed_surface(&cx).await;
+
+        update_status_and_emit(&cx, &surface_id, &workspace_id, SurfaceStatus::Live)
+            .await
+            .unwrap();
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(surface_id.as_str())
+                .fetch_one(cx.db())
+                .await
+                .unwrap();
+        assert!(
+            spawned_at.is_some(),
+            "a respawn's Live transition must stamp spawned_at"
         );
     }
 

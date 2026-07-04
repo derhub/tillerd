@@ -1,4 +1,3 @@
-import type { FitAddon } from "@xterm/addon-fit";
 import type { SurfaceChannelHandle } from "@tillerd/client-bindings";
 import type { IDisposable, Terminal } from "@xterm/xterm";
 

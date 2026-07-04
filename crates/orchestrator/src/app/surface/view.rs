@@ -5,6 +5,10 @@ use serde::Serialize;
 ///
 /// `kind` and `status` are the stored string columns (`terminal`/`diff` and
 /// `pending`/`live`/`idle`/`failed`); the read path needs no enum round-trip.
+///
+/// `spawned_at` is the millis at which the row's PTY was last confirmed
+/// running (elapsed-since-spawn in the panel title, ui-panel-compound spec);
+/// `None` before any spawn has ever been confirmed for this row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
@@ -15,6 +19,7 @@ pub struct SurfaceView {
     pub cwd: Option<String>,
     pub status: String,
     pub placement: Option<String>,
+    pub spawned_at: Option<i64>,
 }
 
 impl SurfaceView {

@@ -87,6 +87,7 @@ export const commands = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 } | null, string>(__TAURI_INVOKE("surface_get", args)),
 	surfaceListBySession: (args: { session: string; limit: number | null; offset: number | null; after: string | null }) => typedError<SurfaceView[], string>(__TAURI_INVOKE("surface_list_by_session", args)),
 	surfaceListResumable: () => typedError<SurfaceView[], string>(__TAURI_INVOKE("surface_list_resumable")),
@@ -97,6 +98,7 @@ export const commands = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 } | null, string>(__TAURI_INVOKE("surface_find_by_placement", args)),
 	surfaceStop: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_stop", args)),
 	surfaceSwapPlacement: (args: { session: string; placementA: string; placementB: string }) => typedError<null, string>(__TAURI_INVOKE("surface_swap_placement", args)),
@@ -472,6 +474,10 @@ export type SurfaceClientMsg = { kind: "input"; bytes: number[] } | { kind: "res
  * 
  *  `kind` and `status` are the stored string columns (`terminal`/`diff` and
  *  `pending`/`live`/`idle`/`failed`); the read path needs no enum round-trip.
+ * 
+ *  `spawned_at` is the millis at which the row's PTY was last confirmed
+ *  running (elapsed-since-spawn in the panel title, ui-panel-compound spec);
+ *  `None` before any spawn has ever been confirmed for this row.
  */
 export type SurfaceView = {
 	id: string,
@@ -480,6 +486,7 @@ export type SurfaceView = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 };
 
 /**

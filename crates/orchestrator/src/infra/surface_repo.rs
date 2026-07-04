@@ -202,6 +202,23 @@ impl SurfaceRepo {
         Ok(result.rows_affected() > 0)
     }
 
+    /// Stamp the millis at which the row's PTY was last confirmed running
+    /// (elapsed-since-spawn display, ui-panel-compound spec). Only ever moves
+    /// forward on a real spawn/respawn -- never cleared on stop/exit, so the
+    /// last known spawn moment survives an idle/failed transition.
+    pub async fn set_spawned_at<'e>(
+        exec: impl SqliteExecutor<'e>,
+        id: &SurfaceId,
+        spawned_at_ms: i64,
+    ) -> Result<()> {
+        sqlx::query("UPDATE surface SET spawned_at = ? WHERE id = ?")
+            .bind(spawned_at_ms)
+            .bind(id.as_str())
+            .execute(exec)
+            .await?;
+        Ok(())
+    }
+
     /// Fetch the surface bound to a session + placement slot, if any. Executor-generic
     /// so `SwapPlacement` can resolve both sides on the pool, then rebind them inside
     /// one transaction via `update_placement`.
@@ -411,6 +428,42 @@ mod tests {
 
         let fetched = SurfaceRepo::get(&pool, &created.id).await.unwrap().unwrap();
         assert_eq!(fetched.status, SurfaceStatus::Idle);
+    }
+
+    // Scenario: a fresh row has no spawn timestamp until stamped.
+    #[tokio::test]
+    async fn spawned_at_is_null_before_it_is_stamped() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-sp1").await;
+        let created = new_terminal(&pool, &sess).await;
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(created.id.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(spawned_at, None);
+    }
+
+    // Scenario: stamping persists the exact millis passed in.
+    #[tokio::test]
+    async fn set_spawned_at_persists_the_stamp() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-sp2").await;
+        let created = new_terminal(&pool, &sess).await;
+
+        SurfaceRepo::set_spawned_at(&pool, &created.id, 1_700_000_000_000)
+            .await
+            .unwrap();
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(created.id.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(spawned_at, Some(1_700_000_000_000));
     }
 
     #[tokio::test]

@@ -14,7 +14,7 @@ impl Query<Ctx> for ListResumableSurfaces {
     type Out = Vec<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, SurfaceView>(
-            "SELECT id, session_id, kind, cwd, status, placement
+            "SELECT id, session_id, kind, cwd, status, placement, spawned_at
              FROM surface WHERE status != 'live'
              ORDER BY created_at ASC",
         )

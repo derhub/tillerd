@@ -84,7 +84,7 @@
 
 ## 8. Panel and terminal polish
 
-- [ ] 8.1 Panel title: session name + surface kind + elapsed since spawn (orchestrator
+- [x] 8.1 Panel title: session name + surface kind + elapsed since spawn (orchestrator
   `spawned_at`); toolbar tooltips on all icon buttons
 - [x] 8.2 Close-surface confirmation dialog with persisted don't-ask-again; hard remove
   (spec item dropped, PTY terminated)

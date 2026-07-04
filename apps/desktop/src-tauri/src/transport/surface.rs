@@ -334,10 +334,19 @@ mod tests {
             cwd: None,
             status: "live".into(),
             placement: Some("main".into()),
+            spawned_at: Some(1_700_000_000_000),
         };
         assert_keys(
             &serde_json::to_value(s).unwrap(),
-            &["id", "sessionId", "kind", "cwd", "status", "placement"],
+            &[
+                "id",
+                "sessionId",
+                "kind",
+                "cwd",
+                "status",
+                "placement",
+                "spawnedAt",
+            ],
         );
     }
 }

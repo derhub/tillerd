@@ -159,7 +159,7 @@ mod tests {
         let surface = sqlx::query_as::<_, crate::app::surface::SurfaceView>(
             "INSERT INTO surface (id, session_id, kind, cwd, status, placement)
              VALUES ('sf_1', ?, 'terminal', '/work', 'live', 'main')
-             RETURNING id, session_id, kind, cwd, status, placement",
+             RETURNING id, session_id, kind, cwd, status, placement, spawned_at",
         )
         .bind(&session)
         .fetch_one(&h.pool)
@@ -197,7 +197,7 @@ mod tests {
         let surface = sqlx::query_as::<_, crate::app::surface::SurfaceView>(
             "INSERT INTO surface (id, session_id, kind, cwd, status, placement)
              VALUES ('sf_2', ?, 'terminal', '/work', 'live', 'main')
-             RETURNING id, session_id, kind, cwd, status, placement",
+             RETURNING id, session_id, kind, cwd, status, placement, spawned_at",
         )
         .bind(&session)
         .fetch_one(&h.pool)

@@ -10,6 +10,15 @@ pub(super) fn default_cwd() -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_owned())
 }
 
+/// Wall-clock millis for stamping `surface.spawned_at` at the moment the PTY
+/// is confirmed running (elapsed-since-spawn display, ui-panel-compound spec).
+pub(super) fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 pub(super) async fn require_surface(cx: &Ctx, id: &SurfaceId) -> Result<Surface> {
     SurfaceRepo::get(cx.db(), id)
         .await?

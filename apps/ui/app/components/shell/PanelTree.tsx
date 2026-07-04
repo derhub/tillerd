@@ -1,12 +1,30 @@
+import { useQueries } from "@tanstack/react-query";
+import { query } from "@tillerd/client-bindings";
 import { ArrowUpRight, Columns2, ExternalLink, Rows2 } from "lucide-react";
 import React from "react";
 
-import { DRAG_PANEL_LEAF, type PanelContent, type PanelGroupNode, type PanelLeaf, type PanelNode } from "~/lib/panelTree";
+import {
+  collectLeaves,
+  DRAG_PANEL_LEAF,
+  type PanelContent,
+  type PanelGroupNode,
+  type PanelLeaf,
+  type PanelNode,
+} from "~/lib/panelTree";
+import { formatElapsed } from "~/lib/formatElapsed";
+import { useElapsedTick } from "~/lib/useElapsedTick";
 
 import { EmptyPanel } from "~/components/shell/EmptyPanel";
 import { Panel } from "~/components/shell/Panel";
 import { PanelGroup, PanelGroupTabsRoot } from "~/components/shell/PanelGroup";
 import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
+
+// Panel title content (ui-panel-compound spec): session name + surface kind, plus elapsed time
+// since the surface's PTY spawned once known. Hidden when spawnedAt is null (never spawned yet).
+function terminalTitle(sessionTitle: string | undefined, spawnedAt: number | null, now: number): string {
+  const base = `${sessionTitle ?? "Session"} · Terminal`;
+  return spawnedAt == null ? base : `${base} · ${formatElapsed(spawnedAt, now)}`;
+}
 
 export function PanelTree({
   tree,
@@ -43,6 +61,26 @@ export function PanelTree({
   // (panel-placement-swap spec: geometry is unchanged, only the surface binding swaps).
   const [draggingLeafId, setDraggingLeafId] = React.useState<string | null>(null);
   const [dropTargetLeafId, setDropTargetLeafId] = React.useState<string | null>(null);
+
+  // Elapsed-since-spawn for the panel title (ui-panel-compound spec): one query per terminal
+  // leaf's already-bound surface (cached, no polling) plus one coarse 30s tick for this whole
+  // panel area to keep the displayed "Xm"/"Xh Ym" text current.
+  const terminalPlacements = React.useMemo(
+    () =>
+      collectLeaves(tree).flatMap((leaf) => (leaf.content.type === "terminal" ? [leaf.content.placement] : [])),
+    [tree],
+  );
+  const surfaceQueries = useQueries({
+    queries: terminalPlacements.map((placement) => ({
+      ...query("surfaceFindByPlacement", { session: sessionId ?? "", placement }),
+      enabled: Boolean(sessionId),
+    })),
+  });
+  const spawnedAtByPlacement = new Map<string, number | null>(
+    terminalPlacements.map((placement, i) => [placement, surfaceQueries[i]?.data?.spawnedAt ?? null]),
+  );
+  const now = useElapsedTick();
+
   function renderNode(node: PanelNode, path: string): React.ReactNode {
     return node.kind === "group" ? renderGroup(node, path) : renderLeaf(node);
   }
@@ -125,11 +163,12 @@ export function PanelTree({
   }
 
   function renderLeaf(leaf: PanelLeaf): React.ReactNode {
-    // Title content (ui-panel-compound "Panel title content"): session name + surface kind.
-    // Elapsed-since-spawn is not included -- SurfaceView carries no spawn timestamp yet (see
-    // report); revisit once the orchestrator exposes one.
+    // Title content (ui-panel-compound "Panel title content"): session name + surface kind +
+    // elapsed time since the surface's PTY spawned (hidden while spawned_at is null).
     const title =
-      leaf.content.type === "terminal" ? `${sessionTitle ?? "Session"} · Terminal` : "Empty";
+      leaf.content.type === "terminal"
+        ? terminalTitle(sessionTitle, spawnedAtByPlacement.get(leaf.content.placement) ?? null, now)
+        : "Empty";
     const actions = {
       split: (direction: "horizontal" | "vertical") => onSplit(leaf.id, direction),
       close: () => onClose(leaf),
