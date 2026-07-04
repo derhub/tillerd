@@ -3,14 +3,15 @@ import { expect, test } from "bun:test";
 import { createProject, openTerminal } from "./helpers";
 import { getApp } from "./shared-app";
 
-// The notification bell sits in the status bar's right cluster. A live lifecycle event (here, a
-// spawned terminal -> "surface-started") raises an unread badge; clicking the bell opens the bottom
-// panel's Notifications tab, clears the unread count, and a session notification's row client-side
-// navigates to that session. Bottom-panel open, the unread badge, and the in-panel link navigation
-// are real-webview concerns (happy-dom has no layout/router), so they live here; row content is
-// unit-tested.
+// The notification bell sits in the status bar's right cluster. Info-severity lifecycle events
+// (here, a spawned terminal -> "surface-started") land in the feed WITHOUT badging -- the unread
+// badge is reserved for warning/error severities, so a fresh boot or routine spawn never lights
+// the bell. Clicking the bell opens the bottom panel's Notifications tab and a session
+// notification's row client-side navigates to that session. Bottom-panel open, badge suppression,
+// and the in-panel link navigation are real-webview concerns (happy-dom has no layout/router), so
+// they live here; badge-positive severity rules are unit-tested against the store.
 
-test("a live event badges the bell; opening clears it and a session row navigates", async () => {
+test("an info event lands in the feed without badging; a session row navigates", async () => {
   const b = getApp();
 
   // Create a session and spawn a terminal -- the spawn raises a live "surface-started"
@@ -20,9 +21,10 @@ test("a live event badges the bell; opening clears it and a session row navigate
   expect(sessionId).not.toBe("");
   await openTerminal(b);
 
-  // The live event increments the unread badge.
-  const badge = await b.$('[data-testid="notification-unread"]');
-  await badge.waitForExist({ timeout: 15_000 });
+  // The info event must NOT light the badge (only warning/error do). Give the event time to
+  // arrive, then assert the badge stayed absent.
+  await b.pause(2_000);
+  expect(await (await b.$('[data-testid="notification-unread"]')).isExisting()).toBe(false);
 
   // Leave the session so the click-through has somewhere to navigate from.
   await b.execute(() => {
@@ -34,15 +36,10 @@ test("a live event badges the bell; opening clears it and a session row navigate
     timeoutMsg: "did not leave the session route",
   });
 
-  // Open the bell: the bottom panel's Notifications tab lists notifications and opening clears
-  // the unread count.
+  // Open the bell: the bottom panel's Notifications tab lists the feed (badge or not).
   await (await b.$('[aria-label^="Notifications"]')).click();
   const panel = await b.$('[data-testid="notification-panel"]');
   await panel.waitForExist({ timeout: 10_000 });
-  await b.waitUntil(
-    async () => !(await (await b.$('[data-testid="notification-unread"]')).isExisting()),
-    { timeout: 10_000, timeoutMsg: "unread badge did not clear on open" },
-  );
 
   // The session notification row client-side navigates back to that session (no hard tauri:// load).
   const row = await b.$(`a[href="/session/${sessionId}"]`);
