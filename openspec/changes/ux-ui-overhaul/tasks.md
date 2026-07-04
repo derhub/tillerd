@@ -139,12 +139,12 @@
   the item to the session's launch spec (ADR-0030 divergence); transport + bindings
 - [ ] 12.3 New-session flow: template picker (empty / project launch templates /
   library templates); per-project default-template setting honored
-- [ ] 12.4 Empty panel picker lists Terminal (login shell) + command-library entries
+- [x] 12.4 Empty panel picker lists Terminal (login shell) + command-library entries
   (pinned first); picking spawns a terminal running that command
 - [ ] 12.5 Settings: Terminal gains font size, scrollback, cursor style/blink; General
   section (close-confirmation toggle, startup workspace); Project scope section with
   default template
-- [ ] 12.6 Commands view "Run" row action spawns the command in the active session
+- [x] 12.6 Commands view "Run" row action spawns the command in the active session
 - [ ] 12.7 Screenshot-driven visual coherence pass, light + dark; before/after captures
 - [ ] 12.8 Full verify + affected e2e green after the pass
 
