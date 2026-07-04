@@ -137,7 +137,7 @@
   compliance dropped in the 0.0.15 rewrite; scenario tests per existing spec
 - [x] 12.2 `SpawnSurface` accepts an optional command (library ref or inline), appends
   the item to the session's launch spec (ADR-0030 divergence); transport + bindings
-- [ ] 12.3 New-session flow: template picker (empty / project launch templates /
+- [x] 12.3 New-session flow: template picker (empty / project launch templates /
   library templates); per-project default-template setting honored
 - [x] 12.4 Empty panel picker lists Terminal (login shell) + command-library entries
   (pinned first); picking spawns a terminal running that command
