@@ -1,8 +1,17 @@
+import type { Browser } from "webdriverio";
+
 // Throwaway capture spec for the ux-ui-overhaul visual pass. Run standalone
 // (never part of run.sh's suite groups); deleted after captures land.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import type { Browser } from "webdriverio";
-import { createProject, launchReadyApp, openTerminal, openView, splitPanel, uniqueName } from "./helpers";
+
+import {
+  createProject,
+  launchReadyApp,
+  openTerminal,
+  openView,
+  splitPanel,
+  uniqueName,
+} from "./helpers";
 
 const OUT = process.env.SHOT_DIR ?? "/tmp/shots";
 let b: Browser;
@@ -36,7 +45,9 @@ test("capture app states", async () => {
     el?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 200 }));
   }, row as never);
   await shot("04-project-context-menu");
-  await b.execute(() => document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })));
+  await b.execute(() =>
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })),
+  );
 
   await openView(b, "Search");
   await shot("05-search-view");
