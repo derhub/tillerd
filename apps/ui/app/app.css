@@ -96,7 +96,7 @@ body {
 
 :root {
   --panel-header-height: 2.5rem;
-  --toolbar-height: 2.333rem;
+  --toolbar-height: 2.8rem;
 
   /* -- Motion scale ------------------------------------------------------
      Named transition durations for shell interactions. Theme-independent.

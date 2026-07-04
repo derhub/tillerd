@@ -11,9 +11,9 @@
     "windows": [
       {
         "title": "tillerd",
-        "decorations": false,
+        "decorations": true,
         "hiddenTitle": true,
-        "titleBarStyle": "Transparent",
+        "titleBarStyle": "Overlay",
         "width": 800,
         "height": 800,
         "maximized": false
