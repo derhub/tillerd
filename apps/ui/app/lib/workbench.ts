@@ -1,4 +1,4 @@
-import { useSelector } from "@tanstack/react-store";
+import { Store, useSelector } from "@tanstack/react-store";
 import React from "react";
 
 import { setGlobalSetting, settingsStore } from "~/lib/settings/context";
@@ -91,9 +91,28 @@ export function setBottomPanelTab(tab: string): void {
   setGlobalSetting(WORKBENCH_PANEL_TAB_KEY, tab);
 }
 
+// Imperative "jump to Logs for this service" filter, set by the health panel's per-service logs
+// control (spec: "Both hosts SHALL honor the service filter"). Deliberately NOT a settings key:
+// unlike the rest of the workbench layout, restoring a stale per-service filter on the next
+// launch would surprise the user, so this lives in memory only and resets on reload.
+const logsFilterStore = new Store<string | undefined>(undefined);
+
+export function useBottomPanelLogsFilter(): string | undefined {
+  return useSelector(logsFilterStore, (s) => s);
+}
+
+export function setBottomPanelLogsFilter(service: string | undefined): void {
+  logsFilterStore.setState(() => service);
+}
+
 // Reveal the bottom panel on a specific tab -- the affordance the status-bar bell and
 // health "logs" links use to jump straight to their content (spec: tab-specific opener).
-export function showBottomPanelTab(tab: string): void {
+// `logsService` carries the health panel's per-service filter through to the Logs tab; it is
+// ignored (and left as-is) for any other tab.
+export function showBottomPanelTab(tab: string, opts?: { logsService?: string }): void {
+  if (tab === "logs" && opts?.logsService !== undefined) {
+    setBottomPanelLogsFilter(opts.logsService);
+  }
   setBottomPanelTab(tab);
   setBottomPanelVisible(true);
 }
@@ -107,4 +126,5 @@ export function resetWorkbench(): void {
     }
     return { ...s, values };
   });
+  setBottomPanelLogsFilter(undefined);
 }

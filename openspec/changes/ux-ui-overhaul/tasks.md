@@ -77,9 +77,9 @@
 
 ## 7. Bottom panel content: notifications and logs
 
-- [ ] 7.1 Notifications tab: full feed with mark-read, mark-all-read, disregard,
+- [x] 7.1 Notifications tab: full feed with mark-read, mark-all-read, disregard,
   disregard-all, snooze; unread badge on the status bar bell opens the tab
-- [ ] 7.2 Logs tab: reuse `LogViewer` in the bottom panel honoring the service filter;
+- [x] 7.2 Logs tab: reuse `LogViewer` in the bottom panel honoring the service filter;
   `/logs` route retained; health panel logs link opens the tab
 
 ## 8. Panel and terminal polish

@@ -63,6 +63,17 @@ export function markNotificationsRead(): void {
   notificationsStore.setState((s) => ({ ...s, unread: 0 }));
 }
 
+// Local mirrors of the server-side disregard mutations -- the feed is a client store hydrated
+// once at mount (not a live query subscription), so a successful disregard must also drop the
+// row here or it lingers until the next restart's hydration silently omits it.
+export function removeNotification(id: string): void {
+  notificationsStore.setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }));
+}
+
+export function clearNotifications(): void {
+  notificationsStore.setState((s) => ({ ...s, items: [] }));
+}
+
 export function NotificationsProvider({
   children,
   resolveBanner = loadBannerDeps,

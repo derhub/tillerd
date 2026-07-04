@@ -30,3 +30,15 @@ export const SEVERITY_DOT: Record<"info" | "warning" | "error", string> = {
   warning: "bg-amber-500",
   error: "bg-red-500",
 };
+
+// Snooze durations the per-row picker offers (spec: "a chosen duration").
+export interface SnoozeOption {
+  readonly label: string;
+  readonly minutes: number;
+}
+
+export const SNOOZE_OPTIONS: readonly SnoozeOption[] = [
+  { label: "15m", minutes: 15 },
+  { label: "1h", minutes: 60 },
+  { label: "8h", minutes: 8 * 60 },
+];

@@ -2,7 +2,7 @@ import { LogViewer } from "~/components/logs/LogViewer";
 import { NotificationPanel } from "~/components/notifications/NotificationIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { useNotifications } from "~/lib/notifications/context";
-import { useBottomPanelTab } from "~/lib/workbench";
+import { useBottomPanelLogsFilter, useBottomPanelTab } from "~/lib/workbench";
 
 // Bottom panel: a tab strip over the existing Logs and Notifications surfaces. Logs
 // stays mounted (`keepMounted`) so its live tail and scroll position survive a tab
@@ -10,6 +10,9 @@ import { useBottomPanelTab } from "~/lib/workbench";
 export function BottomPanel() {
   const [tab, setTab] = useBottomPanelTab();
   const { items } = useNotifications();
+  // Set imperatively by the health panel's per-service logs control (spec: "the tab via
+  // the health panel's logs link"); undefined means no filter is pending.
+  const logsFilter = useBottomPanelLogsFilter();
 
   return (
     <Tabs
@@ -29,7 +32,7 @@ export function BottomPanel() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="logs" keepMounted className="min-h-0 flex-1 overflow-hidden">
-        <LogViewer />
+        <LogViewer initialService={logsFilter} />
       </TabsContent>
       <TabsContent value="notifications" className="min-h-0 flex-1 overflow-auto">
         <div data-testid="notification-panel">
