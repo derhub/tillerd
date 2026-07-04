@@ -5,8 +5,10 @@
 ### Requirement: Templates sidebar view
 
 The Templates activity-bar view SHALL present the portable template library (prebuilt and
-custom) and, when a project context is active, that project's launch templates. Rows SHALL
-show the template name and origin; pinned templates list first.
+custom) and, when a project context is active, that project's launch templates. Library
+rows SHALL show the template name and origin, pinned templates first; project
+launch-template rows (which carry no name) SHALL show a label derived from their spec
+(e.g. the first item's command).
 
 #### Scenario: Library and project sections
 
@@ -18,10 +20,12 @@ show the template name and origin; pinned templates list first.
 
 Creating or editing a template (or a project launch template) SHALL open a visual form
 editor over the launch spec: an ordered list of launch items where each item selects a
-command from the command library, a placement, an optional working directory, and
-environment rows. Items SHALL be addable, removable, and reorderable. Saving SHALL
-serialize to the versioned spec and apply it through the existing apply operations. Raw
-spec JSON SHALL NOT be required in this flow.
+command (from the command library by reference, or an inline executable with arguments)
+and an optional placement, matching the launch-item wire shape exactly — per-item working
+directory and environment are not part of the spec (environment lives on the library
+command). Items SHALL be addable, removable, and reorderable. Saving SHALL serialize to
+the versioned spec and apply it through the existing apply operations. Raw spec JSON
+SHALL NOT be required in this flow.
 
 #### Scenario: Adding a launch item
 
@@ -46,8 +50,9 @@ file, surfacing success or failure through the notification center.
 
 #### Scenario: Export then import round-trips
 
-- **WHEN** the user exports a template and imports the produced file
-- **THEN** a template with the same name and spec appears in the library
+- **WHEN** the user exports a template and imports the produced file, supplying a name
+  (the exported file carries the spec only)
+- **THEN** a template with that name and the same spec appears in the library
 
 ### Requirement: Template row actions
 
