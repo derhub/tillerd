@@ -54,14 +54,14 @@
 
 ## 5. Manager views: commands and templates
 
-- [ ] 5.1 Command library view: list (pinned first, origin badges), create/edit form
+- [x] 5.1 Command library view: list (pinned first, origin badges), create/edit form
   (name, CLI, args, env rows), rename/duplicate/pin/delete with prebuilt guards
-- [ ] 5.2 Template manager view: portable library + per-project launch templates
+- [x] 5.2 Template manager view: portable library + per-project launch templates
   sections, row actions (pin, delete with prebuilt guard, export, edit/discard)
-- [ ] 5.3 Visual launch-spec form editor: ordered item list (command picker from
+- [x] 5.3 Visual launch-spec form editor: ordered item list (command picker from
   library, placement, cwd, env rows), add/remove/reorder, inline validation, serialize
   through apply operations
-- [ ] 5.4 Template import/export flows with notification-center feedback
+- [x] 5.4 Template import/export flows with notification-center feedback
 
 ## 6. Settings editor
 

@@ -47,6 +47,21 @@ export const ACTION = {
   workspaceStopSurfaces: "workspace.stop-surfaces",
   workspaceArchive: "workspace.archive",
   workspaceDelete: "workspace.delete",
+  // -- command library row (see CommandsView) --
+  commandEdit: "command.edit",
+  commandRename: "command.rename",
+  commandDuplicate: "command.duplicate",
+  commandPin: "command.pin",
+  commandUnpin: "command.unpin",
+  commandDelete: "command.delete",
+  // -- portable template library row (see TemplatesView) --
+  templatePin: "template.pin",
+  templateUnpin: "template.unpin",
+  templateExport: "template.export",
+  templateDelete: "template.delete",
+  // -- project launch-template row (see TemplatesView) --
+  launchTemplateEdit: "launch-template.edit",
+  launchTemplateDiscard: "launch-template.discard",
 } as const;
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];

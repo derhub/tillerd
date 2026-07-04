@@ -7,6 +7,7 @@ import {
   Archive,
   Command,
   Copy,
+  Download,
   ExternalLink,
   FolderInput,
   LayoutTemplate,
@@ -384,6 +385,111 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     surfaces: ["contextmenu"],
     group: "destructive",
     when: ["menu.workspaceRow", "menu.canDelete"],
+  },
+
+  // -- command library row -- `menu.canEdit` is false for prebuilt rows, gating
+  // Edit/Rename/Delete off; Duplicate and Pin/Unpin stay available on every origin.
+  {
+    id: ACTION.commandEdit,
+    title: "Edit",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+  {
+    id: ACTION.commandRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+  {
+    id: ACTION.commandDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow"],
+  },
+  {
+    id: ACTION.commandPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.commandUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.commandDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+
+  // -- portable template library row -- prebuilt rows guard off Delete only
+  // (`menu.canEdit`); Pin/Unpin/Export stay available on every origin.
+  {
+    id: ACTION.templatePin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.templateUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.templateExport,
+    title: "Export",
+    icon: Download,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow"],
+  },
+  {
+    id: ACTION.templateDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.templateRow", "menu.canEdit"],
+  },
+
+  // -- project launch-template row -- unlike library templates these carry no
+  // name/origin (no prebuilt guard needed) and have no pin/export operation.
+  {
+    id: ACTION.launchTemplateEdit,
+    title: "Edit",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.launchTemplateRow"],
+  },
+  {
+    id: ACTION.launchTemplateDiscard,
+    title: "Discard",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.launchTemplateRow"],
   },
 ];
 

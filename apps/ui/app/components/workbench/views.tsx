@@ -3,10 +3,10 @@ import type { ComponentType } from "react";
 
 import { Command, LayoutTemplate, MessagesSquare, Search } from "lucide-react";
 
+import { CommandsView } from "~/components/commands/CommandsView";
 import { SearchView } from "~/components/sidebar/SearchView";
+import { TemplatesView } from "~/components/templates/TemplatesView";
 import { ACTION } from "~/lib/commands/ids";
-
-import { ViewPlaceholder } from "./ViewPlaceholder";
 
 // Static registry driving the activity bar and sidebar body, mirroring the command
 // model. Order here is the activity-bar order. `Component` is the sidebar body for
@@ -41,22 +41,14 @@ export const VIEW_DEFS: readonly WorkbenchViewDef[] = [
     title: "Commands",
     icon: Command,
     commandId: ACTION.viewCommands,
-    Component: () => (
-      <ViewPlaceholder icon={Command} title="Commands" hint="Your saved command library." />
-    ),
+    Component: CommandsView,
   },
   {
     id: "templates",
     title: "Templates",
     icon: LayoutTemplate,
     commandId: ACTION.viewTemplates,
-    Component: () => (
-      <ViewPlaceholder
-        icon={LayoutTemplate}
-        title="Templates"
-        hint="Reusable launch templates for new sessions."
-      />
-    ),
+    Component: TemplatesView,
   },
 ];
 
