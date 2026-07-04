@@ -141,7 +141,7 @@
   library templates); per-project default-template setting honored
 - [x] 12.4 Empty panel picker lists Terminal (login shell) + command-library entries
   (pinned first); picking spawns a terminal running that command
-- [ ] 12.5 Settings: Terminal gains font size, scrollback, cursor style/blink; General
+- [x] 12.5 Settings: Terminal gains font size, scrollback, cursor style/blink; General
   section (close-confirmation toggle, startup workspace); Project scope section with
   default template
 - [x] 12.6 Commands view "Run" row action spawns the command in the active session
@@ -164,7 +164,7 @@
 - [x] 13.7 UI zoom setting (webview zoom factor) persisted; window-state persistence
   verified
 - [x] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
-- [ ] 13.9 General + Project settings sections: close-confirmation toggle, startup
+- [x] 13.9 General + Project settings sections: close-confirmation toggle, startup
   workspace, per-project default template (folds 12.5 scope)
 - [ ] 13.10 Follow-ups filed for 0.1.x: shell integration (prompt marking), cwd
   inheritance, session scrollback restore, auto-update — recorded in ROADMAP
