@@ -119,7 +119,7 @@
 
 ## 11. Performance, E2E, coherence
 
-- [ ] 11.1 Performance pass: chrome responsive under multiple streaming surfaces; no
+- [x] 11.1 Performance pass: chrome responsive under multiple streaming surfaces; no
   unbounded memory growth across session switches
 - [x] 11.2 New e2e specs: panel split + spawn in new leaf; close-surface confirm +
   don't-ask-again persistence; drag-and-drop swap; workbench view switching + state

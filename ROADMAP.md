@@ -555,6 +555,9 @@ additive on the architecture frozen at 0.0.6.
 - [ ] Session scrollback restore — a session's terminal scrollback persists and
   rehydrates on resume / reload, beyond the live PTY reconnect.
 - [ ] Auto-update — the desktop app checks for and installs new releases in place.
+- [ ] PTY output flow control — the renderer's write backlog is unbounded when a
+  producer outruns the parser (measured ~100MB/s of retained heap under a full-speed
+  generator); pause/resume the PTY on backlog high-water marks.
 
 ---
 
