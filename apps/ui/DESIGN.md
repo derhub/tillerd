@@ -387,6 +387,18 @@ state.
 **`panel-header`** — Height 2.5rem, {colors.background} fill, bottom 1px
 {colors.border}. Contains panel tab/title and panel action buttons.
 
+**`empty-panel-picker`** — Centered in an empty panel leaf: a vertical list of
+bordered rows ({colors.border}/60, `rounded-sm`), one per spawnable surface
+(terminal login shell, then command-library entries pinned first). Each row
+carries an {icon-lg} icon plus name/description text; hover raises the border
+to {colors.primary}/50 with a {colors.muted} fill.
+
+**`context-menu`** — Row/pane right-click action menu, projected from
+`contextmenu`-tagged command defs scoped to an entity kind.
+Items carry an {icon-sm} icon and label; a destructive item uses
+{colors.destructive}; consecutive items from different command groups are
+`ContextMenuSeparator`-divided. Used on sidebar rows and the terminal pane.
+
 **`terminal`** — Hardcoded dark canvas {colors.terminal-bg}, xterm.js renderer.
 Padding 0.333rem on sides and top, 0 at bottom. Terminal manages its own scroll.
 
@@ -394,6 +406,11 @@ Padding 0.333rem on sides and top, 0 at bottom. Terminal manages its own scroll.
 {colors.terminal-surface} background, {colors.terminal-border} 1px border,
 zero radius. Contains Resume ({colors.terminal-success} fill) and Dismiss
 (ghost with {colors.terminal-border} border) buttons.
+
+**`terminal-search-overlay`** — Find-in-terminal toolbar. Absolute top-right
+inside the pane, {colors.terminal-surface} background, {colors.terminal-border}
+1px border, {colors.terminal-fg} text. Query input, match-position counter,
+and case-toggle/prev/next/close icon buttons at 1.5rem square.
 
 **`host-status-badge`** — Fixed bottom-right, `bg-black/60`, height 1.5rem,
 `font-mono`, 0.75rem text. States: booting (amber-500/amber-300), ready

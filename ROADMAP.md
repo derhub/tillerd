@@ -417,66 +417,66 @@ management), 0.0.13 (command center), 0.0.14 (workspaces).
 Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 
 **Interaction polish**
-- [ ] Sidebar project tree — projects expand / collapse (state persisted via 0.0.9
+- [x] Sidebar project tree — projects expand / collapse (state persisted via 0.0.9
   window state); sessions nested under each project; hover-reveal icon buttons land in
   0.0.12; this milestone verifies cohesion and fixes any remaining interaction gaps.
-- [ ] Zero state — when no projects exist, sidebar is empty and the center pane shows a
+- [x] Zero state — when no projects exist, sidebar is empty and the center pane shows a
   "Create project" call-to-action.
-- [ ] Empty panel picker — `EmptyPanel` lists available surface kinds; terminal is the
+- [x] Empty panel picker — `EmptyPanel` lists available surface kinds; terminal is the
   only kind in 0.x.
-- [ ] Pane error / failure states — surface-level error overlay distinct from the
+- [x] Pane error / failure states — surface-level error overlay distinct from the
   host-status badge (owned by 0.0.8).
 
 **Visual polish**
-- [ ] Icons, spacing, density, typography — final pass across all chrome elements.
-- [ ] Panel header toolbar — split-horizontal and split-vertical icon buttons; close
+- [x] Icons, spacing, density, typography — final pass across all chrome elements.
+- [x] Panel header toolbar — split-horizontal and split-vertical icon buttons; close
   button; shadcn Tooltip on every icon-only button.
-- [ ] Panel title — session name + surface kind + elapsed time since PTY spawn
+- [x] Panel title — session name + surface kind + elapsed time since PTY spawn
   (`spawned_at` exposed by orchestrator surface state).
-- [ ] Status badges — starting / running / failed on session rows.
-- [ ] Terminal font and color scheme — ship a good default monospace font; color scheme
+- [x] Status badges — starting / running / failed on session rows.
+- [x] Terminal font and color scheme — ship a good default monospace font; color scheme
   is user-selectable (lives in 0.0.9 global settings; `DESIGN.md` terminal-* tokens
   updated from hardcoded GitHub-dark to the active scheme's mapping).
-- [ ] Popups / menus — all dropdowns and dialogs use shadcn primitives and follow
+- [x] Popups / menus — all dropdowns and dialogs use shadcn primitives and follow
   design tokens.
 
 **Surface manipulation**
-- [ ] Panel split initiation — split-H / split-V toolbar buttons create an empty leaf;
+- [x] Panel split initiation — split-H / split-V toolbar buttons create an empty leaf;
   the `EmptyPanel` picker in that leaf spawns the surface (ADR-0030 geometry model).
-- [ ] Panel drag-and-drop — drag a panel leaf to swap placements with another leaf
+- [x] Panel drag-and-drop — drag a panel leaf to swap placements with another leaf
   (new orchestrator `swap_placement` API).
-- [ ] Panel resizing — drag divider to resize; double-click divider to reset to equal
+- [x] Panel resizing — drag divider to resize; double-click divider to reset to equal
   split.
-- [ ] Terminal copy / paste — verified on all platforms (xterm.js default behavior;
+- [x] Terminal copy / paste — verified on all platforms (xterm.js default behavior;
   confirm no Tauri webview conflicts).
-- [ ] Close surface — shadcn confirmation popup with "Don't ask again" checkbox;
+- [x] Close surface — shadcn confirmation popup with "Don't ask again" checkbox;
   preference stored via 0.0.9 settings. Hard remove: drops spec item + terminates PTY
   (ADR-0030).
-- [ ] Keyboard shortcuts (minimal) — native Tauri menu accelerators for: new project,
+- [x] Keyboard shortcuts (minimal) — native Tauri menu accelerators for: new project,
   new session, new terminal surface, close surface, switch session. Accelerators fire
   even when the terminal has keyboard focus. Full configurable shortcuts (command center landed in 0.0.13).
 
 **Motion**
-- [ ] Surface lifecycle animations — fade only: opacity 0→1 on create, 1→0 on destroy,
+- [x] Surface lifecycle animations — fade only: opacity 0→1 on create, 1→0 on destroy,
   using the existing `--motion-fast` / `ease-standard` tokens. No layout shift.
-- [ ] Layout change animations — add / remove panels fades at the same token cadence.
+- [x] Layout change animations — add / remove panels fades at the same token cadence.
 
 **Light-mode coverage**
-- [ ] Component-level appearance verified in light mode (tokens landed in 0.0.6;
+- [x] Component-level appearance verified in light mode (tokens landed in 0.0.6;
   terminal canvas stays dark in both themes by design).
 
 **Accessibility**
-- [ ] ARIA labels and roles on all interactive chrome elements (sidebar, panel headers,
+- [x] ARIA labels and roles on all interactive chrome elements (sidebar, panel headers,
   dialogs, buttons, tooltips).
-- [ ] Keyboard navigation in chrome — Tab / Enter / Escape through sidebar, panel
+- [x] Keyboard navigation in chrome — Tab / Enter / Escape through sidebar, panel
   actions, and dialogs. Terminal canvas is explicitly exempt from screen-reader support.
-- [ ] Color contrast — all token pairs pass WCAG AA.
+- [x] Color contrast — all token pairs pass WCAG AA.
 
 **Cross-platform polish**
-- [ ] macOS — native Tauri window decorations (traffic lights); sidebar top area is a
+- [x] macOS — native Tauri window decorations (traffic lights); sidebar top area is a
   `data-tauri-drag-region`.
-- [ ] Linux — system title bar respected; no custom decorations override.
-- [ ] Platform-specific keyboard accelerator labels in menus (⌘ vs Ctrl).
+- [x] Linux — system title bar respected; no custom decorations override.
+- [x] Platform-specific keyboard accelerator labels in menus (⌘ vs Ctrl).
 
 **Performance**
 - [ ] Sustained 60fps under multiple sessions and surfaces; profiling and optimization
@@ -484,9 +484,9 @@ Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 - [ ] Low memory footprint — no unbounded growth across session switches.
 
 **E2E coverage**
-- [ ] Panel split + spawn terminal in the new leaf.
-- [ ] Close surface — confirmation dialog + "Don't ask again" preference persists.
-- [ ] Panel leaf drag-and-drop rearrangement.
+- [x] Panel split + spawn terminal in the new leaf.
+- [x] Close surface — confirmation dialog + "Don't ask again" preference persists.
+- [x] Panel leaf drag-and-drop rearrangement.
 - [ ] All flows green on macOS and Linux CI.
 
 **Final coherence pass**
@@ -544,6 +544,17 @@ additive on the architecture frozen at 0.0.6.
 ### 0.1.5 — Docs reconciliation
 
 - [ ] README and guides match the shipped architecture.
+
+### 0.1.6 — Terminal experience follow-ups
+
+- [ ] Shell integration — prompt marking (OSC 133 or equivalent) so the terminal knows
+  prompt / command / output boundaries: scroll-to-prompt, per-command duration and
+  exit-status decoration.
+- [ ] cwd inheritance — a new terminal surface spawns in the previously-focused
+  surface's current directory instead of the project root.
+- [ ] Session scrollback restore — a session's terminal scrollback persists and
+  rehydrates on resume / reload, beyond the live PTY reconnect.
+- [ ] Auto-update — the desktop app checks for and installs new releases in place.
 
 ---
 
