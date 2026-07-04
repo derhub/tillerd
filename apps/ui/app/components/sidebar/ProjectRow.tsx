@@ -68,7 +68,10 @@ export function ProjectRow({
         entityId={project.id}
         entityKind="project"
         args={{ label: project.name }}
-        guards={{ "menu.canRename": !isUnfiled, "menu.canDelete": can("project", "discard", project) }}
+        guards={{
+          "menu.canRename": !isUnfiled,
+          "menu.canDelete": can("project", "discard", project),
+        }}
         disabled={!isDesktop}
         draggable={draggable}
         onDragStart={

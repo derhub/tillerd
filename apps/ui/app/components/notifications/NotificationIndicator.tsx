@@ -3,7 +3,6 @@ import type { NotificationWire } from "@tillerd/client-bindings";
 import { Link } from "@tanstack/react-router";
 import { Bell } from "lucide-react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { useNotifications } from "~/lib/notifications/context";
 import { notificationHeading, SEVERITY_DOT } from "~/lib/notifications/store";
 import { useDesktopHost } from "~/lib/useDesktopHost";
@@ -55,37 +54,36 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
   );
 }
 
-export function NotificationIndicator() {
+// Status-bar bell. The full feed now lives in the bottom panel's Notifications tab,
+// so clicking opens that tab (via `onActivate`) instead of a popover; opening also
+// clears the unread count. The bell keeps the unread badge and its accessible name.
+export function NotificationIndicator({ onActivate }: { onActivate?: () => void }) {
   const host = useDesktopHost();
-  const { items, unread, markRead } = useNotifications();
+  const { unread, markRead } = useNotifications();
 
   if (host.status === "web") return null;
 
   const badge = unread > 9 ? "9+" : String(unread);
 
   return (
-    <Popover
-      onOpenChange={(open) => {
-        if (open) markRead();
+    <button
+      type="button"
+      aria-label={`Notifications: ${unread} unread`}
+      onClick={() => {
+        markRead();
+        onActivate?.();
       }}
+      className="relative flex items-center justify-center rounded-sm bg-black/60 px-2 h-6 select-none text-muted-foreground hover:text-foreground transition-colors duration-[var(--motion-fast)] ease-standard"
     >
-      <PopoverTrigger
-        aria-label={`Notifications: ${unread} unread`}
-        className="relative flex items-center justify-center rounded-sm bg-black/60 px-2 h-6 select-none"
-      >
-        <Bell className="size-3.5 text-muted-foreground" />
-        {unread > 0 ? (
-          <span
-            data-testid="notification-unread"
-            className="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 rounded-full bg-red-500 text-[0.6rem] leading-[0.875rem] text-white text-center"
-          >
-            {badge}
-          </span>
-        ) : null}
-      </PopoverTrigger>
-      <PopoverContent className="w-80 max-h-96 overflow-y-auto p-0">
-        <NotificationPanel items={items} />
-      </PopoverContent>
-    </Popover>
+      <Bell className="size-3.5" />
+      {unread > 0 ? (
+        <span
+          data-testid="notification-unread"
+          className="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-0.5 rounded-full bg-red-500 text-[0.6rem] leading-[0.875rem] text-white text-center"
+        >
+          {badge}
+        </span>
+      ) : null}
+    </button>
   );
 }

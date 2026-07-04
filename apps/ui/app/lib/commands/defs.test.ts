@@ -46,12 +46,7 @@ describe("command definitions", () => {
 });
 
 describe("title-bar toggle commands", () => {
-  const toggleIds = [
-    ACTION.panelToggleLeft,
-    ACTION.panelToggleRight,
-    ACTION.panelToggleBottom,
-    ACTION.commandToggle,
-  ];
+  const toggleIds = [ACTION.panelToggleLeft, ACTION.panelToggleBottom, ACTION.commandToggle];
 
   test("are on both the titlebar and palette surfaces", () => {
     for (const id of toggleIds) {
@@ -62,8 +57,7 @@ describe("title-bar toggle commands", () => {
 
   test("each has a toggle selector reading its own context key", () => {
     const expectations: Record<string, string> = {
-      [ACTION.panelToggleLeft]: "leftPanelVisible",
-      [ACTION.panelToggleRight]: "rightPanelVisible",
+      [ACTION.panelToggleLeft]: "sidebarVisible",
       [ACTION.panelToggleBottom]: "bottomPanelVisible",
       [ACTION.commandToggle]: "commandPaletteOpen",
     };

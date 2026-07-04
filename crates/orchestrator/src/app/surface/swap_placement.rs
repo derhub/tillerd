@@ -76,25 +76,25 @@ mod tests {
     async fn swap_succeeds_atomically_and_keeps_both_ptys_running() {
         let h = harness().await;
         let session = seed_session(&h.pool, "s-swap").await;
-        h.bus.execute(spawn_at(&session, "left").await).await.unwrap();
-        h.bus.execute(spawn_at(&session, "right").await).await.unwrap();
+        h.bus
+            .execute(spawn_at(&session, "left").await)
+            .await
+            .unwrap();
+        h.bus
+            .execute(spawn_at(&session, "right").await)
+            .await
+            .unwrap();
 
-        let left = SurfaceRepo::find_by_placement(
-            &h.pool,
-            &SessionId::from_string(&session),
-            "left",
-        )
-        .await
-        .unwrap()
-        .expect("left surface");
-        let right = SurfaceRepo::find_by_placement(
-            &h.pool,
-            &SessionId::from_string(&session),
-            "right",
-        )
-        .await
-        .unwrap()
-        .expect("right surface");
+        let left =
+            SurfaceRepo::find_by_placement(&h.pool, &SessionId::from_string(&session), "left")
+                .await
+                .unwrap()
+                .expect("left surface");
+        let right =
+            SurfaceRepo::find_by_placement(&h.pool, &SessionId::from_string(&session), "right")
+                .await
+                .unwrap()
+                .expect("right surface");
 
         h.bus
             .execute(SwapPlacement {
@@ -127,16 +127,16 @@ mod tests {
     async fn unknown_placement_fails_without_changing_either_surface() {
         let h = harness().await;
         let session = seed_session(&h.pool, "s-swap-miss").await;
-        h.bus.execute(spawn_at(&session, "left").await).await.unwrap();
+        h.bus
+            .execute(spawn_at(&session, "left").await)
+            .await
+            .unwrap();
 
-        let left = SurfaceRepo::find_by_placement(
-            &h.pool,
-            &SessionId::from_string(&session),
-            "left",
-        )
-        .await
-        .unwrap()
-        .expect("left surface");
+        let left =
+            SurfaceRepo::find_by_placement(&h.pool, &SessionId::from_string(&session), "left")
+                .await
+                .unwrap()
+                .expect("left surface");
 
         let result = h
             .bus

@@ -1,9 +1,9 @@
-import type { CommandHandler } from "~/lib/commands/registry";
-
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
+
+import type { CommandHandler } from "~/lib/commands/registry";
 
 import { resetContext } from "~/lib/commands/context";
 import { ACTION } from "~/lib/commands/ids";
@@ -93,7 +93,12 @@ describe("EntityContextMenu", () => {
   test("a disabled menu renders its children without a context-menu wrapper", () => {
     renderMenu(
       { [ACTION.projectRename]: () => {} },
-      { entityId: "p-1", entityKind: "project", guards: { "menu.canRename": true }, disabled: true },
+      {
+        entityId: "p-1",
+        entityKind: "project",
+        guards: { "menu.canRename": true },
+        disabled: true,
+      },
     );
 
     fireEvent.contextMenu(screen.getByText("Row"));

@@ -24,16 +24,16 @@
 
 ## 3. Workbench shell
 
-- [ ] 3.1 Build `workbench/` regions: `ActivityBar`, `SidebarContainer` (view registry:
+- [x] 3.1 Build `workbench/` regions: `ActivityBar`, `SidebarContainer` (view registry:
   sessions/search/commands/templates), `BottomPanel` (tab strip), `StatusBar`; restructure
   `RootLayout`/`ShellChrome`; delete `RightDock`, repurpose `BottomDock`
-- [ ] 3.2 Title bar: retarget toggle toolbar to sidebar + bottom panel + palette; keep
+- [x] 3.2 Title bar: retarget toggle toolbar to sidebar + bottom panel + palette; keep
   drag region and native decorations (macOS overlay, Linux system title bar)
-- [ ] 3.3 Workbench state persistence via settings store (active view, visibilities,
+- [x] 3.3 Workbench state persistence via settings store (active view, visibilities,
   sizes, active tab) with first-launch defaults
-- [ ] 3.4 Status bar items: health indicator relocation, workspace/session context,
+- [x] 3.4 Status bar items: health indicator relocation, workspace/session context,
   notification bell, settings shortcut — all via `statusbar` command projections
-- [ ] 3.5 Update e2e helpers + existing specs to the new anchors; full e2e green
+- [x] 3.5 Update e2e helpers + existing specs to the new anchors; full e2e green
 
 ## 4. Sidebar views: sessions, search, entity actions
 

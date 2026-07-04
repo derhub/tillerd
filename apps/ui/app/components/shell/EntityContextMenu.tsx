@@ -1,6 +1,6 @@
-import type { ContextValue } from "~/lib/commands/when";
-
 import React from "react";
+
+import type { ContextValue } from "~/lib/commands/when";
 
 import {
   ContextMenu,
@@ -58,9 +58,8 @@ export function EntityContextMenu({
     }
   }, []);
 
-  // A row can unmount while its menu is open (e.g. the project it belongs to is
-  // deleted from elsewhere) -- clear this instance's flags so they don't keep
-  // gating a menu that no longer has anything driving it closed.
+  // A row can unmount while its menu is open (project deleted from elsewhere) --
+  // clear this instance's flags so a stale scope can't keep gating the menu.
   React.useEffect(() => {
     return () => {
       for (const key of Object.keys(scopeRef.current)) setContextKey(key, undefined);

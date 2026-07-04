@@ -3,11 +3,12 @@ import { expect, test } from "bun:test";
 import { createProject, openTerminal } from "./helpers";
 import { getApp } from "./shared-app";
 
-// The notification bell sits in the shell's bottom-right cluster. A live lifecycle event (here, a
-// spawned terminal -> "surface-started") raises an unread badge; clicking the bell opens the
-// popover, clears the unread count, and a session notification's row client-side navigates to that
-// session. Popover open, the unread badge, and in-portal link navigation are real-webview concerns
-// (happy-dom has no layout/router), so they live here; row content is unit-tested.
+// The notification bell sits in the status bar's right cluster. A live lifecycle event (here, a
+// spawned terminal -> "surface-started") raises an unread badge; clicking the bell opens the bottom
+// panel's Notifications tab, clears the unread count, and a session notification's row client-side
+// navigates to that session. Bottom-panel open, the unread badge, and the in-panel link navigation
+// are real-webview concerns (happy-dom has no layout/router), so they live here; row content is
+// unit-tested.
 
 test("a live event badges the bell; opening clears it and a session row navigates", async () => {
   const b = getApp();
@@ -33,9 +34,10 @@ test("a live event badges the bell; opening clears it and a session row navigate
     timeoutMsg: "did not leave the session route",
   });
 
-  // Open the bell: the popover lists notifications and opening clears the unread count.
+  // Open the bell: the bottom panel's Notifications tab lists notifications and opening clears
+  // the unread count.
   await (await b.$('[aria-label^="Notifications"]')).click();
-  const panel = await b.$('[data-slot="popover-content"]');
+  const panel = await b.$('[data-testid="notification-panel"]');
   await panel.waitForExist({ timeout: 10_000 });
   await b.waitUntil(
     async () => !(await (await b.$('[data-testid="notification-unread"]')).isExisting()),
@@ -52,4 +54,12 @@ test("a live event badges the bell; opening clears it and a session row navigate
   });
   // The app is still alive (client nav, not a hard load to a dead custom-scheme URL).
   expect(await (await b.$('[aria-label^="Notifications"]')).isExisting()).toBe(true);
+
+  // Restore the hidden-by-default bottom panel via its title-bar toggle: this spec is the
+  // only one that opens it, and its persisted open state would otherwise make every later
+  // (own-launch) app boot with the log viewer mounted, starving the sidebar's first render.
+  await (await b.$('[aria-label="Toggle bottom panel"]')).click();
+  await (
+    await b.$('[data-testid="notification-panel"]')
+  ).waitForExist({ timeout: 10_000, reverse: true });
 }, 120_000);

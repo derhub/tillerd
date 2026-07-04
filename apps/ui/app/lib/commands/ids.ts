@@ -9,8 +9,13 @@ export const ACTION = {
   projectOpenNewWindow: "project.open-new-window",
   viewLogs: "view.logs",
   appSettings: "app.settings",
+  // Sidebar view-switch actions (activity bar + palette). Selecting the active
+  // view toggles the sidebar (see useWorkbenchCommands).
+  viewSessions: "view.sessions",
+  viewSearch: "view.search",
+  viewCommands: "view.commands",
+  viewTemplates: "view.templates",
   panelToggleLeft: "panel.toggle-left",
-  panelToggleRight: "panel.toggle-right",
   panelToggleBottom: "panel.toggle-bottom",
   commandToggle: "command.toggle",
   // Row-scoped context-menu actions. Distinct from `projectOpenNewWindow`

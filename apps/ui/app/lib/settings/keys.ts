@@ -17,21 +17,27 @@ export function sidebarExpandedKey(projectId: string): string {
   return `${SIDEBAR_EXPANDED_PREFIX}${projectId}`;
 }
 
-export type PanelSide = "left" | "right" | "bottom";
+// Workbench chrome layout (VS Code-like shell): active sidebar view, sidebar and
+// bottom-panel visibility + size, and the bottom-panel active tab. All global-scope
+// settings keys so the layout restores on launch. Consumed through lib/workbench.ts;
+// the string defaults below mirror the VIEW_DEFS/tab ids in components/workbench.
+export const WORKBENCH_PREFIX = "workbench.";
+export const WORKBENCH_VIEW_KEY = "workbench.view";
+export const WORKBENCH_SIDEBAR_VISIBLE_KEY = "workbench.sidebar.visible";
+export const WORKBENCH_SIDEBAR_SIZE_KEY = "workbench.sidebar.size";
+export const WORKBENCH_PANEL_VISIBLE_KEY = "workbench.panel.visible";
+export const WORKBENCH_PANEL_SIZE_KEY = "workbench.panel.size";
+export const WORKBENCH_PANEL_TAB_KEY = "workbench.panel.tab";
 
-export const PANEL_VISIBLE_PREFIX = "panel.visible.";
-
-export function panelVisibleKey(side: PanelSide): string {
-  return `${PANEL_VISIBLE_PREFIX}${side}`;
-}
-
-// Left is visible by default (primary navigation); the docks stay hidden until
-// the user opts in.
-export const PANEL_VISIBLE_DEFAULTS: Record<PanelSide, boolean> = {
-  left: true,
-  right: false,
-  bottom: false,
-};
+// First-launch layout: Sessions view active, sidebar shown, bottom panel hidden.
+export const WORKBENCH_DEFAULTS = {
+  view: "sessions",
+  sidebarVisible: true,
+  sidebarSize: 224,
+  panelVisible: false,
+  panelSize: 200,
+  panelTab: "logs",
+} as const;
 
 export const KEYBINDINGS_PRESET_KEY = "keybindings.preset";
 export const KEYBINDINGS_LEADER_KEY = "keybindings.leader";
