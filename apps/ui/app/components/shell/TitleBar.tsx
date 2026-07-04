@@ -5,22 +5,21 @@ import { cn } from "~/lib/utils";
 // left (macOS traffic lights, via `titleBarStyle: "Overlay"`), so this component
 // draws no control buttons -- the left area is just a drag region the controls sit
 // over. The command toolbar is right-aligned at the end of the title bar. The bar
-// height matches the native macOS title bar (h-7 / 28px) so the toolbar centers on
-// the same line as the traffic lights, and its right inset mirrors their left
-// inset. The toolbar projects the commands tagged for the `titlebar` surface, so
-// adding a button is a command-definition edit, not a change here.
+// stays near the native macOS title-bar height (h-8 / 32px) so the vertically
+// centered toolbar lines up with the OS traffic lights (which the OS pins near the
+// top and cannot be moved without a plugin); a taller bar would leave dead space
+// below the lights. The toolbar projects the commands tagged for the `titlebar`
+// surface, so adding a button is a command-definition edit, not a change here.
 export function TitleBar() {
   const commands = useSurfaceCommands("titlebar");
 
   return (
     <div
       data-tauri-drag-region
-      className="flex h-10 shrink-0 items-start border-b border-border/40 bg-background select-none"
+      className="flex h-8 shrink-0 items-center border-b border-border/40 bg-background select-none"
     >
       <div data-tauri-drag-region className="flex-1 self-stretch" />
-      {/* Top strip (h-7) keeps the toolbar's center on the traffic-lights line while
-          the bar itself has proper height below. */}
-      <div className="flex h-7 items-center gap-1 pr-3">
+      <div className="flex items-center gap-1 pr-3">
         {commands.map((command) => {
           const Icon = command.icon;
           return (
