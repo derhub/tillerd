@@ -200,6 +200,14 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
 
   // -- project row --
   {
+    id: ACTION.projectNewSessionFromTemplate,
+    title: "New session from template...",
+    icon: LayoutTemplate,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
+  },
+  {
     id: ACTION.projectRename,
     title: "Rename",
     icon: Pencil,

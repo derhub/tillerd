@@ -28,8 +28,8 @@ import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { commandListQuery } from "~/lib/data/commands";
 import { launchTemplateListQuery, templateListQuery } from "~/lib/data/templates";
 import {
+  describeLaunchSpec,
   emptySpec,
-  isLibraryRef,
   parseLaunchSpec,
   serializeLaunchSpec,
   type LaunchSpec,
@@ -42,18 +42,7 @@ function launchTemplateLabel(
   view: LaunchTemplateView,
   commandsById: Map<string, CommandView>,
 ): string {
-  let spec: LaunchSpec;
-  try {
-    spec = parseLaunchSpec(view.specJson);
-  } catch {
-    return "(invalid spec)";
-  }
-  const first = spec.items[0];
-  if (!first) return "(empty template)";
-  if (isLibraryRef(first.command)) {
-    return commandsById.get(first.command.library_ref)?.name ?? "(unknown command)";
-  }
-  return first.command.executable || "(empty template)";
+  return describeLaunchSpec(view.specJson, (id) => commandsById.get(id)?.name);
 }
 
 // Editor target: a new project launch template (no id yet) or an existing one

@@ -25,6 +25,7 @@ export const ACTION = {
   // which corrupts the id-keyed maps `useGlobalShortcuts`/`COMMAND_DEFS_BY_ID`
   // build (last entry silently wins). See EntityContextMenu.
   projectOpenNewWindowRow: "project.open-new-window-row",
+  projectNewSessionFromTemplate: "project.new-session-from-template",
   projectRename: "project.rename",
   projectDuplicate: "project.duplicate",
   projectPin: "project.pin",

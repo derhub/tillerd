@@ -1,6 +1,8 @@
+import type { Session } from "@tillerd/client-bindings";
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { command, query, reorder } from "@tillerd/client-bindings";
+import { command, getQueryClient, query, reorder } from "@tillerd/client-bindings";
 import React from "react";
 
 import { DeleteDialog, type DeleteTarget } from "~/components/sidebar/DeleteDialog";
@@ -11,6 +13,10 @@ import {
   type StopSurfacesTarget,
 } from "~/components/sidebar/EntityDialogs";
 import { NewProjectButton } from "~/components/sidebar/NewProjectButton";
+import {
+  NewSessionTemplateDialog,
+  type NewSessionTemplateTarget,
+} from "~/components/sidebar/NewSessionTemplateDialog";
 import { ProjectTree, type ProjectTreeHandlers } from "~/components/sidebar/ProjectTree";
 import { SessionSearchDialog } from "~/components/sidebar/SessionSearchDialog";
 import { UNFILED_ID, useSidebarData } from "~/components/sidebar/sidebar-data";
@@ -18,6 +24,13 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION, SESSION_SEARCH_ACTION_ID } from "~/lib/commands/ids";
 import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
+import { projectSettingsQuery } from "~/lib/data/settings";
+import { templateListQuery } from "~/lib/data/templates";
+import {
+  librarySpecFor,
+  resolveDefaultTemplate,
+  type TemplateSelection,
+} from "~/lib/newSessionTemplate";
 import { mountSessionStatus } from "~/lib/sessionStatus";
 import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
@@ -31,12 +44,29 @@ import {
   projectQuery,
 } from "~/lib/windows";
 
-const newSessionArgs = (projectId: string) => ({
+const newSessionArgs = (projectId: string, templateId: string | null = null) => ({
   projectId,
   title: null,
   titleSource: "agent-title",
-  templateId: null,
+  templateId,
 });
+
+// Plain helper (not a hook/component) -- resolves a project's configured default
+// template (ui-settings-editor spec: "Project settings -> Default template
+// honored") before the plain new-session control creates a session. The
+// no-async-in-component rule exempts standalone functions like this; components
+// fire mutations via mutate(), never await/.then() themselves.
+function resolveProjectDefault(
+  projectId: string,
+  onResolved: (selection: TemplateSelection | null) => void,
+): void {
+  getQueryClient()
+    .fetchQuery({ ...projectSettingsQuery(projectId), staleTime: 0 })
+    .then(
+      (settings) => onResolved(resolveDefaultTemplate(settings)),
+      () => onResolved(null),
+    );
+}
 
 // The row's display name, carried in a context-menu command's args (see
 // EntityContextMenu) for confirmation/picker dialogs -- the row itself, not this
@@ -68,9 +98,14 @@ export function SessionSidebar({
   // Move-to-workspace targets; a light non-suspense read (the switcher already
   // suspends on this list, so it is warm) used only to populate the picker.
   const { data: workspaces = [] } = useQuery(query("workspaceList"));
+  // The portable library's specs, needed to materialize a library template into
+  // a project launch template when the new-session flow picks one (see
+  // createSessionFromSelection) -- session_create only accepts a launch-template id.
+  const { data: libraryTemplates = [] } = useQuery(templateListQuery());
 
   const createProject = useMutation(command("projectCreate"));
   const createSession = useMutation(command("sessionCreate"));
+  const createLaunchTemplate = useMutation(command("launchTemplateCreate"));
   const renameProject = useMutation(command("projectRename"));
   const renameSession = useMutation(command("sessionRename"));
   const archiveProject = useMutation(command("projectArchive"));
@@ -97,6 +132,8 @@ export function SessionSidebar({
   const [deleteConfirm, setDeleteConfirm] = React.useState<DeleteTarget | null>(null);
   const [moveTarget, setMoveTarget] = React.useState<MoveTarget | null>(null);
   const [stopTarget, setStopTarget] = React.useState<StopSurfacesTarget | null>(null);
+  const [templatePickerTarget, setTemplatePickerTarget] =
+    React.useState<NewSessionTemplateTarget | null>(null);
 
   // One per-window subscription feeding the session-row status badges.
   React.useEffect(() => mountSessionStatus(), []);
@@ -153,17 +190,50 @@ export function SessionSidebar({
     );
   }, [isDesktop, navigate, activeWorkspaceId, createProject, createSession]);
 
+  // The single point where a session actually gets created from a resolved
+  // choice: empty, one of the project's launch templates directly, or a library
+  // template materialized into a project launch template first (session_create
+  // only accepts a launch-template id -- ui-template-manager design decisions).
+  const createSessionFromSelection = React.useCallback(
+    (projectId: string, selection: TemplateSelection) => {
+      const onCreated = (sess: Session) => {
+        setActiveProject(projectId);
+        void navigate({ to: `/session/${sess.id}` } as never);
+      };
+      if (selection.kind === "empty") {
+        createSession.mutate(newSessionArgs(projectId), { onSuccess: onCreated });
+        return;
+      }
+      if (selection.kind === "launch") {
+        createSession.mutate(newSessionArgs(projectId, selection.id), { onSuccess: onCreated });
+        return;
+      }
+      const spec = librarySpecFor(libraryTemplates, selection.id);
+      if (!spec) return;
+      createLaunchTemplate.mutate(
+        { projectId, specVersion: spec.specVersion, specJson: spec.specJson },
+        {
+          onSuccess: (tmpl) =>
+            createSession.mutate(newSessionArgs(projectId, tmpl.id), { onSuccess: onCreated }),
+        },
+      );
+    },
+    [navigate, createSession, createLaunchTemplate, libraryTemplates],
+  );
+
+  // The plain new-session control (the "+" row action, `ACTION.sessionNew`):
+  // instantiates the project's configured default template silently, or an
+  // empty session when none is set (ui-settings-editor spec: "Default template
+  // honored"). It never opens the picker -- that is a separate, explicit row
+  // action (`ACTION.projectNewSessionFromTemplate`).
   const handleNewSession = React.useCallback(
     (projectId: string) => {
       if (!isDesktop) return;
-      createSession.mutate(newSessionArgs(projectId), {
-        onSuccess: (sess) => {
-          setActiveProject(projectId);
-          void navigate({ to: `/session/${sess.id}` } as never);
-        },
+      resolveProjectDefault(projectId, (selection) => {
+        createSessionFromSelection(projectId, selection ?? { kind: "empty" });
       });
     },
-    [isDesktop, navigate, createSession],
+    [isDesktop, createSessionFromSelection],
   );
 
   const navHomeIfActiveSession = React.useCallback(
@@ -273,6 +343,10 @@ export function SessionSidebar({
       // one-handler-per-id model.
       [ACTION.projectOpenNewWindowRow]: (args?: CommandArgs) => {
         if (args?.entityId) handleOpenInNewWindow(args.entityId);
+      },
+      [ACTION.projectNewSessionFromTemplate]: (args?: CommandArgs) => {
+        if (args?.entityId)
+          setTemplatePickerTarget({ projectId: args.entityId, projectName: labelArg(args) });
       },
       [ACTION.projectRename]: (args?: CommandArgs) => {
         if (args?.entityId) setEditingId(args.entityId);
@@ -398,6 +472,15 @@ export function SessionSidebar({
         target={stopTarget}
         onCancel={() => setStopTarget(null)}
         onConfirm={handleConfirmStop}
+      />
+      <NewSessionTemplateDialog
+        target={templatePickerTarget}
+        onCancel={() => setTemplatePickerTarget(null)}
+        onSelect={(selection) => {
+          if (!templatePickerTarget) return;
+          createSessionFromSelection(templatePickerTarget.projectId, selection);
+          setTemplatePickerTarget(null);
+        }}
       />
 
       <SessionSearchDialog />

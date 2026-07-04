@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   CURRENT_SPEC_VERSION,
+  describeLaunchSpec,
   emptySpec,
   parseLaunchSpec,
   serializeLaunchSpec,
@@ -86,5 +87,41 @@ describe("validateSpec", () => {
 
   test("an empty spec has no errors", () => {
     expect(validateSpec(emptySpec())).toEqual([]);
+  });
+});
+
+describe("describeLaunchSpec", () => {
+  test("labels a library-ref item by its resolved command name", () => {
+    const label = describeLaunchSpec(
+      '{"version":1,"items":[{"target":"terminal","command":{"library_ref":"htop-id"}}]}',
+      (id) => (id === "htop-id" ? "htop" : undefined),
+    );
+    expect(label).toBe("htop");
+  });
+
+  test("labels an inline item by its executable", () => {
+    const label = describeLaunchSpec(
+      '{"version":1,"items":[{"target":"terminal","command":{"executable":"/bin/bash","args":[]}}]}',
+      () => undefined,
+    );
+    expect(label).toBe("/bin/bash");
+  });
+
+  test("an unresolvable library ref reads as unknown", () => {
+    const label = describeLaunchSpec(
+      '{"version":1,"items":[{"target":"terminal","command":{"library_ref":"gone"}}]}',
+      () => undefined,
+    );
+    expect(label).toBe("(unknown command)");
+  });
+
+  test("an empty item list reads as empty", () => {
+    expect(describeLaunchSpec('{"version":1,"items":[]}', () => undefined)).toBe(
+      "(empty template)",
+    );
+  });
+
+  test("invalid JSON reads as invalid", () => {
+    expect(describeLaunchSpec("not json", () => undefined)).toBe("(invalid spec)");
   });
 });

@@ -90,6 +90,28 @@ export function toWire(spec: LaunchSpec): Record<string, unknown> {
   };
 }
 
+// Human label for a launch template row (ui-template-manager spec: project
+// launch-template rows "carry no name" and show a label derived from their
+// spec, e.g. the first item's command). `resolveCommandName` looks up a
+// library command's display name; undefined means the id is unknown.
+export function describeLaunchSpec(
+  specJson: string,
+  resolveCommandName: (commandId: string) => string | undefined,
+): string {
+  let spec: LaunchSpec;
+  try {
+    spec = parseLaunchSpec(specJson);
+  } catch {
+    return "(invalid spec)";
+  }
+  const first = spec.items[0];
+  if (!first) return "(empty template)";
+  if (isLibraryRef(first.command)) {
+    return resolveCommandName(first.command.library_ref) ?? "(unknown command)";
+  }
+  return first.command.executable || "(empty template)";
+}
+
 // One error string per invalid item (empty = valid). An item is invalid when its
 // library reference is empty (no command picked) -- the editor blocks apply on any.
 export function validateSpec(spec: LaunchSpec): string[] {

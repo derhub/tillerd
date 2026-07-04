@@ -1,4 +1,10 @@
-import type { Project, Session } from "@tillerd/client-bindings";
+import type {
+  LaunchTemplateView,
+  Project,
+  Session,
+  SettingView,
+  TemplateView,
+} from "@tillerd/client-bindings";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -15,6 +21,8 @@ import { afterEach, expect, test, describe, mock } from "bun:test";
 import React, { type ReactNode } from "react";
 
 import { CommandRegistryProvider } from "~/lib/commands/registry";
+import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec } from "~/lib/launchSpec";
+import { DEFAULT_TEMPLATE_KEY } from "~/lib/settings/keys";
 import { resetUiStore, setProjectExpanded } from "~/lib/store";
 
 // Renders real useSidebarData/ProjectRow through the data layer (mocked invoke + Query cache),
@@ -26,7 +34,12 @@ void mock.module("~/lib/useDesktopHost", () => ({
 
 let fakeProjects: Project[] = [];
 let fakeSessions: Session[] = [];
+let fakeProjectSettings: SettingView[] = [];
+let fakeLibraryTemplates: TemplateView[] = [];
+let fakeLaunchTemplates: LaunchTemplateView[] = [];
 const sessionListedFor: string[] = [];
+const sessionCreateCalls: Record<string, unknown>[] = [];
+const launchTemplateCreateCalls: Record<string, unknown>[] = [];
 
 // Bindings call: typedError(invoke(cmd, args))
 // typedError wraps the Promise<T> with { status: "ok", data: T } on success.
@@ -48,6 +61,29 @@ void mock.module("@tauri-apps/api/core", () => ({
       if (offset) return [];
       return projectId ? fakeSessions.filter((s) => s.projectId === projectId) : fakeSessions;
     }
+    if (cmd === "session_create") {
+      sessionCreateCalls.push(args ?? {});
+      const id = `s-${sessionCreateCalls.length}`;
+      return session(id, (args?.["projectId"] as string) ?? "", "New session");
+    }
+    if (cmd === "settings_resolve") return fakeProjectSettings;
+    if (cmd === "template_list") return fakeLibraryTemplates;
+    if (cmd === "launch_template_list") {
+      const projectId = args?.["projectId"] as string;
+      return fakeLaunchTemplates.filter((t) => t.projectId === projectId);
+    }
+    if (cmd === "launch_template_create") {
+      launchTemplateCreateCalls.push(args ?? {});
+      const created: LaunchTemplateView = {
+        id: `lt-${launchTemplateCreateCalls.length}`,
+        projectId: args?.["projectId"] as string,
+        specVersion: args?.["specVersion"] as number,
+        specJson: args?.["specJson"] as string,
+      };
+      fakeLaunchTemplates = [...fakeLaunchTemplates, created];
+      return created;
+    }
+    if (cmd === "command_list") return [];
     return [];
   },
   Channel: class Channel {
@@ -94,7 +130,12 @@ afterEach(() => {
   cleanup();
   fakeProjects = [];
   fakeSessions = [];
+  fakeProjectSettings = [];
+  fakeLibraryTemplates = [];
+  fakeLaunchTemplates = [];
   sessionListedFor.length = 0;
+  sessionCreateCalls.length = 0;
+  launchTemplateCreateCalls.length = 0;
   setReady(false);
   resetUiStore();
 });
@@ -214,5 +255,92 @@ describe("lazy per-project session loading", () => {
 
     await waitFor(() => expect(screen.queryByText("Revealed S1")).not.toBeNull());
     expect(sessionListedFor).toContain("p-1");
+  });
+});
+
+describe("new-session flow (template default + picker)", () => {
+  function newSessionButton(name: string): HTMLElement {
+    return screen.getByRole("button", { name: `New session in ${name}` });
+  }
+
+  test("the plain new-session control creates an empty session when no default is set", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+
+    fireEvent.click(newSessionButton("Project One"));
+
+    await waitFor(() => expect(sessionCreateCalls).toHaveLength(1));
+    expect(sessionCreateCalls[0]).toMatchObject({ projectId: "p-1", templateId: null });
+    expect(screen.queryByTestId("new-session-template-picker")).toBeNull();
+  });
+
+  test("the plain new-session control instantiates the project's configured default template", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+    fakeProjectSettings = [{ key: DEFAULT_TEMPLATE_KEY, value: { kind: "launch", id: "lt-1" } }];
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+
+    fireEvent.click(newSessionButton("Project One"));
+
+    await waitFor(() => expect(sessionCreateCalls).toHaveLength(1));
+    expect(sessionCreateCalls[0]).toMatchObject({ projectId: "p-1", templateId: "lt-1" });
+    expect(screen.queryByTestId("new-session-template-picker")).toBeNull();
+  });
+
+  test("'New session from template...' opens a picker offering empty, project, and library options", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+    fakeLibraryTemplates = [
+      {
+        id: "tpl-1",
+        name: "Rails App",
+        origin: "custom",
+        pinned: false,
+        specVersion: CURRENT_SPEC_VERSION,
+        specJson: serializeLaunchSpec(emptySpec()),
+      },
+    ];
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+
+    fireEvent.contextMenu(screen.getByText("Project One"));
+    await waitFor(() => expect(screen.queryByText("New session from template...")).not.toBeNull());
+    fireEvent.click(screen.getByText("New session from template..."));
+
+    await waitFor(() => expect(screen.queryByTestId("new-session-template-picker")).not.toBeNull());
+    expect(screen.queryByTestId("new-session-option-empty")).not.toBeNull();
+    await waitFor(() => expect(screen.queryByText("Rails App")).not.toBeNull());
+  });
+
+  test("picking a library template materializes it into the project then creates the session", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+    fakeLibraryTemplates = [
+      {
+        id: "tpl-1",
+        name: "Rails App",
+        origin: "custom",
+        pinned: false,
+        specVersion: CURRENT_SPEC_VERSION,
+        specJson: serializeLaunchSpec(emptySpec()),
+      },
+    ];
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+
+    fireEvent.contextMenu(screen.getByText("Project One"));
+    await waitFor(() => expect(screen.queryByText("New session from template...")).not.toBeNull());
+    fireEvent.click(screen.getByText("New session from template..."));
+
+    await waitFor(() => expect(screen.queryByText("Rails App")).not.toBeNull());
+    fireEvent.click(screen.getByTestId("new-session-option-library"));
+
+    await waitFor(() => expect(sessionCreateCalls).toHaveLength(1));
+    expect(launchTemplateCreateCalls).toHaveLength(1);
+    expect(launchTemplateCreateCalls[0]).toMatchObject({ projectId: "p-1" });
+    expect(sessionCreateCalls[0]).toMatchObject({ projectId: "p-1", templateId: "lt-1" });
   });
 });
