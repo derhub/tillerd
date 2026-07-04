@@ -13,7 +13,6 @@ export function ProjectSessions({
   onStartEditSession,
   onCancelEdit,
   onRenameSession,
-  onDeleteSession,
   onReorderSessions,
   onArchiveSession,
 }: {
@@ -23,7 +22,6 @@ export function ProjectSessions({
   onStartEditSession: (sessionId: string) => void;
   onCancelEdit: () => void;
   onRenameSession: (sessionId: string, newName: string) => void;
-  onDeleteSession: (sessionId: string, name: string) => void;
   onReorderSessions: (orderedIds: string[]) => void;
   onArchiveSession: (id: string, currentPath: string) => void;
 }) {
@@ -61,7 +59,6 @@ export function ProjectSessions({
           onCancelEdit={onCancelEdit}
           onRename={(newName) => onRenameSession(s.id, newName)}
           onArchive={() => onArchiveSession(s.id, window.location.pathname)}
-          onDelete={() => onDeleteSession(s.id, s.title || s.id.slice(0, 8))}
           onSessionDrop={handleSessionDrop}
         />
       ))}

@@ -34,8 +34,12 @@ describe("command definitions", () => {
     }
   });
 
-  test("commands default to the palette surface", () => {
+  test("a def with no explicit surface list defaults to the palette", () => {
+    // Row-scoped context-menu actions (rename, archive, delete, ...) opt out by
+    // declaring `surfaces: ["contextmenu"]` explicitly -- only defs that leave
+    // `surfaces` unset are expected to fall back to the palette.
     for (const def of COMMAND_DEFS) {
+      if (def.surfaces) continue;
       expect(surfacesOf(def)).toContain("palette");
     }
   });

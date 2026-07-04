@@ -1,5 +1,3 @@
-import type { Project } from "@tillerd/client-bindings";
-
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { command, reorder } from "@tillerd/client-bindings";
@@ -12,7 +10,7 @@ import { SessionSearchDialog } from "~/components/sidebar/SessionSearchDialog";
 import { useSidebarData } from "~/components/sidebar/sidebar-data";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION, SESSION_SEARCH_ACTION_ID } from "~/lib/commands/ids";
-import { useRegisterHandlers } from "~/lib/commands/registry";
+import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
 import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
@@ -32,6 +30,13 @@ const newSessionArgs = (projectId: string) => ({
   titleSource: "agent-title",
   templateId: null,
 });
+
+// The row's display name, carried in a context-menu command's args (see
+// EntityContextMenu) for the delete-confirmation dialog -- the row itself, not
+// this component, knows the project/session name for an arbitrary entityId.
+function labelArg(args: CommandArgs | undefined): string {
+  return typeof args?.label === "string" ? args.label : "";
+}
 
 export function SessionSidebar({
   activeWorkspaceId,
@@ -198,8 +203,39 @@ export function SessionSidebar({
       [SESSION_SEARCH_ACTION_ID]: () =>
         window.dispatchEvent(new CustomEvent(SESSION_SEARCH_OPEN_EVENT)),
       [ACTION.projectOpenNewWindow]: () => handleOpenInNewWindow(targetProjectId()),
+      // Row-scoped context-menu actions -- EntityContextMenu passes the
+      // right-clicked row's entityId (and, where needed, its label) as args;
+      // this is the one place each handler is registered, per the registry's
+      // one-handler-per-id model.
+      [ACTION.projectOpenNewWindowRow]: (args?: CommandArgs) => {
+        if (args?.entityId) handleOpenInNewWindow(args.entityId);
+      },
+      [ACTION.projectRename]: (args?: CommandArgs) => {
+        if (args?.entityId) setEditingId(args.entityId);
+      },
+      [ACTION.projectDelete]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        setDeleteConfirm({ id: args.entityId, name: labelArg(args), kind: "project" });
+      },
+      [ACTION.sessionRename]: (args?: CommandArgs) => {
+        if (args?.entityId) setEditingId(args.entityId);
+      },
+      [ACTION.sessionArchive]: (args?: CommandArgs) => {
+        if (args?.entityId) handleArchiveSession(args.entityId, window.location.pathname);
+      },
+      [ACTION.sessionDelete]: (args?: CommandArgs) => {
+        if (!args?.entityId) return;
+        setDeleteConfirm({ id: args.entityId, name: labelArg(args), kind: "session" });
+      },
     };
-  }, [activeProjectId, projects, handleNewProject, handleNewSession, handleOpenInNewWindow]);
+  }, [
+    activeProjectId,
+    projects,
+    handleNewProject,
+    handleNewSession,
+    handleOpenInNewWindow,
+    handleArchiveSession,
+  ]);
   useRegisterHandlers(sidebarHandlers);
 
   const treeHandlers: ProjectTreeHandlers = {
@@ -211,14 +247,10 @@ export function SessionSidebar({
     onCancelEdit: () => setEditingId(null),
     onRenameProject: (id, newName) => handleRenameProject(id, newName),
     onRenameSession: handleRenameSession,
-    onDeleteProject: (proj: Project) =>
-      setDeleteConfirm({ id: proj.id, name: proj.name, kind: "project" }),
-    onDeleteSession: (id, name) => setDeleteConfirm({ id, name, kind: "session" }),
     onReorderProjects: handleReorderProjects,
     onReorderSessions: handleReorderSessions,
     onNewSession: (id) => handleNewSession(id),
     onArchiveSession: handleArchiveSession,
-    onOpenInNewWindow: handleOpenInNewWindow,
     onFocusDetached: handleReattachProject,
   };
 

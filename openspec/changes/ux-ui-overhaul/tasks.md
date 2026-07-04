@@ -9,7 +9,7 @@
 - [x] 1.2 Extend the command manager: `Surface` union gains `activitybar` and
   `statusbar`; handler invocation gains optional argument payload (backward compatible);
   unit tests for arg passing and surface projection
-- [ ] 1.3 Build the generic `EntityContextMenu` on the shadcn menu primitive fed by
+- [x] 1.3 Build the generic `EntityContextMenu` on the shadcn menu primitive fed by
   `contextmenu`-tagged command defs with row-scope `when` + args; delete
   `context-menu-shell.tsx` after migration
 - [x] 1.4 Stabilize e2e anchors: inventory `data-testid`/ready-signal selectors used by

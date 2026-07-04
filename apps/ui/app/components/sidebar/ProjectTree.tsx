@@ -12,13 +12,10 @@ export interface ProjectTreeHandlers {
   onCancelEdit: () => void;
   onRenameProject: (projectId: string, newName: string) => void;
   onRenameSession: (sessionId: string, newName: string) => void;
-  onDeleteProject: (project: Project) => void;
-  onDeleteSession: (sessionId: string, name: string) => void;
   onReorderProjects: (orderedIds: string[]) => void;
   onReorderSessions: (orderedIds: string[]) => void;
   onNewSession: (projectId: string) => void;
   onArchiveSession: (id: string, currentPath: string) => void;
-  onOpenInNewWindow: (projectId: string) => void;
   onFocusDetached: (projectId: string) => void;
 }
 
@@ -55,13 +52,10 @@ export function ProjectTree({
       onCancelEdit={handlers.onCancelEdit}
       onRename={(newName) => handlers.onRenameProject(project.id, newName)}
       onRenameSession={handlers.onRenameSession}
-      onDelete={() => handlers.onDeleteProject(project)}
-      onDeleteSession={handlers.onDeleteSession}
       onReorderSessions={handlers.onReorderSessions}
       onReorderProjects={handlers.onReorderProjects}
       onNewSession={() => handlers.onNewSession(project.id)}
       onArchiveSession={handlers.onArchiveSession}
-      onOpenInNewWindow={() => handlers.onOpenInNewWindow(project.id)}
       onFocusDetached={() => handlers.onFocusDetached(project.id)}
     />
   );

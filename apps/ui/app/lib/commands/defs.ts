@@ -3,7 +3,16 @@
 // register by id at their feature sites (see registry `useCommand`). This table
 // replaces the split between `ids.ts` titles and `keybindings.ts` presets.
 
-import { Command, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
+import {
+  Archive,
+  Command,
+  ExternalLink,
+  PanelBottom,
+  PanelLeft,
+  PanelRight,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 import type { CommandDef } from "./types";
 
@@ -140,6 +149,59 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: SESSION_SEARCH_ACTION_ID,
     title: SESSION_SEARCH_TITLE,
     keywords: ["session", "switch", "go to", "find", "search"],
+  },
+  // Row-scoped context-menu actions. `menu.projectRow`/`menu.sessionRow` and the
+  // `menu.canRename`/`menu.canDelete` guards are pushed into the context store by
+  // EntityContextMenu while a given row's menu is open (context.ts's setContext
+  // model) -- these defs stay declarative and EntityContextMenu never special-cases
+  // an entity kind or command id.
+  {
+    id: ACTION.projectRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canRename"],
+  },
+  {
+    id: ACTION.projectOpenNewWindowRow,
+    title: "Open in new window",
+    icon: ExternalLink,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
+  },
+  {
+    id: ACTION.projectDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.projectRow", "menu.canDelete"],
+  },
+  {
+    id: ACTION.sessionRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.sessionRow"],
   },
 ];
 

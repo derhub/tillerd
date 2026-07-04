@@ -4,8 +4,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Archive } from "lucide-react";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
-import { SessionContextMenu } from "~/components/sidebar/SessionContextMenu";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
 import { cn } from "~/lib/utils";
 
@@ -44,7 +44,6 @@ export function SessionRow({
   onCancelEdit,
   onRename,
   onArchive,
-  onDelete,
   onSessionDrop,
 }: {
   session: Session;
@@ -54,11 +53,9 @@ export function SessionRow({
   onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onArchive: () => void;
-  onDelete: () => void;
   onSessionDrop: (sourceId: string, targetId: string) => void;
 }) {
   const label = session.title || session.id.slice(0, 8);
-  const [menuAt, setMenuAt] = React.useState<{ x: number; y: number } | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
 
   if (isEditing) {
@@ -74,7 +71,11 @@ export function SessionRow({
   }
 
   return (
-    <div
+    <EntityContextMenu
+      entityId={session.id}
+      entityKind="session"
+      args={{ label }}
+      disabled={!isDesktop}
       draggable={isDesktop}
       onDragStart={
         isDesktop
@@ -104,14 +105,6 @@ export function SessionRow({
             }
           : undefined
       }
-      onContextMenu={
-        isDesktop
-          ? (e) => {
-              e.preventDefault();
-              setMenuAt({ x: e.clientX, y: e.clientY });
-            }
-          : undefined
-      }
       className={cn(
         "group flex items-center gap-1 px-3 rounded-sm",
         dragOver && "ring-1 ring-ring",
@@ -138,25 +131,6 @@ export function SessionRow({
           <Archive size={10} strokeWidth={2} />
         </button>
       )}
-
-      {menuAt && (
-        <SessionContextMenu
-          at={menuAt}
-          onClose={() => setMenuAt(null)}
-          onRename={() => {
-            onStartEdit();
-            setMenuAt(null);
-          }}
-          onArchive={() => {
-            onArchive();
-            setMenuAt(null);
-          }}
-          onDelete={() => {
-            onDelete();
-            setMenuAt(null);
-          }}
-        />
-      )}
-    </div>
+    </EntityContextMenu>
   );
 }

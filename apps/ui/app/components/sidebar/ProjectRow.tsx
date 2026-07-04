@@ -3,8 +3,8 @@ import type { Project } from "@tillerd/client-bindings";
 import { ArrowUpRight, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
-import { ProjectContextMenu } from "~/components/sidebar/ProjectContextMenu";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { reorderByDrop } from "~/lib/reorder";
@@ -23,14 +23,11 @@ export function ProjectRow({
   onCancelEdit,
   onRename,
   onRenameSession,
-  onDelete,
-  onDeleteSession,
   onReorderSessions,
   onReorderProjects,
   projectIds,
   onNewSession,
   onArchiveSession,
-  onOpenInNewWindow,
   onFocusDetached,
 }: {
   project: Project;
@@ -42,17 +39,13 @@ export function ProjectRow({
   onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onRenameSession: (sessionId: string, newName: string) => void;
-  onDelete: () => void;
-  onDeleteSession: (sessionId: string, name: string) => void;
   onReorderSessions: (orderedIds: string[]) => void;
   onReorderProjects: (orderedIds: string[]) => void;
   projectIds: string[];
   onNewSession: () => void;
   onArchiveSession: (id: string, currentPath: string) => void;
-  onOpenInNewWindow: () => void;
   onFocusDetached: () => void;
 }) {
-  const [menuAt, setMenuAt] = React.useState<{ x: number; y: number } | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const [expanded, setExpanded] = useProjectExpanded(project.id);
 
@@ -71,7 +64,12 @@ export function ProjectRow({
 
   return (
     <div>
-      <div
+      <EntityContextMenu
+        entityId={project.id}
+        entityKind="project"
+        args={{ label: project.name }}
+        guards={{ "menu.canRename": !isUnfiled, "menu.canDelete": can("project", "discard", project) }}
+        disabled={!isDesktop}
         draggable={draggable}
         onDragStart={
           draggable
@@ -97,14 +95,6 @@ export function ProjectRow({
           "flex items-center gap-1 px-3 mb-0.5",
           dragOver && "ring-1 ring-ring rounded-sm",
         )}
-        onContextMenu={
-          isDesktop
-            ? (e) => {
-                e.preventDefault();
-                setMenuAt({ x: e.clientX, y: e.clientY });
-              }
-            : undefined
-        }
       >
         <button
           type="button"
@@ -166,28 +156,7 @@ export function ProjectRow({
             <Plus size={10} strokeWidth={2} />
           </button>
         )}
-      </div>
-
-      {menuAt && (
-        <ProjectContextMenu
-          at={menuAt}
-          allowRename={!isUnfiled}
-          allowDelete={can("project", "discard", project)}
-          onClose={() => setMenuAt(null)}
-          onRename={() => {
-            onStartEdit();
-            setMenuAt(null);
-          }}
-          onOpenInNewWindow={() => {
-            onOpenInNewWindow();
-            setMenuAt(null);
-          }}
-          onDelete={() => {
-            onDelete();
-            setMenuAt(null);
-          }}
-        />
-      )}
+      </EntityContextMenu>
 
       {expanded && (
         <ProjectSessions
@@ -197,7 +166,6 @@ export function ProjectRow({
           onStartEditSession={onStartEditSession}
           onCancelEdit={onCancelEdit}
           onRenameSession={onRenameSession}
-          onDeleteSession={onDeleteSession}
           onReorderSessions={onReorderSessions}
           onArchiveSession={onArchiveSession}
         />
