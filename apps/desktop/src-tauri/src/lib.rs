@@ -224,10 +224,11 @@ pub fn run() {
         .setup(|app| {
             specta_builder().mount_events(app);
 
-            // Native menu: the platform default (app / Edit / View / Window / Help) with Logs and
-            // Command Center entries in the View submenu. Logs routes the renderer to /logs; the
-            // Command Center accelerator is the leader key (fires over terminal focus) and emits
-            // "command-center:open".
+            // Native menu: the platform default (app / File / Edit / View / Window / Help) with
+            // Logs and Command Center entries in the View submenu, and New Project / New Session /
+            // New Terminal / Close Panel / Search Sessions in the File submenu. All accelerators
+            // fire over terminal focus; the File submenu entries route through the same command
+            // ids as the palette, and Command Center emits "command-center:open".
             menu::install_menu(app)?;
 
             // Construct and boot the single embedded orchestrator instance; it

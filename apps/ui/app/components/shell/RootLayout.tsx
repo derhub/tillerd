@@ -5,6 +5,7 @@ import { CommandCenter } from "~/components/command/CommandCenter";
 import { SETTINGS_OPEN_EVENT } from "~/components/settings/SettingsPanel";
 import { useArmReattachOnClose } from "~/components/shell/hooks/useArmReattachOnClose";
 import { useDetachedPanels } from "~/components/shell/hooks/useDetachedPanels";
+import { useMenuCommands } from "~/components/shell/hooks/useMenuCommands";
 import { useMenuNavigation } from "~/components/shell/hooks/useMenuNavigation";
 import { useWorkbenchCommands } from "~/components/shell/hooks/useWorkbenchCommands";
 import { DetachedPanelsContext } from "~/components/shell/shellContext";
@@ -50,6 +51,14 @@ export function RootLayout() {
 // Rendered inside the command registry provider so `useCommand` can register.
 function WorkbenchCommands(): null {
   useWorkbenchCommands();
+  return null;
+}
+
+// Dispatches native menu accelerators through the command registry. Rendered inside the
+// provider (not called directly in ShellChrome) so `useCommands` sees the registered handlers --
+// ShellChrome itself sits above CommandRegistryProvider in the tree.
+function MenuCommands(): null {
+  useMenuCommands();
   return null;
 }
 
@@ -107,6 +116,7 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
               <DetachedPanelsContext value={{ detached, detach, reattach }}>
                 <RegisterHandlers handlers={navHandlers} />
                 <WorkbenchCommands />
+                <MenuCommands />
                 <CommandCenter />
                 <TooltipProvider>
                   <div className="h-dvh w-full flex flex-col overflow-hidden">

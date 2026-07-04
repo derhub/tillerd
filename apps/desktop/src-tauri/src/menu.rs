@@ -4,11 +4,19 @@
 //! accelerator fires regardless of webview focus, so it reaches the command center even while a
 //! terminal holds keyboard focus. The leader item handle is held in managed state so the renderer
 //! can rebind it through `command_center_set_leader`.
+//!
+//! The `File` submenu gains New Project / New Session / New Terminal / Close Panel / Search
+//! Sessions entries. Their ids are the palette's own command ids (see `ACTION` in
+//! `apps/ui/app/lib/commands/ids.ts`); each routes to a generic `menu:command` event carrying that
+//! id as payload, so the renderer dispatches through the same command registry the palette uses --
+//! a menu item and its palette entry can never disagree on behavior.
 
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tauri::menu::{Menu, MenuItem, MenuItemBuilder, MenuItemKind, SubmenuBuilder};
+use tauri::menu::{
+    Menu, MenuItem, MenuItemBuilder, MenuItemKind, PredefinedMenuItem, SubmenuBuilder,
+};
 use tauri::{Emitter, Manager, State, Wry};
 
 /// Default leader accelerator -- the common palette convention; rebindable from settings.
@@ -40,6 +48,28 @@ pub fn menu_event_route(id: &str) -> Option<MenuRoute> {
             event: "command-center:open",
             payload: "",
         }),
+        // Palette command ids, forwarded verbatim as the event payload so the renderer can
+        // dispatch through the command registry by id.
+        "project.new" => Some(MenuRoute {
+            event: "menu:command",
+            payload: "project.new",
+        }),
+        "session.new" => Some(MenuRoute {
+            event: "menu:command",
+            payload: "session.new",
+        }),
+        "surface.spawn" => Some(MenuRoute {
+            event: "menu:command",
+            payload: "surface.spawn",
+        }),
+        "surface.close" => Some(MenuRoute {
+            event: "menu:command",
+            payload: "surface.close",
+        }),
+        "session.search" => Some(MenuRoute {
+            event: "menu:command",
+            payload: "session.search",
+        }),
         _ => None,
     }
 }
@@ -55,23 +85,76 @@ pub fn install_menu(app: &tauri::App) -> tauri::Result<()> {
         .accelerator(DEFAULT_LEADER_ACCEL)
         .build(app)?;
 
+    // Accelerators mirror the palette's own defaults for these ids (see
+    // apps/ui/app/lib/commands/defs.ts) so the native menu and the palette never show
+    // conflicting shortcuts for the same command.
+    let project_new = MenuItemBuilder::with_id("project.new", "New Project")
+        .accelerator("CmdOrCtrl+Shift+N")
+        .build(app)?;
+    let session_new = MenuItemBuilder::with_id("session.new", "New Session")
+        .accelerator("CmdOrCtrl+N")
+        .build(app)?;
+    let surface_spawn = MenuItemBuilder::with_id("surface.spawn", "New Terminal")
+        .accelerator("CmdOrCtrl+T")
+        .build(app)?;
+    let surface_close = MenuItemBuilder::with_id("surface.close", "Close Panel")
+        .accelerator("CmdOrCtrl+W")
+        .build(app)?;
+    let session_search = MenuItemBuilder::with_id("session.search", "Search Sessions")
+        .accelerator("CmdOrCtrl+P")
+        .build(app)?;
+
     let menu = Menu::default(app.handle())?;
-    let mut placed = false;
+    let mut view_placed = false;
+    let mut file_placed = false;
     for item in menu.items()? {
-        if let MenuItemKind::Submenu(sub) = item {
-            if sub.text().unwrap_or_default() == "View" {
+        let Some(sub) = (match item {
+            MenuItemKind::Submenu(sub) => Some(sub),
+            _ => None,
+        }) else {
+            continue;
+        };
+        match sub.text().unwrap_or_default().as_str() {
+            "View" => {
                 sub.append(&logs)?;
                 sub.append(&leader)?;
-                placed = true;
-                break;
+                view_placed = true;
             }
+            // `Menu::default` only builds a `File` submenu on macOS/Windows; prepend so these
+            // entries lead the platform defaults (Close Window, Quit) rather than trailing them.
+            "File" => {
+                sub.prepend(&session_search)?;
+                sub.prepend(&PredefinedMenuItem::separator(app)?)?;
+                sub.prepend(&surface_close)?;
+                sub.prepend(&surface_spawn)?;
+                sub.prepend(&session_new)?;
+                sub.prepend(&project_new)?;
+                file_placed = true;
+            }
+            _ => {}
+        }
+        if view_placed && file_placed {
+            break;
         }
     }
-    if !placed {
+    if !view_placed {
         menu.append(
             &SubmenuBuilder::new(app, "View")
                 .item(&logs)
                 .item(&leader)
+                .build()?,
+        )?;
+    }
+    if !file_placed {
+        // Linux gets no default `File` submenu at all -- build one from scratch.
+        menu.append(
+            &SubmenuBuilder::new(app, "File")
+                .item(&project_new)
+                .item(&session_new)
+                .item(&surface_spawn)
+                .item(&surface_close)
+                .separator()
+                .item(&session_search)
                 .build()?,
         )?;
     }
@@ -125,5 +208,20 @@ mod tests {
     #[test]
     fn default_leader_is_a_chord_accelerator() {
         assert!(DEFAULT_LEADER_ACCEL.contains('+'));
+    }
+
+    #[test]
+    fn palette_command_ids_route_to_menu_command_with_their_own_id_as_payload() {
+        for id in [
+            "project.new",
+            "session.new",
+            "surface.spawn",
+            "surface.close",
+            "session.search",
+        ] {
+            let route = menu_event_route(id).unwrap_or_else(|| panic!("{id} is routed"));
+            assert_eq!(route.event, "menu:command");
+            assert_eq!(route.payload, id);
+        }
     }
 }

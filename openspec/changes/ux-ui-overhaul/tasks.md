@@ -101,7 +101,7 @@
 
 ## 9. Native menus
 
-- [ ] 9.1 Tauri application menu with accelerators (new project, new session, new
+- [x] 9.1 Tauri application menu with accelerators (new project, new session, new
   terminal, close surface, switch session) routed through command ids; platform-correct
   labels; fire with terminal focus
 

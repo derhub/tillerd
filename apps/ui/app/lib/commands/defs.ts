@@ -180,6 +180,7 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: SESSION_SEARCH_ACTION_ID,
     title: SESSION_SEARCH_TITLE,
     keywords: ["session", "switch", "go to", "find", "search"],
+    defaultKeys: { default: "CmdOrCtrl+P" },
   },
   // Row-scoped context-menu actions. `menu.projectRow`/`menu.sessionRow` and the
   // `menu.canRename`/`menu.canDelete` guards are pushed into the context store by
