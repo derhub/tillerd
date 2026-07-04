@@ -150,20 +150,20 @@
 
 ## 13. Terminal experience baseline (inferred completeness pass)
 
-- [ ] 13.1 Find-in-terminal: search overlay per pane (match highlight, next/prev,
+- [x] 13.1 Find-in-terminal: search overlay per pane (match highlight, next/prev,
   case toggle), palette command + keybinding, xterm search addon
-- [ ] 13.2 Clickable links in terminal output (URL detection + OSC 8), open via system
-- [ ] 13.3 Copy/paste hygiene: copy-on-select setting, bracketed-paste verified,
+- [x] 13.2 Clickable links in terminal output (URL detection + OSC 8), open via system
+- [x] 13.3 Copy/paste hygiene: copy-on-select setting, bracketed-paste verified,
   confirm-before-paste for multi-line clipboard (setting-gated)
-- [ ] 13.4 Terminal settings: font size, font family, line height, cursor style/blink,
+- [x] 13.4 Terminal settings: font size, font family, line height, cursor style/blink,
   scrollback size — applied live to mounted terminals via the reactive settings path
-- [ ] 13.5 Terminal context menu: copy, paste, select all, clear, search selection —
+- [x] 13.5 Terminal context menu: copy, paste, select all, clear, search selection —
   registry-driven via the contextmenu surface
-- [ ] 13.6 Bell + attention: xterm bell event surfaces through the notification center;
+- [x] 13.6 Bell + attention: xterm bell event surfaces through the notification center;
   unfocused-window bell raises the native banner path
 - [x] 13.7 UI zoom setting (webview zoom factor) persisted; window-state persistence
   verified
-- [ ] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
+- [x] 13.8 Drag-and-drop a file onto a terminal inserts its quoted path
 - [ ] 13.9 General + Project settings sections: close-confirmation toggle, startup
   workspace, per-project default template (folds 12.5 scope)
 - [ ] 13.10 Follow-ups filed for 0.1.x: shell integration (prompt marking), cwd
