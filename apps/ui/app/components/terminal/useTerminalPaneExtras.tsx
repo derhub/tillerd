@@ -169,7 +169,8 @@ async function attachTerminalExtras(
       // empirically from the webview's physical width vs the CSS viewport width so the hit test
       // stays correct at any zoom level.
       const size = await webview.size();
-      const scale = window.innerWidth > 0 ? size.width / window.innerWidth : window.devicePixelRatio || 1;
+      const scale =
+        window.innerWidth > 0 ? size.width / window.innerWidth : window.devicePixelRatio || 1;
       const x = event.payload.position.x / scale;
       const y = event.payload.position.y / scale;
       if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {

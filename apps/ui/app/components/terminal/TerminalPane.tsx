@@ -4,10 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
-import { scalarString } from "~/lib/json";
+import { TerminalFailureOverlay } from "~/components/terminal/TerminalFailureOverlay";
 import "@xterm/xterm/css/xterm.css";
 
-import { TerminalFailureOverlay } from "~/components/terminal/TerminalFailureOverlay";
+import { scalarString } from "~/lib/json";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { WS_BASE } from "~/lib/serverUrl";
 import { SessionContext } from "~/lib/sessionContext";

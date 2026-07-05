@@ -2,10 +2,7 @@ import { Undo2 } from "lucide-react";
 import React from "react";
 
 import { DesktopTerminalPane } from "~/components/terminal/DesktopTerminalPane";
-import {
-  CommandRegistryProvider,
-  RegisterHandlers,
-} from "~/lib/commands/registry";
+import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { isMac } from "~/lib/platform";
 import { SettingsProvider } from "~/lib/settings/context";
 import { useUiZoom } from "~/lib/settings/useUiZoom";
@@ -13,30 +10,18 @@ import { subscribe } from "~/lib/subscribe";
 import { terminalCommandHandlers } from "~/lib/terminal/activeTerminal";
 import { isDesktopHost } from "~/lib/transport/core";
 import { cn } from "~/lib/utils";
-import {
-  armReattachOnClose,
-  closeSelf,
-  emitReattachPanel,
-} from "~/lib/windows";
+import { armReattachOnClose, closeSelf, emitReattachPanel } from "~/lib/windows";
 
 // Same (sessionId, placement) identity as the host panel: the revisit path re-binds the live PTY
 // and replays scrollback without cloning or restarting the surface.
-export function DetachedWindow({
-  sessionId,
-  placement,
-}: {
-  sessionId: string;
-  placement: string;
-}) {
+export function DetachedWindow({ sessionId, placement }: { sessionId: string; placement: string }) {
   // This window is its own webview; the UI zoom setting applies per-webview, so each
   // detached window must apply it itself (RootLayout's ShellChrome does the same for
   // main/project/workspace windows).
   useUiZoom();
 
   React.useEffect(() => {
-    return subscribe(
-      armReattachOnClose(() => emitReattachPanel({ sessionId, placement })),
-    );
+    return subscribe(armReattachOnClose(() => emitReattachPanel({ sessionId, placement })));
   }, [sessionId, placement]);
 
   // The window uses the overlay title bar (native controls, transparent bar), so the

@@ -44,12 +44,8 @@ function PickerItem({
     >
       <TerminalIcon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
       <span className="flex flex-col min-w-0">
-        <span className="text-[0.917rem] text-foreground truncate">
-          {title}
-        </span>
-        <span className="text-[0.75rem] text-muted-foreground/60 truncate">
-          {subtitle}
-        </span>
+        <span className="text-[0.917rem] text-foreground truncate">{title}</span>
+        <span className="text-[0.75rem] text-muted-foreground/60 truncate">{subtitle}</span>
       </span>
     </button>
   );

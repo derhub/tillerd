@@ -21,8 +21,8 @@ import { afterEach, expect, test, describe, mock } from "bun:test";
 import React, { type ReactNode } from "react";
 
 import { CommandRegistryProvider } from "~/lib/commands/registry";
-import { notificationsStore } from "~/lib/notifications/context";
 import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec } from "~/lib/launchSpec";
+import { notificationsStore } from "~/lib/notifications/context";
 import { DEFAULT_TEMPLATE_KEY } from "~/lib/settings/keys";
 import { resetUiStore, setProjectExpanded } from "~/lib/store";
 

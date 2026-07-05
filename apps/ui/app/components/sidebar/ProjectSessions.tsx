@@ -80,7 +80,11 @@ export function ProjectSessions({
             name={sessionDisplayName(s.title, s.id)}
             onRestore={() => onRestoreSession(s.id)}
             onDelete={() =>
-              onRequestDelete({ id: s.id, name: sessionDisplayName(s.title, s.id), kind: "session" })
+              onRequestDelete({
+                id: s.id,
+                name: sessionDisplayName(s.title, s.id),
+                kind: "session",
+              })
             }
           />
         ))}

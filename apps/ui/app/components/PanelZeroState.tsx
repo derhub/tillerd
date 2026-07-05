@@ -42,9 +42,7 @@ export function PanelZeroState() {
   // Undefined while loading or after an errored fetch: never counted as "no projects", so a
   // transient projectList failure keeps the panel rather than flashing the create-project CTA.
   const { data: projects } = useQuery(query("projectList", { workspaceId: workspaceId ?? null }));
-  const namedProjects = projects?.filter(
-    (p) => p.id !== UNFILED_ID && p.status !== "archived",
-  );
+  const namedProjects = projects?.filter((p) => p.id !== UNFILED_ID && p.status !== "archived");
   const noNamedProjects = namedProjects?.length === 0;
 
   // Unfiled emptiness only matters with no named project; the fetch is gated off otherwise, and

@@ -18,11 +18,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION } from "~/lib/commands/ids";
-import {
-  type CommandArgs,
-  useDispatchCommand,
-  useRegisterHandlers,
-} from "~/lib/commands/registry";
+import { type CommandArgs, useDispatchCommand, useRegisterHandlers } from "~/lib/commands/registry";
 import { commandListQuery } from "~/lib/data/commands";
 import { notify } from "~/lib/notifications/notify";
 import { SessionContext } from "~/lib/sessionContext";

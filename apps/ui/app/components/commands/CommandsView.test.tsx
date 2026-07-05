@@ -7,9 +7,10 @@ import { setQueryClient, setReady } from "@tillerd/client-bindings";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
+import type { CommandArgs } from "~/lib/commands/registry";
+
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { ACTION } from "~/lib/commands/ids";
-import type { CommandArgs } from "~/lib/commands/registry";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { notificationsStore } from "~/lib/notifications/context";
 import { makeQueryClient } from "~/lib/queryClient";

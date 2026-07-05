@@ -126,9 +126,7 @@ describe("GeneralSection", () => {
   test("the zoom control shows the current level as a percentage", async () => {
     renderSection({ "ui.zoom": 1.5 });
 
-    await waitFor(() =>
-      expect(screen.getByTestId("ui-zoom-value").textContent).toBe("150%"),
-    );
+    await waitFor(() => expect(screen.getByTestId("ui-zoom-value").textContent).toBe("150%"));
   });
 
   test("zooming in persists a larger zoom level", async () => {
