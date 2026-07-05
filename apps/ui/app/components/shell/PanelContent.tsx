@@ -20,7 +20,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Skeleton } from "~/components/ui/skeleton";
 import { RegisterHandlers } from "~/lib/commands/registry";
 import { bootContent } from "~/lib/health/boot-content";
-import { type PanelLeaf, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
+import { type PanelLeaf, collectLeaves, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
 import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
 import { useBoolGlobalSetting } from "~/lib/settings/context";
@@ -51,8 +51,26 @@ export function PanelContent() {
   const graceElapsed = useDelayedTrue(host.status === "booting", 200);
   const bootRegion = bootContent(host.status, graceElapsed);
 
-  const { tree, split, close, setContent, setActiveTab } = usePanelTree(sessionId);
+  const { tree, split, close, setContent, resetToEmpty, setActiveTab } = usePanelTree(sessionId);
   const totalPanels = countLeaves(tree);
+
+  // Per-placement live process status, fed by each terminal pane's onStatusChange. Backs the
+  // confirm-if-running gate (surface-lifecycle spec): a terminal whose process has exited must
+  // close without a prompt. A placement absent from the map is treated as still running (its pane
+  // has not reported an exit), so the confirm defaults on for a live-but-unreported surface.
+  const [statusByPlacement, setStatusByPlacement] = React.useState<Record<string, string>>({});
+  const handleStatusChange = React.useCallback((placement: string, status: string) => {
+    setStatusByPlacement((prev) =>
+      prev[placement] === status ? prev : { ...prev, [placement]: status },
+    );
+  }, []);
+  const isPlacementRunning = React.useCallback(
+    (placement: string) => {
+      const s = statusByPlacement[placement];
+      return s !== "exited" && s !== "error";
+    },
+    [statusByPlacement],
+  );
 
   const treeRef = React.useRef(tree);
   treeRef.current = tree;
@@ -60,11 +78,40 @@ export function PanelContent() {
   detachedRef.current = detached;
   const activeLeafRef = React.useRef<string | null>(null);
 
-  const onContentPointerDown = React.useCallback((e: React.PointerEvent) => {
-    const el = (e.target as HTMLElement).closest("[data-panel-id]");
-    const id = el?.getAttribute("data-panel-id");
-    if (id) activeLeafRef.current = id;
+  // Focused pane (panel-multiplexer-nav spec): drives the focus ring and is the target for
+  // pane keybindings and directional nav. activeLeafRef mirrors it so useShellCommands' pick()
+  // reads the current focus synchronously. Zoom is transient view state (never persisted).
+  const [focusedLeafId, setFocusedLeafId] = React.useState<string | null>(null);
+  const [zoomedLeafId, setZoomedLeafId] = React.useState<string | null>(null);
+  const setFocusedLeaf = React.useCallback((id: string) => {
+    activeLeafRef.current = id;
+    setFocusedLeafId(id);
   }, []);
+  const toggleZoom = React.useCallback((id: string) => {
+    setZoomedLeafId((z) => (z === id ? null : id));
+  }, []);
+
+  const onContentPointerDown = React.useCallback(
+    (e: React.PointerEvent) => {
+      const el = (e.target as HTMLElement).closest("[data-panel-id]");
+      const id = el?.getAttribute("data-panel-id");
+      if (id) setFocusedLeaf(id);
+    },
+    [setFocusedLeaf],
+  );
+
+  // Keep focus and zoom valid as the tree changes: if the focused/zoomed leaf is removed, move
+  // focus to the first remaining leaf and drop a stale zoom. resetToEmpty keeps the leaf id, so a
+  // reset-to-empty pane stays focused/zoomed.
+  React.useEffect(() => {
+    const ids = new Set(collectLeaves(tree).map((l) => l.id));
+    if (focusedLeafId && !ids.has(focusedLeafId)) {
+      const first = collectLeaves(tree)[0]?.id ?? null;
+      activeLeafRef.current = first;
+      setFocusedLeafId(first);
+    }
+    if (zoomedLeafId && !ids.has(zoomedLeafId)) setZoomedLeafId(null);
+  }, [tree, focusedLeafId, zoomedLeafId]);
 
   const handleSpawn = React.useCallback(
     (leafId: string, commandRef?: SpawnCommandRef) => {
@@ -82,10 +129,43 @@ export function PanelContent() {
   // the tree, so destroy fades at the same rate as create instead of cutting instantly.
   const [closingLeafIds, setClosingLeafIds] = React.useState<Set<string>>(new Set());
 
+  // Unbind a leaf back to the empty picker (surface-lifecycle spec): used by the exit bar's
+  // "New surface" and the failure overlay's Dismiss. Terminates the (exited/failed) surface to free
+  // its placement, then resets the leaf, keeping its geometry in the tree.
+  const handleRequestReset = React.useCallback(
+    (leafId: string) => {
+      const leaf = findLeaf(treeRef.current, leafId);
+      if (leaf?.content.type === "terminal" && sessionId) {
+        surfaceClose.mutate({ id: leaf.content.placement });
+      }
+      resetToEmpty(leafId);
+    },
+    [sessionId, resetToEmpty, surfaceClose],
+  );
+
+  // Restart an exited pane in place (surface-lifecycle spec): terminate the dead surface to free
+  // its placement, then spawn a fresh terminal into the same leaf. handleSpawn mints a new
+  // placement and rebinds -- the pane shows a live shell at unchanged geometry.
+  const handleRestart = React.useCallback(
+    (leafId: string) => {
+      const leaf = findLeaf(treeRef.current, leafId);
+      if (leaf?.content.type === "terminal" && sessionId) {
+        surfaceClose.mutate({ id: leaf.content.placement });
+      }
+      handleSpawn(leafId);
+    },
+    [sessionId, surfaceClose, handleSpawn],
+  );
+
+  // Content-dependent close (surface-lifecycle spec). A terminal leaf terminates its surface and
+  // resets to the empty picker in place (the leaf stays, even as the only pane). An empty leaf is
+  // removed, fading out first, and the tree's always-one-leaf guarantee keeps the last pane alive.
   const runClose = React.useCallback(
     (leaf: PanelLeaf) => {
-      if (leaf.content.type === "terminal" && sessionId) {
-        surfaceClose.mutate({ id: leaf.content.placement });
+      if (leaf.content.type === "terminal") {
+        if (sessionId) surfaceClose.mutate({ id: leaf.content.placement });
+        resetToEmpty(leaf.id);
+        return;
       }
       setClosingLeafIds((prev) => new Set(prev).add(leaf.id));
       window.setTimeout(() => {
@@ -98,11 +178,11 @@ export function PanelContent() {
         });
       }, CLOSE_FADE_MS);
     },
-    [sessionId, close, surfaceClose],
+    [sessionId, close, resetToEmpty, surfaceClose],
   );
 
-  // Close-surface confirmation (ui-panel-compound spec): a running terminal prompts before its
-  // PTY is terminated, unless "don't ask again" is set. Non-terminal (empty) leaves close at once.
+  // Close confirmation fires only when the terminal's process is still running (surface-lifecycle
+  // spec): an exited terminal or an empty leaf closes at once. "Don't ask again" still suppresses it.
   const { value: skipCloseConfirm, setValue: setSkipCloseConfirm } = useBoolGlobalSetting(
     PANEL_CLOSE_CONFIRM_SKIP_KEY,
     false,
@@ -112,14 +192,16 @@ export function PanelContent() {
 
   const handleClose = React.useCallback(
     (leaf: PanelLeaf) => {
-      if (shouldConfirmClose(leaf, skipCloseConfirm)) {
+      const isRunning =
+        leaf.content.type === "terminal" && isPlacementRunning(leaf.content.placement);
+      if (shouldConfirmClose(leaf, skipCloseConfirm, isRunning)) {
         setPendingClose(leaf);
         setDontAskAgain(false);
         return;
       }
       runClose(leaf);
     },
-    [skipCloseConfirm, runClose],
+    [skipCloseConfirm, runClose, isPlacementRunning],
   );
 
   const confirmClose = React.useCallback(() => {
@@ -167,6 +249,8 @@ export function PanelContent() {
     spawn: handleSpawn,
     close: handleClose,
     detach,
+    setFocusedLeaf,
+    toggleZoom,
   });
 
   if (host.status === "web") {
@@ -191,6 +275,8 @@ export function PanelContent() {
           detached={detached}
           closingLeafIds={closingLeafIds}
           reloadEpoch={reloadEpoch}
+          focusedLeafId={focusedLeafId}
+          zoomedLeafId={zoomedLeafId}
           onSplit={split}
           onSetActiveTab={setActiveTab}
           onClose={handleClose}
@@ -198,6 +284,9 @@ export function PanelContent() {
           onDetach={detach}
           onReattach={reattach}
           onSwapPlacements={handleSwapPlacements}
+          onStatusChange={handleStatusChange}
+          onRequestReset={handleRequestReset}
+          onRestart={handleRestart}
         />
       ) : bootRegion === "skeleton" ? (
         <div className="h-full w-full p-3" data-testid="content-skeleton">

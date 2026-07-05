@@ -8,7 +8,9 @@ import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
+import { TerminalExitBar } from "~/components/terminal/TerminalExitBar";
 import { TerminalFailureOverlay } from "~/components/terminal/TerminalFailureOverlay";
+import { usePaneShortcutDispatch } from "~/lib/commands/usePaneShortcuts";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
@@ -97,6 +99,7 @@ async function bindChannel(
   setStatus: (s: string) => void,
   sendInputRef: React.RefObject<((bytes: number[]) => void) | null>,
   setFailureReason: (reason: string | null) => void,
+  setExitQualifier: (q: string | null) => void,
 ): Promise<() => void> {
   const view = await runCommand("surfaceResolveOrSpawn", {
     session: sessionId,
@@ -119,7 +122,11 @@ async function bindChannel(
         break;
       case "exit":
         setStatus("exited");
-        if (!isCleanExit(event.value)) {
+        if (isCleanExit(event.value)) {
+          // Clean exit: hold the scrollback and let the pane show the restart bar (surface-lifecycle
+          // spec). The qualifier drives the bar's label.
+          setExitQualifier(event.value);
+        } else {
           setFailureReason(`Session exited unexpectedly (${event.value})`);
         }
         break;
@@ -136,6 +143,7 @@ async function bindChannel(
 
   setSurfaceId(surfaceId);
   setStatus("connected");
+  setExitQualifier(null);
 
   const encoder = new TextEncoder();
   const onData: IDisposable = term.onData((data) => {
@@ -164,6 +172,13 @@ export function DesktopTerminalPane(_props: {
   // Bumped by a successful placement swap to force a channel rebind without recreating the
   // Terminal (see bindChannel above).
   reloadKey?: number;
+  // Lifecycle callbacks (surface-lifecycle spec). onStatusChange lifts the pane's connection status
+  // to the tree owner (backs the confirm-if-running close gate); onRequestReset asks the owner to
+  // unbind this leaf to the empty picker (exit bar "New surface", failure Dismiss); onRestart asks
+  // the owner to respawn a fresh surface into this leaf.
+  onStatusChange?: (placement: string, status: string) => void;
+  onRequestReset?: () => void;
+  onRestart?: () => void;
 }) {
   const detachOnUnmount = _props.detachOnUnmount ?? true;
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -172,6 +187,14 @@ export function DesktopTerminalPane(_props: {
   const surfaceIdRef = React.useRef<string | null>(null);
   surfaceIdRef.current = surfaceId;
   const [failureReason, setFailureReason] = React.useState<string | null>(null);
+  const [exitQualifier, setExitQualifier] = React.useState<string | null>(null);
+
+  // Lift status to the tree owner so its close-confirm gate knows whether a live process still runs.
+  const onStatusChange = _props.onStatusChange;
+  const placement = _props.placement;
+  React.useEffect(() => {
+    onStatusChange?.(placement, status);
+  }, [onStatusChange, placement, status]);
   // Bumped by the resume action to force a channel rebind (surfaceResolveOrSpawn resumes a
   // failed/exited surface record) without recreating the Terminal.
   const [resumeKey, setResumeKey] = React.useState(0);
@@ -195,11 +218,13 @@ export function DesktopTerminalPane(_props: {
   const writeInput = React.useCallback((text: string) => {
     sendInputRef.current?.(Array.from(new TextEncoder().encode(text)));
   }, []);
+  const dispatchPaneKey = usePaneShortcutDispatch();
   const extras = useTerminalPaneExtras({
     sessionId: _props.sessionId,
     getSurfaceId,
     writeInput,
     containerRef,
+    onPaneKey: dispatchPaneKey,
   });
   const attach = extras.attach;
 
@@ -250,6 +275,7 @@ export function DesktopTerminalPane(_props: {
         setStatus,
         sendInputRef,
         setFailureReason,
+        setExitQualifier,
       ),
     );
     return () => {
@@ -263,9 +289,13 @@ export function DesktopTerminalPane(_props: {
     setResumeKey((k) => k + 1);
   }, []);
 
+  // Dismiss on failure resets the leaf to the empty picker (surface-lifecycle spec) rather than
+  // leaving a dead pane; the owner terminates the failed surface and unbinds the leaf.
+  const onRequestReset = _props.onRequestReset;
   const handleDismiss = React.useCallback(() => {
     setFailureReason(null);
-  }, []);
+    onRequestReset?.();
+  }, [onRequestReset]);
 
   const dotColorClass =
     status === "connected"
@@ -299,6 +329,13 @@ export function DesktopTerminalPane(_props: {
           reason={failureReason}
           onResume={handleResume}
           onDismiss={handleDismiss}
+        />
+      )}
+      {!failureReason && exitQualifier !== null && (
+        <TerminalExitBar
+          qualifier={exitQualifier}
+          onRestart={() => _props.onRestart?.()}
+          onNewSurface={() => _props.onRequestReset?.()}
         />
       )}
     </EntityContextMenu>

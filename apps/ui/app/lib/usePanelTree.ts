@@ -10,10 +10,10 @@ import {
   deserializeLayout,
   splitNode,
   makeId,
-  closeNode,
+  closeLeafSafe,
   setContentNode,
+  resetLeafToEmpty,
   setActiveTabNode,
-  countLeaves,
 } from "./panelTree";
 
 export function sessionLayoutQuery(id: string) {
@@ -79,12 +79,12 @@ export function usePanelTree(sessionId?: string | null) {
     [update],
   );
 
+  // Remove a leaf and collapse its parent split. closeLeafSafe keeps the always-one-leaf
+  // guarantee (surface-lifecycle spec): removing the sole leaf resets it to a single empty leaf
+  // rather than emptying the tree, so the former countLeaves<=1 block is gone.
   const close = React.useCallback(
     (id: string) => {
-      update((t) => {
-        if (countLeaves(t) <= 1) return t;
-        return closeNode(t, id) ?? DEFAULT_LAYOUT;
-      });
+      update((t) => closeLeafSafe(t, id));
     },
     [update],
   );
@@ -96,6 +96,15 @@ export function usePanelTree(sessionId?: string | null) {
     [update],
   );
 
+  // Unbind a leaf back to the empty picker in place (surface-lifecycle spec): closing a terminal
+  // pane terminates its surface and resets this leaf, keeping its geometry in the tree.
+  const resetToEmpty = React.useCallback(
+    (id: string) => {
+      update((t) => resetLeafToEmpty(t, id));
+    },
+    [update],
+  );
+
   const setActiveTab = React.useCallback(
     (groupId: string, tabId: string) => {
       update((t) => setActiveTabNode(t, groupId, tabId));
@@ -103,5 +112,5 @@ export function usePanelTree(sessionId?: string | null) {
     [update],
   );
 
-  return { tree, split, close, setContent, setActiveTab };
+  return { tree, split, close, setContent, resetToEmpty, setActiveTab };
 }

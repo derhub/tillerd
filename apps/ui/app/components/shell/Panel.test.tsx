@@ -48,7 +48,7 @@ function renderLeaf(props: {
             <Panel.Title />
             <Panel.Toolbar>
               <Panel.Toolbar.Button icon={<span />} label="Split right" onClick={() => {}} />
-              <Panel.CloseButton totalPanels={2} />
+              <Panel.CloseButton canClose />
             </Panel.Toolbar>
           </Panel.Header>
           <Panel.Content>content</Panel.Content>
@@ -63,6 +63,24 @@ describe("Panel toolbar tooltips", () => {
     renderLeaf({});
     expect(screen.getByRole("button", { name: "Split right" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Close panel" })).not.toBeNull();
+  });
+
+  test("the close control is hidden when the leaf cannot be closed", () => {
+    render(
+      <TooltipProvider>
+        <Panel.Provider id="leaf-1" title="Empty" actions={{ split: () => {}, close: () => {} }}>
+          <Panel.Frame>
+            <Panel.Header>
+              <Panel.Toolbar>
+                <Panel.CloseButton canClose={false} />
+              </Panel.Toolbar>
+            </Panel.Header>
+            <Panel.Content>content</Panel.Content>
+          </Panel.Frame>
+        </Panel.Provider>
+      </TooltipProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Close panel" })).toBeNull();
   });
 });
 

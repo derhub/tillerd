@@ -10,6 +10,12 @@ export const ACTION = {
   panelSplitH: "panel.split-h",
   panelSplitV: "panel.split-v",
   surfaceDetach: "surface.detach",
+  surfaceNew: "surface.new",
+  paneFocusLeft: "pane.focus-left",
+  paneFocusRight: "pane.focus-right",
+  paneFocusUp: "pane.focus-up",
+  paneFocusDown: "pane.focus-down",
+  paneZoomToggle: "pane.zoom-toggle",
   projectOpenNewWindow: "project.open-new-window",
   viewLogs: "view.logs",
   appSettings: "app.settings",
@@ -88,6 +94,23 @@ export type ActionId = (typeof ACTION)[keyof typeof ACTION];
 // carry no COMMAND_DEFS entry, so they never appear in the palette or bind a shortcut.
 // The def-parity test asserts these -- and only these -- are absent from the def table.
 export const HANDLER_ONLY_ACTION_IDS: ReadonlySet<string> = new Set([ACTION.surfaceRunCommand]);
+
+// Pane/surface actions that operate on the focused leaf and must fire while a terminal holds
+// keyboard focus. Global shortcuts are suppressed over a focused `.xterm` (useKeybindings
+// isCaptureTarget), so these are matched inside the terminal's own key handler and dispatched
+// through the registry (see usePaneShortcutDispatch).
+export const PANE_ACTION_IDS: readonly string[] = [
+  ACTION.panelSplitH,
+  ACTION.panelSplitV,
+  ACTION.surfaceClose,
+  ACTION.surfaceNew,
+  ACTION.surfaceDetach,
+  ACTION.paneFocusLeft,
+  ACTION.paneFocusRight,
+  ACTION.paneFocusUp,
+  ACTION.paneFocusDown,
+  ACTION.paneZoomToggle,
+];
 
 export const SESSION_SEARCH_ACTION_ID = "session.search";
 export const SESSION_SEARCH_TITLE = "Search sessions";

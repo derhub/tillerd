@@ -4,10 +4,13 @@ import {
   DEFAULT_LAYOUT,
   splitNode,
   closeNode,
+  closeLeafSafe,
   setContentNode,
+  resetLeafToEmpty,
   serializeLayout,
   deserializeLayout,
   countLeaves,
+  collectLeaves,
   findLeaf,
   shouldConfirmClose,
   type PanelNode,
@@ -95,6 +98,32 @@ describe("closeNode", () => {
   });
 });
 
+describe("closeLeafSafe", () => {
+  test("resets the sole leaf to empty instead of removing it", () => {
+    const tree = leaf("a");
+    const result = closeLeafSafe(tree, "a");
+    expect(result).not.toBeNull();
+    expect(collectLeaves(result)).toHaveLength(1);
+    expect(result).toMatchObject({ id: "a", content: { type: "empty" } });
+  });
+
+  test("removes a leaf and collapses the split when a sibling remains", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
+      children: [leaf("a"), leaf("b")],
+    };
+    const result = closeLeafSafe(tree, "b");
+    expect(result).toMatchObject({ kind: "panel", id: "a" });
+  });
+
+  test("never returns null", () => {
+    expect(closeLeafSafe(leaf("a"), "a")).not.toBeNull();
+  });
+});
+
 describe("setContentNode", () => {
   test("updates content on matching leaf", () => {
     const tree = leaf("a");
@@ -105,6 +134,38 @@ describe("setContentNode", () => {
   test("no-op on non-matching leaf", () => {
     const tree = leaf("a");
     expect(setContentNode(tree, "z", { type: "terminal", placement: "slot-1" })).toBe(tree);
+  });
+});
+
+describe("resetLeafToEmpty", () => {
+  test("resets a bound leaf's content to empty", () => {
+    const tree = leaf("a");
+    const bound = setContentNode(tree, "a", { type: "terminal", placement: "slot-1" });
+    const result = resetLeafToEmpty(bound, "a");
+    expect((result as PanelLeaf).content).toEqual({ type: "empty" });
+  });
+
+  test("leaves sibling leaves untouched", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
+      children: [
+        { ...leaf("a"), content: { type: "terminal", placement: "slot-1" } },
+        { ...leaf("b"), content: { type: "terminal", placement: "slot-2" } },
+      ],
+    };
+    const result = resetLeafToEmpty(tree, "a") as PanelGroupNode;
+    expect(result.children[0]).toMatchObject({ content: { type: "empty" } });
+    expect(result.children[1]).toMatchObject({
+      content: { type: "terminal", placement: "slot-2" },
+    });
+  });
+
+  test("no-op when id not found", () => {
+    const tree = leaf("a");
+    expect(resetLeafToEmpty(tree, "z")).toBe(tree);
   });
 });
 
@@ -144,18 +205,23 @@ describe("findLeaf", () => {
 });
 
 describe("shouldConfirmClose", () => {
-  test("confirms a terminal leaf when no preference is stored", () => {
+  test("confirms a running terminal leaf when no preference is stored", () => {
     const terminal: PanelLeaf = { ...leaf("a"), content: { type: "terminal", placement: "p1" } };
-    expect(shouldConfirmClose(terminal, false)).toBe(true);
+    expect(shouldConfirmClose(terminal, false, true)).toBe(true);
+  });
+
+  test("skips confirmation when the terminal's process has already exited", () => {
+    const terminal: PanelLeaf = { ...leaf("a"), content: { type: "terminal", placement: "p1" } };
+    expect(shouldConfirmClose(terminal, false, false)).toBe(false);
   });
 
   test("skips confirmation when don't-ask-again is set", () => {
     const terminal: PanelLeaf = { ...leaf("a"), content: { type: "terminal", placement: "p1" } };
-    expect(shouldConfirmClose(terminal, true)).toBe(false);
+    expect(shouldConfirmClose(terminal, true, true)).toBe(false);
   });
 
   test("never confirms an empty leaf (no PTY to terminate)", () => {
-    expect(shouldConfirmClose(leaf("a"), false)).toBe(false);
+    expect(shouldConfirmClose(leaf("a"), false, true)).toBe(false);
   });
 });
 

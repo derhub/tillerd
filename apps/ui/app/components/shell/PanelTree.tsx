@@ -29,6 +29,8 @@ export function PanelTree({
   detached,
   closingLeafIds,
   reloadEpoch,
+  focusedLeafId,
+  zoomedLeafId,
   onSplit,
   onSetActiveTab,
   onClose,
@@ -36,6 +38,9 @@ export function PanelTree({
   onDetach,
   onReattach,
   onSwapPlacements,
+  onStatusChange,
+  onRequestReset,
+  onRestart,
 }: {
   tree: PanelNode;
   totalPanels: number;
@@ -44,6 +49,8 @@ export function PanelTree({
   detached: Set<string>;
   closingLeafIds: Set<string>;
   reloadEpoch: Record<string, number>;
+  focusedLeafId: string | null;
+  zoomedLeafId: string | null;
   onSplit: (leafId: string, direction: "horizontal" | "vertical") => void;
   onSetActiveTab: (groupId: string, tabId: string) => void;
   onClose: (leaf: PanelLeaf) => void;
@@ -51,6 +58,9 @@ export function PanelTree({
   onDetach: (leaf: PanelLeaf) => void;
   onReattach: (placement: string) => void;
   onSwapPlacements: (sourceLeafId: string, targetLeafId: string) => void;
+  onStatusChange: (placement: string, status: string) => void;
+  onRequestReset: (leafId: string) => void;
+  onRestart: (leafId: string) => void;
 }) {
   // Drag/drop is transient UI state, not part of the persisted layout tree
   // (panel-placement-swap spec: geometry is unchanged, only the surface binding swaps).
@@ -193,12 +203,16 @@ export function PanelTree({
     };
     const isTerminal = leaf.content.type === "terminal";
     const isDropTarget = dropTargetLeafId === leaf.id;
+    // A terminal leaf can always close (it resets to the picker in place); an empty leaf can close
+    // only when it is not the sole pane (closing removes it). Sole-empty hides the control.
+    const canClose = isTerminal || totalPanels > 1;
 
     return (
       <Panel.Provider key={leaf.id} id={leaf.id} title={title} actions={actions}>
         <Panel.Frame
           isClosing={closingLeafIds.has(leaf.id)}
           isDropTarget={isDropTarget}
+          isFocused={focusedLeafId === leaf.id}
           onDragOver={(e) => {
             if (!isTerminal || draggingLeafId === leaf.id) return;
             if (e.dataTransfer.types.includes(DRAG_PANEL_LEAF)) {
@@ -246,7 +260,7 @@ export function PanelTree({
                   onClick={() => onDetach(leaf)}
                 />
               )}
-              <Panel.CloseButton totalPanels={totalPanels} />
+              <Panel.CloseButton canClose={canClose} />
             </Panel.Toolbar>
           </Panel.Header>
           <Panel.Content>{renderContent(leaf.content, leaf.id)}</Panel.Content>
@@ -276,9 +290,20 @@ export function PanelTree({
             placement={content.placement}
             cwd=""
             reloadKey={reloadEpoch[content.placement] ?? 0}
+            onStatusChange={onStatusChange}
+            onRequestReset={() => onRequestReset(leafId)}
+            onRestart={() => onRestart(leafId)}
           />
         );
     }
+  }
+
+  // Zoom (panel-multiplexer-nav spec): render only the zoomed leaf, filling the whole panel area.
+  // The persisted tree is untouched -- unzoom just clears the transient zoomedLeafId. A stale id
+  // (leaf gone) falls back to the normal tree render.
+  if (zoomedLeafId) {
+    const zoomed = collectLeaves(tree).find((l) => l.id === zoomedLeafId);
+    if (zoomed) return renderLeaf(zoomed);
   }
 
   return <>{renderNode(tree, "root")}</>;

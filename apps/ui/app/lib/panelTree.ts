@@ -116,6 +116,21 @@ export function setContentNode(
   return { ...tree, children: tree.children.map((c) => setContentNode(c, targetId, content)) };
 }
 
+export function resetLeafToEmpty(tree: PanelNode, targetId: string): PanelNode {
+  return setContentNode(tree, targetId, { type: "empty" });
+}
+
+// Guarantees the tree always keeps at least one leaf (surface-lifecycle spec): closing the
+// last remaining leaf empties it instead of removing it, and closeNode's defensive null case
+// (should be unreachable given the sole-leaf check above) falls back to a fresh empty layout.
+export function closeLeafSafe(tree: PanelNode, targetId: string): PanelNode {
+  const leaves = collectLeaves(tree);
+  if (leaves.length === 1 && leaves[0].id === targetId) {
+    return resetLeafToEmpty(tree, targetId);
+  }
+  return closeNode(tree, targetId) ?? DEFAULT_LAYOUT;
+}
+
 export function setDisplayModeNode(
   tree: PanelNode,
   targetId: string,
@@ -146,9 +161,14 @@ export function collectLeaves(tree: PanelNode): PanelLeaf[] {
 }
 
 // Pure predicate for the close-surface confirmation gate (ui-panel-compound spec): only a
-// surface-bound leaf has a PTY to terminate, and the "don't ask again" preference short-circuits it.
-export function shouldConfirmClose(leaf: PanelLeaf, skipConfirm: boolean): boolean {
-  return leaf.content.type === "terminal" && !skipConfirm;
+// surface-bound leaf has a PTY to terminate, an exited process has nothing left to interrupt,
+// and the "don't ask again" preference short-circuits it.
+export function shouldConfirmClose(
+  leaf: PanelLeaf,
+  skipConfirm: boolean,
+  isRunning: boolean,
+): boolean {
+  return leaf.content.type === "terminal" && isRunning && !skipConfirm;
 }
 
 export function findLeaf(tree: PanelNode, targetId: string): PanelLeaf | undefined {

@@ -101,6 +101,44 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     defaultKeys: { default: "CmdOrCtrl+Shift+D" },
   },
   {
+    id: ACTION.surfaceNew,
+    title: "New surface",
+    keywords: ["surface", "new", "spawn"],
+    // CmdOrCtrl+T is surfaceSpawn's ("New terminal") default; shifted to avoid
+    // binding two palette commands to the same chord.
+    defaultKeys: { default: "CmdOrCtrl+Shift+T" },
+  },
+  {
+    id: ACTION.paneFocusLeft,
+    title: "Focus pane left",
+    keywords: ["focus", "pane", "left"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowLeft" },
+  },
+  {
+    id: ACTION.paneFocusRight,
+    title: "Focus pane right",
+    keywords: ["focus", "pane", "right"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowRight" },
+  },
+  {
+    id: ACTION.paneFocusUp,
+    title: "Focus pane up",
+    keywords: ["focus", "pane", "up"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowUp" },
+  },
+  {
+    id: ACTION.paneFocusDown,
+    title: "Focus pane down",
+    keywords: ["focus", "pane", "down"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowDown" },
+  },
+  {
+    id: ACTION.paneZoomToggle,
+    title: "Toggle pane zoom",
+    keywords: ["pane", "zoom", "toggle", "maximize"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+Z" },
+  },
+  {
     id: ACTION.projectOpenNewWindow,
     title: "Open project in new window",
     keywords: ["window", "project", "detach"],

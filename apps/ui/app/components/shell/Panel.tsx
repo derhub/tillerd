@@ -44,6 +44,7 @@ function PanelFrame({
   className,
   isClosing,
   isDropTarget,
+  isFocused,
   onDragOver,
   onDragLeave,
   onDrop,
@@ -52,6 +53,7 @@ function PanelFrame({
   className?: string;
   isClosing?: boolean;
   isDropTarget?: boolean;
+  isFocused?: boolean;
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
@@ -71,7 +73,11 @@ function PanelFrame({
         "group/panel flex flex-col h-full min-h-0 min-w-0",
         "transition-opacity duration-[var(--motion-fast)] ease-standard motion-reduce:transition-none",
         isClosing ? "opacity-0 pointer-events-none" : mounted ? "opacity-100" : "opacity-0",
-        isDropTarget && "ring-1 ring-inset ring-primary",
+        // Drop-target ring is the loud full-primary edge; the focused-pane ring is a quieter inset
+        // so the two states read differently when a drag lands on the focused pane.
+        isDropTarget
+          ? "ring-1 ring-inset ring-primary"
+          : isFocused && "ring-1 ring-inset ring-ring/50",
         className,
       )}
       data-panel-id={state.id}
@@ -174,9 +180,13 @@ function PanelToolbarButton({
   );
 }
 
-function PanelCloseButton({ totalPanels }: { totalPanels: number }) {
+// Close is content-dependent (surface-lifecycle spec): a terminal leaf can always be closed (it
+// resets to the empty picker in place, even as the only pane); an empty leaf can be closed only
+// when it is not the sole leaf (closing removes it). The caller passes the resolved `canClose` so
+// the button hides exactly for the sole-empty case.
+function PanelCloseButton({ canClose }: { canClose: boolean }) {
   const { actions } = usePanelContext();
-  if (totalPanels <= 1) return null;
+  if (!canClose) return null;
   return (
     <PanelToolbarButton
       icon={<X className="size-[var(--icon-md)]" />}

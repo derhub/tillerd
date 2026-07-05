@@ -70,6 +70,10 @@ interface AttachConfig {
   isDesktop: boolean;
   setResults: (r: TerminalSearchResults) => void;
   setHasSelection: (v: boolean) => void;
+  // Matches a pane/surface keybinding (split/close/new/focus/zoom) and dispatches it, returning
+  // true when handled. Routed through xterm's key handler because global shortcuts are suppressed
+  // while a terminal holds focus (panel-multiplexer-nav spec).
+  onPaneKey?: (e: KeyboardEvent) => boolean;
 }
 
 // Attach addons and handlers to a mounted terminal, returning a disposer. Module-level so its
@@ -138,6 +142,12 @@ async function attachTerminalExtras(
 
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== "keydown") return true;
+    // Pane/surface shortcuts win first (split/close/new/focus/zoom): a focused terminal otherwise
+    // swallows them, so match here and stop the key from reaching the PTY when handled.
+    if (cfg.onPaneKey?.(e)) {
+      e.preventDefault();
+      return false;
+    }
     const action = classifyTerminalKey(e, isMac);
     if (!action) return true;
     if (action === "copy") {
@@ -198,6 +208,7 @@ export interface TerminalPaneExtrasOptions {
   writeInput: (text: string) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
   isDesktop?: boolean;
+  onPaneKey?: (e: KeyboardEvent) => boolean;
 }
 
 export interface TerminalPaneExtras {
@@ -305,6 +316,7 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
     isDesktop,
     setResults,
     setHasSelection,
+    onPaneKey: opts.onPaneKey,
   };
 
   const attach = React.useCallback(

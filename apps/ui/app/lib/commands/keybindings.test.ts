@@ -103,6 +103,19 @@ describe("presets", () => {
   });
 });
 
+describe("pane/surface default bindings", () => {
+  test("resolve to their canonical defaults and don't collide with surfaceSpawn", () => {
+    const resolved = resolveBindings(DEFAULT_PRESET, {});
+    expect(resolved.get(ACTION.surfaceNew)).toBe("CmdOrCtrl+Shift+T");
+    expect(resolved.get(ACTION.surfaceNew)).not.toBe(resolved.get(ACTION.surfaceSpawn));
+    expect(resolved.get(ACTION.paneFocusLeft)).toBe("CmdOrCtrl+Alt+ArrowLeft");
+    expect(resolved.get(ACTION.paneFocusRight)).toBe("CmdOrCtrl+Alt+ArrowRight");
+    expect(resolved.get(ACTION.paneFocusUp)).toBe("CmdOrCtrl+Alt+ArrowUp");
+    expect(resolved.get(ACTION.paneFocusDown)).toBe("CmdOrCtrl+Alt+ArrowDown");
+    expect(resolved.get(ACTION.paneZoomToggle)).toBe("CmdOrCtrl+Alt+Z");
+  });
+});
+
 describe("resolveBindings", () => {
   test("uses the preset baseline when there are no overrides", () => {
     const resolved = resolveBindings(DEFAULT_PRESET, {});

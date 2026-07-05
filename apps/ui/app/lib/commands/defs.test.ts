@@ -52,6 +52,32 @@ describe("command definitions", () => {
   });
 });
 
+describe("pane/surface commands", () => {
+  const paneIds = [
+    ACTION.surfaceNew,
+    ACTION.paneFocusLeft,
+    ACTION.paneFocusRight,
+    ACTION.paneFocusUp,
+    ACTION.paneFocusDown,
+    ACTION.paneZoomToggle,
+  ];
+
+  test("each has a definition with a title and a default key", () => {
+    for (const id of paneIds) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(def?.title).toBeTruthy();
+      expect(def?.defaultKeys?.default).toBeTruthy();
+    }
+  });
+
+  test("each defaults to the palette surface, like surfaceClose and panelSplitH", () => {
+    for (const id of paneIds) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(surfacesOf(def!)).toContain("palette");
+    }
+  });
+});
+
 describe("title-bar toggle commands", () => {
   const toggleIds = [ACTION.panelToggleLeft, ACTION.panelToggleBottom, ACTION.commandToggle];
 
