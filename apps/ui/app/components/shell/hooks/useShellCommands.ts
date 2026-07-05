@@ -35,6 +35,17 @@ function readLeafRects(): LeafRect[] {
   return rects;
 }
 
+// Move real keyboard focus onto a leaf so typed input goes there, not just the focus ring: xterm
+// only routes input (and pane keybindings, via its key handler) to whichever terminal holds DOM
+// focus. Targets the terminal's helper textarea; an empty leaf has none, so focus falls to its
+// container so pane shortcuts still resolve against it.
+function focusLeafTerminal(id: string): void {
+  const pane = document.querySelector<HTMLElement>(`[data-panel-id="${id}"]`);
+  if (!pane) return;
+  const target = pane.querySelector<HTMLElement>(".xterm-helper-textarea, textarea") ?? pane;
+  target.focus();
+}
+
 // Handlers for the session-scoped panel/surface commands. Command identity,
 // titles, keywords, and default keys live in the command definitions; this hook
 // only binds behavior by id against the live panel tree.
@@ -58,7 +69,10 @@ export function useShellCommands({
       const from = activeLeafRef.current ?? collectLeaves(treeRef.current)[0]?.id;
       if (!from) return;
       const next = nearestLeafInDirection(from, dir, readLeafRects());
-      if (next) setFocusedLeaf(next);
+      if (next) {
+        setFocusedLeaf(next);
+        focusLeafTerminal(next);
+      }
     };
     return {
       [ACTION.panelSplitH]: () => {

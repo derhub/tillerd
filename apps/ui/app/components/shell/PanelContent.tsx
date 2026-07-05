@@ -100,13 +100,15 @@ export function PanelContent() {
     [setFocusedLeaf],
   );
 
-  // Keep focus and zoom valid as the tree changes: if the focused/zoomed leaf is removed, move
-  // focus to the first remaining leaf and drop a stale zoom. resetToEmpty keeps the leaf id, so a
+  // Keep focus and zoom valid as the tree changes. Focus is seeded to the first leaf on mount (so
+  // the ring is visible without a first click) and moves to the first remaining leaf whenever the
+  // focused leaf is gone; a stale zoom is dropped. resetToEmpty keeps the leaf id, so a
   // reset-to-empty pane stays focused/zoomed.
   React.useEffect(() => {
-    const ids = new Set(collectLeaves(tree).map((l) => l.id));
-    if (focusedLeafId && !ids.has(focusedLeafId)) {
-      const first = collectLeaves(tree)[0]?.id ?? null;
+    const leaves = collectLeaves(tree);
+    const ids = new Set(leaves.map((l) => l.id));
+    if (!focusedLeafId || !ids.has(focusedLeafId)) {
+      const first = leaves[0]?.id ?? null;
       activeLeafRef.current = first;
       setFocusedLeafId(first);
     }

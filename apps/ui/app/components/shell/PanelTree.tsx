@@ -204,10 +204,16 @@ export function PanelTree({
     // A terminal leaf can always close (it resets to the picker in place); an empty leaf can close
     // only when it is not the sole pane (closing removes it). Sole-empty hides the control.
     const canClose = isTerminal || totalPanels > 1;
+    // Zoom (panel-multiplexer-nav spec): the zoomed leaf is promoted to fill the whole panel area
+    // via absolute-fill over the `relative` tree root, while every other leaf stays mounted
+    // underneath -- no subtree swap, so siblings never unmount/detach and the zoomed pane is not
+    // remounted. Transient and unpersisted; toggling zoom off just drops the class.
+    const isZoomed = zoomedLeafId === leaf.id;
 
     return (
       <Panel.Provider key={leaf.id} id={leaf.id} title={title} actions={actions}>
         <Panel.Frame
+          className={isZoomed ? "absolute inset-0 z-20 bg-background" : undefined}
           isClosing={closingLeafIds.has(leaf.id)}
           isDropTarget={isDropTarget}
           isFocused={focusedLeafId === leaf.id}
@@ -295,15 +301,9 @@ export function PanelTree({
     }
   }
 
-  // Zoom (panel-multiplexer-nav spec): render only the zoomed leaf, filling the whole panel area.
-  // The persisted tree is untouched -- unzoom just clears the transient zoomedLeafId. A stale id
-  // (leaf gone) falls back to the normal tree render.
-  if (zoomedLeafId) {
-    const zoomed = collectLeaves(tree).find((l) => l.id === zoomedLeafId);
-    if (zoomed) return renderLeaf(zoomed);
-  }
-
-  return <>{renderNode(tree, "root")}</>;
+  // The `relative` root is the positioning context the zoomed leaf's absolute-fill escapes to, so
+  // a zoomed pane fills this whole area while the rest of the tree stays mounted behind it.
+  return <div className="relative h-full w-full">{renderNode(tree, "root")}</div>;
 }
 
 function DetachedPlaceholder({ onReattach }: { onReattach: () => void }) {
