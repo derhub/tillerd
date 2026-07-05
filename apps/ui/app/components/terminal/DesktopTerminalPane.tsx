@@ -12,6 +12,10 @@ import { TerminalFailureOverlay } from "~/components/terminal/TerminalFailureOve
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
+import {
+  useLiveTerminalTypography,
+  type TerminalTypography,
+} from "~/lib/settings/useLiveTerminalTypography";
 import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
 
 import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
@@ -35,18 +39,23 @@ async function mountTerminal(
   detachOnUnmount: boolean,
   surfaceIdRef: React.RefObject<string | null>,
   detachSurface: (surfaceId: string) => void,
+  typography: TerminalTypography,
 ): Promise<() => void> {
   const { Terminal } = await lazyXterm();
   const { FitAddon } = await lazyFitAddon();
   if (abort.cancelled) return () => {};
 
-  // Construction options mirror the setting defaults; useTerminalPaneExtras re-applies the live
-  // values on attach and on every subsequent change.
+  // Seed construction with the user's persisted typography so the first paint uses their
+  // font/size instead of the defaults; useTerminalPaneExtras re-applies the live values on
+  // attach and on every subsequent change (this just removes the initial reflow/refit flash).
   const term = new Terminal({
     allowProposedApi: true,
-    cursorBlink: true,
-    fontFamily: '"Geist Mono Variable", "Cascadia Code", "Fira Code", "JetBrains Mono", monospace',
-    fontSize: 13,
+    cursorBlink: typography.cursorBlink,
+    cursorStyle: typography.cursorStyle,
+    fontFamily: typography.fontFamily,
+    fontSize: typography.fontSize,
+    lineHeight: typography.lineHeight,
+    scrollback: typography.scrollback,
     theme: terminalTheme,
   });
   const fitAddon = new FitAddon();
@@ -174,6 +183,13 @@ export function DesktopTerminalPane(_props: {
   const fitAddonRef = React.useRef<FitAddon | null>(null);
   const sendInputRef = React.useRef<((bytes: number[]) => void) | null>(null);
   const terminalTheme = useLiveTerminalTheme(termRef);
+  // Values-only read to seed the Terminal constructor with persisted typography (the live
+  // application stays owned by useTerminalPaneExtras' own hook). The dedicated ref is never
+  // assigned a Terminal, so this call's effect no-ops -- it only supplies the initial values.
+  const seedTypoRef = React.useRef<Terminal | null>(null);
+  const initialTypography = useLiveTerminalTypography(seedTypoRef);
+  const initialTypographyRef = React.useRef(initialTypography);
+  initialTypographyRef.current = initialTypography;
   const [terminalReady, setTerminalReady] = React.useState(false);
 
   const detach = useMutation(command("surfaceDetach"));
@@ -207,6 +223,7 @@ export function DesktopTerminalPane(_props: {
         detachOnUnmount,
         surfaceIdRef,
         (id) => void detachRef.current({ id }),
+        initialTypographyRef.current,
       ),
     );
     return () => {
