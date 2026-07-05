@@ -8,12 +8,17 @@ import "@xterm/xterm/css/xterm.css";
 import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
+import { TerminalFailureOverlay } from "~/components/terminal/TerminalFailureOverlay";
 import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
 
 import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
+
+// Exit qualifiers the runtime treats as a clean stop (exit-classification contract): no failure
+// overlay for these, matching the surface-status write in surface_channel.rs's exit_status().
+const CLEAN_EXIT_QUALIFIERS = new Set(["ok", "stopped-by-request"]);
 
 // Creates the xterm.js Terminal + DOM canvas exactly once per mount and hands it to the caller via
 // termRef/setTerminalReady before resolving -- this survives a placement swap (panel-placement-swap
@@ -85,6 +90,7 @@ async function bindChannel(
   setSurfaceId: (id: string) => void,
   setStatus: (s: string) => void,
   sendInputRef: React.RefObject<((bytes: number[]) => void) | null>,
+  setFailureReason: (reason: string | null) => void,
 ): Promise<() => void> {
   const view = await runCommand("surfaceResolveOrSpawn", {
     session: sessionId,
@@ -107,9 +113,13 @@ async function bindChannel(
         break;
       case "exit":
         setStatus("exited");
+        if (!CLEAN_EXIT_QUALIFIERS.has(event.value)) {
+          setFailureReason(`Session exited unexpectedly (${event.value})`);
+        }
         break;
       case "error":
         setStatus("error");
+        setFailureReason(`Terminal error: ${event.value}`);
         break;
     }
   });
@@ -155,6 +165,10 @@ export function DesktopTerminalPane(_props: {
   const [surfaceId, setSurfaceId] = React.useState<string | null>(null);
   const surfaceIdRef = React.useRef<string | null>(null);
   surfaceIdRef.current = surfaceId;
+  const [failureReason, setFailureReason] = React.useState<string | null>(null);
+  // Bumped by the resume action to force a channel rebind (surfaceResolveOrSpawn resumes a
+  // failed/exited surface record) without recreating the Terminal.
+  const [resumeKey, setResumeKey] = React.useState(0);
 
   const termRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
@@ -223,13 +237,23 @@ export function DesktopTerminalPane(_props: {
         setSurfaceId,
         setStatus,
         sendInputRef,
+        setFailureReason,
       ),
     );
     return () => {
       abort.cancelled = true;
       unsub();
     };
-  }, [terminalReady, _props.sessionId, _props.placement, _props.reloadKey]);
+  }, [terminalReady, _props.sessionId, _props.placement, _props.reloadKey, resumeKey]);
+
+  const handleResume = React.useCallback(() => {
+    setFailureReason(null);
+    setResumeKey((k) => k + 1);
+  }, []);
+
+  const handleDismiss = React.useCallback(() => {
+    setFailureReason(null);
+  }, []);
 
   const dotColorClass =
     status === "connected"
@@ -258,6 +282,13 @@ export function DesktopTerminalPane(_props: {
         <span className={`w-2 h-2 rounded-full inline-block ${dotColorClass}`} />
         <span className="text-terminal-muted text-[0.917rem]">{status}</span>
       </div>
+      {failureReason && (
+        <TerminalFailureOverlay
+          reason={failureReason}
+          onResume={handleResume}
+          onDismiss={handleDismiss}
+        />
+      )}
     </EntityContextMenu>
   );
 }
