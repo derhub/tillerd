@@ -122,4 +122,25 @@ describe("GeneralSection", () => {
       ),
     );
   });
+
+  test("the zoom control shows the current level as a percentage", async () => {
+    renderSection({ "ui.zoom": 1.5 });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("ui-zoom-value").textContent).toBe("150%"),
+    );
+  });
+
+  test("zooming in persists a larger zoom level", async () => {
+    renderSection({ "ui.zoom": 1 });
+
+    const zoomIn = await screen.findByLabelText("Zoom in");
+    fireEvent.click(zoomIn);
+
+    await waitFor(() =>
+      expect(settingSetCalls).toContainEqual(
+        expect.objectContaining({ key: "ui.zoom", valueJson: JSON.stringify(1.1) }),
+      ),
+    );
+  });
 });

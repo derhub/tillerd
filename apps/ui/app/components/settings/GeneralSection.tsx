@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { query } from "@tillerd/client-bindings";
+import { Minus, Plus } from "lucide-react";
 
+import { Button } from "~/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -10,12 +12,18 @@ import {
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { useBoolGlobalSetting, useGlobalSetting } from "~/lib/settings/context";
-import { GENERAL_STARTUP_WORKSPACE_KEY, PANEL_CLOSE_CONFIRM_SKIP_KEY } from "~/lib/settings/keys";
+import {
+  DEFAULT_UI_ZOOM,
+  GENERAL_STARTUP_WORKSPACE_KEY,
+  PANEL_CLOSE_CONFIRM_SKIP_KEY,
+  UI_ZOOM_MAX,
+  UI_ZOOM_MIN,
+  UI_ZOOM_STEP,
+} from "~/lib/settings/keys";
+import { useUiZoom } from "~/lib/settings/useUiZoom";
 
 const LAST_USED_WORKSPACE = "__last-used__";
 
-// UI zoom (ui-settings-editor "General settings"; tasks.md 13.7) is a separate, not-yet-built
-// setting -- deliberately absent here rather than a placeholder control.
 export function GeneralSection() {
   const { data: workspaces = [] } = useQuery(query("workspaceList"));
 
@@ -35,6 +43,12 @@ export function GeneralSection() {
     "",
   );
   const selectedStartupWorkspace = startupWorkspaceId || LAST_USED_WORKSPACE;
+
+  // UI zoom (ui-settings-editor "General settings"). The hook applies the level live to this
+  // webview and persists it; the same key drives the Cmd+=/-/0 command handlers, so this control
+  // and the shortcuts stay in sync through the shared setting.
+  const { zoom, setZoom, reset: resetZoom } = useUiZoom();
+  const zoomPercent = Math.round(zoom * 100);
 
   return (
     <section aria-labelledby="settings-general-heading" className="flex flex-col gap-3 max-w-sm">
@@ -81,6 +95,48 @@ export function GeneralSection() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-foreground">Zoom</span>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Zoom out"
+            disabled={zoom <= UI_ZOOM_MIN}
+            onClick={() => setZoom(zoom - UI_ZOOM_STEP)}
+          >
+            <Minus />
+          </Button>
+          <span
+            className="w-12 text-center text-foreground tabular-nums"
+            aria-live="polite"
+            data-testid="ui-zoom-value"
+          >
+            {zoomPercent}%
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label="Zoom in"
+            disabled={zoom >= UI_ZOOM_MAX}
+            onClick={() => setZoom(zoom + UI_ZOOM_STEP)}
+          >
+            <Plus />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={zoomPercent === Math.round(DEFAULT_UI_ZOOM * 100)}
+            onClick={resetZoom}
+          >
+            Reset
+          </Button>
+        </div>
       </div>
     </section>
   );
