@@ -81,6 +81,10 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   const [bottomVisible] = useBottomPanelVisible();
   const [bottomSize, setBottomSize] = useBottomPanelSize();
   const { zoom, setZoom, reset: resetZoom } = useUiZoom();
+  // Read the live zoom through a ref inside the handlers so the memo below stays referentially
+  // stable across zoom steps (holding Cmd+= would otherwise re-register every command each step).
+  const zoomRef = React.useRef(zoom);
+  zoomRef.current = zoom;
 
   useMenuNavigation();
 
@@ -94,11 +98,11 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
     () => ({
       [ACTION.viewLogs]: () => void navigate({ to: "/logs" }),
       [ACTION.appSettings]: () => void navigate({ to: "/settings" }),
-      [ACTION.viewZoomIn]: () => setZoom(zoom + UI_ZOOM_STEP),
-      [ACTION.viewZoomOut]: () => setZoom(zoom - UI_ZOOM_STEP),
+      [ACTION.viewZoomIn]: () => setZoom(zoomRef.current + UI_ZOOM_STEP),
+      [ACTION.viewZoomOut]: () => setZoom(zoomRef.current - UI_ZOOM_STEP),
       [ACTION.viewZoomReset]: () => resetZoom(),
     }),
-    [navigate, zoom, setZoom, resetZoom],
+    [navigate, setZoom, resetZoom],
   );
 
   // The settings editor is a route now (retired popover), but the open signal is a

@@ -14,7 +14,10 @@ export const UI_ZOOM_STEP = 0.1;
 
 export function clampUiZoom(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_UI_ZOOM;
-  return Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, value));
+  const clamped = Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, value));
+  // Snap to the UI_ZOOM_STEP grid and strip float error so repeated zoom in/out never drifts a
+  // value like 1.2000000000000002 into the persisted setting (raw `zoom + 0.1` sums accumulate).
+  return Number((Math.round(clamped / UI_ZOOM_STEP) * UI_ZOOM_STEP).toFixed(4));
 }
 
 // "Don't ask again" for the close-surface confirmation dialog (ui-panel-compound spec).
@@ -49,6 +52,32 @@ export const DEFAULT_TERMINAL_CURSOR_BLINK = true;
 export const DEFAULT_TERMINAL_SCROLLBACK = 1000;
 export const DEFAULT_TERMINAL_COPY_ON_SELECT = false;
 export const DEFAULT_TERMINAL_CONFIRM_PASTE = false;
+
+// Bounds for the numeric terminal settings. xterm's OptionsService throws for lineHeight < 1
+// and scrollback < 0, and a non-positive fontSize breaks its renderer, so these are hard floors
+// -- not mere spinner hints. The settings UI clamps typed values to this range on commit; the
+// input `min`/`max` mirror the same constants.
+export const TERMINAL_FONT_SIZE_MIN = 6;
+export const TERMINAL_FONT_SIZE_MAX = 72;
+export const TERMINAL_LINE_HEIGHT_MIN = 1;
+export const TERMINAL_LINE_HEIGHT_MAX = 3;
+export const TERMINAL_SCROLLBACK_MIN = 0;
+export const TERMINAL_SCROLLBACK_MAX = 100_000;
+
+export function clampTerminalFontSize(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TERMINAL_FONT_SIZE;
+  return Math.min(TERMINAL_FONT_SIZE_MAX, Math.max(TERMINAL_FONT_SIZE_MIN, Math.round(value)));
+}
+
+export function clampTerminalLineHeight(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TERMINAL_LINE_HEIGHT;
+  return Math.min(TERMINAL_LINE_HEIGHT_MAX, Math.max(TERMINAL_LINE_HEIGHT_MIN, value));
+}
+
+export function clampTerminalScrollback(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_TERMINAL_SCROLLBACK;
+  return Math.min(TERMINAL_SCROLLBACK_MAX, Math.max(TERMINAL_SCROLLBACK_MIN, Math.round(value)));
+}
 
 export function isTerminalCursorStyle(value: unknown): value is TerminalCursorStyle {
   return value === "block" || value === "underline" || value === "bar";
