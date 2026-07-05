@@ -86,17 +86,49 @@ describe("TerminalSection", () => {
     );
   });
 
-  test("changing the font size persists a number", async () => {
+  test("changing the font size persists a number on blur", async () => {
     renderSection({ "terminal.fontSize": 13 });
 
     const input = await screen.findByLabelText("Terminal font size");
     fireEvent.change(input, { target: { value: "20" } });
+    fireEvent.blur(input);
 
     await waitFor(() =>
       expect(settingSetCalls).toContainEqual(
         expect.objectContaining({ key: "terminal.fontSize", valueJson: JSON.stringify(20) }),
       ),
     );
+  });
+
+  test("a numeric field does not persist mid-edit, only on commit", async () => {
+    renderSection({ "terminal.fontSize": 13 });
+
+    const input = await screen.findByLabelText("Terminal font size");
+    // Typing the leading digit of a larger value must not reach the store: a per-keystroke
+    // commit would push font size 1 to every mounted terminal (unreadable flash).
+    fireEvent.change(input, { target: { value: "1" } });
+    expect(settingSetCalls).toHaveLength(0);
+  });
+
+  test("an out-of-range line height is clamped on commit, never persisted raw", async () => {
+    renderSection({ "terminal.lineHeight": 2 });
+
+    const input = await screen.findByLabelText("Terminal line height");
+    // xterm throws for lineHeight < 1; the field must clamp to the floor before it reaches the
+    // store rather than persist 0.5 and crash every terminal mount.
+    fireEvent.change(input, { target: { value: "0.5" } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(settingSetCalls).toContainEqual(
+        expect.objectContaining({ key: "terminal.lineHeight", valueJson: JSON.stringify(1) }),
+      ),
+    );
+    expect(
+      settingSetCalls.some(
+        (c) => c.key === "terminal.lineHeight" && c.valueJson === JSON.stringify(0.5),
+      ),
+    ).toBe(false);
   });
 
   test("selecting a cursor style persists it", async () => {

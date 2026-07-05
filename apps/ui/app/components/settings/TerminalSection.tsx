@@ -1,3 +1,5 @@
+import React from "react";
+
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -19,6 +21,9 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
   DEFAULT_TERMINAL_SCROLLBACK,
+  clampTerminalFontSize,
+  clampTerminalLineHeight,
+  clampTerminalScrollback,
   isTerminalCursorStyle,
   TERMINAL_CONFIRM_PASTE_KEY,
   TERMINAL_COPY_ON_SELECT_KEY,
@@ -26,20 +31,93 @@ import {
   TERMINAL_CURSOR_STYLE_KEY,
   TERMINAL_FONT_FAMILY_KEY,
   TERMINAL_FONT_SIZE_KEY,
+  TERMINAL_FONT_SIZE_MAX,
+  TERMINAL_FONT_SIZE_MIN,
   TERMINAL_LINE_HEIGHT_KEY,
+  TERMINAL_LINE_HEIGHT_MAX,
+  TERMINAL_LINE_HEIGHT_MIN,
   TERMINAL_SCHEME_KEY,
   TERMINAL_SCROLLBACK_KEY,
+  TERMINAL_SCROLLBACK_MAX,
+  TERMINAL_SCROLLBACK_MIN,
 } from "~/lib/settings/keys";
 import { DEFAULT_TERMINAL_SCHEME, TERMINAL_SCHEME_NAMES } from "~/lib/settings/terminal-schemes";
 
 const ROW_CLASS = "flex items-center justify-between gap-3";
 
-// Parses a number input's raw text, ignoring an in-progress edit (empty string, a bare "-",
-// a trailing ".") rather than committing 0 or NaN mid-keystroke.
-function parseNumberInput(raw: string): number | null {
-  if (raw === "") return null;
-  const next = Number(raw);
-  return Number.isNaN(next) ? null : next;
+// A numeric setting field that commits only on blur or Enter -- not per keystroke. Committing
+// each keystroke pushed intermediate digits straight into every mounted terminal (typing "5000"
+// into Scrollback transiently applied 5, irreversibly trimming live buffers; font size flashed
+// mid-typing), and typed values bypassed the input's `min`/`max`. The draft is local while the
+// user edits; on commit it is parsed and clamped to the setting's hard bounds before it reaches
+// the store, so an out-of-range value (e.g. lineHeight < 1) can never be persisted or applied.
+function NumberSettingField({
+  label,
+  ariaLabel,
+  value,
+  onCommit,
+  clamp,
+  min,
+  max,
+  step,
+  width,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: number;
+  onCommit: (value: number) => void;
+  clamp: (value: number) => number;
+  min: number;
+  max: number;
+  step?: number;
+  width: string;
+}) {
+  const [draft, setDraft] = React.useState(() => String(value));
+  const editingRef = React.useRef(false);
+
+  // Resync the draft when the committed value changes from outside this field (a sibling
+  // window's write, a profile activation) while the user is not mid-edit.
+  React.useEffect(() => {
+    if (!editingRef.current) setDraft(String(value));
+  }, [value]);
+
+  const commit = React.useCallback(() => {
+    editingRef.current = false;
+    const parsed = Number(draft);
+    if (draft.trim() === "" || Number.isNaN(parsed)) {
+      setDraft(String(value)); // discard an unparseable in-progress edit
+      return;
+    }
+    const clamped = clamp(parsed);
+    onCommit(clamped);
+    setDraft(String(clamped));
+  }, [draft, value, clamp, onCommit]);
+
+  return (
+    <div className={ROW_CLASS}>
+      <span className="text-foreground">{label}</span>
+      <Input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        aria-label={ariaLabel}
+        className={width}
+        value={draft}
+        onFocus={() => {
+          editingRef.current = true;
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+      />
+    </div>
+  );
 }
 
 // All fields apply to mounted and new terminals live via the shared settings store (reactive
@@ -124,51 +202,41 @@ export function TerminalSection() {
         />
       </div>
 
-      <div className={ROW_CLASS}>
-        <span className="text-foreground">Font size</span>
-        <Input
-          type="number"
-          min={1}
-          aria-label="Terminal font size"
-          className="w-20"
-          value={fontSize}
-          onChange={(e) => {
-            const next = parseNumberInput(e.target.value);
-            if (next !== null) setFontSize(next);
-          }}
-        />
-      </div>
+      <NumberSettingField
+        label="Font size"
+        ariaLabel="Terminal font size"
+        value={fontSize}
+        onCommit={setFontSize}
+        clamp={clampTerminalFontSize}
+        min={TERMINAL_FONT_SIZE_MIN}
+        max={TERMINAL_FONT_SIZE_MAX}
+        step={1}
+        width="w-20"
+      />
 
-      <div className={ROW_CLASS}>
-        <span className="text-foreground">Line height</span>
-        <Input
-          type="number"
-          min={0.5}
-          step={0.1}
-          aria-label="Terminal line height"
-          className="w-20"
-          value={lineHeight}
-          onChange={(e) => {
-            const next = parseNumberInput(e.target.value);
-            if (next !== null) setLineHeight(next);
-          }}
-        />
-      </div>
+      <NumberSettingField
+        label="Line height"
+        ariaLabel="Terminal line height"
+        value={lineHeight}
+        onCommit={setLineHeight}
+        clamp={clampTerminalLineHeight}
+        min={TERMINAL_LINE_HEIGHT_MIN}
+        max={TERMINAL_LINE_HEIGHT_MAX}
+        step={0.1}
+        width="w-20"
+      />
 
-      <div className={ROW_CLASS}>
-        <span className="text-foreground">Scrollback</span>
-        <Input
-          type="number"
-          min={0}
-          aria-label="Terminal scrollback"
-          className="w-24"
-          value={scrollback}
-          onChange={(e) => {
-            const next = parseNumberInput(e.target.value);
-            if (next !== null) setScrollback(next);
-          }}
-        />
-      </div>
+      <NumberSettingField
+        label="Scrollback"
+        ariaLabel="Terminal scrollback"
+        value={scrollback}
+        onCommit={setScrollback}
+        clamp={clampTerminalScrollback}
+        min={TERMINAL_SCROLLBACK_MIN}
+        max={TERMINAL_SCROLLBACK_MAX}
+        step={100}
+        width="w-24"
+      />
 
       <div className={ROW_CLASS}>
         <span className="text-foreground">Cursor style</span>
