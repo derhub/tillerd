@@ -15,8 +15,12 @@ test("mac: Cmd+C copies and Cmd+V pastes", () => {
   expect(classifyTerminalKey(key({ key: "v", metaKey: true }), true)).toBe("paste");
 });
 
-test("linux: Ctrl+F opens find", () => {
-  expect(classifyTerminalKey(key({ key: "f", ctrlKey: true }), false)).toBe("find");
+test("linux: Ctrl+Shift+F opens find", () => {
+  expect(classifyTerminalKey(key({ key: "f", ctrlKey: true, shiftKey: true }), false)).toBe("find");
+});
+
+test("linux: bare Ctrl+F is left to the PTY for vim/less page-forward", () => {
+  expect(classifyTerminalKey(key({ key: "f", ctrlKey: true }), false)).toBeNull();
 });
 
 test("linux: Ctrl+Shift+C copies and Ctrl+Shift+V pastes", () => {
