@@ -31,6 +31,7 @@ import {
   resolveDefaultTemplate,
   type TemplateSelection,
 } from "~/lib/newSessionTemplate";
+import { notify } from "~/lib/notifications/notify";
 import { mountSessionStatus } from "~/lib/sessionStatus";
 import { useActiveProject, setActiveProject } from "~/lib/store";
 import { subscribe } from "~/lib/subscribe";
@@ -68,6 +69,23 @@ function resolveProjectDefault(
     );
 }
 
+// Resolves a library template's spec on demand, freshly fetched (staleTime 0) so a
+// template deleted or edited since the sidebar mounted is seen -- session_create only
+// accepts a launch-template id, so the library entry must be materialized first. Null
+// on a missing id (deleted template) or a failed fetch, letting the caller surface it.
+// Standalone like resolveProjectDefault: keeps the async fetch out of the component.
+function resolveLibrarySpec(
+  templateId: string,
+  onResolved: (spec: { specVersion: number; specJson: string } | null) => void,
+): void {
+  getQueryClient()
+    .fetchQuery({ ...templateListQuery(), staleTime: 0 })
+    .then(
+      (templates) => onResolved(librarySpecFor(templates, templateId)),
+      () => onResolved(null),
+    );
+}
+
 // The row's display name, carried in a context-menu command's args (see
 // EntityContextMenu) for confirmation/picker dialogs -- the row itself, not this
 // component, knows the project/session name for an arbitrary entityId.
@@ -98,10 +116,6 @@ export function SessionSidebar({
   // Move-to-workspace targets; a light non-suspense read (the switcher already
   // suspends on this list, so it is warm) used only to populate the picker.
   const { data: workspaces = [] } = useQuery(query("workspaceList"));
-  // The portable library's specs, needed to materialize a library template into
-  // a project launch template when the new-session flow picks one (see
-  // createSessionFromSelection) -- session_create only accepts a launch-template id.
-  const { data: libraryTemplates = [] } = useQuery(templateListQuery());
 
   const createProject = useMutation(command("projectCreate"));
   const createSession = useMutation(command("sessionCreate"));
@@ -208,17 +222,25 @@ export function SessionSidebar({
         createSession.mutate(newSessionArgs(projectId, selection.id), { onSuccess: onCreated });
         return;
       }
-      const spec = librarySpecFor(libraryTemplates, selection.id);
-      if (!spec) return;
-      createLaunchTemplate.mutate(
-        { projectId, specVersion: spec.specVersion, specJson: spec.specJson },
-        {
-          onSuccess: (tmpl) =>
-            createSession.mutate(newSessionArgs(projectId, tmpl.id), { onSuccess: onCreated }),
-        },
-      );
+      resolveLibrarySpec(selection.id, (spec) => {
+        // Missing id (the configured default points at a since-deleted library
+        // template) or a failed library fetch: surface it via the notification
+        // center instead of silently doing nothing (repo rule: no toasts, the
+        // notification center is the sole client feedback channel).
+        if (!spec) {
+          notify("new-session", "error", "That session template is no longer available.");
+          return;
+        }
+        createLaunchTemplate.mutate(
+          { projectId, specVersion: spec.specVersion, specJson: spec.specJson },
+          {
+            onSuccess: (tmpl) =>
+              createSession.mutate(newSessionArgs(projectId, tmpl.id), { onSuccess: onCreated }),
+          },
+        );
+      });
     },
-    [navigate, createSession, createLaunchTemplate, libraryTemplates],
+    [navigate, createSession, createLaunchTemplate],
   );
 
   // The plain new-session control (the "+" row action, `ACTION.sessionNew`):

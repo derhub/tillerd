@@ -21,6 +21,7 @@ import { afterEach, expect, test, describe, mock } from "bun:test";
 import React, { type ReactNode } from "react";
 
 import { CommandRegistryProvider } from "~/lib/commands/registry";
+import { notificationsStore } from "~/lib/notifications/context";
 import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec } from "~/lib/launchSpec";
 import { DEFAULT_TEMPLATE_KEY } from "~/lib/settings/keys";
 import { resetUiStore, setProjectExpanded } from "~/lib/store";
@@ -138,6 +139,7 @@ afterEach(() => {
   launchTemplateCreateCalls.length = 0;
   setReady(false);
   resetUiStore();
+  notificationsStore.setState(() => ({ items: [], unread: 0 }));
 });
 
 describe("workspace scoping", () => {
@@ -310,6 +312,24 @@ describe("new-session flow (template default + picker)", () => {
     await waitFor(() => expect(sessionCreateCalls).toHaveLength(1));
     expect(sessionCreateCalls[0]).toMatchObject({ projectId: "p-1", templateId: "lt-1" });
     expect(screen.queryByTestId("new-session-template-picker")).toBeNull();
+  });
+
+  test("a default template pointing at a deleted library template notifies instead of silently doing nothing", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+    // Default resolves to a library template id that is no longer in the library.
+    fakeProjectSettings = [{ key: DEFAULT_TEMPLATE_KEY, value: { kind: "library", id: "gone" } }];
+    fakeLibraryTemplates = [];
+
+    renderSidebar(<SessionSidebar />);
+    await waitFor(() => expect(screen.queryByText("Project One")).not.toBeNull());
+
+    fireEvent.click(newSessionButton("Project One"));
+
+    await waitFor(() =>
+      expect(notificationsStore.state.items.some((i) => i.category === "new-session")).toBe(true),
+    );
+    expect(sessionCreateCalls).toHaveLength(0);
+    expect(launchTemplateCreateCalls).toHaveLength(0);
   });
 
   test("'New session from template...' opens a picker offering empty, project, and library options", async () => {
