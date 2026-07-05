@@ -8,6 +8,7 @@ import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
+import { sessionDisplayName } from "~/lib/panelTitle";
 import { useSessionBadge, type SessionBadge } from "~/lib/sessionStatus";
 import { cn } from "~/lib/utils";
 
@@ -71,7 +72,7 @@ export function SessionRow({
   onArchive: () => void;
   onSessionDrop: (sourceId: string, targetId: string) => void;
 }) {
-  const label = session.title || session.id.slice(0, 8);
+  const label = sessionDisplayName(session.title, session.id);
   const [dragOver, setDragOver] = React.useState(false);
   const badge = useSessionBadge(session.id);
   const { activeId, setActiveId } = useTreeNav();

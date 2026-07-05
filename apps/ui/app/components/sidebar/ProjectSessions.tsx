@@ -5,6 +5,7 @@ import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
 
 import { ArchivedRow, ArchivedSection } from "~/components/sidebar/ArchivedSection";
 import { SessionRow } from "~/components/sidebar/SessionRow";
+import { sessionDisplayName } from "~/lib/panelTitle";
 import { reorderByDrop } from "~/lib/reorder";
 
 // Mounted only while the parent row is expanded; a collapsed project fetches nothing.
@@ -76,10 +77,10 @@ export function ProjectSessions({
         {archived.map((s) => (
           <ArchivedRow
             key={s.id}
-            name={s.title || s.id.slice(0, 8)}
+            name={sessionDisplayName(s.title, s.id)}
             onRestore={() => onRestoreSession(s.id)}
             onDelete={() =>
-              onRequestDelete({ id: s.id, name: s.title || s.id.slice(0, 8), kind: "session" })
+              onRequestDelete({ id: s.id, name: sessionDisplayName(s.title, s.id), kind: "session" })
             }
           />
         ))}

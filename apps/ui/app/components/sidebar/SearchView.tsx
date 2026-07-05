@@ -7,6 +7,7 @@ import React from "react";
 import { UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { Input } from "~/components/ui/input";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { sessionDisplayName } from "~/lib/panelTitle";
 import { setActiveProject, useActiveWorkspace } from "~/lib/store";
 import { cn } from "~/lib/utils";
 
@@ -122,7 +123,7 @@ export function SearchView() {
                     key={s.id}
                     testid="search-session-result"
                     icon
-                    label={s.title || s.id.slice(0, 8)}
+                    label={sessionDisplayName(s.title, s.id)}
                     onClick={() => goSession(s.id)}
                   />
                 ))}

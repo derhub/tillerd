@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "~/components/ui/command";
 import { SESSION_SEARCH_OPEN_EVENT } from "~/lib/commands/sessionSearch";
+import { sessionDisplayName } from "~/lib/panelTitle";
 import { useWindowEvent } from "~/lib/useWindowEvent";
 
 export function SessionSearchDialog() {
@@ -65,7 +66,7 @@ export function SessionSearchDialog() {
             <CommandEmpty>{trimmed ? "No sessions" : "Type to search sessions"}</CommandEmpty>
             {results.map((s) => (
               <CommandItem key={s.id} value={s.id} onSelect={() => go(s.id)}>
-                <span className="truncate">{s.title || s.id.slice(0, 8)}</span>
+                <span className="truncate">{sessionDisplayName(s.title, s.id)}</span>
               </CommandItem>
             ))}
           </CommandList>
