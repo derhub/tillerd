@@ -2,6 +2,10 @@ export const ACTION = {
   projectNew: "project.new",
   sessionNew: "session.new",
   surfaceSpawn: "surface.spawn",
+  // Spawn a library command into the workbench panel tree. Registered by PanelContent
+  // (the tree owner) and dispatched by out-of-tree surfaces like the commands sidebar;
+  // handler-only (no COMMAND_DEFS entry) so it is not a palette/keyboard command.
+  surfaceRunCommand: "surface.run-command",
   surfaceClose: "surface.close",
   panelSplitH: "panel.split-h",
   panelSplitV: "panel.split-v",
@@ -79,6 +83,11 @@ export const ACTION = {
 } as const;
 
 export type ActionId = (typeof ACTION)[keyof typeof ACTION];
+
+// Action ids that are dispatched imperatively (useDispatchCommand) but deliberately
+// carry no COMMAND_DEFS entry, so they never appear in the palette or bind a shortcut.
+// The def-parity test asserts these -- and only these -- are absent from the def table.
+export const HANDLER_ONLY_ACTION_IDS: ReadonlySet<string> = new Set([ACTION.surfaceRunCommand]);
 
 export const SESSION_SEARCH_ACTION_ID = "session.search";
 export const SESSION_SEARCH_TITLE = "Search sessions";

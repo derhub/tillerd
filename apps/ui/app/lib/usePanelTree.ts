@@ -9,6 +9,7 @@ import {
   serializeLayout,
   deserializeLayout,
   splitNode,
+  makeId,
   closeNode,
   setContentNode,
   setActiveTabNode,
@@ -67,9 +68,13 @@ export function usePanelTree(sessionId?: string | null) {
     [persistLayout],
   );
 
+  // Returns the id of the leaf created by the split so a caller can immediately
+  // target it (e.g. spawn a surface into the freshly made empty pane).
   const split = React.useCallback(
     (id: string, direction: "horizontal" | "vertical") => {
-      update((t) => splitNode(t, id, direction));
+      const newLeafId = makeId();
+      update((t) => splitNode(t, id, direction, newLeafId));
+      return newLeafId;
     },
     [update],
   );

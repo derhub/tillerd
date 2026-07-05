@@ -18,7 +18,11 @@ import {
 import { Button } from "~/components/ui/button";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { ACTION } from "~/lib/commands/ids";
-import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
+import {
+  type CommandArgs,
+  useDispatchCommand,
+  useRegisterHandlers,
+} from "~/lib/commands/registry";
 import { commandListQuery } from "~/lib/data/commands";
 import { notify } from "~/lib/notifications/notify";
 import { SessionContext } from "~/lib/sessionContext";
@@ -48,7 +52,7 @@ export function CommandsView() {
   const pinCommand = useMutation(command("commandPin"));
   const unpinCommand = useMutation(command("commandUnpin"));
   const deleteCommand = useMutation(command("commandDelete"));
-  const spawnSurface = useMutation(command("surfaceSpawn"));
+  const dispatch = useDispatchCommand();
 
   const visible = commands.slice(0, visibleCount);
 
@@ -72,19 +76,20 @@ export function CommandsView() {
     [commands, duplicateCommand],
   );
 
-  // Run row action (usability pass 12.6): spawns the command into the workbench's active
-  // session (SessionContext, lifted from the /session/$id route param at the chrome level).
-  // No active session is a real, reachable state (e.g. commands view open with no session
-  // selected) -- surfaced via the notification center rather than silently doing nothing.
+  // Run row action (usability pass 12.6): dispatches the spawn to PanelContent (the panel-tree
+  // owner) so the command's PTY is placed into a leaf and rendered -- this view is out of the
+  // tree and cannot place surfaces itself. No active session is a real, reachable state (e.g.
+  // commands view open with no session selected) -- surfaced via the notification center rather
+  // than silently doing nothing.
   const handleRun = React.useCallback(
     (id: string) => {
       if (!sessionId) {
         notify("command-run", "error", "Open a session before running a command.");
         return;
       }
-      spawnSurface.mutate({ sessionId, command: { libraryRef: id } });
+      dispatch(ACTION.surfaceRunCommand, { commandRef: { libraryRef: id } });
     },
-    [sessionId, spawnSurface],
+    [sessionId, dispatch],
   );
 
   const handleRequestDelete = React.useCallback(

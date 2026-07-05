@@ -34,7 +34,7 @@ export type PanelNode = PanelGroupNode | PanelLeaf;
 // dataTransfer key for the panel-header drag source (placement swap, panel-placement-swap spec).
 export const DRAG_PANEL_LEAF = "application/x-tillerd-panel-leaf";
 
-function makeId(): string {
+export function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
@@ -69,12 +69,13 @@ export function splitNode(
   tree: PanelNode,
   targetId: string,
   direction: "horizontal" | "vertical",
+  newLeafId: string = makeId(),
 ): PanelNode {
   if (tree.kind === "panel") {
     if (tree.id !== targetId) return tree;
     const newLeaf: PanelLeaf = {
       kind: "panel",
-      id: makeId(),
+      id: newLeafId,
       title: "Empty",
       content: { type: "empty" },
     };
@@ -86,7 +87,10 @@ export function splitNode(
       children: [tree, newLeaf],
     };
   }
-  return { ...tree, children: tree.children.map((c) => splitNode(c, targetId, direction)) };
+  return {
+    ...tree,
+    children: tree.children.map((c) => splitNode(c, targetId, direction, newLeafId)),
+  };
 }
 
 export function closeNode(tree: PanelNode, targetId: string): PanelNode | null {

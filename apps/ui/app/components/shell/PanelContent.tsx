@@ -18,9 +18,10 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Skeleton } from "~/components/ui/skeleton";
-import { RegisterHandlers } from "~/lib/commands/registry";
+import { ACTION } from "~/lib/commands/ids";
+import { type CommandArgs, RegisterHandlers } from "~/lib/commands/registry";
 import { bootContent } from "~/lib/health/boot-content";
-import { type PanelLeaf, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
+import { type PanelLeaf, collectLeaves, findLeaf, shouldConfirmClose } from "~/lib/panelTree";
 import { countLeaves } from "~/lib/panelTree";
 import { SessionContext } from "~/lib/sessionContext";
 import { useBoolGlobalSetting } from "~/lib/settings/context";
@@ -75,6 +76,38 @@ export function PanelContent() {
       );
     },
     [sessionId, setContent, surfaceSpawn],
+  );
+
+  // Route a command spawned from an out-of-tree surface (the commands sidebar's Run)
+  // into a panel leaf, so its PTY is rendered and tracked -- reusing the active/first
+  // empty leaf, else splitting to make room. Without this the spawn would have no
+  // placement in the tree: a headless PTY that leaks on every click.
+  const spawnCommandIntoPanel = React.useCallback(
+    (commandRef?: SpawnCommandRef) => {
+      if (!sessionId) return;
+      const leaves = collectLeaves(treeRef.current);
+      const active = activeLeafRef.current;
+      const empty =
+        leaves.find((l) => l.id === active && l.content.type === "empty") ??
+        leaves.find((l) => l.content.type === "empty");
+      if (empty) {
+        handleSpawn(empty.id, commandRef);
+        return;
+      }
+      const target = leaves.find((l) => l.id === active) ?? leaves[0];
+      if (!target) return;
+      const newLeafId = split(target.id, "horizontal");
+      handleSpawn(newLeafId, commandRef);
+    },
+    [sessionId, handleSpawn, split],
+  );
+
+  const runCommandHandlers = React.useMemo(
+    () => ({
+      [ACTION.surfaceRunCommand]: (args?: CommandArgs) =>
+        spawnCommandIntoPanel(args?.commandRef as SpawnCommandRef | undefined),
+    }),
+    [spawnCommandIntoPanel],
   );
 
   // Lifecycle motion (ui-panel-compound "Panel lifecycle motion"): a leaf marked closing keeps
@@ -181,6 +214,7 @@ export function PanelContent() {
   return (
     <div className="h-full w-full" onPointerDownCapture={onContentPointerDown}>
       <RegisterHandlers handlers={panelHandlers} />
+      <RegisterHandlers handlers={runCommandHandlers} />
       <RegisterHandlers handlers={terminalCommandHandlers} />
       {bootRegion === "content" ? (
         <PanelTree

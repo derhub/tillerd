@@ -1,16 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
 import { COMMAND_DEFS, COMMAND_DEFS_BY_ID } from "./defs";
-import { ACTION, SESSION_SEARCH_ACTION_ID } from "./ids";
+import { ACTION, HANDLER_ONLY_ACTION_IDS, SESSION_SEARCH_ACTION_ID } from "./ids";
 import { PRESETS, PRESET_NAMES } from "./keybindings";
 import { surfacesOf } from "./types";
 
 describe("command definitions", () => {
   test("every ACTION id and session search has a definition", () => {
     for (const id of Object.values(ACTION)) {
+      if (HANDLER_ONLY_ACTION_IDS.has(id)) continue;
       expect(COMMAND_DEFS_BY_ID.has(id)).toBe(true);
     }
     expect(COMMAND_DEFS_BY_ID.has(SESSION_SEARCH_ACTION_ID)).toBe(true);
+  });
+
+  test("handler-only ids are absent from the def table", () => {
+    for (const id of HANDLER_ONLY_ACTION_IDS) {
+      expect(COMMAND_DEFS_BY_ID.has(id)).toBe(false);
+    }
   });
 
   test("ids are unique", () => {

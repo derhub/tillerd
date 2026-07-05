@@ -8,7 +8,9 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
 import { TooltipProvider } from "~/components/ui/tooltip";
-import { CommandRegistryProvider } from "~/lib/commands/registry";
+import { ACTION } from "~/lib/commands/ids";
+import type { CommandArgs } from "~/lib/commands/registry";
+import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { notificationsStore } from "~/lib/notifications/context";
 import { makeQueryClient } from "~/lib/queryClient";
 import { SessionContext } from "~/lib/sessionContext";
@@ -23,6 +25,10 @@ void mock.module("~/lib/useDesktopHost", () => ({
 
 let commands: CommandView[] = [];
 const calls: { cmd: string; args: unknown }[] = [];
+// Captures dispatches of the panel-spawn command that CommandsView routes Run through.
+// PanelContent (the real handler, which places the surface into a leaf) is not in this
+// tree, so a stand-in handler records the dispatch to prove Run delegates the spawn.
+const runDispatches: CommandArgs[] = [];
 let failNextCreate = false;
 
 function makeCommand(overrides: Partial<CommandView> = {}): CommandView {
@@ -116,6 +122,9 @@ function renderView(sessionId: string | null = null) {
       <SessionContext value={{ sessionId, status: "", setStatus: () => {} }}>
         <TooltipProvider>
           <CommandRegistryProvider>
+            <RegisterHandlers
+              handlers={{ [ACTION.surfaceRunCommand]: (args) => runDispatches.push(args ?? {}) }}
+            />
             <React.Suspense fallback={null}>
               <CommandsView />
             </React.Suspense>
@@ -130,6 +139,7 @@ afterEach(() => {
   cleanup();
   commands = [];
   calls.length = 0;
+  runDispatches.length = 0;
   failNextCreate = false;
   setReady(false);
   notificationsStore.setState(() => ({ items: [], unread: 0 }));
@@ -282,16 +292,17 @@ describe("pin", () => {
 });
 
 describe("run", () => {
-  test("running a command with an active session spawns it in that session", async () => {
+  test("running a command with an active session routes the spawn to the panel", async () => {
     commands = [makeCommand({ id: "c-1", name: "Build", cli: "npm run build" })];
     renderView("s-1");
     await waitFor(() => expect(screen.queryByText("Build")).not.toBeNull());
 
     fireEvent.click(screen.getByLabelText("Run Build"));
 
-    await waitFor(() => expect(calls.some((c) => c.cmd === "surface_spawn")).toBe(true));
-    const spawnCall = calls.find((c) => c.cmd === "surface_spawn");
-    expect(spawnCall?.args).toEqual({ sessionId: "s-1", command: { libraryRef: "c-1" } });
+    await waitFor(() => expect(runDispatches).toHaveLength(1));
+    expect(runDispatches[0]).toEqual({ commandRef: { libraryRef: "c-1" } });
+    // Delegated to the panel handler, never spawned headless from this view.
+    expect(calls.some((c) => c.cmd === "surface_spawn")).toBe(false);
   });
 
   test("running a command with no active session notifies instead of spawning", async () => {
@@ -301,6 +312,7 @@ describe("run", () => {
 
     fireEvent.click(screen.getByLabelText("Run Build"));
 
+    expect(runDispatches).toHaveLength(0);
     expect(calls.some((c) => c.cmd === "surface_spawn")).toBe(false);
     expect(notificationsStore.state.items.some((i) => i.category === "command-run")).toBe(true);
   });
