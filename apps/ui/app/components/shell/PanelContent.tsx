@@ -143,20 +143,6 @@ export function PanelContent() {
     [sessionId, resetToEmpty, surfaceClose],
   );
 
-  // Restart an exited pane in place (surface-lifecycle spec): terminate the dead surface to free
-  // its placement, then spawn a fresh terminal into the same leaf. handleSpawn mints a new
-  // placement and rebinds -- the pane shows a live shell at unchanged geometry.
-  const handleRestart = React.useCallback(
-    (leafId: string) => {
-      const leaf = findLeaf(treeRef.current, leafId);
-      if (leaf?.content.type === "terminal" && sessionId) {
-        surfaceClose.mutate({ id: leaf.content.placement });
-      }
-      handleSpawn(leafId);
-    },
-    [sessionId, surfaceClose, handleSpawn],
-  );
-
   // Content-dependent close (surface-lifecycle spec). A terminal leaf terminates its surface and
   // resets to the empty picker in place (the leaf stays, even as the only pane). An empty leaf is
   // removed, fading out first, and the tree's always-one-leaf guarantee keeps the last pane alive.
@@ -286,7 +272,6 @@ export function PanelContent() {
           onSwapPlacements={handleSwapPlacements}
           onStatusChange={handleStatusChange}
           onRequestReset={handleRequestReset}
-          onRestart={handleRestart}
         />
       ) : bootRegion === "skeleton" ? (
         <div className="h-full w-full p-3" data-testid="content-skeleton">

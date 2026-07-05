@@ -55,21 +55,25 @@ for clarity/testability. Drop the `leaves.length <= 1` guard in `useShellCommand
 _Alternative rejected:_ one uniform `closeNode` with a post-step re-adding an empty leaf —
 more state churn, loses the pane's geometry, and fights the persisted tree.
 
-### D2 — Exit bar and restart live in `DesktopTerminalPane`; reset/remove are lifted to `PanelContent`
+### D2 — Exit bar in `DesktopTerminalPane`; Restart is an in-pane same-placement resume
 
 The pane owns scrollback + status, so it renders the inline exit bar on clean exit
-(new `TerminalExitBar` component: `exited(code) · Restart · New surface`). The pane can
-resolve Restart itself (rebind its own channel to a fresh surface); "New surface" and
-close must mutate the tree, so the pane calls up via new props
-`onRequestReset(placement)` and reports status up via `onStatusChange(placement, status)`.
+(new `TerminalExitBar` component: `Process exited · Restart · New surface`). "New surface"
+and close must mutate the tree, so the pane calls up via `onRequestReset()` and reports
+status up via `onStatusChange(placement, status)`; `PanelContent` keeps
+`statusByPlacement: Record<placement, status>` fed by `onStatusChange`, which backs the
+confirm-if-running gate (D4).
 
-`PanelContent` keeps `statusByPlacement: Map<placement, status>` fed by `onStatusChange`.
-This backs both the confirm-if-running gate (D4) and any tree-level status need. Restart is
-handled in-pane: hard-remove the exited surface at the placement, then re-run
-`surfaceResolveOrSpawn`, bumping the existing `resumeKey` so `bindChannel` re-runs without
-recreating the xterm view. If the runtime cannot re-spawn onto a placement holding an exited
-row, fall back to `onRequestReset` + immediate spawn (fresh placement) — same visible result.
-A task verifies which path `surfaceResolveOrSpawn` supports before finalizing.
+Restart is handled entirely in-pane and preserves the placement. Verified in the
+orchestrator: `resolve_or_spawn.rs` looks up the surface by `(session, placement)` with no
+status filter; a cleanly-exited surface is persisted as `idle` (not deleted), so the resolver
+takes its resume branch — it spawns a fresh pseudo-terminal, keeps the same surface id and
+placement, and flips status back to `live`. So Restart just clears the dead scrollback
+(`term.reset()`) and bumps the existing `resumeKey`, re-running `bindChannel` →
+`surfaceResolveOrSpawn(session, placement)` without recreating the xterm view. No
+`surfaceClose` is wanted: `CloseSurface` hard-deletes the row, forcing a brand-new placement
+on the next spawn. "New surface" (abandon) does the opposite on purpose: `onRequestReset`
+hard-removes the surface via `surfaceClose` and unbinds the leaf to empty.
 
 ### D3 — Unclean exit reuses the existing `TerminalFailureOverlay`
 

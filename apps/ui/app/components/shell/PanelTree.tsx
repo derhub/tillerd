@@ -40,7 +40,6 @@ export function PanelTree({
   onSwapPlacements,
   onStatusChange,
   onRequestReset,
-  onRestart,
 }: {
   tree: PanelNode;
   totalPanels: number;
@@ -60,7 +59,6 @@ export function PanelTree({
   onSwapPlacements: (sourceLeafId: string, targetLeafId: string) => void;
   onStatusChange: (placement: string, status: string) => void;
   onRequestReset: (leafId: string) => void;
-  onRestart: (leafId: string) => void;
 }) {
   // Drag/drop is transient UI state, not part of the persisted layout tree
   // (panel-placement-swap spec: geometry is unchanged, only the surface binding swaps).
@@ -292,7 +290,6 @@ export function PanelTree({
             reloadKey={reloadEpoch[content.placement] ?? 0}
             onStatusChange={onStatusChange}
             onRequestReset={() => onRequestReset(leafId)}
-            onRestart={() => onRestart(leafId)}
           />
         );
     }

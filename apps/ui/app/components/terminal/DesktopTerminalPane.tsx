@@ -174,11 +174,10 @@ export function DesktopTerminalPane(_props: {
   reloadKey?: number;
   // Lifecycle callbacks (surface-lifecycle spec). onStatusChange lifts the pane's connection status
   // to the tree owner (backs the confirm-if-running close gate); onRequestReset asks the owner to
-  // unbind this leaf to the empty picker (exit bar "New surface", failure Dismiss); onRestart asks
-  // the owner to respawn a fresh surface into this leaf.
+  // unbind this leaf to the empty picker (exit bar "New surface", failure Dismiss). Restart is
+  // handled in-pane (resolveOrSpawn resumes the same placement), so no owner callback is needed.
   onStatusChange?: (placement: string, status: string) => void;
   onRequestReset?: () => void;
-  onRestart?: () => void;
 }) {
   const detachOnUnmount = _props.detachOnUnmount ?? true;
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -289,6 +288,18 @@ export function DesktopTerminalPane(_props: {
     setResumeKey((k) => k + 1);
   }, []);
 
+  // Restart an exited pane in place (surface-lifecycle spec): resolveOrSpawn resumes the same
+  // (session, placement) -- for an idle/cleanly-exited surface it spawns a fresh PTY while keeping
+  // the surface id and placement (verified: orchestrator resolve_or_spawn resume branch). So restart
+  // is a local rebind: clear the dead scrollback and bump resumeKey to re-run bindChannel.
+  const handleRestart = React.useCallback(() => {
+    termRef.current?.reset();
+    setExitQualifier(null);
+    setFailureReason(null);
+    setStatus("connecting");
+    setResumeKey((k) => k + 1);
+  }, []);
+
   // Dismiss on failure resets the leaf to the empty picker (surface-lifecycle spec) rather than
   // leaving a dead pane; the owner terminates the failed surface and unbinds the leaf.
   const onRequestReset = _props.onRequestReset;
@@ -334,7 +345,7 @@ export function DesktopTerminalPane(_props: {
       {!failureReason && exitQualifier !== null && (
         <TerminalExitBar
           qualifier={exitQualifier}
-          onRestart={() => _props.onRestart?.()}
+          onRestart={handleRestart}
           onNewSurface={() => _props.onRequestReset?.()}
         />
       )}

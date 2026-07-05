@@ -51,9 +51,9 @@ the surface picker.
 When a terminal surface's process exits cleanly, the pane SHALL keep its final scrollback
 visible and present an inline exit bar reporting the exit code with a Restart action and a
 New surface action. The pane SHALL NOT be reset or removed until the user acts. Selecting
-Restart SHALL spawn a fresh terminal surface into the same pane, at the pane's existing
-geometry, and rebind the pane to it. Selecting New surface SHALL reset the leaf to an empty
-picker.
+Restart SHALL resume the surface at the same `(session, placement)`: a fresh pseudo-terminal
+is spawned while the surface id and placement are preserved, and the pane rebinds to it.
+Selecting New surface SHALL reset the leaf to an empty picker.
 
 #### Scenario: Clean exit keeps output and shows the bar
 
@@ -61,11 +61,11 @@ picker.
 - **THEN** the pane keeps its final output visible
 - **AND** an inline bar shows the exit code with Restart and New surface actions
 
-#### Scenario: Restart puts a fresh shell in the same pane
+#### Scenario: Restart resumes the same placement with a fresh shell
 
 - **WHEN** the user selects Restart on an exited pane
-- **THEN** a fresh terminal surface is spawned into the same pane at its existing geometry
-- **AND** the pane shows a live shell without the pane being removed or moved
+- **THEN** a fresh pseudo-terminal is spawned for the pane's existing `(session, placement)`, keeping the surface id and placement
+- **AND** the pane shows a live shell without being removed or moved
 
 #### Scenario: New surface resets to the picker
 
