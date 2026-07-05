@@ -316,7 +316,7 @@ describe("new-session flow (template default + picker)", () => {
 
   test("a default template pointing at a deleted library template notifies instead of silently doing nothing", async () => {
     setTreeData([project("p-1", "Project One", "ws-a")], []);
-    // Default resolves to a library template id that is no longer in the library.
+    // Default resolves to a library template id absent from the library.
     fakeProjectSettings = [{ key: DEFAULT_TEMPLATE_KEY, value: { kind: "library", id: "gone" } }];
     fakeLibraryTemplates = [];
 

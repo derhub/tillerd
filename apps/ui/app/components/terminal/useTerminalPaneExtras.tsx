@@ -146,9 +146,8 @@ async function attachTerminalExtras(
       e.preventDefault();
       return false;
     }
-    // preventDefault suppresses the browser's native paste/find, which would otherwise still fire
-    // on xterm's textarea in addition to our handler -- a second paste that bypasses the multi-line
-    // confirm guard entirely. Returning false stops xterm but does not cancel the native default.
+    // Returning false stops xterm but leaves the browser's native paste/find to fire on the
+    // textarea -- a second paste that skips the multi-line confirm guard. preventDefault cancels it.
     e.preventDefault();
     if (action === "paste") cfg.controllerRef.current.paste();
     else cfg.controllerRef.current.openFind();

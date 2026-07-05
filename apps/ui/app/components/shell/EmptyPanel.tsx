@@ -13,9 +13,8 @@ function sortPinnedFirst(commands: readonly CommandView[]): CommandView[] {
   return [...commands].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 }
 
-// One picker card. Both the login-shell kind and every library command render through this so a
-// styling/a11y change lands on every row at once (the two branches previously duplicated the
-// className/markup).
+// One picker card. The login-shell kind and every library command render through this, so
+// styling/a11y stays identical across both branches from one definition.
 function PickerItem({
   title,
   subtitle,

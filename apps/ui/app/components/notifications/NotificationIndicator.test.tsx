@@ -88,10 +88,9 @@ function ev(over: Partial<NotificationWire> = {}): NotificationWire {
   };
 }
 
-// The bell's open handler must call markRead so the unread badge clears once the user opens the
-// feed (NotificationIndicator wires onClick -> markRead + onActivate). This is the wiring the
-// desktop e2e no longer exercises (its info-only spawn never lights the badge), so it is proven
-// here against the real notifications store.
+// The bell's open handler calls markRead so the unread badge clears once the feed opens
+// (NotificationIndicator wires onClick -> markRead + onActivate). Covered here against the real
+// notifications store; the desktop e2e cannot exercise it since its info-only spawn never badges.
 test("clicking the bell marks notifications read and clears the unread badge", async () => {
   desktopHostStore.setState(() => ({ status: "ready" }));
   notificationsStore.setState(() => ({ items: [ev({ severity: "error" })], unread: 1 }));
