@@ -1,5 +1,7 @@
 import type { Project } from "@tillerd/client-bindings";
 
+import { useQuery } from "@tanstack/react-query";
+import { query } from "@tillerd/client-bindings";
 import React from "react";
 
 import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
@@ -41,7 +43,9 @@ export function useTreeNav(): TreeNav {
   return v;
 }
 
-// Unfiled always renders: emptiness is not known until expanded, so it cannot be hidden upfront.
+// Unfiled has no create action of its own, so its row exists only while it holds sessions
+// (spec: hidden when empty). Rendering is decided by a cheap one-row probe below, independent
+// of the group's own expand state.
 const UNFILED_PROJECT: Project = {
   id: UNFILED_ID,
   name: "Unfiled",
@@ -64,6 +68,13 @@ export function ProjectTree({
   const activeNamed = projects.filter((p) => p.id !== UNFILED_ID && p.status !== "archived");
   const archived = projects.filter((p) => p.status === "archived");
   const activeNamedIds = activeNamed.map((p) => p.id);
+
+  // Cheap one-row probe deciding whether Unfiled has anything to show; while it is pending,
+  // keep the group rendered rather than flicker it away then back in.
+  const { data: unfiledProbe, isPending: unfiledProbePending } = useQuery(
+    query("sessionList", { projectId: UNFILED_ID, limit: 1, offset: 0 }),
+  );
+  const showUnfiled = unfiledProbePending || (unfiledProbe?.length ?? 0) > 0;
 
   const treeRef = React.useRef<HTMLDivElement>(null);
   // Seed the roving owner on the first project so Tab reaches the tree before any
@@ -173,7 +184,7 @@ export function ProjectTree({
           className="flex flex-col gap-3"
         >
           {activeNamed.map((proj) => rowFor(proj, activeNamedIds))}
-          {rowFor(UNFILED_PROJECT, [])}
+          {showUnfiled && rowFor(UNFILED_PROJECT, [])}
         </div>
         {/* Archived projects sit outside the tree: they are a separate disclosure, not treeitems. */}
         <ArchivedSection count={archived.length}>

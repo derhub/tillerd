@@ -198,7 +198,8 @@ describe("guarded actions (stateModel mirror)", () => {
   }
 
   test("the Unfiled project's context menu offers no Delete", async () => {
-    setTreeData([project(UNFILED_ID, "Unfiled", "ws-a")], []);
+    // Unfiled only renders while it holds an active session (hidden-when-empty spec).
+    setTreeData([project(UNFILED_ID, "Unfiled", "ws-a")], [session("s-1", UNFILED_ID, "S1")]);
 
     renderSidebar(<SessionSidebar />);
     await waitFor(() => expect(screen.queryByText("Unfiled")).not.toBeNull());
@@ -218,6 +219,27 @@ describe("guarded actions (stateModel mirror)", () => {
     fireEvent.contextMenu(projectRow("Ordinary"));
 
     await waitFor(() => expect(screen.queryByText("Delete")).not.toBeNull());
+  });
+});
+
+describe("Unfiled group visibility", () => {
+  const UNFILED_ID = "00000000-0000-0000-0000-000000000000";
+
+  test("the Unfiled group is hidden when it has no active sessions", async () => {
+    setTreeData([project("p-1", "Ordinary", "ws-a")], [session("s-1", "p-1", "S1")]);
+
+    renderSidebar(<SessionSidebar />);
+
+    await waitFor(() => expect(screen.queryByText("Ordinary")).not.toBeNull());
+    expect(screen.queryByText("Unfiled")).toBeNull();
+  });
+
+  test("the Unfiled group renders when it has an active session", async () => {
+    setTreeData([project("p-1", "Ordinary", "ws-a")], [session("s-unfiled", UNFILED_ID, "Loose")]);
+
+    renderSidebar(<SessionSidebar />);
+
+    await waitFor(() => expect(screen.queryByText("Unfiled")).not.toBeNull());
   });
 });
 
