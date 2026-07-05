@@ -13,6 +13,48 @@ function sortPinnedFirst(commands: readonly CommandView[]): CommandView[] {
   return [...commands].sort((a, b) => Number(b.pinned) - Number(a.pinned));
 }
 
+// One picker card. Both the login-shell kind and every library command render through this so a
+// styling/a11y change lands on every row at once (the two branches previously duplicated the
+// className/markup).
+function PickerItem({
+  title,
+  subtitle,
+  testid,
+  disabled,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  testid: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      data-testid={testid}
+      className={cn(
+        "flex items-center gap-3 rounded-sm border border-border/60 px-3 py-2.5 text-left",
+        "hover:border-primary/50 hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "disabled:opacity-40 disabled:pointer-events-none",
+      )}
+    >
+      <TerminalIcon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
+      <span className="flex flex-col min-w-0">
+        <span className="text-[0.917rem] text-foreground truncate">
+          {title}
+        </span>
+        <span className="text-[0.75rem] text-muted-foreground/60 truncate">
+          {subtitle}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function EmptyPanel({
   onSpawn,
   disabled,
@@ -31,46 +73,22 @@ export function EmptyPanel({
         New surface
       </p>
       <div className="flex flex-col gap-1.5 w-full max-w-60 max-h-[60vh] overflow-y-auto">
-        <button
-          type="button"
+        <PickerItem
+          title="New terminal"
+          subtitle="Interactive shell surface"
+          testid="empty-panel-kind-terminal"
           disabled={disabled}
           onClick={() => onSpawn()}
-          data-testid="empty-panel-kind-terminal"
-          className={cn(
-            "flex items-center gap-3 rounded-sm border border-border/60 px-3 py-2.5 text-left",
-            "hover:border-primary/50 hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            "disabled:opacity-40 disabled:pointer-events-none",
-          )}
-        >
-          <TerminalIcon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
-          <span className="flex flex-col min-w-0">
-            <span className="text-[0.917rem] text-foreground">New terminal</span>
-            <span className="text-[0.75rem] text-muted-foreground/60 truncate">
-              Interactive shell surface
-            </span>
-          </span>
-        </button>
+        />
         {sortPinnedFirst(commands).map((cmd) => (
-          <button
+          <PickerItem
             key={cmd.id}
-            type="button"
+            title={cmd.name}
+            subtitle={cmd.cli}
+            testid={`empty-panel-command-${cmd.id}`}
             disabled={disabled}
             onClick={() => onSpawn({ libraryRef: cmd.id })}
-            data-testid={`empty-panel-command-${cmd.id}`}
-            className={cn(
-              "flex items-center gap-3 rounded-sm border border-border/60 px-3 py-2.5 text-left",
-              "hover:border-primary/50 hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              "disabled:opacity-40 disabled:pointer-events-none",
-            )}
-          >
-            <TerminalIcon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
-            <span className="flex flex-col min-w-0">
-              <span className="text-[0.917rem] text-foreground truncate">{cmd.name}</span>
-              <span className="text-[0.75rem] text-muted-foreground/60 truncate">{cmd.cli}</span>
-            </span>
-          </button>
+          />
         ))}
       </div>
     </div>
