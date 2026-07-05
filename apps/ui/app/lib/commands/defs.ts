@@ -21,6 +21,7 @@ import {
   Play,
   RotateCcw,
   Search,
+  Settings,
   Square,
   SquareTerminal,
   TextSelect,
@@ -114,6 +115,11 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
   {
     id: ACTION.appSettings,
     title: "Settings",
+    icon: Settings,
+    // Also projected onto the activity bar as its settings affordance (ui-settings-editor
+    // "reachable from ... the activity bar's settings affordance"). Unlike the view switches it
+    // carries no `group`/`toggle`, so it renders as a plain action, never a checked view.
+    surfaces: ["activitybar"],
     keywords: ["preferences", "theme", "keybindings"],
     defaultKeys: { default: "CmdOrCtrl+,", vscode: "CmdOrCtrl+," },
   },
