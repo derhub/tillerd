@@ -61,8 +61,11 @@ interface AttachConfig {
   copyOnSelectRef: React.RefObject<boolean>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   writeInput: (text: string) => void;
-  sessionId: string | null;
-  sessionLabel: string | null;
+  // Refs, not values: a pane keeps its mounted Terminal across a session switch (the bind effect
+  // re-runs, the attach effect does not), so a bell must read the current session, not the one
+  // frozen at attach time. getSurfaceId is a getter for the same reason.
+  sessionIdRef: React.RefObject<string | null>;
+  sessionLabelRef: React.RefObject<string | null>;
   getSurfaceId: () => string | null;
   isDesktop: boolean;
   setResults: (r: TerminalSearchResults) => void;
@@ -119,9 +122,9 @@ async function attachTerminalExtras(
     term.onBell(
       () =>
         void emitBellNotification({
-          sessionId: cfg.sessionId,
+          sessionId: cfg.sessionIdRef.current,
           surfaceId: cfg.getSurfaceId(),
-          sessionLabel: cfg.sessionLabel,
+          sessionLabel: cfg.sessionLabelRef.current,
         }),
     ),
   );
@@ -138,30 +141,38 @@ async function attachTerminalExtras(
     const action = classifyTerminalKey(e, isMac);
     if (!action) return true;
     if (action === "copy") {
-      const sel = term.getSelection();
-      if (!sel) return true; // nothing selected: let the key through
-      void navigator.clipboard.writeText(sel);
+      if (!term.getSelection()) return true; // nothing selected: let the key through
+      cfg.controllerRef.current.copySelection();
+      e.preventDefault();
       return false;
     }
-    if (action === "paste") {
-      cfg.controllerRef.current.paste();
-      return false;
-    }
-    cfg.controllerRef.current.openFind();
+    // preventDefault suppresses the browser's native paste/find, which would otherwise still fire
+    // on xterm's textarea in addition to our handler -- a second paste that bypasses the multi-line
+    // confirm guard entirely. Returning false stops xterm but does not cancel the native default.
+    e.preventDefault();
+    if (action === "paste") cfg.controllerRef.current.paste();
+    else cfg.controllerRef.current.openFind();
     return false;
   });
 
   let dropOff: (() => void) | undefined;
   if (cfg.isDesktop) {
     const { getCurrentWebview } = await import("@tauri-apps/api/webview");
-    dropOff = await getCurrentWebview().onDragDropEvent((event) => {
+    const webview = getCurrentWebview();
+    dropOff = await webview.onDragDropEvent(async (event) => {
       if (event.payload.type !== "drop") return;
       const rect = cfg.containerRef.current?.getBoundingClientRect();
-      // Drop position is physical pixels; the rect is CSS pixels.
-      const dpr = window.devicePixelRatio || 1;
-      const x = event.payload.position.x / dpr;
-      const y = event.payload.position.y / dpr;
-      if (rect && (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom)) {
+      if (!rect) return; // no pane rect to hit-test against: never inject (a sibling pane owns it)
+      // Tauri reports the drop in physical pixels; getBoundingClientRect is in CSS pixels. The
+      // physical/CSS ratio folds in both the monitor scale and the webview's own zoom (setZoom),
+      // and window.devicePixelRatio does not track that zoom on every platform. Derive the ratio
+      // empirically from the webview's physical width vs the CSS viewport width so the hit test
+      // stays correct at any zoom level.
+      const size = await webview.size();
+      const scale = window.innerWidth > 0 ? size.width / window.innerWidth : window.devicePixelRatio || 1;
+      const x = event.payload.position.x / scale;
+      const y = event.payload.position.y / scale;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
         return; // dropped over a different pane
       }
       const quoted = event.payload.paths.map(shellQuotePath).join(" ");
@@ -202,6 +213,11 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
   const { sessionId, getSurfaceId, writeInput, containerRef } = opts;
   const isDesktop = opts.isDesktop ?? isDesktopHost();
 
+  const sessionIdRef = React.useRef(sessionId);
+  sessionIdRef.current = sessionId;
+  const sessionLabelRef = React.useRef(opts.sessionLabel ?? null);
+  sessionLabelRef.current = opts.sessionLabel ?? null;
+
   const termRef = React.useRef<Terminal | null>(null);
   const fitRef = React.useRef<FitAddon | null>(null);
   const searchRef = React.useRef<SearchAddon | null>(null);
@@ -231,15 +247,11 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
     setSearchOpen(true);
   }, []);
 
+  // Built once and never reassigned so its identity is stable across re-renders: setActiveTerminal
+  // publishes this exact object and clearActiveTerminal's identity guard (s.controller === c) must
+  // still match it at dispose to clear the store. Each method reads live state through stable
+  // refs/callbacks, so a frozen object stays correct.
   const controllerRef = React.useRef<TerminalController>({
-    openFind,
-    copySelection: () => {},
-    paste: () => {},
-    selectAll: () => {},
-    clear: () => {},
-    searchSelection: () => {},
-  });
-  controllerRef.current = {
     openFind,
     copySelection: () => {
       const sel = termRef.current?.getSelection();
@@ -255,7 +267,7 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
       const sel = termRef.current?.getSelection();
       openFind(sel && sel.length > 0 ? sel : "");
     },
-  };
+  });
 
   const onPointerDownCapture = React.useCallback(() => {
     setActiveTerminal(controllerRef.current);
@@ -287,8 +299,8 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
     copyOnSelectRef,
     containerRef,
     writeInput,
-    sessionId,
-    sessionLabel: opts.sessionLabel ?? null,
+    sessionIdRef,
+    sessionLabelRef,
     getSurfaceId,
     isDesktop,
     setResults,
