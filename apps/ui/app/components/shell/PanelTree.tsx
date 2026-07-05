@@ -84,7 +84,16 @@ export function PanelTree({
   // Empty panel picker (ui-panel-compound "Empty panel picker", usability pass 12.4): the command
   // library, so an empty leaf can spawn a terminal running a stored command, not just a login
   // shell. Cached by TanStack Query, so multiple empty leaves in the same tree share one fetch.
-  const { data: emptyPanelCommands = [] } = useQuery(commandListQuery());
+  // Gated on the tree actually having an empty leaf so fully-populated panels (the common case)
+  // never issue the command_list fetch on the hot session-switch path.
+  const hasEmptyLeaf = React.useMemo(
+    () => collectLeaves(tree).some((leaf) => leaf.content.type === "empty"),
+    [tree],
+  );
+  const { data: emptyPanelCommands = [] } = useQuery({
+    ...commandListQuery(),
+    enabled: hasEmptyLeaf,
+  });
 
   function renderNode(node: PanelNode, path: string): React.ReactNode {
     return node.kind === "group" ? renderGroup(node, path) : renderLeaf(node);
