@@ -13,16 +13,13 @@ import { lazyFitAddon, lazyXterm } from "~/lib/lazy";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import {
-  useLiveTerminalTypography,
+  useTerminalTypography,
   type TerminalTypography,
 } from "~/lib/settings/useLiveTerminalTypography";
 import { subscribe as bridgeSubscribe } from "~/lib/subscribe";
+import { isCleanExit } from "~/lib/terminal/exit-classification";
 
 import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
-
-// Exit qualifiers the runtime treats as a clean stop (exit-classification contract): no failure
-// overlay for these, matching the surface-status write in surface_channel.rs's exit_status().
-const CLEAN_EXIT_QUALIFIERS = new Set(["ok", "stopped-by-request"]);
 
 // Creates the xterm.js Terminal + DOM canvas exactly once per mount and hands it to the caller via
 // termRef/setTerminalReady before resolving -- this survives a placement swap (panel-placement-swap
@@ -122,7 +119,7 @@ async function bindChannel(
         break;
       case "exit":
         setStatus("exited");
-        if (!CLEAN_EXIT_QUALIFIERS.has(event.value)) {
+        if (!isCleanExit(event.value)) {
           setFailureReason(`Session exited unexpectedly (${event.value})`);
         }
         break;
@@ -183,11 +180,9 @@ export function DesktopTerminalPane(_props: {
   const fitAddonRef = React.useRef<FitAddon | null>(null);
   const sendInputRef = React.useRef<((bytes: number[]) => void) | null>(null);
   const terminalTheme = useLiveTerminalTheme(termRef);
-  // Values-only read to seed the Terminal constructor with persisted typography (the live
-  // application stays owned by useTerminalPaneExtras' own hook). The dedicated ref is never
-  // assigned a Terminal, so this call's effect no-ops -- it only supplies the initial values.
-  const seedTypoRef = React.useRef<Terminal | null>(null);
-  const initialTypography = useLiveTerminalTypography(seedTypoRef);
+  // Seed the Terminal constructor with persisted typography for the first paint; the live
+  // application stays owned by useTerminalPaneExtras' own useLiveTerminalTypography.
+  const initialTypography = useTerminalTypography();
   const initialTypographyRef = React.useRef(initialTypography);
   initialTypographyRef.current = initialTypography;
   const [terminalReady, setTerminalReady] = React.useState(false);

@@ -33,15 +33,10 @@ export interface TerminalTypography {
   scrollback: number;
 }
 
-// Companion to useLiveTerminalTheme for typography and buffer options: reads the settings and,
-// on any change, mirrors them onto the mounted terminal's live `options.*` and refits so the PTY
-// relearns the new column/row geometry (ui-terminal-pane "typography and buffer settings apply
-// live"). termRef may be null before the Terminal exists; the effect no-ops until mount, and the
-// returned values seed the caller's construction options for that first paint.
-export function useLiveTerminalTypography(
-  termRef: React.RefObject<Terminal | null>,
-  refit?: () => void,
-): TerminalTypography {
+// Values-only reader: the six typography/buffer settings resolved to a memoized snapshot, with no
+// terminal binding. Seeds a Terminal's construction options for the first paint (before any
+// Terminal exists to apply onto); useLiveTerminalTypography layers the live-apply effect on top.
+export function useTerminalTypography(): TerminalTypography {
   const { value: fontSize } = useNumberGlobalSetting(
     TERMINAL_FONT_SIZE_KEY,
     DEFAULT_TERMINAL_FONT_SIZE,
@@ -71,10 +66,21 @@ export function useLiveTerminalTypography(
     ? cursorStyleRaw
     : DEFAULT_TERMINAL_CURSOR_STYLE;
 
-  const typography = React.useMemo<TerminalTypography>(
+  return React.useMemo<TerminalTypography>(
     () => ({ fontSize, fontFamily, lineHeight, cursorStyle, cursorBlink, scrollback }),
     [fontSize, fontFamily, lineHeight, cursorStyle, cursorBlink, scrollback],
   );
+}
+
+// Companion to useLiveTerminalTheme for typography and buffer options: reads the settings and,
+// on any change, mirrors them onto the mounted terminal's live `options.*` and refits so the PTY
+// relearns the new column/row geometry (ui-terminal-pane "typography and buffer settings apply
+// live"). termRef may be null before the Terminal exists; the effect no-ops until mount.
+export function useLiveTerminalTypography(
+  termRef: React.RefObject<Terminal | null>,
+  refit?: () => void,
+): TerminalTypography {
+  const typography = useTerminalTypography();
 
   React.useEffect(() => {
     const term = termRef.current;

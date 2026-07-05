@@ -14,6 +14,7 @@ import { SessionContext } from "~/lib/sessionContext";
 import { getTerminalTheme } from "~/lib/settings/terminal-schemes";
 import { useLiveTerminalTheme } from "~/lib/settings/useLiveTerminalTheme";
 import { subscribe } from "~/lib/subscribe";
+import { isCleanExit } from "~/lib/terminal/exit-classification";
 
 import { useTerminalPaneExtras } from "./useTerminalPaneExtras";
 
@@ -195,7 +196,7 @@ export function TerminalPane({ sessionId, onSessionStart }: Props) {
                 : raw?.["code"] != null
                   ? `code ${scalarString(raw["code"])}`
                   : qualifier;
-            const color = qualifier === "ok" || qualifier === "stopped-by-request" ? "33" : "31";
+            const color = isCleanExit(qualifier) ? "33" : "31";
             termRef.current?.write(
               `\r\n\x1b[${color}m[exited: ${qualifier}${qualifier !== detail ? ` — ${detail}` : ""}]\x1b[0m\r\n`,
             );
