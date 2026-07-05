@@ -28,7 +28,11 @@ let workspaceList: { id: string; name: string }[] = [alpha, beta];
 let workspaceActivity: { workspaceId: string; running: number; failed: number }[] = [];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
+// mock.module is process-global; spread the real module so `desktopHostStore` (imported by
+// other suites, e.g. NotificationIndicator) survives once this mock is installed.
+const actualDesktopHost = await import("~/lib/useDesktopHost");
 void mock.module("~/lib/useDesktopHost", () => ({
+  ...actualDesktopHost,
   useDesktopHost: () => ({ status: "ready" }),
 }));
 

@@ -20,7 +20,11 @@ import { SessionContext } from "~/lib/sessionContext";
 // rename/duplicate/pin/delete with prebuilt guards -- exercised through the real registry +
 // EntityContextMenu, mocked at the Tauri invoke boundary (mirrors ThemesSection/SessionSidebar).
 
+// mock.module is process-global; spread the real module so `desktopHostStore` (imported by
+// other suites, e.g. NotificationIndicator) survives once this mock is installed.
+const actualDesktopHost = await import("~/lib/useDesktopHost");
 void mock.module("~/lib/useDesktopHost", () => ({
+  ...actualDesktopHost,
   useDesktopHost: () => ({ status: "ready" }),
 }));
 

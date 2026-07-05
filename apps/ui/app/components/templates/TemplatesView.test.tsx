@@ -22,7 +22,11 @@ import { resetUiStore, setActiveProject } from "~/lib/store";
 // templates, the visual spec editor, and import/export -- exercised through the real registry +
 // EntityContextMenu, mocked at the Tauri invoke boundary.
 
+// mock.module is process-global; spread the real module so `desktopHostStore` (imported by
+// other suites, e.g. NotificationIndicator) survives once this mock is installed.
+const actualDesktopHost = await import("~/lib/useDesktopHost");
 void mock.module("~/lib/useDesktopHost", () => ({
+  ...actualDesktopHost,
   useDesktopHost: () => ({ status: "ready" }),
 }));
 

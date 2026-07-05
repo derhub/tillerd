@@ -53,7 +53,11 @@ class FakeWebLinksAddon {
   dispose() {}
 }
 
+// mock.module is process-global; spread the real module so its other exports (lazyDiffs, ...)
+// survive for suites that run after this one.
+const actualLazy = await import("~/lib/lazy");
 void mock.module("~/lib/lazy", () => ({
+  ...actualLazy,
   lazyXterm: () => Promise.resolve({ Terminal: FakeTerminal }),
   lazyFitAddon: () => Promise.resolve({ FitAddon: FakeFitAddon }),
   lazySearchAddon: () => Promise.resolve({ SearchAddon: FakeSearchAddon }),
@@ -74,7 +78,9 @@ void mock.module("@tillerd/client-bindings", () => ({
     channelListener = callback;
     return { send: async () => {}, close: closeSpy };
   },
-  command: () => ({ mutationFn: async () => null, meta: { invalidates: [] } }),
+  // Keep the real `command` (via the spread above): globally overriding it to a no-op
+  // mutation leaks into every later suite's mutations. The pane's only mutation
+  // (surfaceDetach) never fires here because renderPane sets detachOnUnmount={false}.
 }));
 
 const { DesktopTerminalPane } = await import("./DesktopTerminalPane");
@@ -83,7 +89,12 @@ function renderPane() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DesktopTerminalPane sessionId="session-1" placement="main" cwd="/tmp" />
+      <DesktopTerminalPane
+        sessionId="session-1"
+        placement="main"
+        cwd="/tmp"
+        detachOnUnmount={false}
+      />
     </QueryClientProvider>,
   );
 }
