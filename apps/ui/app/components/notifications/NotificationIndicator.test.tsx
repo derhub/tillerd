@@ -12,7 +12,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import React from "react";
 
-import { NotificationPanel } from "./NotificationIndicator";
+import { notificationsStore } from "~/lib/notifications/context";
+import { desktopHostStore } from "~/lib/useDesktopHost";
+
+import { NotificationIndicator, NotificationPanel } from "./NotificationIndicator";
 
 afterEach(cleanup);
 
@@ -84,6 +87,23 @@ function ev(over: Partial<NotificationWire> = {}): NotificationWire {
     ...over,
   };
 }
+
+// The bell's open handler must call markRead so the unread badge clears once the user opens the
+// feed (NotificationIndicator wires onClick -> markRead + onActivate). This is the wiring the
+// desktop e2e no longer exercises (its info-only spawn never lights the badge), so it is proven
+// here against the real notifications store.
+test("clicking the bell marks notifications read and clears the unread badge", async () => {
+  desktopHostStore.setState(() => ({ status: "ready" }));
+  notificationsStore.setState(() => ({ items: [ev({ severity: "error" })], unread: 1 }));
+
+  render(<NotificationIndicator onActivate={() => {}} />);
+  await waitFor(() => expect(screen.queryByTestId("notification-unread")).not.toBeNull());
+
+  fireEvent.click(screen.getByRole("button", { name: /^Notifications:/ }));
+
+  await waitFor(() => expect(screen.queryByTestId("notification-unread")).toBeNull());
+  expect(notificationsStore.state.unread).toBe(0);
+});
 
 test("shows an empty state when there are no notifications", async () => {
   renderPanel([]);
