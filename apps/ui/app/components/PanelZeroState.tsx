@@ -39,13 +39,13 @@ export function PanelZeroState() {
 
   // Shares the sidebar's projectList cache (same key) -- no extra fetch. projectList carries the
   // synthetic Unfiled project row, so named projects are the list minus Unfiled and archived.
-  const { data: projects, isPending } = useQuery(
-    query("projectList", { workspaceId: workspaceId ?? null }),
-  );
-  const namedProjects = (projects ?? []).filter(
+  // Undefined while loading or after an errored fetch: never counted as "no projects", so a
+  // transient projectList failure keeps the panel rather than flashing the create-project CTA.
+  const { data: projects } = useQuery(query("projectList", { workspaceId: workspaceId ?? null }));
+  const namedProjects = projects?.filter(
     (p) => p.id !== UNFILED_ID && p.status !== "archived",
   );
-  const noNamedProjects = !isPending && namedProjects.length === 0;
+  const noNamedProjects = namedProjects?.length === 0;
 
   // Unfiled emptiness only matters with no named project; the fetch is gated off otherwise, and
   // one row (limit 1) settles the decision.
@@ -72,9 +72,13 @@ export function PanelZeroState() {
     );
   };
 
+  // The zero-state rule lives in shouldOfferProjectCreation (single source, unit-tested); this
+  // expression only adds the load/fetch guards. namedProjects !== undefined proves projectList
+  // resolved (restores the dropped null-guard); the unfiled query is gated on noNamedProjects,
+  // so !unfiledPending additionally implies it settled.
   const offerCreate =
     isDesktop &&
-    noNamedProjects &&
+    namedProjects !== undefined &&
     !unfiledPending &&
     shouldOfferProjectCreation(namedProjects.length, unfiledSessions?.length ?? 0);
 
