@@ -42,9 +42,9 @@ async function mountTerminal(
   const { FitAddon } = await lazyFitAddon();
   if (abort.cancelled) return () => {};
 
-  // Seed construction with the user's persisted typography so the first paint uses their
-  // font/size instead of the defaults; useTerminalPaneExtras re-applies the live values on
-  // attach and on every subsequent change (this just removes the initial reflow/refit flash).
+  // Seed construction with the persisted typography so the first paint uses it instead of the
+  // defaults, avoiding an initial reflow/refit flash; useTerminalPaneExtras re-applies the live
+  // values on attach and on every subsequent change.
   const term = new Terminal({
     allowProposedApi: true,
     cursorBlink: typography.cursorBlink,
