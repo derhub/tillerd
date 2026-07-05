@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { cn } from "~/lib/utils";
 
 const ROW_ACTION_CLASS =
-  "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // One command-library row. Prebuilt rows never offer Edit/Rename/Delete (`canEdit`
 // gates the def's `when` and this row's own hover buttons identically -- the
@@ -96,9 +96,10 @@ export function CommandRow({
       </Badge>
 
       {isDesktop && (
-        // Hover-revealed actions do not reserve inline width at rest, so short names/clis show in
-        // full; the context menu carries the same actions for keyboard/no-hover reach.
-        <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+        // Actions stay in layout and in tab order (kept accessible to keyboard users), but are
+        // transparent at rest -- revealed on pointer hover or when any action inside takes keyboard
+        // focus (group-focus-within). Using opacity, not `hidden`, so Tab can still reach them.
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-[var(--motion-fast)] ease-standard group-hover:opacity-100 group-focus-within:opacity-100">
           <Tooltip>
             <TooltipTrigger
               aria-label={`Run ${command.name}`}
