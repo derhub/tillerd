@@ -225,3 +225,22 @@ test("an unset startup workspace leaves the last-active pointer untouched", asyn
 
   expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-last-used");
 });
+
+test("a later rehydrate does not re-pin the startup workspace mid-session", async () => {
+  const list = () =>
+    Promise.resolve(
+      listFrom({
+        "view.active-workspace": "ws-last-used",
+        "general.startupWorkspace": "ws-pinned",
+      }),
+    );
+
+  // First hydration (launch) applies the override once.
+  await hydrateSettings(list);
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-pinned");
+
+  // A mid-session rehydrate (a profile activation re-runs hydrateSettings) must not force the
+  // pinned workspace back on -- the window stays on whatever the refreshed snapshot reports.
+  await hydrateSettings(list);
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-last-used");
+});

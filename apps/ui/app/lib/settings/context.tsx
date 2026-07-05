@@ -29,6 +29,12 @@ export const settingsStore = new Store<SettingsState>({ values: {} });
 let pendingWrites: { key: string; value: unknown }[] = [];
 let hydrated = false;
 
+// The pinned startup workspace overrides the restored pointer exactly once, at the first
+// hydration (launch). Later hydrations -- a profile activation's rehydrate re-runs this whole
+// path mid-session -- must not re-pin, or they yank the window off the workspace the user
+// navigated to. Set on the first hydrateSettings and never re-armed for the window's lifetime.
+let startupOverrideApplied = false;
+
 // Per-key latest-wins write queue. Two rapid writes to one key must not race on
 // the wire (the older could commit last and win server-side), so at most one
 // settingSet per key is in flight; a newer value replaces any queued one, and
@@ -46,6 +52,7 @@ function writePending(key: string): boolean {
 export function _resetForTests(): void {
   pendingWrites = [];
   hydrated = false;
+  startupOverrideApplied = false;
   inFlightWrites.clear();
   queuedWrites.clear();
 }
@@ -141,12 +148,16 @@ export async function hydrateSettings(
   // Pre-hydration changes win over the listed snapshot so they are not reverted.
   for (const w of pending) values[w.key] = w.value;
   // Startup workspace (General settings): a pinned workspace overrides the restored
-  // last-active pointer exactly once, here at launch -- not in WorkspaceSwitcher's
-  // per-render scopedId, which would fight the user's later in-session switches and
-  // turn "startup default" into a perpetually-forced workspace.
-  const startupWorkspace = values[GENERAL_STARTUP_WORKSPACE_KEY];
-  if (typeof startupWorkspace === "string" && startupWorkspace) {
-    values[VIEW_ACTIVE_WORKSPACE_KEY] = startupWorkspace;
+  // last-active pointer exactly once, at the first hydration (launch) -- not in
+  // WorkspaceSwitcher's per-render scopedId (which would fight the user's later in-session
+  // switches) and not on a later rehydrate (a profile activation), which would yank the window
+  // off the workspace the user navigated to mid-session.
+  if (!startupOverrideApplied) {
+    startupOverrideApplied = true;
+    const startupWorkspace = values[GENERAL_STARTUP_WORKSPACE_KEY];
+    if (typeof startupWorkspace === "string" && startupWorkspace) {
+      values[VIEW_ACTIVE_WORKSPACE_KEY] = startupWorkspace;
+    }
   }
   settingsStore.setState((s) => ({ ...s, values }));
   // Theme is authoritative here, not only in the pre-paint inline script: an install with no
