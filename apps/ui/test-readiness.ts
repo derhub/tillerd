@@ -40,6 +40,11 @@ void mock.module("@tauri-apps/api/window", () => ({
 }));
 
 import { setReady } from "./app/lib/test/real-bindings";
+import { configure } from "@testing-library/react";
+
+// Increase the default async timeout (for waitFor/findBy) to 8 seconds to prevent
+// false-positive timeouts under GHA CPU starvation.
+configure({ asyncUtilTimeout: 8000 });
 
 // Readiness is module-global mutable state: a file that sets it false (a not-ready assertion or
 // teardown) leaks false to the next file, stalling real query()s on the whenReady() gate (~1s
