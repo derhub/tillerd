@@ -39,8 +39,9 @@ void mock.module("@tauri-apps/api/window", () => ({
   }),
 }));
 
-import { setReady } from "./app/lib/test/real-bindings";
 import { configure } from "@testing-library/react";
+
+import { setReady } from "./app/lib/test/real-bindings";
 
 // Increase the default async timeout (for waitFor/findBy) to 8 seconds to prevent
 // false-positive timeouts under GHA CPU starvation.
