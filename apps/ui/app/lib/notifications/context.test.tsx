@@ -27,7 +27,10 @@ let historyData: NotificationWire[] = [];
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: delegatingQuery({ notificationsList: () => ({ queryFn: async () => historyData }) }, () => active),
+  query: delegatingQuery(
+    { notificationsList: () => ({ queryFn: async () => historyData }) },
+    () => active,
+  ),
   getQueryClient: () => {
     if (!active) return actualBindings.getQueryClient();
     return {
