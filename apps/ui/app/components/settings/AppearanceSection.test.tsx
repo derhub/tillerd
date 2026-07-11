@@ -2,7 +2,7 @@ import type { SettingView } from "@tillerd/client-bindings";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
@@ -10,24 +10,30 @@ import { delegatingQuery } from "~/lib/test/real-bindings";
 // (document class) and persist to the durable settings store -- unchanged behavior, new host.
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+let active = false;
+
+beforeEach(() => {
+  active = true;
+});
 
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: (
-    key: string,
-    args: { scope: string; projectId: null; key: string; valueJson: string },
-  ) => {
+  runCommand: (key: string, args: any) => {
+    if (!active) return actualBindings.runCommand(key, args);
     if (key === "settingSet") settingSetCalls.push(args);
-    return Promise.resolve(null);
+    return Promise.resolve(null) as any;
   },
-  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    getQueryData: () => undefined,
-    invalidateQueries: () => Promise.resolve(),
-  }),
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }, () => active),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      getQueryData: () => undefined,
+      invalidateQueries: () => Promise.resolve(),
+    } as any;
+  },
 }));
 
 const { SettingsProvider, _resetForTests } = await import("~/lib/settings/context");
@@ -35,6 +41,7 @@ const { AppearanceSection } = await import("./AppearanceSection");
 
 afterEach(() => {
   cleanup();
+  active = false;
   document.documentElement.classList.remove("dark");
   localStorage.clear();
   _resetForTests();

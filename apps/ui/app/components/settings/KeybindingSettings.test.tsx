@@ -2,7 +2,7 @@ import type { SettingView } from "@tillerd/client-bindings";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { CommandCenter } from "~/components/command/CommandCenter";
 import { TooltipProvider } from "~/components/ui/tooltip";
@@ -11,6 +11,11 @@ import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/regist
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+let active = false;
+
+beforeEach(() => {
+  active = true;
+});
 
 // Spread the real module so non-overridden exports stay intact: mock.module is process-global
 // and persists across files, so a partial replacement would clobber sibling suites that use the
@@ -19,23 +24,27 @@ const settingSetCalls: { scope: string; projectId: null; key: string; valueJson:
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: (
-    key: string,
-    args: { scope: string; projectId: null; key: string; valueJson: string },
-  ) => {
+  runCommand: (key: string, args: any) => {
+    if (!active) return actualBindings.runCommand(key, args);
     if (key === "settingSet") settingSetCalls.push(args);
-    return Promise.resolve(null);
+    return Promise.resolve(null) as any;
   },
-  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    getQueryData: () => undefined,
-    invalidateQueries: () => Promise.resolve(),
-  }),
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }, () => active),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      getQueryData: () => undefined,
+      invalidateQueries: () => Promise.resolve(),
+    } as any;
+  },
   // CommandCenter's leader-key mount also runs in this suite's "reflects in a sibling
   // consumer" test; a no-op keeps it from reaching for a real event bus under happy-dom.
-  subscribe: () => ({ listen: () => Promise.resolve(() => {}) }),
+  subscribe: (key: string) => {
+    if (!active) return actualBindings.subscribe(key as never);
+    return { listen: () => Promise.resolve(() => {}) } as any;
+  },
 }));
 
 const { _resetForTests, SettingsProvider } = await import("~/lib/settings/context");
@@ -43,6 +52,7 @@ const { KeybindingSettings } = await import("./KeybindingSettings");
 
 afterEach(() => {
   cleanup();
+  active = false;
   _resetForTests();
   settingSetCalls.length = 0;
 });

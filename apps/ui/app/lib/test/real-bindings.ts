@@ -15,8 +15,14 @@ export const setReady = setReadySource;
 // query(), preserving query.infinite. Lets a suite stub its own keys without clobbering the real
 // query()/whenReady() path for sibling suites under a process-global mock.module.
 type QueryStub = (key: string, args?: unknown) => unknown;
-export function delegatingQuery(overrides: Record<string, (args?: unknown) => unknown>): QueryStub {
+export function delegatingQuery(
+  overrides: Record<string, (args?: unknown) => unknown>,
+  isActive?: () => boolean,
+): QueryStub {
   const fn: QueryStub = (key, args) => {
+    if (isActive && !isActive()) {
+      return (realQuery as never as QueryStub)(key, args);
+    }
     const override = overrides[key];
     return override ? override(args) : (realQuery as never as QueryStub)(key, args);
   };

@@ -17,7 +17,12 @@ import { desktopHostStore } from "~/lib/useDesktopHost";
 
 import { NotificationIndicator, NotificationPanel } from "./NotificationIndicator";
 
-afterEach(cleanup);
+let active = false;
+
+afterEach(() => {
+  cleanup();
+  active = false;
+});
 
 // Records every command() invocation instead of hitting the real transport, and stubs the
 // server-truth unread count so the header's "N unread" text is deterministic per test. Every
@@ -33,24 +38,30 @@ let unreadCountValue = 0;
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: (key: string, args?: unknown) =>
-    key === "notificationCountUnread"
+  query: (key: string, args?: unknown) => {
+    if (!active) return (actualBindings.query as any)(key, args);
+    return key === "notificationCountUnread"
       ? {
           queryKey: ["notifications", "countUnread"],
           queryFn: () => Promise.resolve(unreadCountValue),
         }
-      : (actualBindings.query as (k: string, a?: unknown) => unknown)(key, args),
-  command: (key: string) => ({
-    mutationFn: (args: unknown) => {
-      commandCalls.push({ key, args });
-      return Promise.resolve(null);
-    },
-  }),
+      : (actualBindings.query as (k: string, a?: unknown) => unknown)(key, args);
+  },
+  command: (key: string) => {
+    if (!active) return actualBindings.command(key as never);
+    return {
+      mutationFn: (args: unknown) => {
+        commandCalls.push({ key, args });
+        return Promise.resolve(null);
+      },
+    } as any;
+  },
 }));
 
 afterAll(() => mock.restore());
 
 beforeEach(() => {
+  active = true;
   commandCalls = [];
   unreadCountValue = 0;
 });

@@ -3,7 +3,7 @@ import type { SettingView } from "@tillerd/client-bindings";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { makeQueryClient } from "~/lib/queryClient";
 import { delegatingQuery } from "~/lib/test/real-bindings";
@@ -15,6 +15,11 @@ import { delegatingQuery } from "~/lib/test/real-bindings";
 // wiring (covered in context.test.tsx).
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
+let active = false;
+
+beforeEach(() => {
+  active = true;
+});
 
 const workspaces = [
   { id: "ws-1", name: "Default", status: "active", pinned: false },
@@ -24,26 +29,30 @@ const workspaces = [
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: (
-    key: string,
-    args: { scope: string; projectId: null; key: string; valueJson: string },
-  ) => {
+  runCommand: (key: string, args: any) => {
+    if (!active) return actualBindings.runCommand(key, args);
     if (key === "settingSet") settingSetCalls.push(args);
-    return Promise.resolve(null);
+    return Promise.resolve(null) as any;
   },
-  query: delegatingQuery({
-    settingList: () => ({ queryFn: async () => [] }),
-    workspaceList: () => ({
-      queryKey: ["workspaces", "list", null],
-      queryFn: async () => workspaces,
-    }),
-  }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    getQueryData: () => undefined,
-    invalidateQueries: () => Promise.resolve(),
-  }),
+  query: delegatingQuery(
+    {
+      settingList: () => ({ queryFn: async () => [] }),
+      workspaceList: () => ({
+        queryKey: ["workspaces", "list", null],
+        queryFn: async () => workspaces,
+      }),
+    },
+    () => active,
+  ),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      getQueryData: () => undefined,
+      invalidateQueries: () => Promise.resolve(),
+    } as any;
+  },
 }));
 
 const { SettingsProvider, _resetForTests } = await import("~/lib/settings/context");
@@ -51,6 +60,7 @@ const { GeneralSection } = await import("./GeneralSection");
 
 afterEach(() => {
   cleanup();
+  active = false;
   _resetForTests();
   settingSetCalls.length = 0;
 });

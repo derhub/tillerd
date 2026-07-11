@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
 import { delegatingQuery } from "~/lib/test/real-bindings";
@@ -12,17 +12,28 @@ import { delegatingQuery } from "~/lib/test/real-bindings";
 // restored from disk) must reach the actual webview via setWebviewZoom, not just the
 // returned value a consumer might forget to apply.
 
+let active = false;
+beforeEach(() => {
+  active = true;
+});
+
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: () => Promise.resolve(null),
-  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    getQueryData: () => undefined,
-    invalidateQueries: () => Promise.resolve(),
-  }),
+  runCommand: (key: string, args: any) => {
+    if (!active) return actualBindings.runCommand(key, args);
+    return Promise.resolve(null) as any;
+  },
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }, () => active),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      getQueryData: () => undefined,
+      invalidateQueries: () => Promise.resolve(),
+    } as any;
+  },
 }));
 
 // Spread the real module so unrelated exports (listenEvent, currentWindow, ...) stay
@@ -32,6 +43,7 @@ const zoomCalls: number[] = [];
 void mock.module("~/lib/tauriEvents", () => ({
   ...actualTauriEvents,
   setWebviewZoom: (scaleFactor: number) => {
+    if (!active) return actualTauriEvents.setWebviewZoom(scaleFactor);
     zoomCalls.push(scaleFactor);
     return Promise.resolve();
   },
@@ -43,6 +55,7 @@ const { DEFAULT_UI_ZOOM, UI_ZOOM_KEY, UI_ZOOM_MAX, UI_ZOOM_MIN } = await import(
 
 afterEach(() => {
   cleanup();
+  active = false;
   _resetForTests();
   zoomCalls.length = 0;
 });

@@ -36,13 +36,17 @@ void mock.module("~/lib/useDesktopHost", () => ({
   useDesktopHost: () => ({ status: "ready" }),
 }));
 
+let active = false;
+
 // mock.module is process-global; spread the real module so other tests' imports survive.
 void mock.module("~/lib/windows", () => ({
   ...realWindows,
-  openWindow: async (label: string) => {
+  openWindow: async (label: string, query?: string) => {
+    if (!active) return realWindows.openWindow(label, query);
     opened.push(label);
   },
   onReattachWorkspace: (cb: (p: { workspaceId: string }) => void) => {
+    if (!active) return realWindows.onReattachWorkspace(cb);
     reattach = cb;
     return Promise.resolve(() => {
       reattach = undefined;
@@ -53,6 +57,7 @@ void mock.module("~/lib/windows", () => ({
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
+  active = true;
   (globalThis as any).__tillerd_set_invoke_mock(
     async (cmd: string, args?: Record<string, unknown>) => {
       if (cmd === "workspace_list") return [...workspaceList];
@@ -82,6 +87,7 @@ function installClient() {
 
 afterEach(() => {
   cleanup();
+  active = false;
   opened.length = 0;
   created.length = 0;
   workspaceList = [alpha, beta];

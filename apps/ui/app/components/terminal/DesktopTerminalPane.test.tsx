@@ -3,7 +3,7 @@ import type { SurfaceChannelEvent, SurfaceChannelHandle } from "@tillerd/client-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
 // The failure overlay is a channel-event effect, not a DOM/render concern of xterm.js itself --
@@ -40,9 +40,12 @@ class FakeTerminal {
 }
 class FakeFitAddon {
   fit() {}
+  dispose() {}
 }
 class FakeSearchAddon {
-  findNext() {}
+  findNext() {
+    return true;
+  }
   findPrevious() {}
   clearDecorations() {}
   onDidChangeResults() {
@@ -54,15 +57,32 @@ class FakeWebLinksAddon {
   dispose() {}
 }
 
+let active = false;
+beforeEach(() => {
+  active = true;
+});
+
 // mock.module is process-global; spread the real module so its other exports (lazyDiffs, ...)
 // survive for suites that run after this one.
 const actualLazy = await import("~/lib/lazy");
 void mock.module("~/lib/lazy", () => ({
   ...actualLazy,
-  lazyXterm: () => Promise.resolve({ Terminal: FakeTerminal }),
-  lazyFitAddon: () => Promise.resolve({ FitAddon: FakeFitAddon }),
-  lazySearchAddon: () => Promise.resolve({ SearchAddon: FakeSearchAddon }),
-  lazyWebLinksAddon: () => Promise.resolve({ WebLinksAddon: FakeWebLinksAddon }),
+  lazyXterm: () => {
+    if (!active) return actualLazy.lazyXterm();
+    return Promise.resolve({ Terminal: FakeTerminal }) as any;
+  },
+  lazyFitAddon: () => {
+    if (!active) return actualLazy.lazyFitAddon();
+    return Promise.resolve({ FitAddon: FakeFitAddon }) as any;
+  },
+  lazySearchAddon: () => {
+    if (!active) return actualLazy.lazySearchAddon();
+    return Promise.resolve({ SearchAddon: FakeSearchAddon }) as any;
+  },
+  lazyWebLinksAddon: () => {
+    if (!active) return actualLazy.lazyWebLinksAddon();
+    return Promise.resolve({ WebLinksAddon: FakeWebLinksAddon }) as any;
+  },
 }));
 
 let channelListener: ((event: SurfaceChannelEvent) => void) | null = null;
@@ -71,11 +91,15 @@ const closeSpy = mock(() => Promise.resolve());
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: async () => ({ id: "surf-1" }),
+  runCommand: async (key: string, args?: unknown) => {
+    if (!active) return actualBindings.runCommand(key as never, args as never);
+    return { id: "surf-1" } as any;
+  },
   surfaceChannel: async (
-    _params: { surfaceId: string },
+    params: { surfaceId: string },
     callback: (event: SurfaceChannelEvent) => void,
   ): Promise<SurfaceChannelHandle> => {
+    if (!active) return actualBindings.surfaceChannel(params, callback);
     channelListener = callback;
     return { send: async () => {}, close: closeSpy };
   },
@@ -108,6 +132,7 @@ function renderPane(props?: Partial<React.ComponentProps<typeof DesktopTerminalP
 
 afterEach(() => {
   cleanup();
+  active = false;
   channelListener = null;
   closeSpy.mockClear();
   onRequestResetSpy.mockClear();
