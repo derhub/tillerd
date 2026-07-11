@@ -67,6 +67,44 @@ export async function surfaceId(browser: Browser): Promise<string> {
   return (await el.getAttribute("data-surface-id")) ?? "";
 }
 
+// Every currently-mounted terminal pane's surface id, in DOM order (one per live panel).
+export async function surfaceIds(browser: Browser): Promise<string[]> {
+  return browser.execute(() =>
+    Array.from(document.querySelectorAll("[data-surface-id]"), (el) =>
+      el.getAttribute("data-surface-id"),
+    ).filter((id): id is string => id !== null),
+  );
+}
+
+// The `data-panel-id` of the leaf currently hosting a given surface (panel-split-spawn /
+// close-surface-confirm / panel-swap-dnd all need to scope a toolbar action -- e.g. "Close
+// panel" -- to the specific panel, since a shared toolbar button label exists on every leaf).
+export async function panelIdForSurface(browser: Browser, id: string): Promise<string> {
+  return browser.execute((surfaceId: string) => {
+    const surface = document.querySelector(`[data-surface-id="${surfaceId}"]`);
+    return surface?.closest("[data-panel-id]")?.getAttribute("data-panel-id") ?? "";
+  }, id);
+}
+
+// Click a leaf's split toolbar button (label is "Split right"/"Split down", not the tree's
+// internal "horizontal"/"vertical" direction names). Reused by every panel-tree spec.
+export async function splitPanel(browser: Browser, direction: "right" | "down"): Promise<void> {
+  const button = await browser.$(`button[aria-label="Split ${direction}"]`);
+  await button.waitForExist({ timeout: 10_000 });
+  await button.click();
+}
+
+// Switch the sidebar's active view via its activity-bar icon (aria-label is the view's title,
+// e.g. "Sessions"/"Search"/"Commands"/"Templates"). Scoped to the activity bar's own toolbar so
+// it never collides with an unrelated same-labelled control elsewhere in the chrome.
+export async function openView(browser: Browser, title: string): Promise<void> {
+  const button = await browser.$(
+    `[role="toolbar"][aria-label="Views"] button[aria-label="${title}"]`,
+  );
+  await button.waitForExist({ timeout: 10_000 });
+  await button.click();
+}
+
 // Fresh session has an empty leaf (no auto-spawn); click "New terminal" to spawn, return its id.
 export async function openTerminal(browser: Browser): Promise<string> {
   const spawn = await browser.$("button*=New terminal");
@@ -110,10 +148,13 @@ export async function resetToHome(browser: Browser): Promise<void> {
   await browser.execute(() => {
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
   });
-  await browser.execute(() => {
-    window.history.pushState({}, "", "/");
-    window.dispatchEvent(new Event("popstate"));
-  });
+  const url = await browser.getUrl();
+  if (url.includes("/session/") || url.includes("/logs")) {
+    await browser.execute(() => {
+      window.history.pushState({}, "", "/");
+      window.dispatchEvent(new Event("popstate"));
+    });
+  }
   await browser.waitUntil(
     async () => {
       for (const sel of [
@@ -126,7 +167,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
       }
       return (await browser.$("button*=New project")).isExisting();
     },
-    { timeout: 10_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
+    { timeout: 15_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
   );
 }
 

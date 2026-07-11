@@ -95,7 +95,7 @@ test("storage, state model, and client engine compose across create/switch/reloa
         new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }),
       );
     }, project);
-    const openItem = await b.$("button*=Open in new window");
+    const openItem = await b.$('[role="menuitem"]*=Open in new window');
     await openItem.waitForExist({ timeout: 10_000 });
     await openItem.click();
 

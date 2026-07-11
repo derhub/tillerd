@@ -44,7 +44,7 @@ impl Query<Ctx> for ListSurfacesBySession {
                 // Live-first, then by insertion order. Ordering applied by app; infra repo
                 // returns stable id order only.
                 let items = sqlx::query_as::<_, SurfaceView>(
-                    "SELECT id, session_id, kind, cwd, status, placement
+                    "SELECT id, session_id, kind, cwd, status, placement, spawned_at
                      FROM surface
                      WHERE session_id = ?
                      ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC",
@@ -58,7 +58,7 @@ impl Query<Ctx> for ListSurfacesBySession {
             Page::Offset { limit, offset } => {
                 let fetch = (limit as i64) + 1;
                 let rows = sqlx::query_as::<_, SurfaceView>(
-                    "SELECT id, session_id, kind, cwd, status, placement
+                    "SELECT id, session_id, kind, cwd, status, placement, spawned_at
                      FROM surface
                      WHERE session_id = ?
                      ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
@@ -80,7 +80,7 @@ impl Query<Ctx> for ListSurfacesBySession {
                 let fetch = (limit as i64) + 1;
                 let rows: Vec<CursorRow> = if let Some(cursor) = after {
                     sqlx::query_as::<_, CursorRow>(
-                        "SELECT id, session_id, kind, cwd, status, placement, created_at
+                        "SELECT id, session_id, kind, cwd, status, placement, spawned_at, created_at
                          FROM surface
                          WHERE session_id = ? AND created_at > ?
                          ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC
@@ -93,7 +93,7 @@ impl Query<Ctx> for ListSurfacesBySession {
                     .await?
                 } else {
                     sqlx::query_as::<_, CursorRow>(
-                        "SELECT id, session_id, kind, cwd, status, placement, created_at
+                        "SELECT id, session_id, kind, cwd, status, placement, spawned_at, created_at
                          FROM surface
                          WHERE session_id = ?
                          ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END ASC, created_at ASC

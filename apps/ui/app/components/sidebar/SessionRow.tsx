@@ -1,29 +1,44 @@
 import type { Session } from "@tillerd/client-bindings";
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Archive } from "lucide-react";
+import { Archive, Pin } from "lucide-react";
 import React from "react";
 
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
-import { SessionContextMenu } from "~/components/sidebar/SessionContextMenu";
+import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
+import { sessionDisplayName } from "~/lib/panelTitle";
+import { useSessionBadge, type SessionBadge } from "~/lib/sessionStatus";
 import { cn } from "~/lib/utils";
+
+// Surface-runtime badge colors (fed by the surface-status push channel). Idle is
+// muted; running/starting/failed carry semantic hues.
+const BADGE_CLASS: Record<SessionBadge, string> = {
+  running: "bg-emerald-500/80",
+  starting: "bg-amber-500/80",
+  failed: "bg-red-500/80",
+  idle: "bg-muted-foreground/30",
+};
 
 function ActiveSessionLink({
   sessionId,
+  isActive,
   onDoubleClick,
   children,
 }: {
   sessionId: string;
+  isActive: boolean;
   onDoubleClick?: () => void;
   children: React.ReactNode;
 }) {
-  const state = useRouterState();
-  const isActive = state.location.pathname === `/session/${sessionId}`;
   return (
     <Link
       to={`/session/${sessionId}` as never}
       onDoubleClick={onDoubleClick}
+      // The treeitem row owns focus (roving tabindex); the link is activated via
+      // its Enter handler, so it stays out of the tab order.
+      tabIndex={-1}
       className={cn(
         "flex items-center gap-2 flex-1 h-7 text-[0.917rem] rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard min-w-0",
         isActive
@@ -38,28 +53,31 @@ function ActiveSessionLink({
 
 export function SessionRow({
   session,
+  projectId,
   isDesktop,
   isEditing,
   onStartEdit,
   onCancelEdit,
   onRename,
   onArchive,
-  onDelete,
   onSessionDrop,
 }: {
   session: Session;
+  projectId: string;
   isDesktop: boolean;
   isEditing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onArchive: () => void;
-  onDelete: () => void;
   onSessionDrop: (sourceId: string, targetId: string) => void;
 }) {
-  const label = session.title || session.id.slice(0, 8);
-  const [menuAt, setMenuAt] = React.useState<{ x: number; y: number } | null>(null);
+  const label = sessionDisplayName(session.title, session.id);
   const [dragOver, setDragOver] = React.useState(false);
+  const badge = useSessionBadge(session.id);
+  const { activeId, setActiveId } = useTreeNav();
+  const routerState = useRouterState();
+  const isActive = routerState.location.pathname === `/session/${session.id}`;
 
   if (isEditing) {
     return (
@@ -74,7 +92,21 @@ export function SessionRow({
   }
 
   return (
-    <div
+    <EntityContextMenu
+      entityId={session.id}
+      entityKind="session"
+      args={{ label, projectId }}
+      role="treeitem"
+      aria-level={2}
+      aria-selected={isActive}
+      aria-label={label}
+      data-tree-id={session.id}
+      data-level="2"
+      data-parent-id={projectId}
+      tabIndex={activeId === session.id ? 0 : -1}
+      onFocus={() => setActiveId(session.id)}
+      guards={{ "menu.pinned": session.pinned }}
+      disabled={!isDesktop}
       draggable={isDesktop}
       onDragStart={
         isDesktop
@@ -104,27 +136,32 @@ export function SessionRow({
             }
           : undefined
       }
-      onContextMenu={
-        isDesktop
-          ? (e) => {
-              e.preventDefault();
-              setMenuAt({ x: e.clientX, y: e.clientY });
-            }
-          : undefined
-      }
       className={cn(
         "group flex items-center gap-1 px-3 rounded-sm",
         dragOver && "ring-1 ring-ring",
       )}
     >
-      <ActiveSessionLink sessionId={session.id} onDoubleClick={onStartEdit}>
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500/80" />
+      <ActiveSessionLink sessionId={session.id} isActive={isActive} onDoubleClick={onStartEdit}>
+        <span
+          data-testid="session-status"
+          data-status={badge}
+          className={cn("w-1.5 h-1.5 rounded-full shrink-0", BADGE_CLASS[badge])}
+        />
         <span className="truncate text-[0.833rem]">{label}</span>
       </ActiveSessionLink>
 
+      {session.pinned && (
+        <Pin
+          strokeWidth={2}
+          aria-hidden
+          data-testid="session-pinned-indicator"
+          className="shrink-0 text-muted-foreground/40 size-[var(--icon-sm)]"
+        />
+      )}
       {isDesktop && (
         <button
           type="button"
+          tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onArchive();
@@ -135,28 +172,9 @@ export function SessionRow({
           )}
           title="Archive session"
         >
-          <Archive size={10} strokeWidth={2} />
+          <Archive strokeWidth={2} className="size-[var(--icon-sm)]" />
         </button>
       )}
-
-      {menuAt && (
-        <SessionContextMenu
-          at={menuAt}
-          onClose={() => setMenuAt(null)}
-          onRename={() => {
-            onStartEdit();
-            setMenuAt(null);
-          }}
-          onArchive={() => {
-            onArchive();
-            setMenuAt(null);
-          }}
-          onDelete={() => {
-            onDelete();
-            setMenuAt(null);
-          }}
-        />
-      )}
-    </div>
+    </EntityContextMenu>
   );
 }

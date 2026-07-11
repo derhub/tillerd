@@ -281,9 +281,20 @@ intentional and load-bearing — dense developer tool, not a content site.
 The app occupies the full viewport (`h-dvh`, `overflow: hidden`). No
 scrolling at the shell level — each panel manages its own overflow.
 
-**Panel system:** Resizable split panes (horizontal and vertical). Sidebar
-lives in a fixed-width left panel; the remainder is a resizable panel group
-for terminal, diff, and agent views.
+**Workbench regions (0.0.20):** the shell composes five chrome regions around
+the panel-area content outlet — title bar (top, native window decorations,
+toggle toolbar), activity bar (far-left icon strip switching sidebar views:
+Sessions, Search, Commands, Templates), primary sidebar (hosts the active
+view), bottom panel (tabbed: Logs, Notifications), and status bar (bottom:
+service health + workspace/session context left; notification bell + settings
+right). Sidebar and bottom panel are independently hideable and drag-resizable;
+hidden regions occupy no space. Active view, visibilities, sizes, and the
+bottom panel's active tab persist through the settings store. The activity
+bar's active-view edge is the workbench's single primary-accent moment.
+
+**Panel system:** Resizable split panes (horizontal and vertical) inside the
+content outlet; panels bind surfaces by placement. Manager surfaces (settings
+editor, logs route) render in the panel area as routes, not domain surfaces.
 
 **Spacing scale** (base: 12px):
 
@@ -376,6 +387,18 @@ state.
 **`panel-header`** — Height 2.5rem, {colors.background} fill, bottom 1px
 {colors.border}. Contains panel tab/title and panel action buttons.
 
+**`empty-panel-picker`** — Centered in an empty panel leaf: a vertical list of
+bordered rows ({colors.border}/60, `rounded-sm`), one per spawnable surface
+(terminal login shell, then command-library entries pinned first). Each row
+carries an {icon-lg} icon plus name/description text; hover raises the border
+to {colors.primary}/50 with a {colors.muted} fill.
+
+**`context-menu`** — Row/pane right-click action menu, projected from
+`contextmenu`-tagged command defs scoped to an entity kind.
+Items carry an {icon-sm} icon and label; a destructive item uses
+{colors.destructive}; consecutive items from different command groups are
+`ContextMenuSeparator`-divided. Used on sidebar rows and the terminal pane.
+
 **`terminal`** — Hardcoded dark canvas {colors.terminal-bg}, xterm.js renderer.
 Padding 0.333rem on sides and top, 0 at bottom. Terminal manages its own scroll.
 
@@ -383,6 +406,11 @@ Padding 0.333rem on sides and top, 0 at bottom. Terminal manages its own scroll.
 {colors.terminal-surface} background, {colors.terminal-border} 1px border,
 zero radius. Contains Resume ({colors.terminal-success} fill) and Dismiss
 (ghost with {colors.terminal-border} border) buttons.
+
+**`terminal-search-overlay`** — Find-in-terminal toolbar. Absolute top-right
+inside the pane, {colors.terminal-surface} background, {colors.terminal-border}
+1px border, {colors.terminal-fg} text. Query input, match-position counter,
+and case-toggle/prev/next/close icon buttons at 1.5rem square.
 
 **`host-status-badge`** — Fixed bottom-right, `bg-black/60`, height 1.5rem,
 `font-mono`, 0.75rem text. States: booting (amber-500/amber-300), ready
@@ -431,6 +459,50 @@ Every color token has a light-mode counterpart (`light-2026.css`, `:root`) mirro
   deepens to `#ad0707`.
 - **The terminal palette is exempt** — `terminal-*` tokens stay GitHub-dark in both themes, so the
   terminal canvas is dark even in light mode (by design; do not theme it).
+
+## Contrast (WCAG AA)
+
+Verified token pairings for every fg/bg combination actually used in chrome, both themes.
+Thresholds: 4.5:1 normal text, 3:1 large text / UI components (WCAG 2 AA). Token *values* are
+frozen at 0.0.6 — failures below are recorded as findings, not fixed by changing palette values.
+
+| Pair (fg on bg) | Kind | Dark | Light |
+|---|---|---|---|
+| foreground / background | text | 9.48:1 PASS | 15.64:1 PASS |
+| muted-foreground / background | text | 5.18:1 PASS | 6.04:1 PASS |
+| foreground / card | text | 8.77:1 PASS | 16.29:1 PASS |
+| muted-foreground / card | text | 4.80:1 PASS | 6.29:1 PASS |
+| popover-foreground / popover | text | 8.77:1 PASS | 16.29:1 PASS |
+| muted-foreground / popover | text | 4.80:1 PASS | 6.29:1 PASS |
+| foreground / muted | text | 7.50:1 PASS | 13.54:1 PASS |
+| muted-foreground / muted | text | 4.10:1 **FAIL** | 5.23:1 PASS |
+| foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
+| secondary-foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
+| accent-foreground / accent | text | 11.79:1 PASS | 11.66:1 PASS |
+| primary-foreground / primary | text | 4.79:1 PASS | 5.39:1 PASS |
+| destructive / background | text | 7.10:1 PASS | 7.17:1 PASS |
+| destructive / card | text | 6.57:1 PASS | 7.47:1 PASS |
+| destructive / muted | text | 5.62:1 PASS | 6.21:1 PASS |
+| ring / background | ui (3:1) | 5.09:1 PASS | 5.18:1 PASS |
+| ring / card | ui (3:1) | 4.71:1 PASS | 5.39:1 PASS |
+| border / background | ui (3:1) | 1.23:1 **FAIL** | 1.21:1 **FAIL** |
+
+**Findings:**
+- `muted-foreground` on `muted` fails AA in dark mode only (4.10:1, needs 4.5:1). Audited every
+  usage in swept chrome: every static occurrence pairs `bg-muted` with `text-foreground` (the
+  ghost-hover pattern always flips text to `foreground` on the same transition that applies
+  `bg-muted`), so this pairing is never rendered at rest — recorded as a finding, no usage change
+  needed. If a future component pairs `muted-foreground` text directly on a resting `bg-muted`
+  surface in dark mode, it will fail AA and must use `foreground` instead.
+- `border` on `background` fails the 3:1 UI-component threshold in both themes (1.2:1) — the
+  1px border token is a low-contrast hairline by design (DESIGN.md: borders read as tonal
+  separators, not shape-defining outlines). Per WCAG 1.4.11, this applies to graphical objects
+  required to identify a UI component; treated as a design tradeoff for decorative/structural
+  separators (panel edges, dividers) rather than a required affordance boundary. Where a border
+  is the *only* affordance for an interactive control (e.g. `button-outline`), the control is
+  never presented without accompanying text and a visible focus ring (`ring` token, which
+  independently passes 3:1 above), so operability doesn't depend on the border being perceivable.
+  Token value is frozen — no fix available without a palette change; recorded as a known finding.
 
 ## Do's and Don'ts
 

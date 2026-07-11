@@ -21,7 +21,9 @@ afterAll(() => {
 const emitCalls: Array<{ event: string; payload: { source: string; keys: unknown[][] } }> = [];
 let listenHandler: ((e: { payload: { source: string; keys: unknown[][] } }) => void) | null = null;
 
+const actualTauriEvent = await import("@tauri-apps/api/event");
 void mock.module("@tauri-apps/api/event", () => ({
+  ...actualTauriEvent,
   emit: (event: string, payload: { source: string; keys: unknown[][] }) => {
     emitCalls.push({ event, payload });
     return Promise.resolve();
@@ -31,8 +33,14 @@ void mock.module("@tauri-apps/api/event", () => ({
     return Promise.resolve(() => {});
   },
 }));
+
+const actualTauriWindow = await import("@tauri-apps/api/window");
 void mock.module("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({ label: "main" }),
+  ...actualTauriWindow,
+  getCurrentWindow: () => ({
+    label: "main",
+    isFocused: () => Promise.resolve(true),
+  }),
 }));
 
 const { broadcastInvalidate, mountCrossWindowInvalidate } = await import("./crossWindowSync");

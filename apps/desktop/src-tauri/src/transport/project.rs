@@ -103,6 +103,7 @@ mod tests {
             root_path: None,
             workspace_id: "w".into(),
             status: "active".into(),
+            pinned: false,
         };
         assert_keys(
             &serde_json::to_value(p).unwrap(),
@@ -113,6 +114,7 @@ mod tests {
                 "rootPath",
                 "workspaceId",
                 "status",
+                "pinned",
             ],
         );
     }

@@ -8,6 +8,7 @@ pub struct WorkspaceView {
     pub id: String,
     pub name: String,
     pub status: String,
+    pub pinned: bool,
 }
 
 /// Per-workspace rollup of surface runtime state : derived at query

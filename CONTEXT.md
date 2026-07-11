@@ -45,9 +45,17 @@ _Avoid_: connection-as-process, pty-as-proxy
 A portable, named settings bundle (`<profiles>/<name>/settings.jsonc`). Owns settings only — no domain, no templates. One is active and drives the cascade `effective(project) = merge(active profile, workspace override?, project override?)`. Switchable, shareable.
 _Avoid_: account, workspace
 
+**Command**:
+A command-library entry (`command` table): name, origin (`prebuilt` — seeded at boot, immutable; or `custom` — user-created), CLI + args + env, pin state. A launch item's `command` field references one by id or embeds an inline executable/args/env in its place.
+_Avoid_: launch item, action
+
 **Template**:
 A portable launch-spec bundle (`<templates>/<slug>/template.jsonc`), sibling to profiles. A library picked from at session creation; the session's spec is a deep-copy snapshot. `prebuilt` (in-code) or `custom` (file). Opt-in and additive — absence or invalidity yields the default empty pane.
 _Avoid_: preset, default layout
+
+**Launch template**:
+A project-scoped launch spec (`launch_template` table, sqlite-backed) a session is created from; distinct from the portable library **Template** above — picking a library template at session creation materializes it into one of these first. `session_create` accepts only a launch-template id, never a library-template id directly.
+_Avoid_: template (bare)
 
 **Secret**:
 A named value stored in the Stronghold vault (`vault.stronghold`, machine-local, encrypted), unlocked by an OS-keychain master password. Referenced by env key in a launch spec; resolved at launch.
@@ -63,8 +71,12 @@ A session's geometry only: splits and tabs of panels. Binds surfaces by placemen
 _Avoid_: layout-as-authority
 
 **Chrome**:
-App-shell UI that is not a surface and not session-scoped (sidebar, host-status badge). Outside the surface model.
+App-shell UI that is not a surface and not session-scoped (title bar, activity bar, sidebar, bottom panel, status bar). Outside the surface model.
 _Avoid_: panel, surface
+
+**Sidebar view**:
+One of the activity bar's switchable sidebar contents (Sessions, Search, Commands, Templates). Chrome, not a surface; exactly one is active.
+_Avoid_: tab, panel
 
 ### Identity
 

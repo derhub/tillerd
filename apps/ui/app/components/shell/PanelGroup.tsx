@@ -92,6 +92,11 @@ function PanelGroupSplitItem({
   minSize?: number;
   isLast: boolean;
 }) {
+  // defaultSize is uniform across every split item on purpose (ui-panel-compound "Divider
+  // reset"): react-resizable-panels' Separator resets its adjacent Panels to their defaultSize
+  // on double-click, so an equal defaultSize ratio here is what makes that reset land on an
+  // equal split. splitNode always produces exactly two children per group, so "its adjacent
+  // Panels" is the whole group. Do not diverge this value per item without re-deriving 100/n.
   return (
     <>
       <ResizablePanel minSize={minSize ?? 10} defaultSize={33}>

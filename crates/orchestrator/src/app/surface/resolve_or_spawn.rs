@@ -27,7 +27,7 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         let existing = sqlx::query_as::<_, SurfaceView>(
-            "SELECT id, session_id, kind, cwd, status, placement
+            "SELECT id, session_id, kind, cwd, status, placement, spawned_at
              FROM surface WHERE session_id = ? AND placement = ?",
         )
         .bind(&self.session)
@@ -70,6 +70,7 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
                     .await?;
                     let mut updated = view;
                     updated.status = "live".to_owned();
+                    updated.spawned_at = Some(super::common::now_ms());
                     Ok(updated)
                 }
                 Err(e) => {
@@ -123,6 +124,7 @@ impl Query<Ctx> for ResolveOrSpawnSurface {
                         cwd: self.cwd.clone(),
                         status: "live".to_owned(),
                         placement: Some(self.placement.clone()),
+                        spawned_at: Some(super::common::now_ms()),
                     })
                 }
                 Err(e) => {
@@ -167,6 +169,7 @@ mod tests {
         assert_eq!(view.status, "live");
         assert_eq!(view.placement, Some("main".to_owned()));
         assert_eq!(view.cwd, Some("/work".to_owned()));
+        assert!(view.spawned_at.is_some(), "a fresh spawn stamps spawned_at");
 
         let id = SurfaceId::from_string(&view.id);
         assert!(h.runtime.is_running(&id));
@@ -228,7 +231,7 @@ mod tests {
         assert!(first_res.is_err());
 
         let existing = sqlx::query_as::<_, SurfaceView>(
-            "SELECT id, session_id, kind, cwd, status, placement
+            "SELECT id, session_id, kind, cwd, status, placement, spawned_at
              FROM surface WHERE session_id = ? AND placement = ?",
         )
         .bind(&session)
@@ -254,6 +257,10 @@ mod tests {
 
         assert_eq!(existing.id, second.id);
         assert_eq!(second.status, "live");
+        assert!(
+            second.spawned_at.is_some(),
+            "a respawn of a failed record stamps spawned_at"
+        );
 
         let id = SurfaceId::from_string(&second.id);
         assert!(h.runtime.is_running(&id));

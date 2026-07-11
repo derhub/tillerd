@@ -2,12 +2,17 @@ import type { SettingView } from "@tillerd/client-bindings";
 import type { ReactNode } from "react";
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
 const settingSetCalls: { scope: string; projectId: null; key: string; valueJson: string }[] = [];
 let failSettingSet = false;
+let active = false;
+
+beforeEach(() => {
+  active = true;
+});
 
 // Spread the real module so non-overridden exports stay intact: mock.module is process-global
 // and persists across files, so a partial replacement would clobber sibling suites that use the
@@ -16,21 +21,22 @@ let failSettingSet = false;
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: (
-    key: string,
-    args: { scope: string; projectId: null; key: string; valueJson: string },
-  ) => {
+  runCommand: (key: string, args: any) => {
+    if (!active) return actualBindings.runCommand(key, args);
     if (key === "settingSet") settingSetCalls.push(args);
     if (failSettingSet) return Promise.reject(new Error("store unavailable"));
-    return Promise.resolve(null);
+    return Promise.resolve(null) as any;
   },
-  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
-    getQueryData: () => undefined,
-    invalidateQueries: () => Promise.resolve(),
-  }),
+  query: delegatingQuery({ settingList: () => ({ queryFn: async () => [] }) }, () => active),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      fetchQuery: (opts: { queryFn: () => Promise<unknown> }) => opts.queryFn(),
+      getQueryData: () => undefined,
+      invalidateQueries: () => Promise.resolve(),
+    } as any;
+  },
 }));
 
 const {
@@ -46,6 +52,7 @@ const { THEME_CACHE_KEY } = await import("./theme");
 
 afterEach(() => {
   cleanup();
+  active = false;
   localStorage.clear();
   document.documentElement.classList.remove("dark");
   settingsStore.setState(() => ({ values: {} }));
@@ -196,4 +203,51 @@ test("the provider applies the hydrated durable theme to the document", async ()
 
   await waitFor(() => expect(result.current.theme).toBe("light"));
   expect(document.documentElement.classList.contains("dark")).toBe(false);
+});
+
+test("hydration with no persisted theme applies the dark default to the document", async () => {
+  await hydrateSettings(() => Promise.resolve([]));
+
+  expect(document.documentElement.classList.contains("dark")).toBe(true);
+  expect(localStorage.getItem(THEME_CACHE_KEY)).toBe("dark");
+});
+
+test("a pinned startup workspace overrides the restored last-active pointer at launch", async () => {
+  await hydrateSettings(() =>
+    Promise.resolve(
+      listFrom({
+        "view.active-workspace": "ws-last-used",
+        "general.startupWorkspace": "ws-pinned",
+      }),
+    ),
+  );
+
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-pinned");
+});
+
+test("an unset startup workspace leaves the last-active pointer untouched", async () => {
+  await hydrateSettings(() =>
+    Promise.resolve(listFrom({ "view.active-workspace": "ws-last-used" })),
+  );
+
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-last-used");
+});
+
+test("a later rehydrate does not re-pin the startup workspace mid-session", async () => {
+  const list = () =>
+    Promise.resolve(
+      listFrom({
+        "view.active-workspace": "ws-last-used",
+        "general.startupWorkspace": "ws-pinned",
+      }),
+    );
+
+  // First hydration (launch) applies the override once.
+  await hydrateSettings(list);
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-pinned");
+
+  // A mid-session rehydrate (a profile activation re-runs hydrateSettings) must not force the
+  // pinned workspace back on -- the window stays on whatever the refreshed snapshot reports.
+  await hydrateSettings(list);
+  expect(settingsStore.state.values["view.active-workspace"]).toBe("ws-last-used");
 });

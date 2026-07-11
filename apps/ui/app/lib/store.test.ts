@@ -3,16 +3,24 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { _resetForTests, settingsStore } from "./settings/context";
-import { panelVisibleKey, sidebarExpandedKey, VIEW_ACTIVE_WORKSPACE_KEY } from "./settings/keys";
+import {
+  sidebarExpandedKey,
+  VIEW_ACTIVE_WORKSPACE_KEY,
+  WORKBENCH_SIDEBAR_VISIBLE_KEY,
+} from "./settings/keys";
 import {
   resetUiStore,
   setActiveProject,
   setActiveWorkspace,
-  setPanelVisible,
   setProjectExpanded,
   uiStore,
-  usePanelVisible,
 } from "./store";
+import {
+  setBottomPanelVisible,
+  useBottomPanelVisible,
+  useSidebarVisible,
+  useWorkbenchView,
+} from "./workbench";
 
 // Pre-hydration writes buffer inside the settings bootstrap (no transport call),
 // so these tests exercise the pointer wiring without a mocked backend.
@@ -81,33 +89,34 @@ describe("sidebar-expanded view pointer", () => {
   });
 });
 
-describe("panel-visible view pointer", () => {
-  test("defaults: left visible, right and bottom hidden", () => {
-    expect(renderHook(() => usePanelVisible("left")).result.current[0]).toBe(true);
-    expect(renderHook(() => usePanelVisible("right")).result.current[0]).toBe(false);
-    expect(renderHook(() => usePanelVisible("bottom")).result.current[0]).toBe(false);
+describe("workbench layout state", () => {
+  test("first-launch defaults: Sessions view, sidebar visible, bottom panel hidden", () => {
+    expect(renderHook(() => useWorkbenchView()).result.current[0]).toBe("sessions");
+    expect(renderHook(() => useSidebarVisible()).result.current[0]).toBe(true);
+    expect(renderHook(() => useBottomPanelVisible()).result.current[0]).toBe(false);
   });
 
-  test("setPanelVisible writes a per-side settings key", () => {
-    setPanelVisible("right", true);
-    expect(settingsStore.state.values[panelVisibleKey("right")]).toBe(true);
-    setPanelVisible("right", false);
-    expect(settingsStore.state.values[panelVisibleKey("right")]).toBe(false);
-  });
-
-  test("usePanelVisible's setter toggles and persists", () => {
-    const { result } = renderHook(() => usePanelVisible("bottom"));
+  test("the setter toggles and persists to a workbench settings key", () => {
+    const { result } = renderHook(() => useBottomPanelVisible());
     expect(result.current[0]).toBe(false);
     act(() => result.current[1](true));
     expect(result.current[0]).toBe(true);
-    expect(settingsStore.state.values[panelVisibleKey("bottom")]).toBe(true);
+    expect(settingsStore.state.values[WORKBENCH_SIDEBAR_VISIBLE_KEY]).toBeUndefined();
   });
 
-  test("resetUiStore strips panel-visible keys", () => {
-    setPanelVisible("left", false);
-    setPanelVisible("right", true);
-    resetUiStore();
-    expect(settingsStore.state.values[panelVisibleKey("left")]).toBeUndefined();
-    expect(settingsStore.state.values[panelVisibleKey("right")]).toBeUndefined();
+  test("an imperative setter writes the workbench settings key", () => {
+    setBottomPanelVisible(true);
+    const { result } = renderHook(() => useBottomPanelVisible());
+    expect(result.current[0]).toBe(true);
+  });
+
+  test("resetUiStore strips workbench keys", () => {
+    const { result } = renderHook(() => useSidebarVisible());
+    act(() => result.current[1](false));
+    act(() => setBottomPanelVisible(true));
+    expect(settingsStore.state.values[WORKBENCH_SIDEBAR_VISIBLE_KEY]).toBe(false);
+    act(() => resetUiStore());
+    expect(settingsStore.state.values[WORKBENCH_SIDEBAR_VISIBLE_KEY]).toBeUndefined();
+    expect(result.current[0]).toBe(true);
   });
 });

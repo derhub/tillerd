@@ -16,7 +16,7 @@ impl Query<Ctx> for GetSessionById {
     type Out = Option<SessionView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, SessionView>(
-            "SELECT id, project_id, title, title_source, created_at,
+            "SELECT id, project_id, title, title_source, created_at, pinned,
                     CASE WHEN archived_at IS NOT NULL THEN 'archived' ELSE 'active' END AS status
              FROM session
              WHERE id = ?",

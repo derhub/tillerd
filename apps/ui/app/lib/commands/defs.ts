@@ -3,7 +3,32 @@
 // register by id at their feature sites (see registry `useCommand`). This table
 // replaces the split between `ids.ts` titles and `keybindings.ts` presets.
 
-import { Command, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
+import {
+  Archive,
+  ClipboardPaste,
+  Command,
+  Copy,
+  Download,
+  Eraser,
+  ExternalLink,
+  FolderInput,
+  LayoutTemplate,
+  PanelBottom,
+  PanelLeft,
+  Pencil,
+  Pin,
+  PinOff,
+  Play,
+  RotateCcw,
+  Search,
+  Settings,
+  Square,
+  SquareTerminal,
+  TextSelect,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import type { CommandDef } from "./types";
 
@@ -76,6 +101,44 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     defaultKeys: { default: "CmdOrCtrl+Shift+D" },
   },
   {
+    id: ACTION.surfaceNew,
+    title: "New surface",
+    keywords: ["surface", "new", "spawn"],
+    // CmdOrCtrl+T is surfaceSpawn's ("New terminal") default; shifted to avoid
+    // binding two palette commands to the same chord.
+    defaultKeys: { default: "CmdOrCtrl+Shift+T" },
+  },
+  {
+    id: ACTION.paneFocusLeft,
+    title: "Focus pane left",
+    keywords: ["focus", "pane", "left"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowLeft" },
+  },
+  {
+    id: ACTION.paneFocusRight,
+    title: "Focus pane right",
+    keywords: ["focus", "pane", "right"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowRight" },
+  },
+  {
+    id: ACTION.paneFocusUp,
+    title: "Focus pane up",
+    keywords: ["focus", "pane", "up"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowUp" },
+  },
+  {
+    id: ACTION.paneFocusDown,
+    title: "Focus pane down",
+    keywords: ["focus", "pane", "down"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+ArrowDown" },
+  },
+  {
+    id: ACTION.paneZoomToggle,
+    title: "Toggle pane zoom",
+    keywords: ["pane", "zoom", "toggle", "maximize"],
+    defaultKeys: { default: "CmdOrCtrl+Alt+Z" },
+  },
+  {
     id: ACTION.projectOpenNewWindow,
     title: "Open project in new window",
     keywords: ["window", "project", "detach"],
@@ -90,39 +153,94 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
   {
     id: ACTION.appSettings,
     title: "Settings",
+    icon: Settings,
+    // Also projected onto the activity bar as its settings affordance (ui-settings-editor
+    // "reachable from ... the activity bar's settings affordance"). Unlike the view switches it
+    // carries no `group`/`toggle`, so it renders as a plain action, never a checked view.
+    surfaces: ["activitybar"],
     keywords: ["preferences", "theme", "keybindings"],
     defaultKeys: { default: "CmdOrCtrl+,", vscode: "CmdOrCtrl+," },
   },
-  // Checked state is a straight read: useTitleBarCommands seeds these context
+  {
+    id: ACTION.viewZoomIn,
+    title: "Zoom in",
+    icon: ZoomIn,
+    keywords: ["zoom", "scale", "font size", "bigger"],
+    defaultKeys: { default: "CmdOrCtrl+=" },
+  },
+  {
+    id: ACTION.viewZoomOut,
+    title: "Zoom out",
+    icon: ZoomOut,
+    keywords: ["zoom", "scale", "font size", "smaller"],
+    defaultKeys: { default: "CmdOrCtrl+-" },
+  },
+  {
+    id: ACTION.viewZoomReset,
+    title: "Reset zoom",
+    icon: RotateCcw,
+    keywords: ["zoom", "scale", "font size", "reset"],
+    defaultKeys: { default: "CmdOrCtrl+0" },
+  },
+  // Sidebar view switches, projected onto the activity bar. Their `checked` state
+  // marks the active view (useWorkbenchCommands seeds `activeView`); selecting the
+  // active view toggles sidebar visibility -- the handler owns that.
+  {
+    id: ACTION.viewSessions,
+    title: "Sessions",
+    icon: SquareTerminal,
+    surfaces: ["activitybar"],
+    group: "view",
+    keywords: ["sessions", "projects", "sidebar"],
+    toggle: (c) => c.activeView === "sessions",
+  },
+  {
+    id: ACTION.viewSearch,
+    title: "Search",
+    icon: Search,
+    surfaces: ["activitybar"],
+    group: "view",
+    keywords: ["search", "find", "sidebar"],
+    toggle: (c) => c.activeView === "search",
+  },
+  {
+    id: ACTION.viewCommands,
+    title: "Commands",
+    icon: Command,
+    surfaces: ["activitybar"],
+    group: "view",
+    keywords: ["commands", "library", "sidebar"],
+    toggle: (c) => c.activeView === "commands",
+  },
+  {
+    id: ACTION.viewTemplates,
+    title: "Templates",
+    icon: LayoutTemplate,
+    surfaces: ["activitybar"],
+    group: "view",
+    keywords: ["templates", "launch", "sidebar"],
+    toggle: (c) => c.activeView === "templates",
+  },
+  // Checked state is a straight read: useWorkbenchCommands seeds these context
   // keys with the live boolean every render, so no "unset means visible"
   // special-casing is needed here.
   {
     id: ACTION.panelToggleLeft,
-    title: "Toggle left sidebar",
+    title: "Toggle sidebar",
     icon: PanelLeft,
     surfaces: ["titlebar", "palette"],
     group: "view",
     keywords: ["sidebar", "left", "panel", "toggle"],
     defaultKeys: { default: "CmdOrCtrl+B" },
-    toggle: (c) => Boolean(c.leftPanelVisible),
-  },
-  {
-    id: ACTION.panelToggleRight,
-    title: "Toggle right dock",
-    icon: PanelRight,
-    surfaces: ["titlebar", "palette"],
-    group: "view",
-    keywords: ["right", "dock", "panel", "toggle"],
-    defaultKeys: { default: "CmdOrCtrl+Alt+B" },
-    toggle: (c) => Boolean(c.rightPanelVisible),
+    toggle: (c) => Boolean(c.sidebarVisible),
   },
   {
     id: ACTION.panelToggleBottom,
-    title: "Toggle bottom dock",
+    title: "Toggle bottom panel",
     icon: PanelBottom,
     surfaces: ["titlebar", "palette"],
     group: "view",
-    keywords: ["bottom", "dock", "panel", "toggle"],
+    keywords: ["bottom", "panel", "toggle"],
     defaultKeys: { default: "CmdOrCtrl+J" },
     toggle: (c) => Boolean(c.bottomPanelVisible),
   },
@@ -140,6 +258,380 @@ export const COMMAND_DEFS: readonly CommandDef[] = [
     id: SESSION_SEARCH_ACTION_ID,
     title: SESSION_SEARCH_TITLE,
     keywords: ["session", "switch", "go to", "find", "search"],
+    defaultKeys: { default: "CmdOrCtrl+P" },
+  },
+  // Find in terminal (ui-terminal-pane spec). The accelerator also fires from inside the pane:
+  // useGlobalShortcuts skips events while `.xterm` holds focus, so the pane catches CmdOrCtrl+F
+  // via xterm's key handler and the palette entry covers the unfocused case.
+  {
+    id: ACTION.terminalFind,
+    title: "Find in terminal",
+    icon: Search,
+    keywords: ["find", "search", "terminal", "scrollback"],
+    defaultKeys: { default: "CmdOrCtrl+F" },
+  },
+  // Row-scoped context-menu actions. `menu.<kind>Row` and the per-row guards
+  // (`menu.canRename`, `menu.canDelete`, `menu.canArchive`, `menu.canMove`,
+  // `menu.pinned`, ...) are pushed into the context store by EntityContextMenu
+  // while a given row's menu is open (context.ts's setContext model) -- these defs
+  // stay declarative and EntityContextMenu never special-cases a kind or id. Pin
+  // and Unpin are one toggle rendered as two guarded defs so the row need only
+  // publish its `menu.pinned` flag. Menu order here is the on-screen order; group
+  // changes drive separators (primary | lifecycle | destructive).
+
+  // -- project row --
+  {
+    id: ACTION.projectNewSessionFromTemplate,
+    title: "New session from template...",
+    icon: LayoutTemplate,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
+  },
+  {
+    id: ACTION.projectRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canRename"],
+  },
+  {
+    id: ACTION.projectDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canDuplicate"],
+  },
+  {
+    id: ACTION.projectPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canPin", "!menu.pinned"],
+  },
+  {
+    id: ACTION.projectUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canPin", "menu.pinned"],
+  },
+  {
+    id: ACTION.projectMove,
+    title: "Move to workspace",
+    icon: FolderInput,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow", "menu.canMove"],
+  },
+  {
+    id: ACTION.projectStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
+  },
+  {
+    id: ACTION.projectOpenNewWindowRow,
+    title: "Open in new window",
+    icon: ExternalLink,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.projectRow"],
+  },
+  {
+    id: ACTION.projectArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.projectRow", "menu.canArchive"],
+  },
+  {
+    id: ACTION.projectDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.projectRow", "menu.canDelete"],
+  },
+
+  // -- session row --
+  {
+    id: ACTION.sessionRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.sessionUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.sessionMove,
+    title: "Move to project",
+    icon: FolderInput,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.sessionRow"],
+  },
+  {
+    id: ACTION.sessionDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.sessionRow"],
+  },
+
+  // -- workspace row (sessions-view switcher) --
+  {
+    id: ACTION.workspaceRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow"],
+  },
+  {
+    id: ACTION.workspacePin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.workspaceUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.workspaceStopSurfaces,
+    title: "Stop surfaces",
+    icon: Square,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.workspaceRow"],
+  },
+  {
+    id: ACTION.workspaceArchive,
+    title: "Archive",
+    icon: Archive,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.workspaceRow", "menu.canArchive"],
+  },
+  {
+    id: ACTION.workspaceDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.workspaceRow", "menu.canDelete"],
+  },
+
+  // -- command library row -- `menu.canEdit` is false for prebuilt rows, gating
+  // Edit/Rename/Delete off; Run, Duplicate, and Pin/Unpin stay available on every origin.
+  {
+    id: ACTION.commandRun,
+    title: "Run",
+    icon: Play,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow"],
+  },
+  {
+    id: ACTION.commandEdit,
+    title: "Edit",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+  {
+    id: ACTION.commandRename,
+    title: "Rename",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+  {
+    id: ACTION.commandDuplicate,
+    title: "Duplicate",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow"],
+  },
+  {
+    id: ACTION.commandPin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.commandUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.commandRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.commandDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.commandRow", "menu.canEdit"],
+  },
+
+  // -- portable template library row -- prebuilt rows guard off Delete only
+  // (`menu.canEdit`); Pin/Unpin/Export stay available on every origin.
+  {
+    id: ACTION.templatePin,
+    title: "Pin",
+    icon: Pin,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow", "!menu.pinned"],
+  },
+  {
+    id: ACTION.templateUnpin,
+    title: "Unpin",
+    icon: PinOff,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow", "menu.pinned"],
+  },
+  {
+    id: ACTION.templateExport,
+    title: "Export",
+    icon: Download,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.templateRow"],
+  },
+  {
+    id: ACTION.templateDelete,
+    title: "Delete",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.templateRow", "menu.canEdit"],
+  },
+
+  // -- project launch-template row -- unlike library templates these carry no
+  // name/origin (no prebuilt guard needed) and have no pin/export operation.
+  {
+    id: ACTION.launchTemplateEdit,
+    title: "Edit",
+    icon: Pencil,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.launchTemplateRow"],
+  },
+  {
+    id: ACTION.launchTemplateDiscard,
+    title: "Discard",
+    icon: Trash2,
+    surfaces: ["contextmenu"],
+    group: "destructive",
+    when: ["menu.launchTemplateRow"],
+  },
+
+  // -- terminal pane context menu (ui-terminal-pane spec). Scoped by `menu.terminalRow`; the
+  // registered handlers act on the focused terminal via activeTerminalStore. Copy and
+  // "Search selection" only apply with a live selection, gated by `menu.hasSelection`.
+  {
+    id: ACTION.terminalCopy,
+    title: "Copy",
+    icon: Copy,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow", "menu.hasSelection"],
+  },
+  {
+    id: ACTION.terminalPaste,
+    title: "Paste",
+    icon: ClipboardPaste,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow"],
+  },
+  {
+    id: ACTION.terminalSelectAll,
+    title: "Select all",
+    icon: TextSelect,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow"],
+  },
+  {
+    id: ACTION.terminalSearchSelection,
+    title: "Search selection",
+    icon: Search,
+    surfaces: ["contextmenu"],
+    group: "primary",
+    when: ["menu.terminalRow", "menu.hasSelection"],
+  },
+  {
+    id: ACTION.terminalClear,
+    title: "Clear",
+    icon: Eraser,
+    surfaces: ["contextmenu"],
+    group: "lifecycle",
+    when: ["menu.terminalRow"],
   },
 ];
 

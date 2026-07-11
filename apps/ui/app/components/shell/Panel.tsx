@@ -39,23 +39,84 @@ function PanelProvider({
   );
 }
 
-function PanelFrame({ children, className }: { children: React.ReactNode; className?: string }) {
+function PanelFrame({
+  children,
+  className,
+  isClosing,
+  isDropTarget,
+  isFocused,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  isClosing?: boolean;
+  isDropTarget?: boolean;
+  isFocused?: boolean;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+}) {
   const { state } = usePanelContext();
+  // Opacity-only lifecycle fade (ui-panel-compound "Panel lifecycle motion"): a leaf fades in on
+  // its first paint via this mount flag, and a closing leaf fades out before the caller actually
+  // removes it from the tree (see PanelContent's closingLeafIds delay). No size/layout animation.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   return (
     <div
-      className={cn("group/panel flex flex-col h-full min-h-0 min-w-0", className)}
+      className={cn(
+        "group/panel flex flex-col h-full min-h-0 min-w-0 focus:outline-none",
+        "transition-opacity duration-[var(--motion-fast)] ease-standard motion-reduce:transition-none",
+        isClosing ? "opacity-0 pointer-events-none" : mounted ? "opacity-100" : "opacity-0",
+        // Drop-target ring is the loud full-primary edge; the focused-pane ring is a quieter inset
+        // so the two states read differently when a drag lands on the focused pane.
+        isDropTarget
+          ? "ring-1 ring-inset ring-primary"
+          : isFocused && "ring-1 ring-inset ring-ring/50",
+        className,
+      )}
+      tabIndex={-1}
       data-panel-id={state.id}
+      data-state={isClosing ? "closing" : mounted ? "entered" : "entering"}
+      data-testid={isDropTarget ? "panel-drop-target-active" : undefined}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {children}
     </div>
   );
 }
 
-function PanelHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+function PanelHeader({
+  children,
+  className,
+  draggable,
+  onDragStart,
+  onDragEnd,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+}) {
   return (
     <div
-      className={cn("flex items-center shrink-0 px-4 gap-1.5", className)}
+      className={cn(
+        "flex items-center shrink-0 px-4 gap-1.5",
+        draggable && "cursor-grab active:cursor-grabbing",
+        className,
+      )}
       style={{ height: "var(--panel-header-height, 2.5rem)" }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       {children}
     </div>
@@ -120,10 +181,20 @@ function PanelToolbarButton({
   );
 }
 
-function PanelCloseButton({ totalPanels }: { totalPanels: number }) {
+// Close is content-dependent (surface-lifecycle spec): a terminal leaf can always be closed (it
+// resets to the empty picker in place, even as the only pane); an empty leaf can be closed only
+// when it is not the sole leaf (closing removes it). The caller passes the resolved `canClose` so
+// the button hides exactly for the sole-empty case.
+function PanelCloseButton({ canClose }: { canClose: boolean }) {
   const { actions } = usePanelContext();
-  if (totalPanels <= 1) return null;
-  return <PanelToolbarButton icon={<X size={12} />} label="Close panel" onClick={actions.close} />;
+  if (!canClose) return null;
+  return (
+    <PanelToolbarButton
+      icon={<X className="size-[var(--icon-md)]" />}
+      label="Close panel"
+      onClick={actions.close}
+    />
+  );
 }
 
 function PanelContent({ children, className }: { children: React.ReactNode; className?: string }) {

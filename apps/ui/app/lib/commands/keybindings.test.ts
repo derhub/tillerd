@@ -1,6 +1,7 @@
 /// <reference lib="dom" />
 import { describe, expect, test } from "bun:test";
 
+import { COMMAND_DEFS_BY_ID } from "./defs";
 import { ACTION } from "./ids";
 import {
   DEFAULT_PRESET,
@@ -13,6 +14,7 @@ import {
   parseAccelerator,
   resolveBindings,
 } from "./keybindings";
+import { surfacesOf } from "./types";
 
 describe("parseAccelerator", () => {
   test("parses modifiers and an uppercased key", () => {
@@ -79,10 +81,15 @@ describe("displayAccelerator", () => {
 });
 
 describe("presets", () => {
-  test("default is among the preset names and is fully populated", () => {
+  test("default is among the preset names and is fully populated for palette-eligible actions", () => {
     expect(PRESET_NAMES).toContain(DEFAULT_PRESET);
     const def = PRESETS[DEFAULT_PRESET];
     for (const id of Object.values(ACTION)) {
+      const commandDef = COMMAND_DEFS_BY_ID.get(id);
+      // Row-scoped context-menu actions (rename, archive, delete, ...) are never
+      // reachable from the palette or a keybinding -- only the entity's own
+      // context menu invokes them, with the row's id as an argument.
+      if (!commandDef || !surfacesOf(commandDef).includes("palette")) continue;
       expect(canonicalize(def[id] ?? "")).not.toBeNull();
     }
   });
@@ -93,6 +100,19 @@ describe("presets", () => {
         expect(canonicalize(accel)).toBe(accel);
       }
     }
+  });
+});
+
+describe("pane/surface default bindings", () => {
+  test("resolve to their canonical defaults and don't collide with surfaceSpawn", () => {
+    const resolved = resolveBindings(DEFAULT_PRESET, {});
+    expect(resolved.get(ACTION.surfaceNew)).toBe("CmdOrCtrl+Shift+T");
+    expect(resolved.get(ACTION.surfaceNew)).not.toBe(resolved.get(ACTION.surfaceSpawn));
+    expect(resolved.get(ACTION.paneFocusLeft)).toBe("CmdOrCtrl+Alt+ArrowLeft");
+    expect(resolved.get(ACTION.paneFocusRight)).toBe("CmdOrCtrl+Alt+ArrowRight");
+    expect(resolved.get(ACTION.paneFocusUp)).toBe("CmdOrCtrl+Alt+ArrowUp");
+    expect(resolved.get(ACTION.paneFocusDown)).toBe("CmdOrCtrl+Alt+ArrowDown");
+    expect(resolved.get(ACTION.paneZoomToggle)).toBe("CmdOrCtrl+Alt+Z");
   });
 });
 

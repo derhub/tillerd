@@ -35,6 +35,8 @@ specta-typescript.workspace = true
 tauri-specta.workspace = true
 # Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
 tauri-plugin-notification = "2"
+# Opens clicked terminal links (detected URLs + OSC 8) in the system browser.
+tauri-plugin-opener = "2"
 # Enabled by the `webdriver` feature for the desktop e2e harness; off in normal/release builds.
 tauri-plugin-webdriver = { version = "0.2", optional = true }
 

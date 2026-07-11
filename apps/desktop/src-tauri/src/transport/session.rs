@@ -173,6 +173,7 @@ mod tests {
             title_source: "agentTitle".into(),
             created_at: "2026-01-01T00:00:00.000Z".into(),
             status: "active".into(),
+            pinned: false,
         };
         assert_keys(
             &serde_json::to_value(s).unwrap(),
@@ -183,6 +184,7 @@ mod tests {
                 "titleSource",
                 "createdAt",
                 "status",
+                "pinned",
             ],
         );
     }

@@ -24,32 +24,32 @@ function renderBar(handlers: Record<string, () => void>) {
 
 describe("TitleBar toolbar", () => {
   test("renders a button for each active titlebar command", () => {
-    renderBar({ [ACTION.panelToggleRight]: () => {} });
-    expect(screen.queryByRole("button", { name: "Toggle right dock" })).not.toBeNull();
+    renderBar({ [ACTION.panelToggleLeft]: () => {} });
+    expect(screen.queryByRole("button", { name: "Toggle sidebar" })).not.toBeNull();
   });
 
   test("omits a titlebar command with no registered handler", () => {
     renderBar({});
-    expect(screen.queryByRole("button", { name: "Toggle right dock" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Toggle sidebar" })).toBeNull();
   });
 
   test("a toggle button reflects its checked state from context", () => {
-    setContextKey("rightPanelVisible", true);
-    renderBar({ [ACTION.panelToggleRight]: () => {} });
+    setContextKey("sidebarVisible", true);
+    renderBar({ [ACTION.panelToggleLeft]: () => {} });
     expect(
-      screen.getByRole("button", { name: "Toggle right dock" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "Toggle sidebar" }).getAttribute("aria-pressed"),
     ).toBe("true");
   });
 
   test("clicking a toggle button runs its command", () => {
     const spy = mock(() => {});
-    renderBar({ [ACTION.panelToggleRight]: spy });
-    fireEvent.click(screen.getByRole("button", { name: "Toggle right dock" }));
+    renderBar({ [ACTION.panelToggleLeft]: spy });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle sidebar" }));
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   test("renders no window-control buttons (the OS draws native controls)", () => {
-    renderBar({ [ACTION.panelToggleRight]: () => {} });
+    renderBar({ [ACTION.panelToggleLeft]: () => {} });
     expect(screen.queryByRole("button", { name: /minimize|maximize|close/i })).toBeNull();
   });
 });

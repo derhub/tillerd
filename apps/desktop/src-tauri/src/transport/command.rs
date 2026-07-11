@@ -87,10 +87,11 @@ mod tests {
             cli: "/c".into(),
             args: vec![],
             env: Default::default(),
+            pinned: false,
         };
         assert_keys(
             &serde_json::to_value(c).unwrap(),
-            &["id", "name", "origin", "cli", "args", "env"],
+            &["id", "name", "origin", "cli", "args", "env", "pinned"],
         );
     }
 }

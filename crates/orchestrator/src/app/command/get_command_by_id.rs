@@ -17,7 +17,7 @@ impl Query<Ctx> for GetCommandById {
 
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, CommandView>(
-            "SELECT id, name, origin, cli, args_json, env_json
+            "SELECT id, name, origin, cli, args_json, env_json, pinned
              FROM command
              WHERE id = ? AND deleted_at IS NULL",
         )

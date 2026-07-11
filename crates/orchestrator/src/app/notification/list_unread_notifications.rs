@@ -18,6 +18,13 @@ pub struct ListUnreadNotifications {
     pub after: Option<String>,
 }
 
+fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 impl Query<Ctx> for ListUnreadNotifications {
     type Out = Listing<NotificationView>;
 
@@ -41,8 +48,11 @@ impl Query<Ctx> for ListUnreadNotifications {
                 let items = sqlx::query_as::<_, NotificationView>(
                     "SELECT id, category, severity, title, message, detail, ts,
                             session_id, surface_id
-                     FROM notification WHERE read = 0 ORDER BY ts DESC",
+                     FROM notification
+                     WHERE read = 0 AND (snooze_until IS NULL OR snooze_until <= ?)
+                     ORDER BY ts DESC",
                 )
+                .bind(now_millis())
                 .fetch_all(cx.db())
                 .await?;
                 Ok(Listing::new(items, None))
@@ -52,8 +62,11 @@ impl Query<Ctx> for ListUnreadNotifications {
                 let rows = sqlx::query_as::<_, NotificationView>(
                     "SELECT id, category, severity, title, message, detail, ts,
                             session_id, surface_id
-                     FROM notification WHERE read = 0 ORDER BY ts DESC LIMIT ? OFFSET ?",
+                     FROM notification
+                     WHERE read = 0 AND (snooze_until IS NULL OR snooze_until <= ?)
+                     ORDER BY ts DESC LIMIT ? OFFSET ?",
                 )
+                .bind(now_millis())
                 .bind(limit as i64 + 1)
                 .bind(offset as i64)
                 .fetch_all(cx.db())
@@ -79,9 +92,11 @@ impl Query<Ctx> for ListUnreadNotifications {
                     sqlx::query_as::<_, NotificationView>(
                         "SELECT id, category, severity, title, message, detail, ts,
                                 session_id, surface_id
-                         FROM notification WHERE read = 0 AND ts < ?
+                         FROM notification
+                         WHERE read = 0 AND (snooze_until IS NULL OR snooze_until <= ?) AND ts < ?
                          ORDER BY ts DESC, id DESC LIMIT ?",
                     )
+                    .bind(now_millis())
                     .bind(cursor_ts)
                     .bind(limit as i64 + 1)
                     .fetch_all(cx.db())
@@ -90,8 +105,11 @@ impl Query<Ctx> for ListUnreadNotifications {
                     sqlx::query_as::<_, NotificationView>(
                         "SELECT id, category, severity, title, message, detail, ts,
                                 session_id, surface_id
-                         FROM notification WHERE read = 0 ORDER BY ts DESC, id DESC LIMIT ?",
+                         FROM notification
+                         WHERE read = 0 AND (snooze_until IS NULL OR snooze_until <= ?)
+                         ORDER BY ts DESC, id DESC LIMIT ?",
                     )
+                    .bind(now_millis())
                     .bind(limit as i64 + 1)
                     .fetch_all(cx.db())
                     .await?
@@ -107,5 +125,43 @@ impl Query<Ctx> for ListUnreadNotifications {
                 Ok(Listing::new(items, next))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::notification::snooze_notification::SnoozeNotification;
+    use crate::app::notification::test_util::*;
+    use crate::shared::Bus;
+
+    #[tokio::test]
+    async fn snoozed_into_the_future_is_excluded_until_it_elapses() {
+        let bus = Bus::new(test_ctx().await);
+        bus.execute(record_cmd("future")).await.unwrap();
+        bus.execute(record_cmd("past")).await.unwrap();
+        bus.execute(record_cmd("plain")).await.unwrap();
+
+        let now = now_millis();
+        bus.execute(SnoozeNotification {
+            id: "future".into(),
+            snooze_until: Some(now + 60_000),
+        })
+        .await
+        .unwrap();
+        bus.execute(SnoozeNotification {
+            id: "past".into(),
+            snooze_until: Some(now - 60_000),
+        })
+        .await
+        .unwrap();
+
+        let listing = bus.query(list_unread_all()).await.unwrap();
+        let ids: Vec<&str> = listing.items.iter().map(|n| n.id.as_str()).collect();
+
+        // future-snoozed is excluded; past-snoozed (elapsed) and plain both show.
+        assert!(!ids.contains(&"future"));
+        assert!(ids.contains(&"past"));
+        assert!(ids.contains(&"plain"));
     }
 }

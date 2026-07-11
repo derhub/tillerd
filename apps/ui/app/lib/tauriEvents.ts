@@ -1,4 +1,4 @@
-// Single boundary for Tauri event + window APIs. Centralises the isDesktopHost() guard and dynamic imports so callers need no host check; every call is a no-op (or null) off the desktop host.
+// Single boundary for Tauri event + window/webview APIs. Centralises the isDesktopHost() guard and dynamic imports so callers need no host check; every call is a no-op (or null) off the desktop host.
 
 import { isDesktopHost } from "./transport/core";
 
@@ -31,4 +31,13 @@ export async function windowLabel(): Promise<string | null> {
   if (!win) return null;
   cachedLabel = win.label;
   return cachedLabel;
+}
+
+// Sets this window's webview zoom factor (1 = 100%). Each webview owns its own zoom
+// state; there is no app-wide zoom the host applies automatically, so every window
+// (main, detached, project, workspace) must call this itself.
+export async function setWebviewZoom(scaleFactor: number): Promise<void> {
+  if (!isDesktopHost()) return;
+  const { getCurrentWebview } = await import("@tauri-apps/api/webview");
+  await getCurrentWebview().setZoom(scaleFactor);
 }

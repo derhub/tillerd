@@ -10,6 +10,13 @@ use crate::shared::{Error, Result};
 
 pub struct NotificationRepo;
 
+fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 impl NotificationRepo {
     /// Insert a new notification record.
     pub async fn create<'e>(exec: impl SqliteExecutor<'e>, n: &NotificationRecord) -> Result<()> {
@@ -54,11 +61,17 @@ impl NotificationRepo {
         .await?)
     }
 
-    /// Count unread notifications.
+    /// Count unread notifications. A notification snoozed into the future does not
+    /// count until its `snooze_until` elapses.
     pub async fn count_unread<'e>(exec: impl SqliteExecutor<'e>) -> Result<i64> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM notification WHERE read = 0")
-            .fetch_one(exec)
-            .await?;
+        let now = now_millis();
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM notification
+             WHERE read = 0 AND (snooze_until IS NULL OR snooze_until <= ?)",
+        )
+        .bind(now)
+        .fetch_one(exec)
+        .await?;
         Ok(row.0)
     }
 
@@ -275,6 +288,28 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.code(), "notification.not_found");
+    }
+
+    #[tokio::test]
+    async fn count_unread_excludes_a_notification_snoozed_into_the_future() {
+        let pool = memory_pool().await;
+        let now = now_millis();
+
+        let mut future = sample("future");
+        future.snooze_until = Some(now + 60_000);
+        NotificationRepo::create(&pool, &future).await.unwrap();
+
+        let mut past = sample("past");
+        past.snooze_until = Some(now - 60_000);
+        NotificationRepo::create(&pool, &past).await.unwrap();
+
+        NotificationRepo::create(&pool, &sample("plain"))
+            .await
+            .unwrap();
+
+        // future-snoozed is excluded; past-snoozed (elapsed) and plain both count.
+        let count = NotificationRepo::count_unread(&pool).await.unwrap();
+        assert_eq!(count, 2);
     }
 
     #[tokio::test]

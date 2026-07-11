@@ -1,33 +1,39 @@
 import { Outlet, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { Undo2 } from "lucide-react";
 import React from "react";
 
 import { CommandCenter } from "~/components/command/CommandCenter";
-import { ServiceHealthIndicator } from "~/components/health/ServiceHealthIndicator";
-import { NotificationIndicator } from "~/components/notifications/NotificationIndicator";
-import { SettingsPanel, SETTINGS_OPEN_EVENT } from "~/components/settings/SettingsPanel";
-import { BottomDock } from "~/components/shell/BottomDock";
 import { useArmReattachOnClose } from "~/components/shell/hooks/useArmReattachOnClose";
 import { useDetachedPanels } from "~/components/shell/hooks/useDetachedPanels";
+import { useMenuCommands } from "~/components/shell/hooks/useMenuCommands";
 import { useMenuNavigation } from "~/components/shell/hooks/useMenuNavigation";
-import { useTitleBarCommands } from "~/components/shell/hooks/useTitleBarCommands";
-import { RightDock } from "~/components/shell/RightDock";
+import { useWorkbenchCommands } from "~/components/shell/hooks/useWorkbenchCommands";
 import { DetachedPanelsContext } from "~/components/shell/shellContext";
 import { TitleBar } from "~/components/shell/TitleBar";
-import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
-import { WorkspaceSwitcher } from "~/components/sidebar/WorkspaceSwitcher";
 import { DetachedWindow } from "~/components/terminal/DetachedWindow";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
-import { Skeleton } from "~/components/ui/skeleton";
+import { TooltipProvider } from "~/components/ui/tooltip";
+import { ActivityBar } from "~/components/workbench/ActivityBar";
+import { BottomPanel } from "~/components/workbench/BottomPanel";
+import { SidebarContainer } from "~/components/workbench/SidebarContainer";
+import { StatusBar } from "~/components/workbench/StatusBar";
 import { ACTION } from "~/lib/commands/ids";
 import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/registry";
 import { NotificationsProvider } from "~/lib/notifications/context";
 import { SessionContext } from "~/lib/sessionContext";
 import { SettingsProvider } from "~/lib/settings/context";
-import { usePanelVisible } from "~/lib/store";
+import { SETTINGS_OPEN_EVENT } from "~/lib/settings/events";
+import { UI_ZOOM_STEP } from "~/lib/settings/keys";
+import { useUiZoom } from "~/lib/settings/useUiZoom";
 import { DesktopHostProvider } from "~/lib/useDesktopHost";
+import { useWindowEvent } from "~/lib/useWindowEvent";
+import { emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
 import { parseWindowIntent, type WindowIntent } from "~/lib/windows";
-import { closeSelf, emitReattachProject, emitReattachWorkspace } from "~/lib/windows";
+import {
+  useBottomPanelSize,
+  useBottomPanelVisible,
+  useSidebarSize,
+  useSidebarVisible,
+} from "~/lib/workbench";
 
 export function RootLayout() {
   const search = useSearch({ from: "__root__" });
@@ -44,10 +50,18 @@ export function RootLayout() {
   return <ShellChrome intent={intent} />;
 }
 
-// Registers the title-bar toggle command handlers and seeds their context keys.
+// Registers the workbench chrome command handlers and seeds their context keys.
 // Rendered inside the command registry provider so `useCommand` can register.
-function TitleBarCommands(): null {
-  useTitleBarCommands();
+function WorkbenchCommands(): null {
+  useWorkbenchCommands();
+  return null;
+}
+
+// Dispatches native menu accelerators through the command registry. Rendered inside the
+// provider (not called directly in ShellChrome) so `useCommands` sees the registered handlers --
+// ShellChrome itself sits above CommandRegistryProvider in the tree.
+function MenuCommands(): null {
+  useMenuCommands();
   return null;
 }
 
@@ -62,9 +76,15 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   const sessionId = params.id ?? intentSessionId ?? null;
   const [status, setStatus] = React.useState("");
 
-  const [leftVisible] = usePanelVisible("left");
-  const [rightVisible] = usePanelVisible("right");
-  const [bottomVisible] = usePanelVisible("bottom");
+  const [sidebarVisible] = useSidebarVisible();
+  const [sidebarSize, setSidebarSize] = useSidebarSize();
+  const [bottomVisible] = useBottomPanelVisible();
+  const [bottomSize, setBottomSize] = useBottomPanelSize();
+  const { zoom, setZoom, reset: resetZoom } = useUiZoom();
+  // Read the live zoom through a ref inside the handlers so the memo below stays referentially
+  // stable across zoom steps (holding Cmd+= would otherwise re-register every command each step).
+  const zoomRef = React.useRef(zoom);
+  zoomRef.current = zoom;
 
   useMenuNavigation();
 
@@ -77,9 +97,30 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
   const navHandlers = React.useMemo(
     () => ({
       [ACTION.viewLogs]: () => void navigate({ to: "/logs" }),
-      [ACTION.appSettings]: () => window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)),
+      [ACTION.appSettings]: () => void navigate({ to: "/settings" }),
+      [ACTION.viewZoomIn]: () => setZoom(zoomRef.current + UI_ZOOM_STEP),
+      [ACTION.viewZoomOut]: () => setZoom(zoomRef.current - UI_ZOOM_STEP),
+      [ACTION.viewZoomReset]: () => resetZoom(),
     }),
-    [navigate],
+    [navigate, setZoom, resetZoom],
+  );
+
+  // The settings editor is a route now (retired popover), but the open signal is a
+  // load-bearing contract (status bar gear, native menu, e2e) -- keep honoring it by
+  // navigating instead of toggling a popover's open state.
+  useWindowEvent(SETTINGS_OPEN_EVENT, () => void navigate({ to: "/settings" }));
+
+  // Stable element so a resize-driven re-render of the shell never re-renders the
+  // panel-area content (terminals). defaultSize is read once at mount by the panel.
+  const contentPanel = React.useMemo(
+    () => (
+      <ResizablePanel minSize="30%" className="min-w-0">
+        <div className="h-full w-full min-w-0 pt-px">
+          <Outlet />
+        </div>
+      </ResizablePanel>
+    ),
+    [],
   );
 
   return (
@@ -90,75 +131,55 @@ function ShellChrome({ intent }: { intent: Exclude<WindowIntent, { kind: "detach
             <SessionContext value={{ sessionId, status, setStatus }}>
               <DetachedPanelsContext value={{ detached, detach, reattach }}>
                 <RegisterHandlers handlers={navHandlers} />
-                <TitleBarCommands />
+                <WorkbenchCommands />
+                <MenuCommands />
                 <CommandCenter />
-                <div className="h-dvh w-full flex flex-col overflow-hidden">
-                  <TitleBar />
-                  <div className="flex-1 min-h-0">
-                    <ResizablePanelGroup orientation="vertical">
-                      <ResizablePanel minSize="20%" className="min-h-0">
-                        <ResizablePanelGroup orientation="horizontal">
-                          {leftVisible && (
-                            <ResizablePanel defaultSize="224px" minSize="180px" maxSize="360px">
-                              <aside className="h-full w-full overflow-hidden border-r border-border/40">
-                                <React.Suspense
-                                  fallback={
-                                    <div
-                                      className="h-full w-full p-3"
-                                      data-testid="sidebar-skeleton"
-                                    >
-                                      <Skeleton className="h-full w-full" />
-                                    </div>
-                                  }
+                <TooltipProvider>
+                  <div className="h-dvh w-full flex flex-col overflow-hidden">
+                    <TitleBar />
+                    <div className="flex-1 min-h-0 flex">
+                      <ActivityBar />
+                      <div className="flex-1 min-w-0">
+                        <ResizablePanelGroup orientation="vertical">
+                          <ResizablePanel minSize="20%" className="min-h-0">
+                            <ResizablePanelGroup orientation="horizontal">
+                              {sidebarVisible && (
+                                <ResizablePanel
+                                  defaultSize={`${sidebarSize}px`}
+                                  minSize="180px"
+                                  maxSize="360px"
+                                  onResize={(size) => setSidebarSize(Math.round(size.inPixels))}
                                 >
-                                  {isProjectWindow ? (
-                                    <SessionSidebar activeProjectId={projectWindowId} />
-                                  ) : (
-                                    <WorkspaceSwitcher initialWorkspaceId={workspaceWindowId} />
-                                  )}
-                                </React.Suspense>
-                              </aside>
-                            </ResizablePanel>
-                          )}
-                          {leftVisible && <ResizableHandle />}
-                          <ResizablePanel minSize="30%" className="min-w-0">
-                            <div className="h-full w-full min-w-0 pt-px">
-                              <Outlet />
-                            </div>
+                                  <aside className="h-full w-full overflow-hidden">
+                                    <SidebarContainer
+                                      isProjectWindow={isProjectWindow}
+                                      projectWindowId={projectWindowId}
+                                      workspaceWindowId={workspaceWindowId}
+                                    />
+                                  </aside>
+                                </ResizablePanel>
+                              )}
+                              {sidebarVisible && <ResizableHandle />}
+                              {contentPanel}
+                            </ResizablePanelGroup>
                           </ResizablePanel>
-                          {rightVisible && <ResizableHandle />}
-                          {rightVisible && (
-                            <ResizablePanel defaultSize="256px" minSize="180px" maxSize="480px">
-                              <RightDock />
+                          {bottomVisible && <ResizableHandle />}
+                          {bottomVisible && (
+                            <ResizablePanel
+                              defaultSize={`${bottomSize}px`}
+                              minSize="120px"
+                              maxSize="60%"
+                              onResize={(size) => setBottomSize(Math.round(size.inPixels))}
+                            >
+                              <BottomPanel />
                             </ResizablePanel>
                           )}
                         </ResizablePanelGroup>
-                      </ResizablePanel>
-                      {bottomVisible && <ResizableHandle />}
-                      {bottomVisible && (
-                        <ResizablePanel defaultSize="200px" minSize="120px" maxSize="60%">
-                          <BottomDock />
-                        </ResizablePanel>
-                      )}
-                    </ResizablePanelGroup>
+                      </div>
+                    </div>
+                    <StatusBar showReattach={isProjectWindow || isWorkspaceWindow} />
                   </div>
-                  <footer className="flex h-7 shrink-0 items-center justify-end gap-2 border-t border-border/40 px-2">
-                    {(isProjectWindow || isWorkspaceWindow) && (
-                      <button
-                        type="button"
-                        onClick={() => void closeSelf()}
-                        aria-label="Re-attach"
-                        className="flex items-center gap-1 px-2 h-5 text-[0.833rem] rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard"
-                      >
-                        <Undo2 size={12} />
-                        <span>Re-attach</span>
-                      </button>
-                    )}
-                    <NotificationIndicator />
-                    <SettingsPanel />
-                    <ServiceHealthIndicator />
-                  </footer>
-                </div>
+                </TooltipProvider>
               </DetachedPanelsContext>
             </SessionContext>
           </CommandRegistryProvider>

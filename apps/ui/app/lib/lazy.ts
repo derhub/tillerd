@@ -2,5 +2,7 @@
 
 export const lazyXterm = () => import("@xterm/xterm");
 export const lazyFitAddon = () => import("@xterm/addon-fit");
+export const lazySearchAddon = () => import("@xterm/addon-search");
+export const lazyWebLinksAddon = () => import("@xterm/addon-web-links");
 export const lazyDiffs = () => import("@pierre/diffs");
 export const lazyDiffsReact = () => import("@pierre/diffs/react");

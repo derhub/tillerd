@@ -72,3 +72,115 @@ pub(crate) async fn seed_prebuilt(cx: &crate::context::Ctx) -> crate::shared::Re
     }
     Ok(())
 }
+
+/// Resolve a launch item's command reference into a concrete spawn command
+/// (launch-execution spec: "an item's command is resolved before launch"). A
+/// library reference reads the stored cli/args/env; inline is used as given.
+/// Shared by `LaunchSession` and `SpawnSurface` so both resolve identically.
+pub(crate) async fn resolve(
+    cx: &crate::context::Ctx,
+    cmd_ref: &crate::entities::launch_spec::CommandRef,
+) -> crate::shared::Result<crate::infra::daemon_pty_api::SpawnCommand> {
+    use crate::entities::command::CommandId;
+    use crate::entities::launch_spec::CommandRef;
+    use crate::infra::daemon_pty_api::SpawnCommand;
+    use crate::infra::CommandRepo;
+    use crate::shared::Error;
+
+    match cmd_ref {
+        CommandRef::LibraryRef { library_ref } => {
+            let cmd = CommandRepo::get(cx.db(), &CommandId::from_string(library_ref.clone()))
+                .await?
+                .ok_or_else(|| Error::CommandNotFound(library_ref.clone()))?;
+            Ok(SpawnCommand {
+                exe: cmd.cli,
+                args: cmd.args,
+                env: cmd.env.into_iter().collect(),
+            })
+        }
+        CommandRef::Inline { executable, args } => Ok(SpawnCommand {
+            exe: executable.clone(),
+            args: args.clone(),
+            env: Default::default(),
+        }),
+    }
+}
+
+#[cfg(test)]
+mod resolve_tests {
+    use super::resolve;
+    use crate::entities::command::{Command, CommandId, CommandOrigin};
+    use crate::entities::launch_spec::CommandRef;
+    use crate::infra::CommandRepo;
+    use crate::shared::Error;
+
+    // Scenario: Library reference resolves
+    #[tokio::test]
+    async fn library_reference_resolves_to_the_stored_cli_args_env() {
+        let cx = crate::boot::test_ctx().await.unwrap();
+        let mut env = std::collections::HashMap::new();
+        env.insert("FOO".to_owned(), "bar".to_owned());
+        let cmd = Command {
+            id: CommandId::mint(),
+            name: "htop".to_owned(),
+            origin: CommandOrigin::Custom,
+            cli: "/usr/bin/htop".to_owned(),
+            args: vec!["--sort-key".to_owned(), "cpu".to_owned()],
+            env,
+            pinned: false,
+        };
+        CommandRepo::create(cx.db(), &cmd).await.unwrap();
+
+        let resolved = resolve(
+            &cx,
+            &CommandRef::LibraryRef {
+                library_ref: cmd.id.as_str().to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resolved.exe, "/usr/bin/htop");
+        assert_eq!(
+            resolved.args,
+            vec!["--sort-key".to_owned(), "cpu".to_owned()]
+        );
+        assert_eq!(resolved.env.get("FOO"), Some(&"bar".to_owned()));
+    }
+
+    // Scenario: Inline command is used as given
+    #[tokio::test]
+    async fn inline_command_is_used_as_given() {
+        let cx = crate::boot::test_ctx().await.unwrap();
+
+        let resolved = resolve(
+            &cx,
+            &CommandRef::Inline {
+                executable: "/bin/sh".to_owned(),
+                args: vec!["-c".to_owned(), "echo hi".to_owned()],
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resolved.exe, "/bin/sh");
+        assert_eq!(resolved.args, vec!["-c".to_owned(), "echo hi".to_owned()]);
+        assert!(resolved.env.is_empty());
+    }
+
+    // Scenario: Unknown reference fails the item
+    #[tokio::test]
+    async fn unknown_library_reference_is_a_typed_not_found_error() {
+        let cx = crate::boot::test_ctx().await.unwrap();
+
+        let result = resolve(
+            &cx,
+            &CommandRef::LibraryRef {
+                library_ref: "does-not-exist".to_owned(),
+            },
+        )
+        .await;
+
+        assert!(matches!(result, Err(Error::CommandNotFound(_))));
+    }
+}

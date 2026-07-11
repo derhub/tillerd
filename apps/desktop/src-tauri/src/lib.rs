@@ -86,6 +86,7 @@ pub(crate) fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             transport::surface::surface_list_resumable,
             transport::surface::surface_find_by_placement,
             transport::surface::surface_stop,
+            transport::surface::surface_swap_placement,
             transport::surface::surface_reconcile,
             transport::session::session_list,
             transport::session::session_create,
@@ -204,6 +205,8 @@ pub fn run() {
     );
     // Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
     let builder = builder.plugin(tauri_plugin_notification::init());
+    // Opens terminal links in the system browser (ui-terminal-pane "Clickable links").
+    let builder = builder.plugin(tauri_plugin_opener::init());
     #[cfg(debug_assertions)]
     specta_builder()
         .export(
@@ -223,10 +226,11 @@ pub fn run() {
         .setup(|app| {
             specta_builder().mount_events(app);
 
-            // Native menu: the platform default (app / Edit / View / Window / Help) with Logs and
-            // Command Center entries in the View submenu. Logs routes the renderer to /logs; the
-            // Command Center accelerator is the leader key (fires over terminal focus) and emits
-            // "command-center:open".
+            // Native menu: the platform default (app / File / Edit / View / Window / Help) with
+            // Logs and Command Center entries in the View submenu, and New Project / New Session /
+            // New Terminal / Close Panel / Search Sessions in the File submenu. All accelerators
+            // fire over terminal focus; the File submenu entries route through the same command
+            // ids as the palette, and Command Center emits "command-center:open".
             menu::install_menu(app)?;
 
             // Construct and boot the single embedded orchestrator instance; it

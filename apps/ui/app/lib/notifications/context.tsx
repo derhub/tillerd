@@ -6,7 +6,7 @@ import { getQueryClient, notificationChannel, query } from "@tillerd/client-bind
 import React from "react";
 
 import { loadBannerDeps, raiseBanner, type BannerDeps } from "./native-banner";
-import { boundedPrepend, MAX_ITEMS } from "./store";
+import { boundedPrepend, countsAsUnread, MAX_ITEMS } from "./store";
 
 interface NotificationsState {
   items: NotificationWire[];
@@ -18,7 +18,7 @@ export const notificationsStore = new Store<NotificationsState>({ items: [], unr
 export function recordNotification(event: NotificationWire): void {
   notificationsStore.setState((s) => ({
     items: boundedPrepend(s.items, event),
-    unread: s.unread + 1,
+    unread: countsAsUnread(event) ? s.unread + 1 : s.unread,
   }));
 }
 
@@ -61,6 +61,17 @@ export function startNotifications(
 
 export function markNotificationsRead(): void {
   notificationsStore.setState((s) => ({ ...s, unread: 0 }));
+}
+
+// Local mirrors of the server-side disregard mutations -- the feed is a client store hydrated
+// once at mount (not a live query subscription), so a successful disregard must also drop the
+// row here or it lingers until the next restart's hydration silently omits it.
+export function removeNotification(id: string): void {
+  notificationsStore.setState((s) => ({ ...s, items: s.items.filter((i) => i.id !== id) }));
+}
+
+export function clearNotifications(): void {
+  notificationsStore.setState((s) => ({ ...s, items: [] }));
 }
 
 export function NotificationsProvider({

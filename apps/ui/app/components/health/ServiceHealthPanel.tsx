@@ -1,10 +1,9 @@
 import type { ServiceHealthWire, ServiceStateWire } from "@tillerd/client-bindings";
 
-import { Link } from "@tanstack/react-router";
-
 import type { OrchestratorPhase } from "~/lib/health/aggregate";
 
 import { cn } from "~/lib/utils";
+import { showBottomPanelTab } from "~/lib/workbench";
 
 type RowState = ServiceStateWire | "failed";
 
@@ -60,12 +59,14 @@ function HealthRow({
           {reason}
         </span>
       ) : null}
-      <Link
-        to={`/logs?service=${encodeURIComponent(logsService)}` as never}
-        className="ml-auto text-muted-foreground underline hover:text-foreground"
+      <button
+        type="button"
+        aria-label={`Show logs for ${name}`}
+        onClick={() => showBottomPanelTab("logs", { logsService })}
+        className="ml-auto text-muted-foreground underline hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
       >
         logs
-      </Link>
+      </button>
     </div>
   );
 }

@@ -1,11 +1,14 @@
 import type { Project } from "@tillerd/client-bindings";
 
-import { ArrowUpRight, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ArrowUpRight, ChevronDown, ChevronRight, Pin, Plus } from "lucide-react";
 import React from "react";
 
+import type { DeleteTarget } from "~/components/sidebar/DeleteDialog";
+
+import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
-import { ProjectContextMenu } from "~/components/sidebar/ProjectContextMenu";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
+import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { reorderByDrop } from "~/lib/reorder";
 import { can } from "~/lib/stateModel";
@@ -23,14 +26,13 @@ export function ProjectRow({
   onCancelEdit,
   onRename,
   onRenameSession,
-  onDelete,
-  onDeleteSession,
   onReorderSessions,
   onReorderProjects,
   projectIds,
   onNewSession,
   onArchiveSession,
-  onOpenInNewWindow,
+  onRestoreSession,
+  onRequestDelete,
   onFocusDetached,
 }: {
   project: Project;
@@ -42,19 +44,18 @@ export function ProjectRow({
   onCancelEdit: () => void;
   onRename: (newName: string) => void;
   onRenameSession: (sessionId: string, newName: string) => void;
-  onDelete: () => void;
-  onDeleteSession: (sessionId: string, name: string) => void;
   onReorderSessions: (orderedIds: string[]) => void;
   onReorderProjects: (orderedIds: string[]) => void;
   projectIds: string[];
   onNewSession: () => void;
-  onArchiveSession: (id: string, currentPath: string) => void;
-  onOpenInNewWindow: () => void;
+  onArchiveSession: (id: string) => void;
+  onRestoreSession: (id: string) => void;
+  onRequestDelete: (target: DeleteTarget) => void;
   onFocusDetached: () => void;
 }) {
-  const [menuAt, setMenuAt] = React.useState<{ x: number; y: number } | null>(null);
   const [dragOver, setDragOver] = React.useState(false);
   const [expanded, setExpanded] = useProjectExpanded(project.id);
+  const { activeId, setActiveId } = useTreeNav();
 
   const isUnfiled = project.id === UNFILED_ID;
   const isEditing = editingId === project.id;
@@ -71,7 +72,29 @@ export function ProjectRow({
 
   return (
     <div>
-      <div
+      <EntityContextMenu
+        entityId={project.id}
+        entityKind="project"
+        args={{ label: project.name, workspaceId: project.workspaceId }}
+        role="treeitem"
+        aria-level={1}
+        aria-expanded={expanded}
+        aria-label={project.name}
+        data-tree-id={project.id}
+        data-level="1"
+        data-expanded={expanded}
+        tabIndex={activeId === project.id ? 0 : -1}
+        onFocus={() => setActiveId(project.id)}
+        guards={{
+          "menu.canRename": !isUnfiled,
+          "menu.canDuplicate": !isUnfiled,
+          "menu.canPin": !isUnfiled,
+          "menu.canMove": can("project", "move", project),
+          "menu.canArchive": can("project", "archive", project),
+          "menu.canDelete": can("project", "discard", project),
+          "menu.pinned": project.pinned,
+        }}
+        disabled={!isDesktop}
         draggable={draggable}
         onDragStart={
           draggable
@@ -97,17 +120,10 @@ export function ProjectRow({
           "flex items-center gap-1 px-3 mb-0.5",
           dragOver && "ring-1 ring-ring rounded-sm",
         )}
-        onContextMenu={
-          isDesktop
-            ? (e) => {
-                e.preventDefault();
-                setMenuAt({ x: e.clientX, y: e.clientY });
-              }
-            : undefined
-        }
       >
         <button
           type="button"
+          tabIndex={-1}
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
@@ -116,9 +132,9 @@ export function ProjectRow({
           className="flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted"
         >
           {expanded ? (
-            <ChevronDown size={10} strokeWidth={2} />
+            <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
           ) : (
-            <ChevronRight size={10} strokeWidth={2} />
+            <ChevronRight strokeWidth={2} className="size-[var(--icon-sm)]" />
           )}
         </button>
         {isEditing ? (
@@ -133,14 +149,28 @@ export function ProjectRow({
             onDoubleClick={isUnfiled ? undefined : onStartEdit}
             data-testid="project-name"
             data-project-id={project.id}
-            className="text-[0.75rem] font-medium text-muted-foreground/70 uppercase tracking-wider truncate flex-1 cursor-text"
+            className={cn(
+              "text-[0.75rem] font-medium text-muted-foreground/70 truncate flex-1 cursor-text",
+              // Unfiled is a system section label (small-caps); user-named projects render as
+              // entered, not shouted.
+              isUnfiled && "uppercase tracking-wider",
+            )}
           >
             {project.name}
           </span>
         )}
+        {project.pinned && (
+          <Pin
+            strokeWidth={2}
+            aria-hidden
+            data-testid="project-pinned-indicator"
+            className="shrink-0 text-muted-foreground/40 size-[var(--icon-sm)]"
+          />
+        )}
         {detached && (
           <button
             type="button"
+            tabIndex={-1}
             onClick={onFocusDetached}
             aria-label={`Re-attach ${project.name}`}
             title={`${project.name} is in another window — click to re-attach`}
@@ -150,12 +180,13 @@ export function ProjectRow({
               "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
             )}
           >
-            <ArrowUpRight size={10} strokeWidth={2} />
+            <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
           </button>
         )}
         {isDesktop && (
           <button
             type="button"
+            tabIndex={-1}
             onClick={onNewSession}
             className={cn(
               "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
@@ -163,31 +194,10 @@ export function ProjectRow({
             )}
             title={`New session in ${project.name}`}
           >
-            <Plus size={10} strokeWidth={2} />
+            <Plus strokeWidth={2} className="size-[var(--icon-sm)]" />
           </button>
         )}
-      </div>
-
-      {menuAt && (
-        <ProjectContextMenu
-          at={menuAt}
-          allowRename={!isUnfiled}
-          allowDelete={can("project", "discard", project)}
-          onClose={() => setMenuAt(null)}
-          onRename={() => {
-            onStartEdit();
-            setMenuAt(null);
-          }}
-          onOpenInNewWindow={() => {
-            onOpenInNewWindow();
-            setMenuAt(null);
-          }}
-          onDelete={() => {
-            onDelete();
-            setMenuAt(null);
-          }}
-        />
-      )}
+      </EntityContextMenu>
 
       {expanded && (
         <ProjectSessions
@@ -197,9 +207,10 @@ export function ProjectRow({
           onStartEditSession={onStartEditSession}
           onCancelEdit={onCancelEdit}
           onRenameSession={onRenameSession}
-          onDeleteSession={onDeleteSession}
           onReorderSessions={onReorderSessions}
           onArchiveSession={onArchiveSession}
+          onRestoreSession={onRestoreSession}
+          onRequestDelete={onRequestDelete}
         />
       )}
     </div>

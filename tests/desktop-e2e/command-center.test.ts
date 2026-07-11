@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 
-import { type Browser } from "./helpers";
+import { createProject, openTerminal, uniqueName, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
 // The command center is a leader-activated fuzzy palette over the chrome actions. The native leader
@@ -32,27 +32,6 @@ async function openPaletteRetrying(b: Browser, timeoutMs: number): Promise<void>
     if (opened) return;
     if (Date.now() >= deadline) {
       throw new Error(`command center did not open within ${timeoutMs}ms of reload`);
-    }
-  }
-}
-
-// A single WebDriver click can still land while the popover is mid-open/mid-animation and
-// miss (confirmed: still occasionally left open after one click in a repeated diagnostic
-// run). Re-clicking is harmless once already closed (body click with nothing to dismiss),
-// so retry until the target element is actually gone.
-async function closeBySelectorGone(b: Browser, selector: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    await (await b.$("body")).click();
-    const gone = await (
-      await b.$(selector)
-    )
-      .waitForExist({ timeout: 300, reverse: true })
-      .then(() => true)
-      .catch(() => false);
-    if (gone) return;
-    if (Date.now() >= deadline) {
-      throw new Error(`${selector} did not close within ${timeoutMs}ms`);
     }
   }
 }
@@ -113,10 +92,9 @@ test("the palette opens, fuzzy-filters, and invokes an action", async () => {
 test("a keybinding-preset change reflects in the palette and survives a reload", async () => {
   const b = getApp();
 
-  // Never assume the prior test left a clean slate: the palette and the settings popover
-  // are two independent, un-coordinated `open` booleans (no code enforces mutual
-  // exclusivity), so opening the second while the first is still up would stack two
-  // overlays. Close the palette first if it is somehow still open.
+  // Never assume the prior test left a clean slate: the palette is a standalone overlay
+  // rendered regardless of route, so a run that left it open would stack a second one.
+  // Close it first if it is somehow still open.
   if (await (await b.$('[data-testid="command-center"]')).isExisting()) {
     await b.keys(["Escape"]);
     await (
@@ -127,18 +105,30 @@ test("a keybinding-preset change reflects in the palette and survives a reload",
     });
   }
 
-  // Switch the preset to vscode through the settings panel (vscode binds New terminal to a backtick
-  // chord; the default does not).
+  // The palette lists only commands with a live handler; "New terminal" registers with the
+  // session panel view, so a session must be mounted for its hint to exist at all. Create
+  // one and stay on its route for every hint assertion below.
+  await createProject(b, uniqueName("kbproj"));
+  await openTerminal(b);
+  const sessionUrl = await b.getUrl();
+
+  // Switch the preset to vscode through the settings editor's Keybindings section (vscode binds
+  // New terminal to a backtick chord; the default does not). The settings-open event now
+  // navigates to /settings (retired popover); Keybindings is not the default section, so select
+  // it before the preset control exists.
   await b.execute(() => window.dispatchEvent(new CustomEvent("command-center:settings")));
+  await (await b.$('[data-testid="settings-editor"]')).waitForExist({ timeout: 10_000 });
+  await (await b.$('[data-testid="settings-section-keybindings"]')).click();
   await (await b.$('select[aria-label="Keybinding preset"]')).waitForExist({ timeout: 10_000 });
   await selectValue(b, "Keybinding preset", "vscode");
-  // Close the settings popover before opening the palette. A synthetic MouseEvent
-  // ("mousedown") never dismisses it: the popover's outside-press layer needs a real
-  // pointer event sequence, and a synthetic Escape keypress is unreliable too (focus is
-  // left on the just-changed native <select>, which can swallow it). A genuine WebDriver
-  // click -- a full native pointerdown/up + mousedown/up + click sequence -- is what the
-  // popover's dismiss layer needs; retried since a single click can still land mid-animation.
-  await closeBySelectorGone(b, 'select[aria-label="Keybinding preset"]', 10_000);
+
+  // Back to the session route: /settings replaces the panel view, unmounting the
+  // session-scoped handlers the hint assertion depends on.
+  await b.execute((u: string) => {
+    window.history.pushState({}, "", new URL(u).pathname);
+    window.dispatchEvent(new Event("popstate"));
+  }, sessionUrl);
+  await (await b.$(".xterm")).waitForExist({ timeout: 10_000 });
 
   await openPalette(b);
   await (await b.$('[data-testid="command-center"]')).waitForExist({ timeout: 10_000 });

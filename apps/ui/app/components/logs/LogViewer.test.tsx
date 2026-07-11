@@ -3,16 +3,26 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 
 import { delegatingQuery } from "~/lib/test/real-bindings";
 
 let desktop = true;
 let files: { name: string; path: string; size: number }[] = [];
 let recordsByPath: Record<string, unknown[]> = {};
+let active = false;
 
+beforeEach(() => {
+  active = true;
+});
+
+const actualTransport = await import("~/lib/transport");
 void mock.module("~/lib/transport", () => ({
-  isDesktopHost: () => desktop,
+  ...actualTransport,
+  isDesktopHost: () => {
+    if (!active) return actualTransport.isDesktopHost();
+    return desktop;
+  },
 }));
 
 // Spread the real module so non-overridden exports stay intact: mock.module is process-global
@@ -21,25 +31,32 @@ void mock.module("~/lib/transport", () => ({
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: delegatingQuery({
-    logList: () => ({ queryKey: ["logList", null], queryFn: () => Promise.resolve(files) }),
-    logTail: (args?: unknown) => {
-      const path = (args as { path?: string } | undefined)?.path ?? "";
-      return {
-        queryKey: ["logTail", args ?? null],
-        queryFn: () => Promise.resolve({ records: recordsByPath[path] ?? [], start: 0, end: 0 }),
-      };
+  query: delegatingQuery(
+    {
+      logList: () => ({ queryKey: ["logList", null], queryFn: () => Promise.resolve(files) }),
+      logTail: (args?: unknown) => {
+        const path = (args as { path?: string } | undefined)?.path ?? "";
+        return {
+          queryKey: ["logTail", args ?? null],
+          queryFn: () => Promise.resolve({ records: recordsByPath[path] ?? [], start: 0, end: 0 }),
+        };
+      },
     },
-  }),
-  logsChangedChannel: async () => ({
-    close: async () => {},
-  }),
+    () => active,
+  ),
+  logsChangedChannel: async (args: any) => {
+    if (!active) return actualBindings.logsChangedChannel(args);
+    return {
+      close: async () => {},
+    } as any;
+  },
 }));
 
 const { LogViewer } = await import("./LogViewer");
 
 afterEach(() => {
   cleanup();
+  active = false;
   desktop = true;
   files = [];
   recordsByPath = {};

@@ -16,7 +16,7 @@ impl Query<Ctx> for GetSurfaceById {
     type Out = Option<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, SurfaceView>(
-            "SELECT id, session_id, kind, cwd, status, placement
+            "SELECT id, session_id, kind, cwd, status, placement, spawned_at
              FROM surface WHERE id = ?",
         )
         .bind(&self.id)

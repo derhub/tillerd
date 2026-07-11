@@ -145,7 +145,7 @@ test("delete project after confirming dialog", async () => {
 
   const menu = await b.$("[role=menu]");
   await menu.waitForExist({ timeout: 5_000 });
-  await (await menu.$("button*=Delete")).click();
+  await (await menu.$('[role="menuitem"]*=Delete')).click();
 
   const dialog = await b.$("[role=alertdialog]");
   await dialog.waitForExist({ timeout: 5_000 });
@@ -183,7 +183,7 @@ test("cancel project deletion leaves the project in place", async () => {
 
   const menu = await b.$("[role=menu]");
   await menu.waitForExist({ timeout: 5_000 });
-  await (await menu.$("button*=Delete")).click();
+  await (await menu.$('[role="menuitem"]*=Delete')).click();
 
   const dialog = await b.$("[role=alertdialog]");
   await dialog.waitForExist({ timeout: 5_000 });

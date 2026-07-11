@@ -8,17 +8,21 @@ import { COMMAND_DEFS } from "./defs";
 import {
   isOnSurface,
   type Command,
+  type CommandArgs,
   type CommandDef,
   type CommandHandler,
   type Surface,
 } from "./types";
 import { evaluateWhen, type ContextSnapshot } from "./when";
 
-export type { Command, CommandDef, CommandHandler, Surface } from "./types";
+export type { Command, CommandArgs, CommandDef, CommandHandler, Surface } from "./types";
 
 interface RegistryDispatch {
   register: (token: string, handlers: Record<string, CommandHandler>) => void;
   unregister: (token: string) => void;
+  // Imperative handler lookup that reads the live map without subscribing the caller
+  // to it (see useDispatchCommand) -- kept on the stable dispatch object, not the map.
+  run: (id: string, args?: CommandArgs) => void;
 }
 
 // Dispatch is split from the handler map so a contributor does not re-render when
@@ -51,9 +55,19 @@ export function CommandRegistryProvider({ children }: { children: ReactNode }) {
     return byId;
   }, [sources]);
 
+  // Live handle to the current map so `run` can dispatch imperatively without the
+  // caller subscribing to (and re-rendering on) every registration.
+  const handlersRef = React.useRef(handlers);
+  handlersRef.current = handlers;
+
+  const run = React.useCallback(
+    (id: string, args?: CommandArgs) => handlersRef.current.get(id)?.(args),
+    [],
+  );
+
   const dispatch = React.useMemo<RegistryDispatch>(
-    () => ({ register, unregister }),
-    [register, unregister],
+    () => ({ register, unregister, run }),
+    [register, unregister, run],
   );
 
   return (
@@ -87,6 +101,19 @@ export function useCommand(id: string, handler: CommandHandler): void {
 export function RegisterHandlers({ handlers }: { handlers: Record<string, CommandHandler> }): null {
   useRegisterHandlers(handlers);
   return null;
+}
+
+// Imperatively invoke a registered handler by id. Lets a component in one part of
+// the tree trigger a command owned by another (e.g. the commands sidebar routing a
+// spawn into the workbench's panel tree, which only PanelContent can mutate). Reads
+// through the stable dispatch context -- NOT HandlersContext -- so a dispatching
+// component (which often also registers its own handlers) is not re-rendered by every
+// registration; subscribing to the map there feedback-loops the register effect. No-op
+// for ids with no live handler, same contract as Command.run.
+export function useDispatchCommand(): (id: string, args?: CommandArgs) => void {
+  const dispatch = React.use(HandlerDispatchContext);
+  const run = dispatch?.run;
+  return React.useCallback((id: string, args?: CommandArgs) => run?.(id, args), [run]);
 }
 
 // Pure composition: a command is active only once a handler is registered for

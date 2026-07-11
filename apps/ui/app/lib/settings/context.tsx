@@ -6,7 +6,14 @@ import { getQueryClient, query, runCommand } from "@tillerd/client-bindings";
 import React from "react";
 
 import { broadcastInvalidate, onRemoteInvalidate } from "../crossWindowSync";
-import { DEFAULT_THEME, THEME_KEY, isTheme, type Theme } from "./keys";
+import {
+  DEFAULT_THEME,
+  GENERAL_STARTUP_WORKSPACE_KEY,
+  THEME_KEY,
+  VIEW_ACTIVE_WORKSPACE_KEY,
+  isTheme,
+  type Theme,
+} from "./keys";
 import { applyTheme, readCachedTheme, writeCachedTheme } from "./theme";
 
 // TanStack Store owns shared client UI state. Server data stays in the Query cache, never here.
@@ -21,6 +28,12 @@ export const settingsStore = new Store<SettingsState>({ values: {} });
 // preset/theme change never reaches the orchestrator and is lost on reload.
 let pendingWrites: { key: string; value: unknown }[] = [];
 let hydrated = false;
+
+// The pinned startup workspace overrides the restored pointer exactly once, at the first
+// hydration (launch). Later hydrations -- a profile activation's rehydrate re-runs this whole
+// path mid-session -- must not re-pin, or they yank the window off the workspace the user
+// navigated to. Set on the first hydrateSettings and never re-armed for the window's lifetime.
+let startupOverrideApplied = false;
 
 // Per-key latest-wins write queue. Two rapid writes to one key must not race on
 // the wire (the older could commit last and win server-side), so at most one
@@ -39,6 +52,7 @@ function writePending(key: string): boolean {
 export function _resetForTests(): void {
   pendingWrites = [];
   hydrated = false;
+  startupOverrideApplied = false;
   inFlightWrites.clear();
   queuedWrites.clear();
 }
@@ -133,11 +147,27 @@ export async function hydrateSettings(
   for (const e of entries) values[e.key] = e.value;
   // Pre-hydration changes win over the listed snapshot so they are not reverted.
   for (const w of pending) values[w.key] = w.value;
-  settingsStore.setState((s) => ({ ...s, values }));
-  if (isTheme(values[THEME_KEY])) {
-    applyTheme(document.documentElement, values[THEME_KEY]);
-    writeCachedTheme(localStorage, values[THEME_KEY]);
+  // Startup workspace (General settings): a pinned workspace overrides the restored
+  // last-active pointer exactly once, at the first hydration (launch) -- not in
+  // WorkspaceSwitcher's per-render scopedId (which would fight the user's later in-session
+  // switches) and not on a later rehydrate (a profile activation), which would yank the window
+  // off the workspace the user navigated to mid-session.
+  if (!startupOverrideApplied) {
+    startupOverrideApplied = true;
+    const startupWorkspace = values[GENERAL_STARTUP_WORKSPACE_KEY];
+    if (typeof startupWorkspace === "string" && startupWorkspace) {
+      values[VIEW_ACTIVE_WORKSPACE_KEY] = startupWorkspace;
+    }
   }
+  settingsStore.setState((s) => ({ ...s, values }));
+  // Theme is authoritative here, not only in the pre-paint inline script: an install with no
+  // persisted `theme` setting resolves to DEFAULT_THEME (dark) rather than leaving the document
+  // in its unstyled light default. The paint script already defaults dark; this keeps dark the
+  // source of truth even if that script is ever bypassed.
+  const themeValue = values[THEME_KEY];
+  const resolvedTheme: Theme = isTheme(themeValue) ? themeValue : DEFAULT_THEME;
+  applyTheme(document.documentElement, resolvedTheme);
+  writeCachedTheme(localStorage, resolvedTheme);
 }
 
 export function setGlobalSetting(key: string, value: unknown): void {
@@ -213,6 +243,26 @@ export function useGlobalSetting(
   const raw = useSelector(settingsStore, (s) => s.values[key]);
   const value = typeof raw === "string" ? raw : fallback;
   const setValue = React.useCallback((next: string) => setGlobalSetting(key, next), [key]);
+  return { value, setValue };
+}
+
+export function useBoolGlobalSetting(
+  key: string,
+  fallback: boolean,
+): { value: boolean; setValue: (value: boolean) => void } {
+  const raw = useSelector(settingsStore, (s) => s.values[key]);
+  const value = typeof raw === "boolean" ? raw : fallback;
+  const setValue = React.useCallback((next: boolean) => setGlobalSetting(key, next), [key]);
+  return { value, setValue };
+}
+
+export function useNumberGlobalSetting(
+  key: string,
+  fallback: number,
+): { value: number; setValue: (value: number) => void } {
+  const raw = useSelector(settingsStore, (s) => s.values[key]);
+  const value = typeof raw === "number" && Number.isFinite(raw) ? raw : fallback;
+  const setValue = React.useCallback((next: number) => setGlobalSetting(key, next), [key]);
   return { value, setValue };
 }
 

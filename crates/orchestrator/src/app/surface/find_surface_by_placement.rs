@@ -17,7 +17,7 @@ impl Query<Ctx> for FindSurfaceByPlacement {
     type Out = Option<SurfaceView>;
     async fn handle(&self, cx: &Ctx) -> Result<Self::Out> {
         Ok(sqlx::query_as::<_, SurfaceView>(
-            "SELECT id, session_id, kind, cwd, status, placement
+            "SELECT id, session_id, kind, cwd, status, placement, spawned_at
              FROM surface WHERE session_id = ? AND placement = ?",
         )
         .bind(&self.session)
@@ -58,5 +58,24 @@ mod tests {
             .await
             .unwrap();
         assert!(none.is_none());
+    }
+
+    // Scenario: the view carries the spawn timestamp once the PTY is confirmed.
+    #[tokio::test]
+    async fn find_by_placement_exposes_spawned_at_after_spawn() {
+        let h = harness().await;
+        let session = seed_session(&h.pool, "s-find-spawned-at").await;
+        h.bus.execute(spawn(&session)).await.unwrap();
+
+        let found = h
+            .bus
+            .query(FindSurfaceByPlacement {
+                session,
+                placement: "main".to_owned(),
+            })
+            .await
+            .unwrap()
+            .expect("a surface");
+        assert!(found.spawned_at.is_some());
     }
 }

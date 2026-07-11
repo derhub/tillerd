@@ -161,6 +161,7 @@ macro_rules! collect_transport {
             $crate::transport::surface::surface_list_resumable,
             $crate::transport::surface::surface_find_by_placement,
             $crate::transport::surface::surface_stop,
+            $crate::transport::surface::surface_swap_placement,
             $crate::transport::surface::surface_reconcile,
             $crate::transport::session::session_list,
             $crate::transport::session::session_create,

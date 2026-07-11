@@ -1,16 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
 import { COMMAND_DEFS, COMMAND_DEFS_BY_ID } from "./defs";
-import { ACTION, SESSION_SEARCH_ACTION_ID } from "./ids";
+import { ACTION, HANDLER_ONLY_ACTION_IDS, SESSION_SEARCH_ACTION_ID } from "./ids";
 import { PRESETS, PRESET_NAMES } from "./keybindings";
 import { surfacesOf } from "./types";
 
 describe("command definitions", () => {
   test("every ACTION id and session search has a definition", () => {
     for (const id of Object.values(ACTION)) {
+      if (HANDLER_ONLY_ACTION_IDS.has(id)) continue;
       expect(COMMAND_DEFS_BY_ID.has(id)).toBe(true);
     }
     expect(COMMAND_DEFS_BY_ID.has(SESSION_SEARCH_ACTION_ID)).toBe(true);
+  });
+
+  test("handler-only ids are absent from the def table", () => {
+    for (const id of HANDLER_ONLY_ACTION_IDS) {
+      expect(COMMAND_DEFS_BY_ID.has(id)).toBe(false);
+    }
   });
 
   test("ids are unique", () => {
@@ -34,20 +41,45 @@ describe("command definitions", () => {
     }
   });
 
-  test("commands default to the palette surface", () => {
+  test("a def with no explicit surface list defaults to the palette", () => {
+    // Row-scoped context-menu actions (rename, archive, delete, ...) opt out by
+    // declaring `surfaces: ["contextmenu"]` explicitly -- only defs that leave
+    // `surfaces` unset are expected to fall back to the palette.
     for (const def of COMMAND_DEFS) {
+      if (def.surfaces) continue;
       expect(surfacesOf(def)).toContain("palette");
     }
   });
 });
 
-describe("title-bar toggle commands", () => {
-  const toggleIds = [
-    ACTION.panelToggleLeft,
-    ACTION.panelToggleRight,
-    ACTION.panelToggleBottom,
-    ACTION.commandToggle,
+describe("pane/surface commands", () => {
+  const paneIds = [
+    ACTION.surfaceNew,
+    ACTION.paneFocusLeft,
+    ACTION.paneFocusRight,
+    ACTION.paneFocusUp,
+    ACTION.paneFocusDown,
+    ACTION.paneZoomToggle,
   ];
+
+  test("each has a definition with a title and a default key", () => {
+    for (const id of paneIds) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(def?.title).toBeTruthy();
+      expect(def?.defaultKeys?.default).toBeTruthy();
+    }
+  });
+
+  test("each defaults to the palette surface, like surfaceClose and panelSplitH", () => {
+    for (const id of paneIds) {
+      const def = COMMAND_DEFS_BY_ID.get(id);
+      expect(surfacesOf(def!)).toContain("palette");
+    }
+  });
+});
+
+describe("title-bar toggle commands", () => {
+  const toggleIds = [ACTION.panelToggleLeft, ACTION.panelToggleBottom, ACTION.commandToggle];
 
   test("are on both the titlebar and palette surfaces", () => {
     for (const id of toggleIds) {
@@ -58,8 +90,7 @@ describe("title-bar toggle commands", () => {
 
   test("each has a toggle selector reading its own context key", () => {
     const expectations: Record<string, string> = {
-      [ACTION.panelToggleLeft]: "leftPanelVisible",
-      [ACTION.panelToggleRight]: "rightPanelVisible",
+      [ACTION.panelToggleLeft]: "sidebarVisible",
       [ACTION.panelToggleBottom]: "bottomPanelVisible",
       [ACTION.commandToggle]: "commandPaletteOpen",
     };

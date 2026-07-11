@@ -39,7 +39,7 @@ export function ServiceHealthIndicator() {
     <Popover>
       <PopoverTrigger
         aria-label={`Service health: ${aggregate}`}
-        className="flex items-center gap-1.5 rounded-sm bg-black/60 px-2 h-6 font-mono text-[0.75rem] select-none"
+        className="flex items-center gap-1.5 rounded-sm px-2 h-6 font-mono text-[0.75rem] select-none text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span className={cn("w-1.5 h-1.5 rounded-full", DOT[aggregate])} />
         <span className={TEXT[aggregate]}>services: {aggregate}</span>

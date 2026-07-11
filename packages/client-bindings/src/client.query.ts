@@ -57,8 +57,18 @@ const ENTITY: ReadonlyArray<readonly [string, string]> = [
 
 const CROSS: Partial<Record<CommandKey, QueryKey[]>> = {
   projectArchive: [["projects"], ["sessions"]],
+  projectRestore: [["projects"], ["sessions"]],
   projectDelete: [["projects"], ["sessions"]],
   projectMove: [["projects"], ["sessions"]],
+  projectDuplicate: [["projects"], ["sessions"]],
+  // Stop-surfaces flips surface runtime status: refresh surface reads and the
+  // activity rollup (and session rows, whose status badge rides those pushes).
+  projectStopSurfaces: [["projects"], ["sessions"], ["surfaces"], ["workspaces", "activity"]],
+  sessionStopSurfaces: [["sessions"], ["surfaces"], ["workspaces", "activity"]],
+  workspaceStopSurfaces: [["workspaces", "activity"], ["surfaces"], ["sessions"]],
+  workspaceArchive: [["workspaces"], ["projects"], ["sessions"]],
+  workspaceRestore: [["workspaces"], ["projects"], ["sessions"]],
+  workspaceDelete: [["workspaces"], ["projects"], ["sessions"]],
 };
 
 const PARSED = new Map<CommandKey, readonly [string, string]>();

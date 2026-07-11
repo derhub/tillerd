@@ -22,8 +22,10 @@ export const commands = {
 	/**
 	 *  Spawn a terminal surface: mint a placement, spawn, read the surface back by
 	 *  placement, then announce `SurfaceStarted` via the non-fatal notable tail.
+	 *  `command`, when given (library ref or inline), diverges the session's launch
+	 *  spec so the surface survives a reconcile.
 	 */
-	surfaceSpawn: (args: { sessionId: string }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
+	surfaceSpawn: (args: { sessionId: string; command: ({ libraryRef: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { libraryRef?: never } | null }) => typedError<string, string>(__TAURI_INVOKE("surface_spawn", args)),
 	surfaceClose: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_close", args)),
 	surfaceDetach: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_detach", args)),
 	logChannel: (args: { channel: Channel<number[]>; req: OpenLogChannel }) => typedError<null, string>(__TAURI_INVOKE("log_channel", args)),
@@ -55,6 +57,7 @@ export const commands = {
 	rootPath: string | null,
 	workspaceId: string,
 	status: string,
+	pinned: boolean,
 } | null, string>(__TAURI_INVOKE("project_get", args)),
 	projectSearch: (args: { workspaceId: string; query: string; limit: number }) => typedError<ProjectView[], string>(__TAURI_INVOKE("project_search", args)),
 	projectRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("project_restore", args)),
@@ -72,6 +75,7 @@ export const commands = {
 	id: string,
 	name: string,
 	status: string,
+	pinned: boolean,
 } | null, string>(__TAURI_INVOKE("workspace_get", args)),
 	workspaceArchive: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_archive", args)),
 	workspaceRestore: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("workspace_restore", args)),
@@ -85,6 +89,7 @@ export const commands = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 } | null, string>(__TAURI_INVOKE("surface_get", args)),
 	surfaceListBySession: (args: { session: string; limit: number | null; offset: number | null; after: string | null }) => typedError<SurfaceView[], string>(__TAURI_INVOKE("surface_list_by_session", args)),
 	surfaceListResumable: () => typedError<SurfaceView[], string>(__TAURI_INVOKE("surface_list_resumable")),
@@ -95,8 +100,10 @@ export const commands = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 } | null, string>(__TAURI_INVOKE("surface_find_by_placement", args)),
 	surfaceStop: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("surface_stop", args)),
+	surfaceSwapPlacement: (args: { session: string; placementA: string; placementB: string }) => typedError<null, string>(__TAURI_INVOKE("surface_swap_placement", args)),
 	surfaceReconcile: () => typedError<null, string>(__TAURI_INVOKE("surface_reconcile")),
 	sessionList: (args: { projectId: string | null; limit: number | null; offset: number | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list", args)),
 	/**
@@ -117,6 +124,7 @@ export const commands = {
 	titleSource: string,
 	createdAt: string,
 	status: string,
+	pinned: boolean,
 } | null, string>(__TAURI_INVOKE("session_get", args)),
 	sessionListAll: (args: { limit: number | null; offset: number | null; after: string | null }) => typedError<SessionView[], string>(__TAURI_INVOKE("session_list_all", args)),
 	sessionGetLaunchSpec: (args: { id: string }) => typedError<LaunchSpec | null, string>(__TAURI_INVOKE("session_get_launch_spec", args)),
@@ -138,6 +146,7 @@ export const commands = {
 	cli: string,
 	args: string[],
 	env: { [key in string]: string },
+	pinned: boolean,
 } | null, string>(__TAURI_INVOKE("command_get", args)),
 	commandDelete: (args: { id: string }) => typedError<null, string>(__TAURI_INVOKE("command_delete", args)),
 	commandRename: (args: { id: string; name: string }) => typedError<null, string>(__TAURI_INVOKE("command_rename", args)),
@@ -251,6 +260,7 @@ export type CommandView = {
 	cli: string,
 	args: string[],
 	env: { [key in string]: string },
+	pinned: boolean,
 };
 
 export type CreateCommandRequest = {
@@ -411,6 +421,7 @@ export type ProjectView = {
 	rootPath: string | null,
 	workspaceId: string,
 	status: string,
+	pinned: boolean,
 };
 
 /**  One service's health on the wire. */
@@ -437,6 +448,7 @@ export type SessionView = {
 	titleSource: string,
 	createdAt: string,
 	status: string,
+	pinned: boolean,
 };
 
 /**
@@ -453,6 +465,15 @@ export type SettingView = {
 	value: unknown,
 };
 
+/**
+ *  Wire shape for a spawn-time command reference: camelCase (`libraryRef`) like its
+ *  sibling transport params, unlike the opaque snake_case `command` persisted inside
+ *  a launch spec item's raw JSON blob (`CommandRef`). Transport-only -- `SpawnSurface`
+ *  itself carries the decomposed primitive fields (message-dto: DTO fields are plain
+ *  built-in types; a sum type is reassembled at the edge, not held on the DTO).
+ */
+export type SpawnCommandRef = ({ libraryRef: string }) & { args?: never; executable?: never } | ({ executable: string; args: string[] }) & { libraryRef?: never };
+
 /**  The boot lifecycle status as seen on the wire. Unchanged from the prior host. */
 export type StatusWire = { state: "booting" } | { state: "openingStore" } | { state: "supervising" } | { state: "ready" } | { state: "failed"; reason: string };
 
@@ -464,6 +485,10 @@ export type SurfaceClientMsg = { kind: "input"; bytes: number[] } | { kind: "res
  * 
  *  `kind` and `status` are the stored string columns (`terminal`/`diff` and
  *  `pending`/`live`/`idle`/`failed`); the read path needs no enum round-trip.
+ * 
+ *  `spawned_at` is the millis at which the row's PTY was last confirmed
+ *  running (elapsed-since-spawn in the panel title, ui-panel-compound spec);
+ *  `None` before any spawn has ever been confirmed for this row.
  */
 export type SurfaceView = {
 	id: string,
@@ -472,6 +497,7 @@ export type SurfaceView = {
 	cwd: string | null,
 	status: string,
 	placement: string | null,
+	spawnedAt: number | null,
 };
 
 /**
@@ -522,6 +548,7 @@ export type WorkspaceView = {
 	id: string,
 	name: string,
 	status: string,
+	pinned: boolean,
 };
 
 /* Tauri Specta runtime */

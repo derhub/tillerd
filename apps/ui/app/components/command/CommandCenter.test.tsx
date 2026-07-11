@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { CommandHandler } from "~/lib/commands/types";
 
@@ -11,22 +11,35 @@ import { CommandRegistryProvider, RegisterHandlers } from "~/lib/commands/regist
 // fire it. The component consumes the client-bindings `subscribe`/`runCommand` wrappers, so the mock
 // targets that layer (a sibling suite's partial mock of the same module must not clobber it).
 let activateHandler: (() => void) | null = null;
+let active = false;
+beforeEach(() => {
+  active = true;
+});
 
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  runCommand: async () => null,
-  subscribe: () => ({
-    listen: (cb: (e: unknown) => void) => {
-      activateHandler = () => cb({});
-      return Promise.resolve(() => {});
-    },
-  }),
+  runCommand: async (key: string, args?: unknown) => {
+    if (!active) return actualBindings.runCommand(key, args as never);
+    return null;
+  },
+  subscribe: (key: string) => {
+    if (!active) return actualBindings.subscribe(key as never);
+    return {
+      listen: (cb: (e: unknown) => void) => {
+        activateHandler = () => cb({});
+        return Promise.resolve(() => {});
+      },
+    } as never;
+  },
 }));
 
 const { CommandCenter } = await import("./CommandCenter");
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  active = false;
+});
 afterAll(() => mock.restore());
 
 function renderWith(handlers: Record<string, CommandHandler>) {

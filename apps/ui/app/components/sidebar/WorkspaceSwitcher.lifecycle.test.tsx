@@ -28,17 +28,25 @@ let workspaceList: { id: string; name: string }[] = [alpha, beta];
 let workspaceActivity: { workspaceId: string; running: number; failed: number }[] = [];
 let reattach: ((p: { workspaceId: string }) => void) | undefined;
 
+// mock.module is process-global; spread the real module so `desktopHostStore` (imported by
+// other suites, e.g. NotificationIndicator) survives once this mock is installed.
+const actualDesktopHost = await import("~/lib/useDesktopHost");
 void mock.module("~/lib/useDesktopHost", () => ({
+  ...actualDesktopHost,
   useDesktopHost: () => ({ status: "ready" }),
 }));
+
+let active = false;
 
 // mock.module is process-global; spread the real module so other tests' imports survive.
 void mock.module("~/lib/windows", () => ({
   ...realWindows,
-  openWindow: async (label: string) => {
+  openWindow: async (label: string, query?: string) => {
+    if (!active) return realWindows.openWindow(label, query);
     opened.push(label);
   },
   onReattachWorkspace: (cb: (p: { workspaceId: string }) => void) => {
+    if (!active) return realWindows.onReattachWorkspace(cb);
     reattach = cb;
     return Promise.resolve(() => {
       reattach = undefined;
@@ -46,26 +54,27 @@ void mock.module("~/lib/windows", () => ({
   },
 }));
 
-// typedError() wraps invoke's return value -- invoke must return raw data, not a typed-error shape.
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
-    if (cmd === "workspace_list") return [...workspaceList];
-    if (cmd === "workspace_create") {
-      const name = args?.["name"] as string;
-      created.push({ name });
-      const ws = { id: "ws-new", name };
-      workspaceList.push(ws);
-      return ws;
-    }
-    if (cmd === "project_list") return [];
-    if (cmd === "session_list") return [];
-    if (cmd === "workspace_activity") return [...workspaceActivity];
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  active = true;
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "workspace_list") return [...workspaceList];
+      if (cmd === "workspace_create") {
+        const name = args?.["name"] as string;
+        created.push({ name });
+        const ws = { id: "ws-new", name };
+        workspaceList.push(ws);
+        return ws;
+      }
+      if (cmd === "project_list") return [];
+      if (cmd === "session_list") return [];
+      if (cmd === "workspace_activity") return [...workspaceActivity];
+      return undefined;
+    },
+  );
+});
 
 const { WorkspaceSwitcher } = await import("./WorkspaceSwitcher");
 
@@ -78,6 +87,7 @@ function installClient() {
 
 afterEach(() => {
   cleanup();
+  active = false;
   opened.length = 0;
   created.length = 0;
   workspaceList = [alpha, beta];
@@ -85,6 +95,7 @@ afterEach(() => {
   reattach = undefined;
   setActiveWorkspace(null);
   setReady(false);
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 const detachBtn = () =>

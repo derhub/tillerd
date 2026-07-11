@@ -202,6 +202,55 @@ impl SurfaceRepo {
         Ok(result.rows_affected() > 0)
     }
 
+    /// Stamp the millis at which the row's PTY was last confirmed running
+    /// (elapsed-since-spawn display, ui-panel-compound spec). Only ever moves
+    /// forward on a real spawn/respawn -- never cleared on stop/exit, so the
+    /// last known spawn moment survives an idle/failed transition.
+    pub async fn set_spawned_at<'e>(
+        exec: impl SqliteExecutor<'e>,
+        id: &SurfaceId,
+        spawned_at_ms: i64,
+    ) -> Result<()> {
+        sqlx::query("UPDATE surface SET spawned_at = ? WHERE id = ?")
+            .bind(spawned_at_ms)
+            .bind(id.as_str())
+            .execute(exec)
+            .await?;
+        Ok(())
+    }
+
+    /// Fetch the surface bound to a session + placement slot, if any. Executor-generic
+    /// so `SwapPlacement` can resolve both sides on the pool, then rebind them inside
+    /// one transaction via `update_placement`.
+    pub async fn find_by_placement<'e>(
+        exec: impl SqliteExecutor<'e>,
+        session_id: &SessionId,
+        placement: &str,
+    ) -> Result<Option<Surface>> {
+        Ok(sqlx::query_as::<_, Surface>(
+            "SELECT id, session_id, kind, cwd, status, placement
+             FROM surface WHERE session_id = ? AND placement = ?",
+        )
+        .bind(session_id.as_str())
+        .bind(placement)
+        .fetch_optional(exec)
+        .await?)
+    }
+
+    /// Rebind a surface's placement slot (used by `SwapPlacement`).
+    pub async fn update_placement<'e>(
+        exec: impl SqliteExecutor<'e>,
+        id: &SurfaceId,
+        placement: Option<&str>,
+    ) -> Result<()> {
+        sqlx::query("UPDATE surface SET placement = ? WHERE id = ?")
+            .bind(placement)
+            .bind(id.as_str())
+            .execute(exec)
+            .await?;
+        Ok(())
+    }
+
     /// Delete a surface row by id (used by `CloseSurface`).
     pub async fn delete<'e>(exec: impl SqliteExecutor<'e>, id: &SurfaceId) -> Result<()> {
         sqlx::query("DELETE FROM surface WHERE id = ?")
@@ -381,6 +430,42 @@ mod tests {
         assert_eq!(fetched.status, SurfaceStatus::Idle);
     }
 
+    // Scenario: a fresh row has no spawn timestamp until stamped.
+    #[tokio::test]
+    async fn spawned_at_is_null_before_it_is_stamped() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-sp1").await;
+        let created = new_terminal(&pool, &sess).await;
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(created.id.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(spawned_at, None);
+    }
+
+    // Scenario: stamping persists the exact millis passed in.
+    #[tokio::test]
+    async fn set_spawned_at_persists_the_stamp() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-sp2").await;
+        let created = new_terminal(&pool, &sess).await;
+
+        SurfaceRepo::set_spawned_at(&pool, &created.id, 1_700_000_000_000)
+            .await
+            .unwrap();
+
+        let (spawned_at,): (Option<i64>,) =
+            sqlx::query_as("SELECT spawned_at FROM surface WHERE id = ?")
+                .bind(created.id.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(spawned_at, Some(1_700_000_000_000));
+    }
+
     #[tokio::test]
     async fn update_status_transitions_to_failed() {
         let pool = migrate::open_memory().await.unwrap();
@@ -393,6 +478,48 @@ mod tests {
 
         let fetched = SurfaceRepo::get(&pool, &created.id).await.unwrap().unwrap();
         assert_eq!(fetched.status, SurfaceStatus::Failed);
+    }
+
+    // Scenario: A surface is looked up by its natural session + placement key.
+    #[tokio::test]
+    async fn find_by_placement_resolves_the_bound_surface() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-fbp").await;
+        let created = SurfaceRepo::create(
+            &pool,
+            None,
+            &sess,
+            SurfaceKind::Terminal,
+            None,
+            Some("main"),
+            SurfaceStatus::Pending,
+        )
+        .await
+        .unwrap();
+
+        let found = SurfaceRepo::find_by_placement(&pool, &sess, "main")
+            .await
+            .unwrap();
+        assert_eq!(found.map(|s| s.id), Some(created.id));
+
+        let missing = SurfaceRepo::find_by_placement(&pool, &sess, "no-such-slot")
+            .await
+            .unwrap();
+        assert!(missing.is_none());
+    }
+
+    #[tokio::test]
+    async fn update_placement_rebinds_the_slot() {
+        let pool = migrate::open_memory().await.unwrap();
+        let sess = seed_session(&pool, "s-upl").await;
+        let created = new_terminal(&pool, &sess).await;
+
+        SurfaceRepo::update_placement(&pool, &created.id, Some("moved"))
+            .await
+            .unwrap();
+
+        let fetched = SurfaceRepo::get(&pool, &created.id).await.unwrap().unwrap();
+        assert_eq!(fetched.placement.as_deref(), Some("moved"));
     }
 
     // Scenario: Raw list returns a stable, predictable order regardless of status.
