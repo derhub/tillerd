@@ -72,75 +72,74 @@ function specWithCommand(commandId: string): LaunchSpec {
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    calls.push({ cmd, args });
-    if (cmd === "command_list") return commands;
-    if (cmd === "template_list") return templates;
-    if (cmd === "launch_template_list") {
-      const projectId = args?.["projectId"] as string;
-      return launchTemplates.filter((t) => t.projectId === projectId);
-    }
-    if (cmd === "template_pin") {
-      const id = args?.["id"] as string;
-      templates = templates.map((t) => (t.id === id ? { ...t, pinned: true } : t));
-      return null;
-    }
-    if (cmd === "template_unpin") {
-      const id = args?.["id"] as string;
-      templates = templates.map((t) => (t.id === id ? { ...t, pinned: false } : t));
-      return null;
-    }
-    if (cmd === "template_discard") {
-      const id = args?.["id"] as string;
-      templates = templates.filter((t) => t.id !== id);
-      return null;
-    }
-    if (cmd === "template_export") {
-      return null;
-    }
-    if (cmd === "template_import") {
-      const created = makeTemplate({
-        id: `t-${templates.length + 1}`,
-        name: args?.["name"] as string,
-        specJson: args?.["specJson"] as string,
-        specVersion: args?.["specVersion"] as number,
-      });
-      templates = [...templates, created];
-      return null;
-    }
-    if (cmd === "launch_template_create") {
-      const created: LaunchTemplateView = {
-        id: `lt-${launchTemplates.length + 1}`,
-        projectId: args?.["projectId"] as string,
-        specVersion: args?.["specVersion"] as number,
-        specJson: args?.["specJson"] as string,
-      };
-      launchTemplates = [...launchTemplates, created];
-      return created;
-    }
-    if (cmd === "launch_template_apply_spec") {
-      const id = args?.["id"] as string;
-      launchTemplates = launchTemplates.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              specVersion: args?.["specVersion"] as number,
-              specJson: args?.["specJson"] as string,
-            }
-          : t,
-      );
-      return null;
-    }
-    if (cmd === "launch_template_discard") {
-      const id = args?.["id"] as string;
-      launchTemplates = launchTemplates.filter((t) => t.id !== id);
-      return null;
-    }
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      calls.push({ cmd, args });
+      if (cmd === "command_list") return commands;
+      if (cmd === "template_list") return templates;
+      if (cmd === "launch_template_list") {
+        const projectId = args?.["projectId"] as string;
+        return launchTemplates.filter((t) => t.projectId === projectId);
+      }
+      if (cmd === "template_pin") {
+        const id = args?.["id"] as string;
+        templates = templates.map((t) => (t.id === id ? { ...t, pinned: true } : t));
+        return null;
+      }
+      if (cmd === "template_unpin") {
+        const id = args?.["id"] as string;
+        templates = templates.map((t) => (t.id === id ? { ...t, pinned: false } : t));
+        return null;
+      }
+      if (cmd === "template_discard") {
+        const id = args?.["id"] as string;
+        templates = templates.filter((t) => t.id !== id);
+        return null;
+      }
+      if (cmd === "template_export") {
+        return null;
+      }
+      if (cmd === "template_import") {
+        const created = makeTemplate({
+          id: `t-${templates.length + 1}`,
+          name: args?.["name"] as string,
+          specJson: args?.["specJson"] as string,
+          specVersion: args?.["specVersion"] as number,
+        });
+        templates = [...templates, created];
+        return null;
+      }
+      if (cmd === "launch_template_create") {
+        const created: LaunchTemplateView = {
+          id: `lt-${launchTemplates.length + 1}`,
+          projectId: args?.["projectId"] as string,
+          specVersion: args?.["specVersion"] as number,
+          specJson: args?.["specJson"] as string,
+        };
+        launchTemplates = [...launchTemplates, created];
+        return created;
+      }
+      if (cmd === "launch_template_apply_spec") {
+        const id = args?.["id"] as string;
+        launchTemplates = launchTemplates.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                specVersion: args?.["specVersion"] as number,
+                specJson: args?.["specJson"] as string,
+              }
+            : t,
+        );
+        return null;
+      }
+      if (cmd === "launch_template_discard") {
+        const id = args?.["id"] as string;
+        launchTemplates = launchTemplates.filter((t) => t.id !== id);
+        return null;
+      }
+      return undefined;
+    },
+  );
 });
 
 const { TemplatesView } = await import("./TemplatesView");
@@ -170,7 +169,7 @@ afterEach(() => {
   calls.length = 0;
   setReady(false);
   resetUiStore();
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 describe("library section", () => {

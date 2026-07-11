@@ -52,70 +52,73 @@ function makeCommand(overrides: Partial<CommandView> = {}): CommandView {
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    calls.push({ cmd, args });
-    if (cmd === "command_list") return commands;
-    if (cmd === "command_create") {
-      if (failNextCreate) throw new Error("name already taken");
-      const req = args?.["req"] as { name: string; cli: string; args?: string[]; env?: object };
-      const created = makeCommand({
-        id: `c-${commands.length + 1}`,
-        name: req.name,
-        cli: req.cli,
-        args: req.args ?? [],
-        env: (req.env as Record<string, string>) ?? {},
-      });
-      commands = [...commands, created];
-      return created;
-    }
-    if (cmd === "command_edit") {
-      const id = args?.["id"] as string;
-      commands = commands.map((c) =>
-        c.id === id ? { ...c, cli: args?.["cli"] as string, args: args?.["args"] as string[] } : c,
-      );
-      return null;
-    }
-    if (cmd === "command_rename") {
-      const id = args?.["id"] as string;
-      commands = commands.map((c) => (c.id === id ? { ...c, name: args?.["name"] as string } : c));
-      return null;
-    }
-    if (cmd === "command_duplicate") {
-      const source = commands.find((c) => c.id === args?.["id"]);
-      if (source) {
-        commands = [
-          ...commands,
-          makeCommand({
-            id: `${source.id}-copy`,
-            name: args?.["name"] as string,
-            origin: "custom",
-            cli: source.cli,
-          }),
-        ];
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      calls.push({ cmd, args });
+      if (cmd === "command_list") return commands;
+      if (cmd === "command_create") {
+        if (failNextCreate) throw new Error("name already taken");
+        const req = args?.["req"] as { name: string; cli: string; args?: string[]; env?: object };
+        const created = makeCommand({
+          id: `c-${commands.length + 1}`,
+          name: req.name,
+          cli: req.cli,
+          args: req.args ?? [],
+          env: (req.env as Record<string, string>) ?? {},
+        });
+        commands = [...commands, created];
+        return created;
       }
-      return null;
-    }
-    if (cmd === "command_pin") {
-      const id = args?.["id"] as string;
-      commands = commands.map((c) => (c.id === id ? { ...c, pinned: true } : c));
-      return null;
-    }
-    if (cmd === "command_unpin") {
-      const id = args?.["id"] as string;
-      commands = commands.map((c) => (c.id === id ? { ...c, pinned: false } : c));
-      return null;
-    }
-    if (cmd === "command_delete") {
-      const id = args?.["id"] as string;
-      commands = commands.filter((c) => c.id !== id);
-      return null;
-    }
-    if (cmd === "surface_spawn") return "p-1";
-    return undefined;
-  };
+      if (cmd === "command_edit") {
+        const id = args?.["id"] as string;
+        commands = commands.map((c) =>
+          c.id === id
+            ? { ...c, cli: args?.["cli"] as string, args: args?.["args"] as string[] }
+            : c,
+        );
+        return null;
+      }
+      if (cmd === "command_rename") {
+        const id = args?.["id"] as string;
+        commands = commands.map((c) =>
+          c.id === id ? { ...c, name: args?.["name"] as string } : c,
+        );
+        return null;
+      }
+      if (cmd === "command_duplicate") {
+        const source = commands.find((c) => c.id === args?.["id"]);
+        if (source) {
+          commands = [
+            ...commands,
+            makeCommand({
+              id: `${source.id}-copy`,
+              name: args?.["name"] as string,
+              origin: "custom",
+              cli: source.cli,
+            }),
+          ];
+        }
+        return null;
+      }
+      if (cmd === "command_pin") {
+        const id = args?.["id"] as string;
+        commands = commands.map((c) => (c.id === id ? { ...c, pinned: true } : c));
+        return null;
+      }
+      if (cmd === "command_unpin") {
+        const id = args?.["id"] as string;
+        commands = commands.map((c) => (c.id === id ? { ...c, pinned: false } : c));
+        return null;
+      }
+      if (cmd === "command_delete") {
+        const id = args?.["id"] as string;
+        commands = commands.filter((c) => c.id !== id);
+        return null;
+      }
+      if (cmd === "surface_spawn") return "p-1";
+      return undefined;
+    },
+  );
 });
 
 const { CommandsView } = await import("./CommandsView");
@@ -150,7 +153,7 @@ afterEach(() => {
   failNextCreate = false;
   setReady(false);
   notificationsStore.setState(() => ({ items: [], unread: 0 }));
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 describe("listing", () => {

@@ -52,50 +52,49 @@ const launchTemplateCreateCalls: Record<string, unknown>[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "project_list") {
-      const wsId = args?.["workspaceId"] as string | null;
-      return wsId ? fakeProjects.filter((p) => p.workspaceId === wsId) : fakeProjects;
-    }
-    if (cmd === "project_get") {
-      const id = args?.["id"] as string;
-      return fakeProjects.find((p) => p.id === id) ?? null;
-    }
-    if (cmd === "session_list") {
-      const projectId = args?.["projectId"] as string | null;
-      const offset = (args?.["offset"] as number | null) ?? 0;
-      if (projectId) sessionListedFor.push(projectId);
-      if (offset) return [];
-      return projectId ? fakeSessions.filter((s) => s.projectId === projectId) : fakeSessions;
-    }
-    if (cmd === "session_create") {
-      sessionCreateCalls.push(args ?? {});
-      const id = `s-${sessionCreateCalls.length}`;
-      return session(id, (args?.["projectId"] as string) ?? "", "New session");
-    }
-    if (cmd === "settings_resolve") return fakeProjectSettings;
-    if (cmd === "template_list") return fakeLibraryTemplates;
-    if (cmd === "launch_template_list") {
-      const projectId = args?.["projectId"] as string;
-      return fakeLaunchTemplates.filter((t) => t.projectId === projectId);
-    }
-    if (cmd === "launch_template_create") {
-      launchTemplateCreateCalls.push(args ?? {});
-      const created: LaunchTemplateView = {
-        id: `lt-${launchTemplateCreateCalls.length}`,
-        projectId: args?.["projectId"] as string,
-        specVersion: args?.["specVersion"] as number,
-        specJson: args?.["specJson"] as string,
-      };
-      fakeLaunchTemplates = [...fakeLaunchTemplates, created];
-      return created;
-    }
-    if (cmd === "command_list") return [];
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "project_list") {
+        const wsId = args?.["workspaceId"] as string | null;
+        return wsId ? fakeProjects.filter((p) => p.workspaceId === wsId) : fakeProjects;
+      }
+      if (cmd === "project_get") {
+        const id = args?.["id"] as string;
+        return fakeProjects.find((p) => p.id === id) ?? null;
+      }
+      if (cmd === "session_list") {
+        const projectId = args?.["projectId"] as string | null;
+        const offset = (args?.["offset"] as number | null) ?? 0;
+        if (projectId) sessionListedFor.push(projectId);
+        if (offset) return [];
+        return projectId ? fakeSessions.filter((s) => s.projectId === projectId) : fakeSessions;
+      }
+      if (cmd === "session_create") {
+        sessionCreateCalls.push(args ?? {});
+        const id = `s-${sessionCreateCalls.length}`;
+        return session(id, (args?.["projectId"] as string) ?? "", "New session");
+      }
+      if (cmd === "settings_resolve") return fakeProjectSettings;
+      if (cmd === "template_list") return fakeLibraryTemplates;
+      if (cmd === "launch_template_list") {
+        const projectId = args?.["projectId"] as string;
+        return fakeLaunchTemplates.filter((t) => t.projectId === projectId);
+      }
+      if (cmd === "launch_template_create") {
+        launchTemplateCreateCalls.push(args ?? {});
+        const created: LaunchTemplateView = {
+          id: `lt-${launchTemplateCreateCalls.length}`,
+          projectId: args?.["projectId"] as string,
+          specVersion: args?.["specVersion"] as number,
+          specJson: args?.["specJson"] as string,
+        };
+        fakeLaunchTemplates = [...fakeLaunchTemplates, created];
+        return created;
+      }
+      if (cmd === "command_list") return [];
+      return undefined;
+    },
+  );
 });
 
 const { SessionSidebar } = await import("./SessionSidebar");
@@ -146,7 +145,7 @@ afterEach(() => {
   setReady(false);
   resetUiStore();
   notificationsStore.setState(() => ({ items: [], unread: 0 }));
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 describe("workspace scoping", () => {

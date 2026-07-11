@@ -41,18 +41,17 @@ function makeLaunchTemplate(overrides: Partial<LaunchTemplateView> = {}): Launch
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "command_list") return commands;
-    if (cmd === "template_list") return templates;
-    if (cmd === "launch_template_list") {
-      const projectId = args?.["projectId"] as string;
-      return launchTemplates.filter((t) => t.projectId === projectId);
-    }
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "command_list") return commands;
+      if (cmd === "template_list") return templates;
+      if (cmd === "launch_template_list") {
+        const projectId = args?.["projectId"] as string;
+        return launchTemplates.filter((t) => t.projectId === projectId);
+      }
+      return undefined;
+    },
+  );
 });
 
 function renderDialog(props: Partial<React.ComponentProps<typeof NewSessionTemplateDialog>> = {}) {
@@ -77,7 +76,7 @@ afterEach(() => {
   templates = [];
   launchTemplates = [];
   setReady(false);
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 describe("NewSessionTemplateDialog", () => {

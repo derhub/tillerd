@@ -39,24 +39,23 @@ const libraryTemplates = [
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "settings_resolve") return projectSettings;
-    if (cmd === "launch_template_list") return launchTemplates;
-    if (cmd === "template_list") return libraryTemplates;
-    if (cmd === "command_list") return [];
-    if (cmd === "setting_set") {
-      settingSetCalls.push(args as (typeof settingSetCalls)[number]);
-      return null;
-    }
-    if (cmd === "setting_reset") {
-      settingResetCalls.push(args as (typeof settingResetCalls)[number]);
-      return null;
-    }
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "settings_resolve") return projectSettings;
+      if (cmd === "launch_template_list") return launchTemplates;
+      if (cmd === "template_list") return libraryTemplates;
+      if (cmd === "command_list") return [];
+      if (cmd === "setting_set") {
+        settingSetCalls.push(args as (typeof settingSetCalls)[number]);
+        return null;
+      }
+      if (cmd === "setting_reset") {
+        settingResetCalls.push(args as (typeof settingResetCalls)[number]);
+        return null;
+      }
+      return undefined;
+    },
+  );
 });
 
 const { ProjectSection } = await import("./ProjectSection");
@@ -68,7 +67,7 @@ afterEach(() => {
   settingResetCalls.length = 0;
   projectSettings = [];
   setReady(false);
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 function renderSection() {

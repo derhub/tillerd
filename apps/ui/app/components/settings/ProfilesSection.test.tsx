@@ -21,22 +21,21 @@ const discarded: string[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "profile_list") return profiles;
-    if (cmd === "profile_get_active") return profiles.find((p) => p.id === activeId) ?? null;
-    if (cmd === "profile_discard") {
-      discarded.push(args?.["id"] as string);
-      profiles = profiles.filter((p) => p.id !== args?.["id"]);
-      return null;
-    }
-    // Deleting the active profile re-hydrates the settings store (see ProfilesSection); its
-    // fetchQuery hits settingList unconditionally.
-    if (cmd === "setting_list") return [];
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "profile_list") return profiles;
+      if (cmd === "profile_get_active") return profiles.find((p) => p.id === activeId) ?? null;
+      if (cmd === "profile_discard") {
+        discarded.push(args?.["id"] as string);
+        profiles = profiles.filter((p) => p.id !== args?.["id"]);
+        return null;
+      }
+      // Deleting the active profile re-hydrates the settings store (see ProfilesSection); its
+      // fetchQuery hits settingList unconditionally.
+      if (cmd === "setting_list") return [];
+      return undefined;
+    },
+  );
 });
 
 const { ProfilesSection } = await import("./ProfilesSection");
@@ -44,7 +43,7 @@ const { ProfilesSection } = await import("./ProfilesSection");
 afterEach(() => {
   cleanup();
   mock.restore();
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
   profiles = [
     { id: "p-1", name: "Default" },
     { id: "p-2", name: "Work" },

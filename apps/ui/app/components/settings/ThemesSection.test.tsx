@@ -22,24 +22,23 @@ const discarded: string[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "theme_list") return themes;
-    if (cmd === "theme_get_active") return themes.find((t) => t.id === activeId) ?? null;
-    if (cmd === "theme_activate") {
-      activated.push(args?.["id"] as string);
-      activeId = args?.["id"] as string;
-      return null;
-    }
-    if (cmd === "theme_discard") {
-      discarded.push(args?.["id"] as string);
-      themes = themes.filter((t) => t.id !== args?.["id"]);
-      return null;
-    }
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "theme_list") return themes;
+      if (cmd === "theme_get_active") return themes.find((t) => t.id === activeId) ?? null;
+      if (cmd === "theme_activate") {
+        activated.push(args?.["id"] as string);
+        activeId = args?.["id"] as string;
+        return null;
+      }
+      if (cmd === "theme_discard") {
+        discarded.push(args?.["id"] as string);
+        themes = themes.filter((t) => t.id !== args?.["id"]);
+        return null;
+      }
+      return undefined;
+    },
+  );
 });
 
 const { ThemesSection } = await import("./ThemesSection");
@@ -47,7 +46,7 @@ const { ThemesSection } = await import("./ThemesSection");
 afterEach(() => {
   cleanup();
   mock.restore();
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
   themes = [
     { id: "t-1", name: "Default Dark", origin: "prebuilt" },
     { id: "t-2", name: "My Theme", origin: "custom" },

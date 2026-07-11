@@ -53,23 +53,22 @@ void mock.module("~/lib/windows", () => ({
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (
-    cmd: string,
-    args?: Record<string, unknown>,
-  ) => {
-    if (cmd === "workspace_list") return [...workspaceList];
-    if (cmd === "workspace_create") {
-      const name = args?.["name"] as string;
-      created.push({ name });
-      const ws = { id: "ws-new", name };
-      workspaceList.push(ws);
-      return ws;
-    }
-    if (cmd === "project_list") return [];
-    if (cmd === "session_list") return [];
-    if (cmd === "workspace_activity") return [...workspaceActivity];
-    return undefined;
-  };
+  (globalThis as any).__tillerd_set_invoke_mock(
+    async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "workspace_list") return [...workspaceList];
+      if (cmd === "workspace_create") {
+        const name = args?.["name"] as string;
+        created.push({ name });
+        const ws = { id: "ws-new", name };
+        workspaceList.push(ws);
+        return ws;
+      }
+      if (cmd === "project_list") return [];
+      if (cmd === "session_list") return [];
+      if (cmd === "workspace_activity") return [...workspaceActivity];
+      return undefined;
+    },
+  );
 });
 
 const { WorkspaceSwitcher } = await import("./WorkspaceSwitcher");
@@ -90,7 +89,7 @@ afterEach(() => {
   reattach = undefined;
   setActiveWorkspace(null);
   setReady(false);
-  delete (globalThis as any).__tillerd_active_invoke;
+  (globalThis as any).__tillerd_clear_invoke_mock();
 });
 
 const detachBtn = () =>
