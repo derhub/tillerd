@@ -3,14 +3,12 @@
 ## Purpose
 
 Defines the read-only health indicator chrome: a single aggregate indicator in the app shell whose state is the worst across the orchestrator and every service, which on activation opens a dismissible, non-modal panel listing each service with version, state, an optional failure reason, and a logs link filtered to that service. The indicator and panel observe only; they expose no service lifecycle control.
-
 ## Requirements
-
 ### Requirement: A single aggregate health indicator is shown as read-only chrome
 
-The interface SHALL display one aggregate health indicator in the application
-shell whose state reflects the worst current state across all observed services
-(and the orchestrator boot state).
+The interface SHALL display one aggregate health indicator as a status bar item whose
+state reflects the worst current state across all observed services (and the orchestrator
+boot state).
 
 #### Scenario: Aggregate reflects the worst service state
 
@@ -79,3 +77,4 @@ a service.
 
 - **WHEN** the user views the indicator and opens its panel
 - **THEN** no control to change any service's lifecycle is present
+

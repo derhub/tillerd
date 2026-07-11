@@ -3,9 +3,7 @@
 ## Purpose
 
 The command manager is the single contribution model for renderer UI commands: each command is declared once (identity, presentation, surfaces, default keybindings, availability, toggle state), handlers register by id, and one resolution path feeds the command palette, global keyboard shortcuts, the keybinding settings, and any toolbar or menu. It replaces the former split between id/title constants, a separate keybinding preset map, and scattered handler registration.
-
 ## Requirements
-
 ### Requirement: Single command declaration
 
 Every UI command SHALL be declared once as a command definition carrying a stable id, a title, and optional metadata: category, keywords, icon, surface tags, group, default keybindings per preset, a context (`when`) expression, and a toggle selector. The set of definitions SHALL be the single source of truth for command identity, titles, and default keybindings. No command's identity, title, or default key SHALL be declared outside this set.
@@ -60,7 +58,12 @@ The system SHALL maintain a reactive store of named context keys and SHALL evalu
 
 ### Requirement: Surface tags project commands to UI locations
 
-Each command definition SHALL declare the surfaces it appears in (palette, title bar, context menu), defaulting to the palette. A UI surface SHALL render exactly the commands tagged for it whose `when` currently passes, ordered by group. The title bar toolbar SHALL be a projection of the commands tagged for the title bar, requiring no hand-wired button list.
+Each command definition SHALL declare the surfaces it appears in (palette, title bar,
+context menu, activity bar, status bar), defaulting to the palette. A UI surface SHALL
+render exactly the commands tagged for it whose `when` currently passes, ordered by
+group. Chrome toolbars (title bar, activity bar, status bar) and context menus SHALL be
+projections of the commands tagged for them, requiring no hand-wired button or item
+lists.
 
 #### Scenario: Command appears only on its tagged surfaces
 
@@ -70,7 +73,15 @@ Each command definition SHALL declare the surfaces it appears in (palette, title
 #### Scenario: Title bar toolbar is data-driven
 
 - **WHEN** a command tagged for the title bar is added to the definitions
-- **THEN** its control appears in the title bar toolbar without editing the toolbar component
+- **THEN** its control appears in the title bar toolbar without editing the toolbar
+  component
+
+#### Scenario: Context menus are data-driven
+
+- **WHEN** a command tagged for the context menu with a row-scope `when` is added to the
+  definitions
+- **THEN** it appears in the matching rows' context menus without editing the menu
+  component
 
 ### Requirement: First-class toggle commands
 
@@ -104,3 +115,21 @@ Default keybindings SHALL be sourced from the command definitions' per-preset de
 
 - **WHEN** a command's `when` is false and the user presses its resolved key outside a capture target
 - **THEN** the command does not run
+
+### Requirement: Command invocation arguments
+
+A command handler SHALL be invocable with an optional argument payload (e.g. the entity
+id and kind of the row a context menu was opened on). Surfaces that carry target context
+SHALL pass it on invocation; handlers registered without argument support keep working
+unchanged.
+
+#### Scenario: Context menu passes the row entity
+
+- **WHEN** the user invokes "Archive" from a session row's context menu
+- **THEN** the archive handler receives that session's id without reading global state
+
+#### Scenario: Palette invocation without arguments still works
+
+- **WHEN** a no-argument command is invoked from the palette
+- **THEN** its handler runs exactly as before
+

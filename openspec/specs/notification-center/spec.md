@@ -7,9 +7,7 @@ notifications from lifecycle signals (surface start / stop / error, service up /
 orchestrator status), keeps a durable bounded history surfaced through a bell + popover in the
 app chrome with an unread badge and in-app click-through, and raises a native OS banner for
 background events when the window is unfocused.
-
 ## Requirements
-
 ### Requirement: Lifecycle signals become user notifications
 
 The system SHALL turn user-relevant lifecycle signals into notifications: a surface
@@ -52,15 +50,16 @@ that are not currently displayed, so a background surface's stop or error is nev
 
 ### Requirement: In-app notification center
 
-The system SHALL present a bell control in the app chrome that opens a list of recent
-notifications, most recent first, each showing its message, timestamp, and session context
-when present. The list SHALL be read-only and never block the rest of the app.
+The system SHALL present a bell control in the status bar that opens the bottom panel's
+Notifications tab, listing recent notifications most recent first, each showing its
+message, timestamp, and session context when present. The list SHALL never block the rest
+of the app.
 
 #### Scenario: Opening the center lists recent notifications
 
 - **WHEN** the user activates the bell control
-- **THEN** recent notifications are shown most-recent-first with message, time, and session
-  context
+- **THEN** the bottom panel opens on the Notifications tab showing recent notifications
+  most-recent-first with message, time, and session context
 
 #### Scenario: Empty feed shows an empty state
 
@@ -159,3 +158,20 @@ system SHALL NOT raise transient in-app toast popups.
 
 - **WHEN** a user-relevant lifecycle event occurs
 - **THEN** it is recorded in the notification center and no transient toast is shown
+
+### Requirement: Notification management actions
+
+The Notifications tab SHALL let the user mark a notification read, mark all read,
+disregard (remove) a notification, disregard all, and snooze a notification for a chosen
+duration. A snoozed notification SHALL leave the unread count until its snooze elapses.
+
+#### Scenario: Disregarding removes the entry
+
+- **WHEN** the user disregards a notification
+- **THEN** it disappears from the feed and does not return on restart
+
+#### Scenario: Snoozing defers the notification
+
+- **WHEN** the user snoozes an unread notification
+- **THEN** it stops counting as unread and reappears as unread after the snooze elapses
+

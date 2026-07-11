@@ -3,24 +3,32 @@
 ## Purpose
 
 Defines the log-viewer capability: a global app-shell route that reads structured JSON logs from every long-lived service through a host-agnostic source abstraction, merges them in timestamp order, tails them near-live, supports history backfill, and provides filtering and search over OpenTelemetry-mapped fields.
-
 ## Requirements
-
 ### Requirement: Global log-viewer route
 
-The application SHALL present a log viewer at its own global route, scoped to the app shell.
-The log view SHALL NOT be a session surface and SHALL NOT occupy a placement in any session's
-panel tree.
+The application SHALL present the log viewer at its own global route, scoped to the app
+shell, and the same log view SHALL render as the bottom panel's Logs tab. The log view
+SHALL NOT be a session surface and SHALL NOT occupy a placement in any session's panel
+tree. Both hosts SHALL honor the service filter (the route via its query parameter, the
+tab via the health panel's logs link).
 
 #### Scenario: Reaching the log viewer
 
 - **WHEN** the user navigates to the log-viewer route
-- **THEN** the application shows the log view in the content area, independent of any session
+- **THEN** the application shows the log view in the content area, independent of any
+  session
+
+#### Scenario: Logs tab in the bottom panel
+
+- **WHEN** the user opens the bottom panel's Logs tab
+- **THEN** the same log view renders inside the bottom panel while the panel area keeps
+  its current content
 
 #### Scenario: Not a session surface
 
-- **WHEN** a session is active and the user opens the log-viewer route
-- **THEN** the view is shown as app-shell chrome and consumes no session placement or surface
+- **WHEN** a session is active and the user opens the log-viewer route or the Logs tab
+- **THEN** the view is shown as app-shell chrome and consumes no session placement or
+  surface
 
 ### Requirement: Host-agnostic log source port
 
@@ -126,3 +134,4 @@ reshaping the field semantics defined by `observability-logging`.
 - **WHEN** a record is displayed
 - **THEN** its timestamp, severity, body, originating `service.name`, and any `session.id` are
   visible
+
