@@ -5,11 +5,7 @@ TBD - created by archiving change ux-ui-overhaul. Update Purpose after archive.
 ## Requirements
 ### Requirement: Interactive chrome carries ARIA semantics
 
-All interactive chrome elements (activity bar, sidebar rows and view headers, panel
-header toolbars, status bar items, dialogs, menus, tabs, tooltips) SHALL carry
-appropriate ARIA roles, accessible names, and state attributes. Icon-only buttons SHALL
-have an accessible name and a tooltip. The terminal canvas is exempt from screen-reader
-support.
+All interactive chrome elements (activity bar, sidebar rows and view headers, panel header toolbars, status bar items, dialogs, menus, tabs, tooltips) SHALL carry appropriate ARIA roles, accessible names, and state attributes. Icon-only buttons SHALL have an accessible name and a tooltip. The terminal canvas is exempt from screen-reader support.
 
 #### Scenario: Icon-only button is named
 
@@ -42,9 +38,7 @@ the ring token at every stop.
 
 ### Requirement: Token pairs meet WCAG AA contrast
 
-Every foreground/background token pairing rendered as text at rest or as an interactive
-state, in both light and dark mode, SHALL meet WCAG AA contrast (4.5:1 normal text, 3:1
-large text and UI components). The verified pairings SHALL be recorded in DESIGN.md.
+Every foreground/background token pairing rendered as text at rest or as an interactive state, in both light and dark mode, SHALL meet WCAG AA contrast (4.5:1 normal text, 3:1 large text and UI components). The verified pairings SHALL be recorded in DESIGN.md.
 A pairing never rendered at rest, or a deliberate sub-threshold hairline whose
 interactive states pass independently, MAY fall below the threshold when DESIGN.md
 records the measured ratio and the rationale.

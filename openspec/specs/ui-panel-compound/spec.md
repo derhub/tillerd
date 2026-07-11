@@ -98,8 +98,7 @@ spawn timestamp), updating at a coarse interval.
 
 ### Requirement: Toolbar buttons carry tooltips
 
-Every icon-only button in a panel header toolbar (split horizontal, split vertical,
-detach, close) SHALL show a tooltip naming the action.
+Every icon-only button in a panel header toolbar (split horizontal, split vertical, detach, close) SHALL show a tooltip naming the action.
 
 #### Scenario: Hovering a split button
 

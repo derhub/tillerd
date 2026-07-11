@@ -36,8 +36,7 @@ the corresponding setting is enabled — prompt before pasting multi-line clipbo
 
 ### Requirement: Terminal typography and buffer settings apply live
 
-Font size, font family, line height, cursor style, cursor blink, and scrollback size
-SHALL be user-settable and apply to mounted terminals without restart.
+Font size, font family, line height, cursor style, cursor blink, and scrollback size SHALL be user-settable and apply to mounted terminals without restart.
 
 #### Scenario: Font size change
 

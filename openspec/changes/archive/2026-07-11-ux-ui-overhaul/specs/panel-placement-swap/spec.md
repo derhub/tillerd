@@ -4,10 +4,7 @@
 
 ### Requirement: Drag a panel leaf onto another to swap placements
 
-Dragging a panel leaf's header and dropping it onto another leaf in the same session
-SHALL swap the two surfaces' placements. The swap SHALL persist (both surfaces resume in
-their new slots after reload) and the panel geometry SHALL be unchanged — only the
-surface-to-slot binding swaps.
+Dragging a panel leaf's header and dropping it onto another leaf in the same session SHALL swap the two surfaces' placements. The swap SHALL persist (both surfaces resume in their new slots after reload) and the panel geometry SHALL be unchanged — only the surface-to-slot binding swaps.
 
 #### Scenario: Swap two terminals
 

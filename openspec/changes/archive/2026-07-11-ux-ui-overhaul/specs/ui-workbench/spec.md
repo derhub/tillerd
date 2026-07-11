@@ -87,9 +87,7 @@ trigger actions.
 
 ### Requirement: Workbench state persists
 
-The active sidebar view, sidebar visibility and size, and bottom panel visibility, size,
-and active tab SHALL persist across restarts via the settings store, restoring on launch
-and defaulting to a defined initial state when no value is stored.
+The active sidebar view, sidebar visibility and size, and bottom panel visibility, size, and active tab SHALL persist across restarts via the settings store, restoring on launch and defaulting to a defined initial state when no value is stored.
 
 #### Scenario: State survives restart
 
