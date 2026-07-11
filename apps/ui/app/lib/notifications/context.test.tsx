@@ -8,10 +8,16 @@ import { delegatingQuery } from "~/lib/test/real-bindings";
 
 import { NotificationsProvider, notificationsStore, useNotifications } from "./context";
 
+let active = false;
+
 const resetStore = () => notificationsStore.setState(() => ({ items: [], unread: 0 }));
-beforeEach(resetStore);
+beforeEach(() => {
+  active = true;
+  resetStore();
+});
 afterEach(() => {
   cleanup();
+  active = false;
   resetStore();
 });
 
@@ -21,11 +27,15 @@ let historyData: NotificationWire[] = [];
 const actualBindings = await import("@tillerd/client-bindings");
 void mock.module("@tillerd/client-bindings", () => ({
   ...actualBindings,
-  query: delegatingQuery({ notificationsList: () => ({ queryFn: async () => historyData }) }),
-  getQueryClient: () => ({
-    ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
-  }),
+  query: delegatingQuery({ notificationsList: () => ({ queryFn: async () => historyData }) }, () => active),
+  getQueryClient: () => {
+    if (!active) return actualBindings.getQueryClient();
+    return {
+      ensureQueryData: (opts: { queryFn: () => Promise<NotificationWire[]> }) => opts.queryFn(),
+    } as any;
+  },
   notificationChannel: async (cb: (event: NotificationWire) => void) => {
+    if (!active) return actualBindings.notificationChannel(cb);
     notificationHandler = cb;
     return {
       close: async () => {

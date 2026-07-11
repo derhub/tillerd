@@ -56,6 +56,7 @@ const { LogViewer } = await import("./LogViewer");
 
 afterEach(() => {
   cleanup();
+  active = false;
   desktop = true;
   files = [];
   recordsByPath = {};
