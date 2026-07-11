@@ -24,6 +24,21 @@ void mock.module("@tauri-apps/api/core", () => ({
   },
 }));
 
+void mock.module("@tauri-apps/api/event", () => ({
+  emit: async () => {},
+  listen: async () => () => {},
+}));
+
+void mock.module("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    label: "main",
+    setFocus: async () => {},
+    close: async () => {},
+    onCloseRequested: () => () => {},
+    destroy: async () => {},
+  }),
+}));
+
 import { setReady } from "./app/lib/test/real-bindings";
 
 // Readiness is module-global mutable state: a file that sets it false (a not-ready assertion or
