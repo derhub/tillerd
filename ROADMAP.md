@@ -280,7 +280,9 @@ migration under the 0.0.6 data-model freeze.
   `shared/` holds reusable primitives (`fs`, `kv`, `page`, `datetime`, `errors`, and the CQS
   `Command`/`Query` + `Bus`), not a storage abstraction; `app/` is a CQS layer of
   command/query objects on the bus; `boot/` is the composition root.
-- **Domain data in sqlite via `sqlx` 0.9** (async, compile-time-checked queries; not an ORM).
+- **Domain data in sqlite via `sqlx` 0.9** (async, runtime-bound queries — `.bind`, no
+  `.sqlx`/`DATABASE_URL` build dependency; the compile-time `query!` macros are banned by
+  ast-grep; not an ORM).
   One repo per entity owns its table, columns, and `Row → Entity` mapping, with typed
   `create`/`get`/`list(parent, page)`/`update`/`delete` over an executor (pool or tx ref).
   Nesting is a `parent_id` column; rename/move/archive are `UPDATE`s; cascades are
@@ -292,7 +294,7 @@ migration under the 0.0.6 data-model freeze.
   boundary is per command** (`Ctx::transaction`), not the bus.
 - **Transport is thin over a transport-agnostic core.** The tauri crate's
   `transport_command!`/`transport_query!` (`type => action`) generate the per-operation
-  `#[tauri::command]` shim + `inventory` registration (wire and dynamic ACL unchanged); the
+  `#[tauri::command]` shim + `collect_transport!` registration (wire and dynamic ACL unchanged); the
   future web host owns its own macro (axum) over the same commands and bus.
 - **User-config stays file-based** through `shared::fs` — settings, theme, keybindings, and the
   profile store (`config/profiles/<id>.json`, `active.json`). Profiles ship file-based here.
@@ -329,7 +331,8 @@ slug-tree, the `Backend` enum, the `store/` wrappers, and the `infra/memory` dou
 - [x] `infra/` per-entity async `sqlx` repositories — one repo per entity owning its table,
   columns, and `Row → Entity` mapping, with typed `create`/`get`/`list(parent, page)`/`update`/
   `delete` over an executor (pool or tx ref). Nesting via `parent_id`; rename/move/archive are
-  `UPDATE`s; cascades `UPDATE`/`DELETE`. sqlx 0.9 compile-time-checked, not an ORM; `rusqlite` dropped.
+  `UPDATE`s; cascades `UPDATE`/`DELETE`. sqlx 0.9 runtime-bound (`.bind`, no `.sqlx` build dep;
+  `query!` macros banned by ast-grep), not an ORM; `rusqlite` dropped.
 - [x] Surface runtime into `infra/` — PTY proxies + daemon client behind a `Runtime` enum
   `{ Daemon | Fake }` (static dispatch); the `surface/` and `launch/` dirs are removed and their
   contents redistributed (`launch/spec.rs` → `entities/`; executor/api → `app/` surface commands).
@@ -341,9 +344,10 @@ slug-tree, the `Backend` enum, the `store/` wrappers, and the `infra/memory` dou
   opens the pool and builds `Ctx` + `Bus`.
 - [x] Caller-assigned create ids — creates mint the id at the caller (`transport_create!`),
   removing the snapshot-then-list-diff read-back; creates are idempotent.
-- [x] Thin transport over a transport-agnostic core — `transport_command!`/`transport_query!`
-  generate the `#[tauri::command]` shims + `inventory` registration; all 82 app-layer commands
-  exposed; wire protocol and dynamic ACL unchanged.
+- [x] Thin transport over a transport-agnostic core — `transport_command!`/`transport_query!`/
+  `transport_create!` generate the `#[tauri::command]` shims; the hand-maintained
+  `collect_transport!` macro registers them into `tauri::generate_handler!` (no `inventory`
+  crate); ~116 app-layer commands exposed; wire protocol and dynamic ACL unchanged.
 - [x] Standardized event dispatch — synchronous zero-copy dispatch (pull source + app pump); no
   per-event clone on the hot path.
 - [x] Layer-boundary enforcement — ast-grep rules gate the entities/infra/app/shared import
@@ -496,6 +500,10 @@ Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 ---
 
 ### 0.0.13 — Command center
+
+> Placed here (after 0.0.20) because it shipped later than its number; it is a dependency of
+> the 0.0.20 UX ship. Numbers 0.0.18 and 0.0.19 are intentionally unused — the foundation
+> slices (0.0.15–0.0.17) landed straight into the 0.0.20 UX ship.
 
 Configurable keyboard shortcuts with a leader-key–activated command palette.
 
