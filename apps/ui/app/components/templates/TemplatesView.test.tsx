@@ -72,7 +72,10 @@ function specWithCommand(commandId: string): LaunchSpec {
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     calls.push({ cmd, args });
     if (cmd === "command_list") return commands;
     if (cmd === "template_list") return templates;

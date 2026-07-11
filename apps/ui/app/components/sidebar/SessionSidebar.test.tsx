@@ -52,7 +52,10 @@ const launchTemplateCreateCalls: Record<string, unknown>[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "project_list") {
       const wsId = args?.["workspaceId"] as string | null;
       return wsId ? fakeProjects.filter((p) => p.workspaceId === wsId) : fakeProjects;

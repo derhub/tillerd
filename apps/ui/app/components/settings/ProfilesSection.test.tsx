@@ -21,7 +21,10 @@ const discarded: string[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "profile_list") return profiles;
     if (cmd === "profile_get_active") return profiles.find((p) => p.id === activeId) ?? null;
     if (cmd === "profile_discard") {
@@ -43,7 +46,6 @@ afterEach(() => {
   mock.restore();
   delete (globalThis as any).__tillerd_active_invoke;
   profiles = [
-
     { id: "p-1", name: "Default" },
     { id: "p-2", name: "Work" },
   ];

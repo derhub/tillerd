@@ -22,7 +22,10 @@ const discarded: string[] = [];
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "theme_list") return themes;
     if (cmd === "theme_get_active") return themes.find((t) => t.id === activeId) ?? null;
     if (cmd === "theme_activate") {

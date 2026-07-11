@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setQueryClient, setReady } from "@tillerd/client-bindings";
 /// <reference lib="dom" />
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
 import { makeQueryClient } from "~/lib/queryClient";
 import { setActiveProject } from "~/lib/store";
@@ -39,7 +39,10 @@ const libraryTemplates = [
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "settings_resolve") return projectSettings;
     if (cmd === "launch_template_list") return launchTemplates;
     if (cmd === "template_list") return libraryTemplates;

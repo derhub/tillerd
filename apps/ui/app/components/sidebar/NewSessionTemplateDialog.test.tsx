@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setQueryClient, setReady } from "@tillerd/client-bindings";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import React from "react";
 
 import { CURRENT_SPEC_VERSION, emptySpec, serializeLaunchSpec } from "~/lib/launchSpec";
@@ -41,7 +41,10 @@ function makeLaunchTemplate(overrides: Partial<LaunchTemplateView> = {}): Launch
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "command_list") return commands;
     if (cmd === "template_list") return templates;
     if (cmd === "launch_template_list") {

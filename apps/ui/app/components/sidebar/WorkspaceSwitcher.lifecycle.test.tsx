@@ -53,7 +53,10 @@ void mock.module("~/lib/windows", () => ({
 import { beforeEach } from "bun:test";
 
 beforeEach(() => {
-  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
+  (globalThis as any).__tillerd_active_invoke = async (
+    cmd: string,
+    args?: Record<string, unknown>,
+  ) => {
     if (cmd === "workspace_list") return [...workspaceList];
     if (cmd === "workspace_create") {
       const name = args?.["name"] as string;
