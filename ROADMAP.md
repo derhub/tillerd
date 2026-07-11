@@ -418,7 +418,8 @@ Buffer + integration pass: the three slices proven together end-to-end before th
 Depends on 0.0.8 (error recovery UX), 0.0.9 (settings, preference storage),
 0.0.10 (notification center), 0.0.11 (panel detach), 0.0.12 (project & session
 management), 0.0.13 (command center), 0.0.14 (workspaces).
-Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
+Exit criterion: all bullets checked (performance deferred to 0.1.7) + E2E suite green on
+macOS and Linux CI.
 
 **Interaction polish**
 - [x] Sidebar project tree — projects expand / collapse (state persisted via 0.0.9
@@ -482,10 +483,8 @@ Exit criterion: all bullets checked + E2E suite green on macOS and Linux CI.
 - [x] Linux — system title bar respected; no custom decorations override.
 - [x] Platform-specific keyboard accelerator labels in menus (⌘ vs Ctrl).
 
-**Performance**
-- [ ] Sustained 60fps under multiple sessions and surfaces; profiling and optimization
-  as needed.
-- [ ] Low memory footprint — no unbounded growth across session switches.
+**Performance** — deferred to 0.1.7. No profiling harness exists yet, so these targets were
+never measurable; they are not a ship gate for the working app.
 
 **E2E coverage**
 - [x] Panel split + spawn terminal in the new leaf.
@@ -566,6 +565,17 @@ additive on the architecture frozen at 0.0.6.
 - [ ] PTY output flow control — the renderer's write backlog is unbounded when a
   producer outruns the parser (measured ~100MB/s of retained heap under a full-speed
   generator); pause/resume the PTY on backlog high-water marks.
+
+### 0.1.7 — Performance hardening
+
+Deferred from 0.0.20: the working app shipped without a profiling harness, so its 60fps and
+memory-footprint targets were never measurable. Build the harness first, then validate.
+
+- [ ] Profiling / measurement harness — frame-timing + heap-growth instrumentation under a
+  multi-session / multi-surface load generator (none exists today).
+- [ ] Sustained 60fps under multiple sessions and surfaces; profiling and optimization as
+  needed.
+- [ ] Low memory footprint — no unbounded growth across session switches.
 
 ---
 
