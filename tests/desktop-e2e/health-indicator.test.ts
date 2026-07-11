@@ -24,15 +24,18 @@ async function expectLogsFilteredTo(b: Browser, service: string) {
   await (await b.$(`[aria-label="Show logs for ${displayName(service)}"]`)).click();
 
   await (await b.$('[data-testid="log-viewer"]')).waitForExist({ timeout: 10_000 });
-  // Wait for this service's rows to avoid stale rows from the prior filter.
+  // Wait for only this service's rows to be present, to avoid stale rows from the prior filter.
+  let rows: (string | null)[] = [];
   await b.waitUntil(
-    () => b.execute((s) => document.querySelectorAll(`[data-service="${s}"]`).length > 0, service),
-    { timeout: 15_000, timeoutMsg: `no ${service} rows appeared` },
-  );
-  const rows = await b.execute(() =>
-    Array.from(document.querySelectorAll("[data-service]")).map((el) =>
-      el.getAttribute("data-service"),
-    ),
+    async () => {
+      rows = await b.execute(() =>
+        Array.from(document.querySelectorAll("[data-service]")).map((el) =>
+          el.getAttribute("data-service"),
+        ),
+      );
+      return rows.length > 0 && rows.every((s) => s === service);
+    },
+    { timeout: 15_000, timeoutMsg: `logs list was not filtered to ${service}` },
   );
   expect(rows.length).toBeGreaterThan(0);
   expect(rows.every((s) => s === service)).toBe(true);
@@ -75,7 +78,14 @@ test("the /logs route's own service filter still works as a deep link", async ()
   });
   await (await b.$('[data-testid="log-viewer"]')).waitForExist({ timeout: 15_000 });
   await b.waitUntil(
-    () => b.execute(() => document.querySelectorAll('[data-service="tillerd-desktop"]').length > 0),
-    { timeout: 15_000, timeoutMsg: "no tillerd-desktop rows appeared via the route filter" },
+    async () => {
+      const rows = await b.execute(() =>
+        Array.from(document.querySelectorAll("[data-service]")).map((el) =>
+          el.getAttribute("data-service"),
+        ),
+      );
+      return rows.length > 0 && rows.every((s) => s === "tillerd-desktop");
+    },
+    { timeout: 15_000, timeoutMsg: "logs list was not filtered to tillerd-desktop via route" },
   );
 }, 120_000);

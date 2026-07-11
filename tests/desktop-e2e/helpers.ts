@@ -148,10 +148,13 @@ export async function resetToHome(browser: Browser): Promise<void> {
   await browser.execute(() => {
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
   });
-  await browser.execute(() => {
-    window.history.pushState({}, "", "/");
-    window.dispatchEvent(new Event("popstate"));
-  });
+  const url = await browser.getUrl();
+  if (url.includes("/session/") || url.includes("/logs")) {
+    await browser.execute(() => {
+      window.history.pushState({}, "", "/");
+      window.dispatchEvent(new Event("popstate"));
+    });
+  }
   await browser.waitUntil(
     async () => {
       for (const sel of [
@@ -164,7 +167,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
       }
       return (await browser.$("button*=New project")).isExisting();
     },
-    { timeout: 10_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
+    { timeout: 15_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
   );
 }
 
