@@ -38,20 +38,19 @@ function makeLaunchTemplate(overrides: Partial<LaunchTemplateView> = {}): Launch
   };
 }
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "command_list") return commands;
     if (cmd === "template_list") return templates;
     if (cmd === "launch_template_list") {
       const projectId = args?.["projectId"] as string;
       return launchTemplates.filter((t) => t.projectId === projectId);
     }
-    return [];
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 function renderDialog(props: Partial<React.ComponentProps<typeof NewSessionTemplateDialog>> = {}) {
   const queryClient = makeQueryClient();
@@ -75,6 +74,7 @@ afterEach(() => {
   templates = [];
   launchTemplates = [];
   setReady(false);
+  delete (globalThis as any).__tillerd_active_invoke;
 });
 
 describe("NewSessionTemplateDialog", () => {

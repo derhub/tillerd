@@ -19,8 +19,10 @@ let activeId: string | null = "t-1";
 const activated: string[] = [];
 const discarded: string[] = [];
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "theme_list") return themes;
     if (cmd === "theme_get_active") return themes.find((t) => t.id === activeId) ?? null;
     if (cmd === "theme_activate") {
@@ -33,18 +35,16 @@ void mock.module("@tauri-apps/api/core", () => ({
       themes = themes.filter((t) => t.id !== args?.["id"]);
       return null;
     }
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { ThemesSection } = await import("./ThemesSection");
 
 afterEach(() => {
   cleanup();
   mock.restore();
+  delete (globalThis as any).__tillerd_active_invoke;
   themes = [
     { id: "t-1", name: "Default Dark", origin: "prebuilt" },
     { id: "t-2", name: "My Theme", origin: "custom" },

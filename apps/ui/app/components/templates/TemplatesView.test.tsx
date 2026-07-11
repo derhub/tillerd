@@ -69,8 +69,10 @@ function specWithCommand(commandId: string): LaunchSpec {
   };
 }
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     calls.push({ cmd, args });
     if (cmd === "command_list") return commands;
     if (cmd === "template_list") return templates;
@@ -134,12 +136,9 @@ void mock.module("@tauri-apps/api/core", () => ({
       launchTemplates = launchTemplates.filter((t) => t.id !== id);
       return null;
     }
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { TemplatesView } = await import("./TemplatesView");
 
@@ -168,6 +167,7 @@ afterEach(() => {
   calls.length = 0;
   setReady(false);
   resetUiStore();
+  delete (globalThis as any).__tillerd_active_invoke;
 });
 
 describe("library section", () => {

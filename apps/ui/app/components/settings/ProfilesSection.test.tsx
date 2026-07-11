@@ -18,8 +18,10 @@ let profiles: { id: string; name: string }[] = [
 let activeId: string | null = "p-1";
 const discarded: string[] = [];
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "profile_list") return profiles;
     if (cmd === "profile_get_active") return profiles.find((p) => p.id === activeId) ?? null;
     if (cmd === "profile_discard") {
@@ -30,19 +32,18 @@ void mock.module("@tauri-apps/api/core", () => ({
     // Deleting the active profile re-hydrates the settings store (see ProfilesSection); its
     // fetchQuery hits settingList unconditionally.
     if (cmd === "setting_list") return [];
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { ProfilesSection } = await import("./ProfilesSection");
 
 afterEach(() => {
   cleanup();
   mock.restore();
+  delete (globalThis as any).__tillerd_active_invoke;
   profiles = [
+
     { id: "p-1", name: "Default" },
     { id: "p-2", name: "Work" },
   ];

@@ -50,9 +50,10 @@ void mock.module("~/lib/windows", () => ({
   },
 }));
 
-// typedError() wraps invoke's return value -- invoke must return raw data, not a typed-error shape.
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "workspace_list") return [...workspaceList];
     if (cmd === "workspace_create") {
       const name = args?.["name"] as string;
@@ -64,12 +65,9 @@ void mock.module("@tauri-apps/api/core", () => ({
     if (cmd === "project_list") return [];
     if (cmd === "session_list") return [];
     if (cmd === "workspace_activity") return [...workspaceActivity];
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { WorkspaceSwitcher } = await import("./WorkspaceSwitcher");
 
@@ -89,6 +87,7 @@ afterEach(() => {
   reattach = undefined;
   setActiveWorkspace(null);
   setReady(false);
+  delete (globalThis as any).__tillerd_active_invoke;
 });
 
 const detachBtn = () =>

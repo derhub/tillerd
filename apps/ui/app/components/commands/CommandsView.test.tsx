@@ -49,8 +49,10 @@ function makeCommand(overrides: Partial<CommandView> = {}): CommandView {
   };
 }
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     calls.push({ cmd, args });
     if (cmd === "command_list") return commands;
     if (cmd === "command_create") {
@@ -109,12 +111,9 @@ void mock.module("@tauri-apps/api/core", () => ({
       return null;
     }
     if (cmd === "surface_spawn") return "p-1";
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { CommandsView } = await import("./CommandsView");
 
@@ -148,6 +147,7 @@ afterEach(() => {
   failNextCreate = false;
   setReady(false);
   notificationsStore.setState(() => ({ items: [], unread: 0 }));
+  delete (globalThis as any).__tillerd_active_invoke;
 });
 
 describe("listing", () => {

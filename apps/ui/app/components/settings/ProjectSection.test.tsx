@@ -36,8 +36,10 @@ const libraryTemplates = [
   },
 ];
 
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "settings_resolve") return projectSettings;
     if (cmd === "launch_template_list") return launchTemplates;
     if (cmd === "template_list") return libraryTemplates;
@@ -50,12 +52,9 @@ void mock.module("@tauri-apps/api/core", () => ({
       settingResetCalls.push(args as (typeof settingResetCalls)[number]);
       return null;
     }
-    return null;
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { ProjectSection } = await import("./ProjectSection");
 
@@ -66,9 +65,8 @@ afterEach(() => {
   settingResetCalls.length = 0;
   projectSettings = [];
   setReady(false);
+  delete (globalThis as any).__tillerd_active_invoke;
 });
-
-afterAll(() => mock.restore());
 
 function renderSection() {
   setActiveProject("proj-1");

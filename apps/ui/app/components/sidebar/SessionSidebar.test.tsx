@@ -49,8 +49,10 @@ const launchTemplateCreateCalls: Record<string, unknown>[] = [];
 // Bindings call: typedError(invoke(cmd, args))
 // typedError wraps the Promise<T> with { status: "ok", data: T } on success.
 // So invoke must return the RAW data (not a typedError shape).
-void mock.module("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+import { beforeEach } from "bun:test";
+
+beforeEach(() => {
+  (globalThis as any).__tillerd_active_invoke = async (cmd: string, args?: Record<string, unknown>) => {
     if (cmd === "project_list") {
       const wsId = args?.["workspaceId"] as string | null;
       return wsId ? fakeProjects.filter((p) => p.workspaceId === wsId) : fakeProjects;
@@ -89,12 +91,9 @@ void mock.module("@tauri-apps/api/core", () => ({
       return created;
     }
     if (cmd === "command_list") return [];
-    return [];
-  },
-  Channel: class Channel {
-    onmessage: ((v: unknown) => void) | null = null;
-  },
-}));
+    return undefined;
+  };
+});
 
 const { SessionSidebar } = await import("./SessionSidebar");
 
@@ -144,6 +143,7 @@ afterEach(() => {
   setReady(false);
   resetUiStore();
   notificationsStore.setState(() => ({ items: [], unread: 0 }));
+  delete (globalThis as any).__tillerd_active_invoke;
 });
 
 describe("workspace scoping", () => {

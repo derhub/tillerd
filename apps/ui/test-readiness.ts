@@ -1,10 +1,21 @@
 /// <reference types="bun" />
-import { beforeEach } from "bun:test";
-// bun runs every test file in one process and module mocks / module-global state are process-global,
-// never reset between files (mock.restore does NOT undo mock.module in bun 1.3.x), so a file's stubs
-// leak into whatever file runs next. Under a different filesystem order (macOS vs Linux CI) that
-// leakage stalls or breaks sibling suites. Importing real-bindings here snapshots the real query()
-// and setReady() before any test file registers a mock.
+import { beforeEach, mock } from "bun:test";
+
+// Register a single global mock for @tauri-apps/api/core before any bindings are imported.
+// Test files will set (globalThis as any).__tillerd_active_invoke dynamically to mock backend commands.
+void mock.module("@tauri-apps/api/core", () => ({
+  invoke: async (cmd: string, args?: Record<string, unknown>) => {
+    const active = (globalThis as any).__tillerd_active_invoke;
+    if (active) {
+      const res = await active(cmd, args);
+      if (res !== undefined) return res;
+    }
+    return null;
+  },
+  Channel: class Channel {
+    onmessage: ((v: unknown) => void) | null = null;
+  },
+}));
 
 import { setReady } from "./app/lib/test/real-bindings";
 
