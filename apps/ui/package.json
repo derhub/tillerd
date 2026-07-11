@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "start": "bun run serve.ts",
     "check-types": "tsc",
-    "test": "bun test",
+    "test": "bun test --isolate",
     "check-deps": "bun outdated"
   },
   "dependencies": {

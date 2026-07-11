@@ -1,20 +1,18 @@
 /// <reference types="bun" />
 import { beforeEach, mock } from "bun:test";
-import { AsyncLocalStorage } from "node:async_hooks";
 
-const invokeMockStorage = new AsyncLocalStorage<any>();
 (globalThis as any).__tillerd_set_invoke_mock = (handler: any) => {
-  invokeMockStorage.enterWith(handler);
+  (globalThis as any).__tillerd_active_invoke = handler;
 };
 (globalThis as any).__tillerd_clear_invoke_mock = () => {
-  invokeMockStorage.enterWith(undefined);
+  delete (globalThis as any).__tillerd_active_invoke;
 };
 
 // Register a single global mock for @tauri-apps/api/core before any bindings are imported.
-// Test files will set the active mock dynamically using the AsyncLocalStorage helper.
+// Test files will set the active mock dynamically using the helper methods.
 void mock.module("@tauri-apps/api/core", () => ({
   invoke: async (cmd: string, args?: Record<string, unknown>) => {
-    const active = invokeMockStorage.getStore();
+    const active = (globalThis as any).__tillerd_active_invoke;
     if (active) {
       const res = await active(cmd, args);
       if (res !== undefined) return res;
