@@ -6,8 +6,7 @@
 // query() for its own keys delegates every other key to realQuery, keeping sibling suites that rely
 // on the real query()/whenReady() path working regardless of filesystem order (macOS vs Linux CI).
 
-import { query } from "../../../../../packages/client-bindings/src/client.query";
-import { setReady as setReadySource } from "../../../../../packages/client-bindings/src/readiness";
+import { query, setReady as setReadySource } from "@tillerd/client-bindings";
 
 export const realQuery = query;
 export const setReady = setReadySource;
