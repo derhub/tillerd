@@ -56,5 +56,11 @@ bin/tillerd-gate
 packages/daemon-pty/tillerd-daemon
 packages/daemon-pty/athing-daemon
 
+.gemini
 # Include openspec (overrides global ignore)
 !openspec/
+# tap-comms state
+.tap-comms/
+
+# tap-comms local config (machine-specific)
+tap-config.local.json
