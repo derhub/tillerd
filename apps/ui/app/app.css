@@ -135,3 +135,9 @@ body {
   --icon-md: 0.875rem; /* 14px -- default action icons */
   --icon-lg: 1rem; /* 16px -- panel headers / primary controls */
 }
+
+/* Overrides to ensure zoomed pane can escape split/tab containers and fill the entire PanelTree */
+[data-zoomed="true"] [data-slot="resizable-panel"],
+[data-zoomed="true"] [data-slot="tabs-content"] {
+  position: static !important;
+}

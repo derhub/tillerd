@@ -303,7 +303,11 @@ export function PanelTree({
 
   // The `relative` root is the positioning context the zoomed leaf's absolute-fill escapes to, so
   // a zoomed pane fills this whole area while the rest of the tree stays mounted behind it.
-  return <div className="relative h-full w-full">{renderNode(tree, "root")}</div>;
+  return (
+    <div className="relative h-full w-full" data-zoomed={zoomedLeafId ? "true" : undefined}>
+      {renderNode(tree, "root")}
+    </div>
+  );
 }
 
 function DetachedPlaceholder({ onReattach }: { onReattach: () => void }) {

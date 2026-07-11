@@ -51,6 +51,13 @@ export function PanelContent() {
   const graceElapsed = useDelayedTrue(host.status === "booting", 200);
   const bootRegion = bootContent(host.status, graceElapsed);
 
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const { tree, split, close, setContent, resetToEmpty, setActiveTab } = usePanelTree(sessionId);
   const totalPanels = countLeaves(tree);
 
@@ -59,18 +66,24 @@ export function PanelContent() {
   // close without a prompt. A placement absent from the map is treated as still running (its pane
   // has not reported an exit), so the confirm defaults on for a live-but-unreported surface.
   const [statusByPlacement, setStatusByPlacement] = React.useState<Record<string, string>>({});
+
+  const statusByPlacementRef = React.useRef(statusByPlacement);
+  statusByPlacementRef.current = statusByPlacement;
+
+  // Reset placements status when session changes to avoid leaking statuses of previous sessions
+  React.useEffect(() => {
+    setStatusByPlacement({});
+  }, [sessionId]);
+
   const handleStatusChange = React.useCallback((placement: string, status: string) => {
     setStatusByPlacement((prev) =>
       prev[placement] === status ? prev : { ...prev, [placement]: status },
     );
   }, []);
-  const isPlacementRunning = React.useCallback(
-    (placement: string) => {
-      const s = statusByPlacement[placement];
-      return s !== "exited" && s !== "error";
-    },
-    [statusByPlacement],
-  );
+  const isPlacementRunning = React.useCallback((placement: string) => {
+    const s = statusByPlacementRef.current[placement];
+    return s !== "exited" && s !== "error";
+  }, []);
 
   const treeRef = React.useRef(tree);
   treeRef.current = tree;
@@ -137,8 +150,14 @@ export function PanelContent() {
   const handleRequestReset = React.useCallback(
     (leafId: string) => {
       const leaf = findLeaf(treeRef.current, leafId);
-      if (leaf?.content.type === "terminal" && sessionId) {
-        surfaceClose.mutate({ id: leaf.content.placement });
+      if (leaf && leaf.content.type === "terminal") {
+        const placement = leaf.content.placement;
+        if (sessionId) surfaceClose.mutate({ id: placement });
+        setStatusByPlacement((prev) => {
+          const next = { ...prev };
+          delete next[placement];
+          return next;
+        });
       }
       resetToEmpty(leafId);
     },
@@ -151,12 +170,19 @@ export function PanelContent() {
   const runClose = React.useCallback(
     (leaf: PanelLeaf) => {
       if (leaf.content.type === "terminal") {
-        if (sessionId) surfaceClose.mutate({ id: leaf.content.placement });
+        const placement = leaf.content.placement;
+        if (sessionId) surfaceClose.mutate({ id: placement });
         resetToEmpty(leaf.id);
+        setStatusByPlacement((prev) => {
+          const next = { ...prev };
+          delete next[placement];
+          return next;
+        });
         return;
       }
       setClosingLeafIds((prev) => new Set(prev).add(leaf.id));
       window.setTimeout(() => {
+        if (!mountedRef.current) return;
         close(leaf.id);
         setClosingLeafIds((prev) => {
           if (!prev.has(leaf.id)) return prev;

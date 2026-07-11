@@ -97,7 +97,7 @@ async function bindChannel(
   placement: string,
   setSurfaceId: (id: string) => void,
   setStatus: (s: string) => void,
-  sendInputRef: React.RefObject<((bytes: number[]) => void) | null>,
+  setSendInput: (fn: ((bytes: number[]) => void) | null) => void,
   setFailureReason: (reason: string | null) => void,
   setExitQualifier: (q: string | null) => void,
 ): Promise<() => void> {
@@ -153,12 +153,12 @@ async function bindChannel(
     void handle.send({ kind: "resize", cols, rows });
   });
   // Publish the input path so the extras layer (path drop) can write to this surface's PTY.
-  sendInputRef.current = (bytes) => void handle.send({ kind: "input", bytes });
+  setSendInput((bytes) => void handle.send({ kind: "input", bytes }));
 
   return () => {
     onData.dispose();
     onResize.dispose();
-    sendInputRef.current = null;
+    setSendInput(null);
     void handle.close();
   };
 }
@@ -264,17 +264,26 @@ export function DesktopTerminalPane(_props: {
   React.useEffect(() => {
     if (!terminalReady || !termRef.current || !_props.sessionId) return () => {};
     const abort = { cancelled: false };
+
+    const guard = <T extends any[]>(fn: (...args: T) => void) => {
+      return (...args: T) => {
+        if (!abort.cancelled) fn(...args);
+      };
+    };
+
     const unsub = bridgeSubscribe(
       bindChannel(
         abort,
         termRef.current,
         _props.sessionId,
         _props.placement,
-        setSurfaceId,
-        setStatus,
-        sendInputRef,
-        setFailureReason,
-        setExitQualifier,
+        guard(setSurfaceId),
+        guard(setStatus),
+        (fn) => {
+          if (!abort.cancelled) sendInputRef.current = fn;
+        },
+        guard(setFailureReason),
+        guard(setExitQualifier),
       ),
     );
     return () => {
@@ -308,6 +317,14 @@ export function DesktopTerminalPane(_props: {
     onRequestReset?.();
   }, [onRequestReset]);
 
+  const handleReconnect = React.useCallback(() => {
+    termRef.current?.clear();
+    setFailureReason(null);
+    setExitQualifier(null);
+    setStatus("connecting");
+    setResumeKey((k) => k + 1);
+  }, []);
+
   const dotColorClass =
     status === "connected"
       ? "bg-terminal-success"
@@ -331,10 +348,16 @@ export function DesktopTerminalPane(_props: {
         style={{ padding: "0.333rem 0.333rem 0" }}
       />
       {extras.overlay}
-      <div className="absolute top-2 right-3 flex items-center gap-1.5 pointer-events-none">
+      <button
+        type="button"
+        onClick={handleReconnect}
+        aria-label="Reconnect terminal"
+        className="absolute top-2 right-3 flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[0.833rem] text-terminal-muted hover:text-foreground hover:bg-terminal-surface/50 border border-transparent hover:border-terminal-border transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring select-none cursor-pointer"
+        data-testid="terminal-status-reconnect"
+      >
         <span className={`w-2 h-2 rounded-full inline-block ${dotColorClass}`} />
-        <span className="text-terminal-muted text-[0.917rem]">{status}</span>
-      </div>
+        <span>{status}</span>
+      </button>
       {failureReason && (
         <TerminalFailureOverlay
           reason={failureReason}

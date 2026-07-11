@@ -70,7 +70,7 @@ function PanelFrame({
   return (
     <div
       className={cn(
-        "group/panel flex flex-col h-full min-h-0 min-w-0",
+        "group/panel flex flex-col h-full min-h-0 min-w-0 focus:outline-none",
         "transition-opacity duration-[var(--motion-fast)] ease-standard motion-reduce:transition-none",
         isClosing ? "opacity-0 pointer-events-none" : mounted ? "opacity-100" : "opacity-0",
         // Drop-target ring is the loud full-primary edge; the focused-pane ring is a quieter inset
@@ -80,6 +80,7 @@ function PanelFrame({
           : isFocused && "ring-1 ring-inset ring-ring/50",
         className,
       )}
+      tabIndex={-1}
       data-panel-id={state.id}
       data-state={isClosing ? "closing" : mounted ? "entered" : "entering"}
       data-testid={isDropTarget ? "panel-drop-target-active" : undefined}

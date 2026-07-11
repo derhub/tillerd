@@ -31,7 +31,6 @@ export function usePaneShortcutDispatch(): (e: KeyboardEvent) => boolean {
         command.run();
         return true;
       }
-      return false;
     }
     return false;
   }, []);

@@ -3,7 +3,7 @@ import type { SurfaceChannelEvent, SurfaceChannelHandle } from "@tillerd/client-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 /// <reference lib="dom" />
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import React from "react";
 
 // The failure overlay is a channel-event effect, not a DOM/render concern of xterm.js itself --
@@ -32,6 +32,7 @@ class FakeTerminal {
   paste() {}
   selectAll() {}
   clear() {}
+  reset() {}
   open() {}
   dispose() {}
   write() {}
@@ -85,7 +86,10 @@ void mock.module("@tillerd/client-bindings", () => ({
 
 const { DesktopTerminalPane } = await import("./DesktopTerminalPane");
 
-function renderPane() {
+const onRequestResetSpy = mock(() => {});
+const onStatusChangeSpy = mock(() => {});
+
+function renderPane(props?: Partial<React.ComponentProps<typeof DesktopTerminalPane>>) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -94,6 +98,9 @@ function renderPane() {
         placement="main"
         cwd="/tmp"
         detachOnUnmount={false}
+        onRequestReset={onRequestResetSpy}
+        onStatusChange={onStatusChangeSpy}
+        {...props}
       />
     </QueryClientProvider>,
   );
@@ -103,6 +110,12 @@ afterEach(() => {
   cleanup();
   channelListener = null;
   closeSpy.mockClear();
+  onRequestResetSpy.mockClear();
+  onStatusChangeSpy.mockClear();
+});
+
+afterAll(() => {
+  mock.restore();
 });
 
 describe("DesktopTerminalPane surface failure overlay", () => {
@@ -127,16 +140,24 @@ describe("DesktopTerminalPane surface failure overlay", () => {
     expect(screen.getByRole("button", { name: /dismiss/i })).toBeTruthy();
   });
 
-  test("a clean exit (ok) does not show the overlay", async () => {
+  test("a clean exit (ok) does not show the overlay but renders the exit bar", async () => {
     renderPane();
     await waitFor(() => expect(channelListener).not.toBeNull());
 
     act(() => channelListener?.({ kind: "exit", value: "ok" }));
 
     expect(screen.queryByTestId("terminal-failure-overlay")).toBeNull();
+    const exitBar = await screen.findByTestId("terminal-exit-bar");
+    expect(exitBar).toBeTruthy();
+    expect(exitBar.textContent).toContain("exited");
+
+    // Clicking Restart clears status/exits and triggers reconnect
+    act(() => screen.getByTestId("terminal-exit-restart").click());
+    expect(screen.getByText("connecting")).toBeTruthy();
+    expect(screen.queryByTestId("terminal-exit-bar")).toBeNull();
   });
 
-  test("dismiss hides the overlay", async () => {
+  test("dismiss hides the overlay and triggers requestReset", async () => {
     renderPane();
     await waitFor(() => expect(channelListener).not.toBeNull());
 
@@ -146,5 +167,29 @@ describe("DesktopTerminalPane surface failure overlay", () => {
     act(() => screen.getByRole("button", { name: /dismiss/i }).click());
 
     await waitFor(() => expect(screen.queryByTestId("terminal-failure-overlay")).toBeNull());
+    expect(onRequestResetSpy).toHaveBeenCalled();
+  });
+
+  test("manual reconnect clears terminal buffer and re-resolves channel", async () => {
+    let clearCalled = false;
+    FakeTerminal.prototype.clear = () => {
+      clearCalled = true;
+    };
+
+    renderPane();
+    await waitFor(() => expect(channelListener).not.toBeNull());
+
+    act(() => channelListener?.({ kind: "status", value: "live" }));
+    expect(screen.getByText("live")).toBeTruthy();
+
+    const reconnectBtn = screen.getByTestId("terminal-status-reconnect");
+    expect(reconnectBtn).toBeTruthy();
+
+    // Click reconnect
+    act(() => reconnectBtn.click());
+
+    expect(clearCalled).toBe(true);
+    expect(screen.getByText("connecting")).toBeTruthy();
+    expect(closeSpy).toHaveBeenCalled();
   });
 });

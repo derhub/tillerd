@@ -74,14 +74,42 @@ export function useShellCommands({
         focusLeafTerminal(next);
       }
     };
+    const spawnIntoLeaf = (commandRef?: SpawnCommandRef) => {
+      const empty = pick((l) => l.content.type === "empty");
+      if (empty) {
+        if (commandRef === undefined) {
+          spawn(empty.id);
+        } else {
+          spawn(empty.id, commandRef);
+        }
+        return;
+      }
+      const target = pick(() => true);
+      if (target) {
+        const nextId = split(target.id, "horizontal");
+        if (commandRef === undefined) {
+          spawn(nextId);
+        } else {
+          spawn(nextId, commandRef);
+        }
+      }
+    };
     return {
       [ACTION.panelSplitH]: () => {
         const leaf = pick(() => true);
-        if (leaf) split(leaf.id, "horizontal");
+        if (leaf) {
+          const newId = split(leaf.id, "horizontal");
+          setFocusedLeaf(newId);
+          requestAnimationFrame(() => focusLeafTerminal(newId));
+        }
       },
       [ACTION.panelSplitV]: () => {
         const leaf = pick(() => true);
-        if (leaf) split(leaf.id, "vertical");
+        if (leaf) {
+          const newId = split(leaf.id, "vertical");
+          setFocusedLeaf(newId);
+          requestAnimationFrame(() => focusLeafTerminal(newId));
+        }
       },
       [ACTION.surfaceSpawn]: () => {
         const leaf = pick((l) => l.content.type === "empty");
@@ -89,27 +117,12 @@ export function useShellCommands({
       },
       // New surface: place a terminal in the active/first empty leaf, else split the active/first
       // leaf to make room and spawn there (mirrors surfaceRunCommand's placement, without a command).
-      [ACTION.surfaceNew]: () => {
-        const empty = pick((l) => l.content.type === "empty");
-        if (empty) {
-          spawn(empty.id);
-          return;
-        }
-        const target = pick(() => true);
-        if (target) spawn(split(target.id, "horizontal"));
-      },
+      [ACTION.surfaceNew]: () => spawnIntoLeaf(),
       // Run a library command (dispatched by the out-of-tree commands sidebar): place its PTY in
       // the active/first empty leaf, else split the active/first leaf to make room. Without a leaf
       // placement the spawned surface renders nowhere and leaks on every click.
       [ACTION.surfaceRunCommand]: (args) => {
-        const commandRef = args?.commandRef as SpawnCommandRef | undefined;
-        const empty = pick((l) => l.content.type === "empty");
-        if (empty) {
-          spawn(empty.id, commandRef);
-          return;
-        }
-        const target = pick(() => true);
-        if (target) spawn(split(target.id, "horizontal"), commandRef);
+        spawnIntoLeaf(args?.commandRef as SpawnCommandRef | undefined);
       },
       // Close acts on the focused/first leaf. The always-one-pane guarantee and the terminal-vs-empty
       // outcome live in PanelContent's handleClose + the tree ops, so no leaf-count guard here.
