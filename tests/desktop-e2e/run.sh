@@ -93,17 +93,19 @@ RELOAD="$REPO_ROOT/tests/desktop-e2e/reload-deep-route.test.ts"
 POINTERS="$REPO_ROOT/tests/desktop-e2e/view-pointers-restart.test.ts"
 FOUNDATION="$REPO_ROOT/tests/desktop-e2e/foundation-integration.test.ts"
 WORKBENCH_STATE="$REPO_ROOT/tests/desktop-e2e/workbench-state.test.ts"
+EXPAND="$REPO_ROOT/tests/desktop-e2e/sidebar-expand-persist.test.ts"
 
 # Dev scenario suite: one shared app (preload) across every spec except the own-launch ones.
-SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME" | grep -v "$RELOAD" | grep -v "$POINTERS" | grep -v "$FOUNDATION" | grep -v "$WORKBENCH_STATE")
+SCENARIO_SPECS=$(ls "$REPO_ROOT"/tests/desktop-e2e/*.test.ts | grep -v "$RESUME" | grep -v "$RELOAD" | grep -v "$POINTERS" | grep -v "$FOUNDATION" | grep -v "$WORKBENCH_STATE" | grep -v "$EXPAND")
 # shellcheck disable=SC2086
 TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail --preload "$SETUP" $SCENARIO_SPECS
 
 # Own-launch specs (own app against the shared TILLERD_DIR): restart-resume, deep-route reload,
-# the view-pointer restart, the foundation-integration journey (it reloads its own app), and the
-# workbench-layout restart (workbench chrome state has no URL, so only a real restart proves it).
+# the view-pointer restart, the foundation-integration journey (it reloads its own app), the
+# workbench-layout restart (workbench chrome state has no URL, so only a real restart proves it),
+# and the sidebar expand/collapse restart (sidebar tree state likewise has no URL).
 set +e
-TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD" "$POINTERS" "$FOUNDATION" "$WORKBENCH_STATE"
+TILLERD_DESKTOP_BIN="$DEV_BIN" bun test --bail "$RESUME" "$RELOAD" "$POINTERS" "$FOUNDATION" "$WORKBENCH_STATE" "$EXPAND"
 TEST_EXIT=$?
 if [[ $TEST_EXIT -ne 0 ]]; then
   echo "--- E2E TEST FAILED ---" >&2

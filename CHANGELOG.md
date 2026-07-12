@@ -12,6 +12,11 @@ the app's own UI. The working app shipped at **0.0.20**; the architecture froze 
 every later 0.x version is additive on those seams. 0.1.x extends the working app; 1.0.0 ships
 distribution and returns the agent surface (ADR-0027).
 
+### Added
+
+- **E2E** — session-row status badge driven by the surface-status push channel (idle → running on
+  spawn); sidebar project expand/collapse persistence across a genuine app restart.
+
 ## [0.0.20] — 2026-07-11
 
 UX/UI — ships the working app.
