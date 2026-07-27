@@ -17,7 +17,7 @@ tracing-appender = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true
-serial_test = "3"
+serial_test = "4"
 serde_json.workspace = true
 
 [lints]
