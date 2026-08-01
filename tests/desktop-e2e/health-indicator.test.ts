@@ -28,16 +28,17 @@ async function expectLogsFilteredTo(b: Browser, service: string) {
   let rows: (string | null)[] = [];
   await b.waitUntil(
     async () => {
+      const selected = await (await b.$('select[aria-label="service"]')).getValue();
+      if (selected !== service) return false;
       rows = await b.execute(() =>
         Array.from(document.querySelectorAll("[data-service]")).map((el) =>
           el.getAttribute("data-service"),
         ),
       );
-      return rows.length > 0 && rows.every((s) => s === service);
+      return rows.every((s) => s === service);
     },
     { timeout: 15_000, timeoutMsg: `logs list was not filtered to ${service}` },
   );
-  expect(rows.length).toBeGreaterThan(0);
   expect(rows.every((s) => s === service)).toBe(true);
 }
 
