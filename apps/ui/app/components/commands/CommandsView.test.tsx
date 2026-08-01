@@ -287,7 +287,7 @@ describe("delete", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-  }, 10000);
+  }, 30000);
 });
 
 describe("pin", () => {

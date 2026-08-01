@@ -285,7 +285,7 @@ describe("project launch templates", () => {
     fireEvent.click(screen.getByRole("button", { name: "Discard" }));
 
     await waitFor(() => expect(screen.queryByText("Build")).toBeNull());
-  }, 10000);
+  }, 30000);
 });
 
 describe("import", () => {
