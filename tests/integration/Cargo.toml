@@ -6,5 +6,5 @@ publish = false
 
 [dependencies]
 tillerd-paths = { path = "../../crates/paths" }
-serial_test = "3"
+serial_test = "4"
 tempfile = "3"

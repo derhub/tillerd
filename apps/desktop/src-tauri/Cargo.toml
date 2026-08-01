@@ -50,7 +50,7 @@ webdriver = ["dep:tauri-plugin-webdriver"]
 
 [dev-dependencies]
 tempfile.workspace = true
-serial_test = "3"
+serial_test = "4"
 # `tauri::test` mock runtime for the IPC command-contract test.
 tauri = { version = "2", features = ["test"] }
 # Span-counting layer proving the off-telemetry channel send opens no bus span.
