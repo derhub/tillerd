@@ -65,7 +65,9 @@ test("a collapsed project stays collapsed after an app restart", async () => {
       timeout: 10_000,
       timeoutMsg: "project did not collapse on click",
     });
-    await (await first.$(`[data-tree-id="${sessionId}"]`)).waitForExist({
+    await (
+      await first.$(`[data-tree-id="${sessionId}"]`)
+    ).waitForExist({
       timeout: 10_000,
       reverse: true,
       timeoutMsg: "collapsing did not unmount the child session row",
