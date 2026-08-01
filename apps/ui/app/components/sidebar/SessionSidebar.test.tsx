@@ -239,7 +239,7 @@ describe("Unfiled group visibility", () => {
     renderSidebar(<SessionSidebar />);
 
     await waitFor(() => expect(screen.queryByText("Ordinary")).not.toBeNull());
-    expect(screen.queryByText("Unfiled")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Unfiled")).toBeNull());
   });
 
   test("the Unfiled group renders when it has an active session", async () => {
