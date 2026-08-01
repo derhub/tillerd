@@ -20,7 +20,10 @@ test("spawning a terminal drives the session row badge to running via the surfac
   // The badge lives in the active project's session row (default-expanded), which mounts once the
   // project's sessions load -- wait for it rather than reading a mid-render snapshot.
   const badge = await b.$(`[data-tree-id="${sessionId}"] [data-testid="session-status"]`);
-  await badge.waitForExist({ timeout: 15_000, timeoutMsg: "session row status badge never rendered" });
+  await badge.waitForExist({
+    timeout: 15_000,
+    timeoutMsg: "session row status badge never rendered",
+  });
 
   // No surface bound yet -- the aggregate of an unknown session is `idle`, not a semantic hue.
   expect(await badge.getAttribute("data-status")).toBe("idle");
