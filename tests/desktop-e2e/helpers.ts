@@ -87,15 +87,23 @@ export async function stubPrompt(browser: Browser, value: string): Promise<void>
 // Create a project (which also makes a default session and navigates to it) and return the
 // resulting session route URL.
 export async function createProject(browser: Browser, name: string): Promise<string> {
+  const previousUrl = await browser.getUrl();
+  let createdUrl = "";
   await stubPrompt(browser, name);
   const button = await browser.$("button*=New project");
   await button.waitForExist({ timeout: 10_000 });
   await button.click();
-  await browser.waitUntil(async () => (await browser.getUrl()).includes("/session/"), {
-    timeout: 15_000,
-    timeoutMsg: "creating a project did not produce a session route",
-  });
-  return browser.getUrl();
+  await browser.waitUntil(
+    async () => {
+      createdUrl = await browser.getUrl();
+      return createdUrl !== previousUrl && createdUrl.includes("/session/");
+    },
+    {
+      timeout: 15_000,
+      timeoutMsg: "creating a project did not produce a new session route",
+    },
+  );
+  return createdUrl;
 }
 
 // The currently-mounted terminal pane's surface id, or "" before one exists.

@@ -41,13 +41,21 @@ stop_app_processes() {
   pkill -f tillerd-desktop 2>/dev/null || true
   pkill -f "bin/tillerd-daemon" 2>/dev/null || true
   pkill -f "bin/tillerd-gate" 2>/dev/null || true
-  for _ in $(seq 1 20); do
-    if ! pgrep -f tillerd-desktop >/dev/null 2>&1 && ! pgrep -f "bin/tillerd-daemon" >/dev/null 2>&1 && ! pgrep -f "bin/tillerd-gate" >/dev/null 2>&1; then
+  has_live_process() {
+    local pattern="$1" pid state
+    while read -r pid; do
+      state="$(ps -o state= -p "$pid" 2>/dev/null | tr -d ' ')"
+      [[ -n "$state" && "${state:0:1}" != Z ]] && return 0
+    done < <(pgrep -f "$pattern" 2>/dev/null || true)
+    return 1
+  }
+  for _ in $(seq 1 40); do
+    if ! has_live_process tillerd-desktop && ! has_live_process "bin/tillerd-daemon" && ! has_live_process "bin/tillerd-gate"; then
       return 0
     fi
     sleep 0.25
   done
-  echo "e2e CLEANUP FAILED: desktop/services still running after 5s." >&2
+  echo "e2e CLEANUP FAILED: desktop/services still running after 10s." >&2
   return 1
 }
 

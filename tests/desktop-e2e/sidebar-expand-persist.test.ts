@@ -11,11 +11,26 @@ import { createProject, launchReadyApp, openView, uniqueName, type Browser } fro
 // project on navigation, so the durable settings layer -- not a post-restart DOM snapshot -- is
 // the stable, deterministic witness of restoration.
 
-// The project owning a session row, read off the row's `data-parent-id`.
+// Resolve the project owning a session from its durable last-session pointer.
 async function projectIdForSession(b: Browser, sessionId: string): Promise<string> {
-  return b.execute((id: string) => {
-    const row = document.querySelector(`[data-tree-id="${id}"]`);
-    return row?.getAttribute("data-parent-id") ?? "";
+  return b.execute((sid: string) => {
+    const w = window as unknown as {
+      __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+      __projectForSession?: string;
+    };
+    void w.__TAURI_INTERNALS__
+      .invoke("setting_list", { scope: "global", projectId: null })
+      .then((entries) => {
+        const list = entries as { key: string; value: unknown }[];
+        const pointer = list.find(
+          (entry) => entry.key.startsWith("view.last-session.") && entry.value === sid,
+        );
+        w.__projectForSession = pointer?.key.slice("view.last-session.".length) ?? "";
+      })
+      .catch(() => {
+        w.__projectForSession = "";
+      });
+    return w.__projectForSession ?? "";
   }, sessionId);
 }
 
@@ -51,11 +66,25 @@ test("a collapsed project stays collapsed after an app restart", async () => {
     // Force the Sessions view first (route "/" alone does not reset the active sidebar view).
     await openView(first, "Sessions");
     const url = await createProject(first, uniqueName("Collapse"));
-    const sessionId = url.split("/session/")[1]?.split(/[/?#]/)[0] ?? "";
-    projectId = await projectIdForSession(first, sessionId);
+    const sessionId = url.match(/\/session\/([^/?#]+)/)?.[1] ?? "";
+    expect(sessionId).toBeTruthy();
+    await first.waitUntil(
+      async () => {
+        projectId = await projectIdForSession(first, sessionId);
+        return projectId !== "";
+      },
+      {
+        timeout: 15_000,
+        timeoutMsg: "created session row did not expose its project id",
+      },
+    );
     expect(projectId).toBeTruthy();
 
-    const toggle = await first.$(`[data-testid="project-expand"][data-project-id="${projectId}"]`);
+    let toggle = await first.$(`[data-testid="project-expand"][data-project-id="${projectId}"]`);
+    if (!(await toggle.isExisting())) {
+      await openView(first, "Sessions");
+      toggle = await first.$(`[data-testid="project-expand"][data-project-id="${projectId}"]`);
+    }
     await toggle.waitForExist({ timeout: 10_000 });
     // Default is expanded (absent pointer), so the child session row is present first...
     expect(await toggle.getAttribute("aria-expanded")).toBe("true");
