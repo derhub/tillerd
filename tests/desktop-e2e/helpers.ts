@@ -148,7 +148,15 @@ export async function openView(browser: Browser, title: string): Promise<void> {
     `[role="toolbar"][aria-label="Views"] button[aria-label="${title}"]`,
   );
   await button.waitForExist({ timeout: 10_000 });
-  await button.click();
+  const sidebar = await browser.$("aside");
+  if ((await button.getAttribute("aria-pressed")) !== "true" || !(await sidebar.isExisting())) {
+    await button.click();
+  }
+  await browser.waitUntil(
+    async () =>
+      (await button.getAttribute("aria-pressed")) === "true" && (await sidebar.isExisting()),
+    { timeout: 10_000, timeoutMsg: `${title} sidebar view did not open` },
+  );
 }
 
 // Fresh session has an empty leaf (no auto-spawn); click "New terminal" to spawn, return its id.

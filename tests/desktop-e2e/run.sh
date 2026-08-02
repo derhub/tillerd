@@ -121,7 +121,9 @@ run_tests() {
 
   echo "--- E2E: $group ---"
   set +e
-  TILLERD_DESKTOP_BIN="$binary" bun test --bail "$@"
+  # The preload owns one WebDriver session and one app. Keep files sequential so their global
+  # hooks cannot race that singleton lifecycle.
+  TILLERD_DESKTOP_BIN="$binary" bun test --bail --max-concurrency 1 "$@"
   status=$?
   set -e
   if ! stop_app_processes; then
