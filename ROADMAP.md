@@ -493,7 +493,7 @@ never measurable; they are not a ship gate for the working app.
 - [ ] All flows green on macOS and Linux CI.
 
 **Final coherence pass**
-- [ ] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for
+- [x] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for
   0.1.x. Any blocker found becomes a bullet here before shipping.
 
 ---
