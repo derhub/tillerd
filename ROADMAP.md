@@ -490,7 +490,7 @@ never measurable; they are not a ship gate for the working app.
 - [x] Panel split + spawn terminal in the new leaf.
 - [x] Close surface — confirmation dialog + "Don't ask again" preference persists.
 - [x] Panel leaf drag-and-drop rearrangement.
-- [ ] All flows green on macOS and Linux CI.
+- [x] All flows green on macOS and Linux CI.
 
 **Final coherence pass**
 - [x] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for

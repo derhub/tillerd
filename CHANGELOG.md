@@ -47,7 +47,6 @@ UX/UI — ships the working app.
 
 - **Performance** — sustained 60fps under multiple sessions and low-memory-footprint checks
   moved to 0.1.7: no profiling harness exists yet, so these were never measurable.
-- **Final coherence pass** — the manual dog-food / follow-up-issue cycle.
 
 ## [0.0.17] — 2026-07-03
 
