@@ -117,5 +117,24 @@ set -e
 
 # Bundled build: boot-to-ready only, via the same shared-app preload against the release binary.
 if [[ -n "$BUNDLED_BIN" ]]; then
-  TILLERD_DESKTOP_BIN="$BUNDLED_BIN" bun test --bail --preload "$SETUP" "$REPO_ROOT/tests/desktop-e2e/boot.test.ts"
+  kill "$WD" 2>/dev/null || true
+  wait "$WD" 2>/dev/null || true
+  pkill -f tillerd-desktop 2>/dev/null || true
+  pkill -f "bin/tillerd-daemon" 2>/dev/null || true
+  pkill -f "bin/tillerd-gate" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    if ! pgrep -f tillerd-desktop >/dev/null 2>&1 && ! pgrep -f "bin/tillerd-daemon" >/dev/null 2>&1 && ! pgrep -f "bin/tillerd-gate" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.25
+  done
+  if pgrep -f tillerd-desktop >/dev/null 2>&1 || pgrep -f "bin/tillerd-daemon" >/dev/null 2>&1 || pgrep -f "bin/tillerd-gate" >/dev/null 2>&1; then
+    echo "e2e BUNDLED CLEANUP FAILED: desktop/services still running after 5s." >&2
+    exit 1
+  fi
+  tauri-webdriver --port 4444 &
+  WD=$!
+  sleep 1
+  mkdir -p "$WORK/bundled/.tillerd"
+  TILLERD_E2E_BOOT_ONLY=1 TILLERD_DIR="$WORK/bundled/.tillerd" TILLERD_DESKTOP_BIN="$BUNDLED_BIN" bun test --bail --preload "$SETUP" "$REPO_ROOT/tests/desktop-e2e/boot.test.ts"
 fi

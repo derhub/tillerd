@@ -162,6 +162,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
         '[role="menu"]',
         '[role="alertdialog"]',
         '[data-testid="inline-rename-input"]',
+        '[data-testid="log-viewer"]',
       ]) {
         if (await (await browser.$(sel)).isExisting()) return false;
       }
