@@ -12,6 +12,13 @@ const SCROLL = '[data-testid="log-scroll"]';
 const LEVEL_SELECT = 'select[aria-label="Level"]';
 const SERVICE_SELECT = 'select[aria-label="service"]';
 
+// Route cleanup can briefly replace the viewer. Query on every poll so a detached WebDriver
+// element means "not ready" rather than aborting the assertion.
+async function scrollText(b: Browser): Promise<string> {
+  const scroll = await b.$(SCROLL);
+  return (await scroll.isExisting()) ? scroll.getText() : "";
+}
+
 function line(level: string, msg: string, i: number, service = "e2e"): string {
   return `${JSON.stringify({
     timestamp: `2099-01-01T00:00:00.${String(i).padStart(6, "0")}Z`,
@@ -55,8 +62,10 @@ test("the level filter shows only the chosen level", async () => {
   const b = getApp();
   await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
+  await setSelectValue(b, LEVEL_SELECT, "");
+  await setSelectValue(b, SERVICE_SELECT, "");
 
-  const text = async (): Promise<string> => (await b.$(SCROLL)).getText();
+  const text = (): Promise<string> => scrollText(b);
 
   // Unfiltered, auto-scrolled to the bottom: the latest rows (INFO) are visible.
   await b.waitUntil(async () => (await text()).includes("infoline"), {
@@ -90,8 +99,10 @@ test("the service filter shows only the chosen service", async () => {
   const b = getApp();
   await openLogViewer(b);
   await (await b.$(SCROLL)).waitForExist({ timeout: 15_000 });
+  await setSelectValue(b, LEVEL_SELECT, "");
+  await setSelectValue(b, SERVICE_SELECT, "");
 
-  const text = async (): Promise<string> => (await b.$(SCROLL)).getText();
+  const text = (): Promise<string> => scrollText(b);
 
   await b.waitUntil(async () => (await text()).includes("betaline"), {
     timeout: 15_000,

@@ -6,6 +6,44 @@ export type Browser = Awaited<ReturnType<typeof remote>>;
 
 const application = process.env.TILLERD_DESKTOP_BIN;
 
+// The close-confirmation choice is a durable global setting. Shared-app specs must establish the
+// default explicitly before asserting the first close prompts.
+export async function resetCloseConfirmation(browser: Browser): Promise<void> {
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const w = window as unknown as {
+          __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+          __closeConfirmationReset?: true | string;
+        };
+        if (w.__closeConfirmationReset == null) {
+          void w.__TAURI_INTERNALS__
+            .invoke("setting_reset", {
+              scope: "global",
+              projectId: null,
+              key: "panel.closeConfirm.skip",
+            })
+            .then(() => {
+              w.__closeConfirmationReset = true;
+            })
+            .catch((error: unknown) => {
+              w.__closeConfirmationReset = String(error);
+            });
+        }
+        if (typeof w.__closeConfirmationReset === "string") {
+          throw new Error(`close-confirmation reset failed: ${w.__closeConfirmationReset}`);
+        }
+        return w.__closeConfirmationReset === true;
+      }),
+    { timeout: 10_000, timeoutMsg: "close-confirmation setting did not reset" },
+  );
+  await browser.refresh();
+  await browser.waitUntil(
+    async () => (await browser.$("body").getText()).includes("services: ready"),
+    { timeout: 30_000, timeoutMsg: "app did not rehydrate after resetting close confirmation" },
+  );
+}
+
 // Specs share one TILLERD_DIR/logs across the run; remove other specs' seed files so they don't
 // bury this spec's seeded rows in the merged, timestamp-ordered view.
 export function clearLogSeeds(logsDir: string): void {
