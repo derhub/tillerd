@@ -149,6 +149,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
   });
   const url = await browser.getUrl();
+  const leavingLogs = url.includes("/logs");
   if (url.includes("/session/") || url.includes("/logs")) {
     await browser.execute(() => {
       window.history.pushState({}, "", "/");
@@ -166,6 +167,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
       ]) {
         if (await (await browser.$(sel)).isExisting()) return false;
       }
+      if (leavingLogs && !(await browser.$("[data-panel-id]")).isExisting()) return false;
       return (await browser.$("button*=New project")).isExisting();
     },
     { timeout: 15_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },
