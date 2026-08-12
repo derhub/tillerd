@@ -196,6 +196,7 @@ export function ProjectRow({
               tabIndex={0}
               onClick={onNewSession}
               aria-label={`New session in ${project.name}`}
+              title={`New session in ${project.name}`}
               className={cn(
                 "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
                 "text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
