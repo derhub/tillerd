@@ -38,8 +38,8 @@ fi
 
 # -- webdriver intermediary ----------------------------------------------------
 owned_app_pids() {
-  ps eww -axo pid=,command= | awk -v marker="TILLERD_DIR=$TILLERD_DIR" '
-    index($0, marker) && ($0 ~ /tillerd-desktop|bin\/tillerd-daemon|bin\/tillerd-gate/) { print $1 }
+  ps -axww -o pid=,command= | awk -v root="$REPO_ROOT/" '
+    index($0, root) && ($0 ~ /target\/(debug|release)\/tillerd-desktop|bin\/tillerd-daemon|bin\/tillerd-gate/) { print $1 }
   '
 }
 
@@ -52,6 +52,10 @@ stop_app_processes() {
     [[ -z "$(owned_app_pids)" ]] && return 0
     sleep 0.25
   done
+  while read -r pid; do
+    kill -9 "$pid" 2>/dev/null || true
+  done < <(owned_app_pids)
+  [[ -z "$(owned_app_pids)" ]] && return 0
   echo "e2e CLEANUP FAILED: owned desktop/services still running after 10s." >&2
   return 1
 }
