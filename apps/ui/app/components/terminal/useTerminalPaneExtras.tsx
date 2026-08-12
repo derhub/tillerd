@@ -2,6 +2,7 @@ import type { FitAddon } from "@xterm/addon-fit";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { IDisposable, Terminal } from "@xterm/xterm";
 
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import React from "react";
 
 import {
@@ -38,14 +39,25 @@ import {
   type TerminalSearchResults,
 } from "./TerminalSearchOverlay";
 
+async function readClipboardText(isDesktop: boolean): Promise<string> {
+  if (!isDesktop) return navigator.clipboard.readText();
+  return readText();
+}
+
+async function writeClipboardText(value: string, isDesktop: boolean): Promise<void> {
+  if (!isDesktop) return navigator.clipboard.writeText(value);
+  return writeText(value);
+}
+
 // Read the clipboard and either paste immediately or defer to a confirmation. Module-level (not a
 // hook/component) so the async read stays outside React per the no-async-in-component rule.
 function pasteFromClipboard(
   term: Terminal,
+  isDesktop: boolean,
   confirmEnabled: boolean,
   onNeedsConfirm: (text: string) => void,
 ): void {
-  void navigator.clipboard.readText().then((text) => {
+  void readClipboardText(isDesktop).then((text) => {
     if (!text) return;
     if (shouldConfirmPaste(text, confirmEnabled)) onNeedsConfirm(text);
     else term.paste(text);
@@ -136,7 +148,8 @@ async function attachTerminalExtras(
     term.onSelectionChange(() => {
       const sel = term.getSelection();
       cfg.setHasSelection(sel.length > 0);
-      if (sel.length > 0 && cfg.copyOnSelectRef.current) void navigator.clipboard.writeText(sel);
+      if (sel.length > 0 && cfg.copyOnSelectRef.current)
+        void writeClipboardText(sel, cfg.isDesktop);
     }),
   );
 
@@ -266,11 +279,12 @@ export function useTerminalPaneExtras(opts: TerminalPaneExtrasOptions): Terminal
     openFind,
     copySelection: () => {
       const sel = termRef.current?.getSelection();
-      if (sel) void navigator.clipboard.writeText(sel);
+      if (sel) void writeClipboardText(sel, isDesktop);
     },
     paste: () => {
-      if (termRef.current)
-        pasteFromClipboard(termRef.current, confirmPasteRef.current, setPastePreview);
+      if (termRef.current) {
+        pasteFromClipboard(termRef.current, isDesktop, confirmPasteRef.current, setPastePreview);
+      }
     },
     selectAll: () => termRef.current?.selectAll(),
     clear: () => termRef.current?.clear(),

@@ -65,19 +65,21 @@ function servicePrefix(name: string): string {
 function logBacklogQuery(qc: QueryClient, windowBytes: number, enabled: boolean) {
   return queryOptions({
     queryKey: ["logs", "backlog", windowBytes],
+    staleTime: 0,
     enabled,
     queryFn: async (): Promise<LogRecord[]> => {
-      const files = await qc.fetchQuery(query("logList"));
+      const files = await qc.fetchQuery({ ...query("logList"), staleTime: 0 });
       const tails = await Promise.all(
         files.map((file) =>
-          qc.fetchQuery(
-            query("logTail", {
+          qc.fetchQuery({
+            ...query("logTail", {
               path: file.path,
               from: Math.max(0, file.size - windowBytes),
               maxBytes: windowBytes,
               align: file.size > windowBytes,
             }),
-          ),
+            staleTime: 0,
+          }),
         ),
       );
       const records = tails.flatMap((tail) => tail.records.map(fromView));
@@ -92,7 +94,7 @@ async function startLiveTail(
   handlesRef: React.RefObject<LogChannelHandle[]>,
   append: (record: LogRecord) => void,
 ): Promise<void> {
-  const files = await qc.fetchQuery(query("logList"));
+  const files = await qc.fetchQuery({ ...query("logList"), staleTime: 0 });
   if (cancelled.current) return;
   const services = [...new Set(files.map((file) => servicePrefix(file.name)))];
   const decoder = new TextDecoder();

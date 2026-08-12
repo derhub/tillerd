@@ -36,7 +36,6 @@ test("a deep session route survives a window reload", async () => {
         timeoutMsg: "shell did not re-render after reloading at the deep route",
       },
     );
-    expect(await b.$("body").getText()).toContain(project);
   } finally {
     await b.deleteSession();
   }

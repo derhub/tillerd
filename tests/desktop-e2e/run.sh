@@ -38,8 +38,8 @@ fi
 
 # -- webdriver intermediary ----------------------------------------------------
 owned_app_pids() {
-  ps eww -axo pid=,command= | awk -v marker="TILLERD_DIR=$TILLERD_DIR" '
-    index($0, marker) && ($0 ~ /tillerd-desktop|bin\/tillerd-daemon|bin\/tillerd-gate/) { print $1 }
+  ps axeww -o pid=,stat=,command= | awk -v marker="TILLERD_DIR=$TILLERD_DIR" '
+    $2 !~ /^Z/ && index($0, marker) && ($3 ~ /\/target\/(debug|release)\/tillerd-desktop$/ || $3 ~ /\/bin\/tillerd-(daemon|gate)$/) { print $1 }
   '
 }
 
@@ -49,6 +49,13 @@ stop_app_processes() {
     kill "$pid" 2>/dev/null || true
   done < <(owned_app_pids)
   for _ in $(seq 1 40); do
+    [[ -z "$(owned_app_pids)" ]] && return 0
+    sleep 0.25
+  done
+  while read -r pid; do
+    kill -9 "$pid" 2>/dev/null || true
+  done < <(owned_app_pids)
+  for _ in $(seq 1 4); do
     [[ -z "$(owned_app_pids)" ]] && return 0
     sleep 0.25
   done

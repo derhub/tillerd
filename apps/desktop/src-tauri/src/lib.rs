@@ -203,6 +203,7 @@ pub fn run() {
             )
             .build(),
     );
+    let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
     // Native OS notification banners for background (unfocused) events (roadmap 0.0.10).
     let builder = builder.plugin(tauri_plugin_notification::init());
     // Opens terminal links in the system browser (ui-terminal-pane "Clickable links").

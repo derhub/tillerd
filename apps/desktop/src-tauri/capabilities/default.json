@@ -11,6 +11,8 @@
     "core:window:allow-set-focus",
     "core:webview:allow-set-webview-zoom",
     "window-state:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
     "notification:default",
     "opener:default",
     "opener:allow-open-url"
