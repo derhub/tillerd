@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { createProject, openTerminal } from "./helpers";
+import { createProject, openTerminal, type Browser } from "./helpers";
 import { getApp } from "./shared-app";
 
 async function writeSystemClipboard(value: string): Promise<void> {
@@ -35,6 +35,28 @@ async function readSystemClipboard(): Promise<string> {
     throw new Error(`failed to read system clipboard with ${command[0]}`);
   return output;
 }
+async function runClipboardCommand(
+  b: Browser,
+  label: "Copy" | "Paste" | "Select all",
+): Promise<void> {
+  await b.execute(() => {
+    const terminal = document.querySelector(".xterm");
+    if (!terminal) throw new Error("terminal missing");
+    const rect = terminal.getBoundingClientRect();
+    terminal.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+        button: 2,
+      }),
+    );
+  });
+  const item = await b.$(`[role="menuitem"]*=${label}`);
+  await item.waitForExist({ timeout: 5_000 });
+  await item.click();
+}
 
 test("terminal clipboard round-trips through the native system clipboard", async () => {
   const b = getApp();
@@ -47,7 +69,7 @@ test("terminal clipboard round-trips through the native system clipboard", async
 
   const pasteMarker = `clipboard-paste-${Date.now()}`;
   await writeSystemClipboard(`printf '${pasteMarker}'`);
-  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "Shift", "v"]);
+  await runClipboardCommand(b, "Paste");
   await b.keys(["Enter"]);
   await b.waitUntil(async () => (await terminal.getText()).includes(pasteMarker), {
     timeout: 20_000,
@@ -56,34 +78,15 @@ test("terminal clipboard round-trips through the native system clipboard", async
 
   const copyMarker = `clipboard-copy-${Date.now()}`;
   await writeSystemClipboard(`printf '${copyMarker}'`);
-  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "Shift", "v"]);
+  await runClipboardCommand(b, "Paste");
   await b.keys(["Enter"]);
   await b.waitUntil(async () => (await terminal.getText()).includes(copyMarker), {
     timeout: 20_000,
     timeoutMsg: "terminal did not render copy-test output",
   });
 
-  const size = await terminal.getSize();
-  const location = await terminal.getLocation();
-  await b.performActions([
-    {
-      type: "pointer",
-      id: "mouse",
-      parameters: { pointerType: "mouse" },
-      actions: [
-        { type: "pointerMove", x: location.x + 8, y: location.y + 8 },
-        { type: "pointerDown", button: 0 },
-        {
-          type: "pointerMove",
-          x: location.x + size.width - 8,
-          y: location.y + size.height - 8,
-          duration: 300,
-        },
-        { type: "pointerUp", button: 0 },
-      ],
-    },
-  ]);
-  await b.keys(process.platform === "darwin" ? ["Meta", "c"] : ["Control", "Shift", "c"]);
+  await runClipboardCommand(b, "Select all");
+  await runClipboardCommand(b, "Copy");
 
   await b.waitUntil(async () => (await readSystemClipboard()).includes(copyMarker), {
     timeout: 10_000,
