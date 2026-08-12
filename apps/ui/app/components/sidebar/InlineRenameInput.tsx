@@ -1,4 +1,5 @@
 import React from "react";
+import { flushSync } from "react-dom";
 
 import { cn } from "~/lib/utils";
 
@@ -38,12 +39,10 @@ export function InlineRenameInput({
       onConfirm(value);
     } else if (e.key === "Escape") {
       const trigger = triggerRef.current;
-      onCancel();
-      setTimeout(() => {
-        const replacement = restoreFocus?.();
-        if (replacement?.isConnected) replacement.focus();
-        else if (trigger?.isConnected) trigger.focus();
-      });
+      flushSync(onCancel);
+      const replacement = restoreFocus?.();
+      if (replacement?.isConnected) replacement.focus();
+      else if (trigger?.isConnected) trigger.focus();
     }
   };
 

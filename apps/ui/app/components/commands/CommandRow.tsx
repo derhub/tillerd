@@ -1,6 +1,7 @@
 import type { CommandView } from "@tillerd/client-bindings";
 
 import { Copy, Pencil, Pin, PinOff, Play, Trash2 } from "lucide-react";
+import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
@@ -42,6 +43,7 @@ export function CommandRow({
   onRequestDelete: (id: string, name: string) => void;
 }) {
   const canEdit = command.origin === "custom";
+  const renameRef = React.useRef<HTMLButtonElement>(null);
 
   return (
     <EntityContextMenu
@@ -61,16 +63,12 @@ export function CommandRow({
             initialValue={command.name}
             onConfirm={onConfirmRename}
             onCancel={onCancelRename}
-            restoreFocus={() => {
-              const row = [...document.querySelectorAll<HTMLElement>("[data-command-id]")].find(
-                (candidate) => candidate.dataset.commandId === command.id,
-              );
-              return row?.querySelector<HTMLElement>('[data-testid="command-name"]') ?? null;
-            }}
+            restoreFocus={() => renameRef.current}
             isProject
           />
         ) : isDesktop && canEdit ? (
           <button
+            ref={renameRef}
             type="button"
             data-testid="command-name"
             aria-label={`Rename ${command.name}`}

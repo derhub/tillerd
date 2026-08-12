@@ -198,6 +198,27 @@ describe("listing", () => {
     });
   });
 
+  test("a stale rename cannot steal focus after the view remounts", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Old Cmd", origin: "custom" })];
+    const firstView = renderView();
+    fireEvent.click(await screen.findByRole("button", { name: "Rename Old Cmd" }), { detail: 0 });
+    fireEvent.keyDown(screen.getByTestId("inline-rename-input"), { key: "Escape" });
+    firstView.unmount();
+
+    commands = [
+      makeCommand({ id: "c-1", name: "Old Cmd", origin: "custom" }),
+      makeCommand({ id: "c-2", name: "Current Cmd", origin: "custom" }),
+    ];
+    renderView();
+    const currentRename = await screen.findByRole("button", { name: "Rename Current Cmd" });
+    currentRename.focus();
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve);
+    await promise;
+
+    expect(document.activeElement).toBe(currentRename);
+  });
+
   test("shows an empty state with no commands", async () => {
     renderView();
     await waitFor(() => expect(screen.queryByTestId("commands-empty")).not.toBeNull());
