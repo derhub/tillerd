@@ -87,7 +87,7 @@ export async function createProject(browser: Browser, name: string): Promise<str
   const input = await browser.$('input[aria-label="Project name"]');
   await input.waitForExist({ timeout: 10_000 });
   await input.setValue(name);
-  await (await browser.$('button*=Create project')).click();
+  await (await browser.$("button*=Create project")).click();
   await browser.waitUntil(
     async () => {
       createdUrl = await browser.getUrl();
