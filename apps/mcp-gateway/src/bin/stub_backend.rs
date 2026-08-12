@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ContentBlock, ListPromptsResult, ListToolsResult,
-    PaginatedRequestParams, Prompt, ServerCapabilities, ServerInfo, Tool,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ListPromptsResult,
+    ListToolsResult, PaginatedRequestParams, Prompt, ServerCapabilities, ServerInfo, Tool,
 };
 use rmcp::service::RequestContext;
 use rmcp::transport::io::stdio;
@@ -56,11 +56,11 @@ impl ServerHandler for Stub {
         &self,
         request: CallToolRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         match request.name.as_ref() {
             "echo" => {
                 let text = serde_json::to_string(&request.arguments).unwrap_or_default();
-                Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+                Ok(CallToolResult::success(vec![ContentBlock::text(text)]).into())
             }
             other => Err(McpError::invalid_params(
                 format!("unknown tool: {other}"),
