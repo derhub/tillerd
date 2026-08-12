@@ -37,25 +37,22 @@ if [[ -n "${E2E_BUNDLED:-}" ]]; then
 fi
 
 # -- webdriver intermediary ----------------------------------------------------
+owned_app_pids() {
+  ps eww -axo pid=,command= | awk -v marker="TILLERD_DIR=$TILLERD_DIR" '
+    index($0, marker) && ($0 ~ /tillerd-desktop|bin\/tillerd-daemon|bin\/tillerd-gate/) { print $1 }
+  '
+}
+
 stop_app_processes() {
-  pkill -f tillerd-desktop 2>/dev/null || true
-  pkill -f "bin/tillerd-daemon" 2>/dev/null || true
-  pkill -f "bin/tillerd-gate" 2>/dev/null || true
-  has_live_process() {
-    local pattern="$1" pid state
-    while read -r pid; do
-      state="$(ps -o state= -p "$pid" 2>/dev/null | tr -d ' ')"
-      [[ -n "$state" && "${state:0:1}" != Z ]] && return 0
-    done < <(pgrep -f "$pattern" 2>/dev/null || true)
-    return 1
-  }
+  local pid
+  while read -r pid; do
+    kill "$pid" 2>/dev/null || true
+  done < <(owned_app_pids)
   for _ in $(seq 1 40); do
-    if ! has_live_process tillerd-desktop && ! has_live_process "bin/tillerd-daemon" && ! has_live_process "bin/tillerd-gate"; then
-      return 0
-    fi
+    [[ -z "$(owned_app_pids)" ]] && return 0
     sleep 0.25
   done
-  echo "e2e CLEANUP FAILED: desktop/services still running after 10s." >&2
+  echo "e2e CLEANUP FAILED: owned desktop/services still running after 10s." >&2
   return 1
 }
 

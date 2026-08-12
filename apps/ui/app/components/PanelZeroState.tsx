@@ -2,8 +2,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { command, query } from "@tillerd/client-bindings";
 import { FolderPlus } from "lucide-react";
+import React from "react";
 
 import { PanelContent } from "~/components/shell/PanelContent";
+import { NewProjectDialog } from "~/components/sidebar/NewProjectDialog";
 import { UNFILED_ID } from "~/components/sidebar/sidebar-data";
 import { Button } from "~/components/ui/button";
 import { setActiveProject, useActiveWorkspace } from "~/lib/store";
@@ -52,11 +54,12 @@ export function PanelZeroState() {
     enabled: isDesktop && noNamedProjects,
   });
 
-  const create = () => {
+  const [newProjectOpen, setNewProjectOpen] = React.useState(false);
+
+  const create = (name: string) => {
     if (!isDesktop) return;
-    const name = window.prompt("Project name (leave blank for a blank project):") ?? "";
     createProject.mutate(
-      { name: name.trim() || null, workspaceId: workspaceId ?? null },
+      { name: name || null, workspaceId: workspaceId ?? null },
       {
         onSuccess: (proj) => {
           createSession.mutate(newSessionArgs(proj.id), {
@@ -82,21 +85,28 @@ export function PanelZeroState() {
 
   if (offerCreate) {
     return (
-      <div
-        data-testid="panel-create-project"
-        className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
-      >
-        <FolderPlus className="size-[var(--icon-lg)] text-muted-foreground/40" aria-hidden />
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">No projects yet</p>
-          <p className="text-[0.833rem] text-muted-foreground/60">
-            Create a project to start a session.
-          </p>
+      <>
+        <NewProjectDialog
+          open={newProjectOpen}
+          onOpenChange={setNewProjectOpen}
+          onCreate={create}
+        />
+        <div
+          data-testid="panel-create-project"
+          className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
+        >
+          <FolderPlus className="size-[var(--icon-lg)] text-muted-foreground/40" aria-hidden />
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-medium">No projects yet</p>
+            <p className="text-[0.833rem] text-muted-foreground/60">
+              Create a project to start a session.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setNewProjectOpen(true)}>
+            New project
+          </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={create}>
-          New project
-        </Button>
-      </div>
+      </>
     );
   }
   return <PanelContent />;

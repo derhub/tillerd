@@ -19,7 +19,7 @@ at 0.0.20; 0.x is deliberately terminal-only (the agent surface returns in 1.0.0
 ```bash
 bun install     # install workspace dependencies
 bun run dev      # boot the dev stack (turbo)
-bun run verify  # format, types, lint, tests, e2e — run before pushing
+bun run verify  # format, types, lint, non-desktop tests — run before pushing
 ```
 
 Rust dev loop: `cargo nextest run` for tests, `cargo check` for fast type feedback.

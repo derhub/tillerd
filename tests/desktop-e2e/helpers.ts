@@ -77,22 +77,17 @@ export async function launchReadyApp(): Promise<Browser> {
   return browser;
 }
 
-// Native `window.prompt` (used by "New project") cannot be driven under WebDriver -- stub it.
-export async function stubPrompt(browser: Browser, value: string): Promise<void> {
-  await browser.execute((name: string) => {
-    (window as unknown as { prompt: (msg?: string) => string }).prompt = () => name;
-  }, value);
-}
-
-// Create a project (which also makes a default session and navigates to it) and return the
-// resulting session route URL.
+// Create-project flow uses the in-app dialog so WebDriver exercises the real renderer path.
 export async function createProject(browser: Browser, name: string): Promise<string> {
   const previousUrl = await browser.getUrl();
   let createdUrl = "";
-  await stubPrompt(browser, name);
   const button = await browser.$("button*=New project");
   await button.waitForExist({ timeout: 10_000 });
   await button.click();
+  const input = await browser.$('input[aria-label="Project name"]');
+  await input.waitForExist({ timeout: 10_000 });
+  await input.setValue(name);
+  await (await browser.$('button*=Create project')).click();
   await browser.waitUntil(
     async () => {
       createdUrl = await browser.getUrl();
