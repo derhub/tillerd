@@ -3,6 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    types: [synchronize]
+    paths:
+      - .github/workflows/ci.yml
+      - .github/workflows/autofix.yml
   workflow_run:
     workflows: ["autofix.ci"]
     types: [completed]
