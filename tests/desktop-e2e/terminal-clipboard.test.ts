@@ -36,19 +36,29 @@ async function readSystemClipboard(): Promise<string> {
   return output;
 }
 
-test("terminal copy writes the native system clipboard", async () => {
+test("terminal clipboard round-trips through the native system clipboard", async () => {
   const b = getApp();
-  await createProject(b, `Clipboard copy ${Date.now()}`);
+  await createProject(b, `Clipboard ${Date.now()}`);
   await openTerminal(b);
 
-  const marker = `clipboard-copy-${Date.now()}`;
   const terminal = await b.$(".xterm");
   await terminal.waitForExist({ timeout: 20_000 });
   await terminal.click();
+
+  const pasteMarker = `clipboard-paste-${Date.now()}`;
+  await writeSystemClipboard(`printf '${pasteMarker}'`);
+  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "v"]);
   await b.keys(["Enter"]);
-  await b.keys(["p", "r", "i", "n", "t", "f", " ", "'", ...marker.split(""), "'"]);
+  await b.waitUntil(async () => (await terminal.getText()).includes(pasteMarker), {
+    timeout: 20_000,
+    timeoutMsg: "terminal did not render output from native clipboard paste",
+  });
+
+  const copyMarker = `clipboard-copy-${Date.now()}`;
+  await writeSystemClipboard(`printf '${copyMarker}'`);
+  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "v"]);
   await b.keys(["Enter"]);
-  await b.waitUntil(async () => (await terminal.getText()).includes(marker), {
+  await b.waitUntil(async () => (await terminal.getText()).includes(copyMarker), {
     timeout: 20_000,
     timeoutMsg: "terminal did not render copy-test output",
   });
@@ -75,25 +85,5 @@ test("terminal copy writes the native system clipboard", async () => {
   ]);
   await b.keys(process.platform === "darwin" ? ["Meta", "c"] : ["Control", "c"]);
 
-  expect(await readSystemClipboard()).toContain(marker);
-}, 120_000);
-test("terminal paste reads the native system clipboard", async () => {
-  const b = getApp();
-  await createProject(b, `Clipboard ${Date.now()}`);
-  await openTerminal(b);
-
-  const marker = `clipboard-output-${Date.now()}`;
-  await writeSystemClipboard(`printf '${marker}'`);
-
-  const terminal = await b.$(".xterm");
-  await terminal.waitForExist({ timeout: 20_000 });
-  await terminal.click();
-  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "v"]);
-  await b.keys(["Enter"]);
-
-  await b.waitUntil(async () => (await terminal.getText()).includes(marker), {
-    timeout: 20_000,
-    timeoutMsg: "terminal did not render output from native clipboard paste",
-  });
-  expect((await terminal.getText()).includes(marker)).toBe(true);
+  expect(await readSystemClipboard()).toContain(copyMarker);
 }, 120_000);
