@@ -74,7 +74,9 @@ test("opening a project in a new window marks the parent row", async () => {
   const projectRow = await b.$(`[role="treeitem"][aria-label="${name}"]`);
   await projectRow.waitForExist({ timeout: 10_000 });
   await b.execute((element) => {
-    element.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }));
+    element.dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }),
+    );
   }, projectRow);
 
   // The 0.0.12 project menu carries the full action list (Rename / Open in new window / Delete), so
