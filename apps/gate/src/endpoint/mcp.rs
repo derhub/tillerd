@@ -208,6 +208,9 @@ mod tests {
         )
         .await
         .unwrap();
+        let CallToolResponse::Complete(core) = core else {
+            panic!("core bridge returned a non-complete tool response");
+        };
 
         let sock = temp_sock("xport");
         let _ = std::fs::remove_file(&sock);
@@ -229,11 +232,8 @@ mod tests {
 
         let over_socket = client.call_tool(call("echo")).await.unwrap();
 
-        assert_eq!(
-            serde_json::to_value(&over_socket).unwrap(),
-            serde_json::to_value(&core).unwrap(),
-            "the socket route yields the same outcome as the core bridge"
-        );
+        assert_eq!(over_socket.content, core.content);
+        assert_eq!(over_socket.is_error, core.is_error);
 
         let _ = client.cancel().await;
         handle.abort();
@@ -251,6 +251,9 @@ mod tests {
         .await
         .unwrap();
 
+        let CallToolResponse::Complete(result) = result else {
+            panic!("core bridge returned a non-complete tool response");
+        };
         assert_eq!(result.is_error, Some(false));
         assert!(
             !result.content.is_empty(),
