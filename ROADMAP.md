@@ -442,8 +442,8 @@ macOS and Linux CI.
 - [x] Terminal font and color scheme — ship a good default monospace font; color scheme
   is user-selectable (lives in 0.0.9 global settings; `DESIGN.md` terminal-* tokens
   updated from hardcoded GitHub-dark to the active scheme's mapping).
-- [x] Popups / menus — all dropdowns and dialogs use shadcn primitives and follow
-  design tokens.
+- [x] Popups / menus — shadcn primitives are used for menus, dialogs, and migrated
+  dropdowns; native selects remain for platform-native filtering controls.
 
 **Surface manipulation**
 - [x] Panel split initiation — split-H / split-V toolbar buttons create an empty leaf;
@@ -452,8 +452,8 @@ macOS and Linux CI.
   (new orchestrator `swap_placement` API).
 - [x] Panel resizing — drag divider to resize; double-click divider to reset to equal
   split.
-- [x] Terminal copy / paste — verified on all platforms (xterm.js default behavior;
-  confirm no Tauri webview conflicts).
+- [ ] Terminal copy / paste — requires explicit system-clipboard verification through
+  the Tauri webview on macOS and Linux.
 - [x] Close surface — shadcn confirmation popup with "Don't ask again" checkbox;
   preference stored via 0.0.9 settings. Hard remove: drops spec item + terminates PTY
   (ADR-0030).
@@ -471,11 +471,13 @@ macOS and Linux CI.
   terminal canvas stays dark in both themes by design).
 
 **Accessibility**
-- [x] ARIA labels and roles on all interactive chrome elements (sidebar, panel headers,
-  dialogs, buttons, tooltips).
-- [x] Keyboard navigation in chrome — Tab / Enter / Escape through sidebar, panel
-  actions, and dialogs. Terminal canvas is explicitly exempt from screen-reader support.
-- [x] Color contrast — all token pairs pass WCAG AA.
+- [ ] ARIA labels, tooltips, and keyboard routes for all interactive chrome elements remain
+  open; current implementation covers the tree owner and panel buttons but not every nested
+  sidebar action.
+- [ ] Keyboard navigation in chrome — full Tab / Enter / Escape traversal through sidebar
+  actions, panel actions, and dialogs remains open. Terminal canvas is exempt.
+- [ ] Color contrast — complete a full rendered-state WCAG AA audit; current token documentation
+  includes decorative and unused exceptions but does not cover all alpha-muted text.
 
 **Cross-platform polish**
 - [x] macOS — native Tauri window decorations (traffic lights); sidebar top area is a
@@ -490,10 +492,10 @@ never measurable; they are not a ship gate for the working app.
 - [x] Panel split + spawn terminal in the new leaf.
 - [x] Close surface — confirmation dialog + "Don't ask again" preference persists.
 - [x] Panel leaf drag-and-drop rearrangement.
-- [ ] All flows green on macOS and Linux CI.
+- [x] All flows green on macOS and Linux CI.
 
 **Final coherence pass**
-- [ ] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for
+- [x] UX/UI review cycle — dog-food, identify pain points, file follow-up issues for
   0.1.x. Any blocker found becomes a bullet here before shipping.
 
 ---

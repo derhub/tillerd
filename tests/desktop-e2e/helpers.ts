@@ -6,6 +6,44 @@ export type Browser = Awaited<ReturnType<typeof remote>>;
 
 const application = process.env.TILLERD_DESKTOP_BIN;
 
+// The close-confirmation choice is a durable global setting. Shared-app specs must establish the
+// default explicitly before asserting the first close prompts.
+export async function resetCloseConfirmation(browser: Browser): Promise<void> {
+  await browser.waitUntil(
+    async () =>
+      browser.execute(() => {
+        const w = window as unknown as {
+          __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> };
+          __closeConfirmationReset?: true | string;
+        };
+        if (w.__closeConfirmationReset == null) {
+          void w.__TAURI_INTERNALS__
+            .invoke("setting_reset", {
+              scope: "global",
+              projectId: null,
+              key: "panel.closeConfirm.skip",
+            })
+            .then(() => {
+              w.__closeConfirmationReset = true;
+            })
+            .catch((error: unknown) => {
+              w.__closeConfirmationReset = String(error);
+            });
+        }
+        if (typeof w.__closeConfirmationReset === "string") {
+          throw new Error(`close-confirmation reset failed: ${w.__closeConfirmationReset}`);
+        }
+        return w.__closeConfirmationReset === true;
+      }),
+    { timeout: 10_000, timeoutMsg: "close-confirmation setting did not reset" },
+  );
+  await browser.refresh();
+  await browser.waitUntil(
+    async () => (await browser.$("body").getText()).includes("services: ready"),
+    { timeout: 30_000, timeoutMsg: "app did not rehydrate after resetting close confirmation" },
+  );
+}
+
 // Specs share one TILLERD_DIR/logs across the run; remove other specs' seed files so they don't
 // bury this spec's seeded rows in the merged, timestamp-ordered view.
 export function clearLogSeeds(logsDir: string): void {
@@ -39,25 +77,28 @@ export async function launchReadyApp(): Promise<Browser> {
   return browser;
 }
 
-// Native `window.prompt` (used by "New project") cannot be driven under WebDriver -- stub it.
-export async function stubPrompt(browser: Browser, value: string): Promise<void> {
-  await browser.execute((name: string) => {
-    (window as unknown as { prompt: (msg?: string) => string }).prompt = () => name;
-  }, value);
-}
-
-// Create a project (which also makes a default session and navigates to it) and return the
-// resulting session route URL.
+// Create-project flow uses the in-app dialog so WebDriver exercises the real renderer path.
 export async function createProject(browser: Browser, name: string): Promise<string> {
-  await stubPrompt(browser, name);
+  const previousUrl = await browser.getUrl();
+  let createdUrl = "";
   const button = await browser.$("button*=New project");
   await button.waitForExist({ timeout: 10_000 });
   await button.click();
-  await browser.waitUntil(async () => (await browser.getUrl()).includes("/session/"), {
-    timeout: 15_000,
-    timeoutMsg: "creating a project did not produce a session route",
-  });
-  return browser.getUrl();
+  const input = await browser.$('input[aria-label="Project name"]');
+  await input.waitForExist({ timeout: 10_000 });
+  await input.setValue(name);
+  await (await browser.$("button*=Create project")).click();
+  await browser.waitUntil(
+    async () => {
+      createdUrl = await browser.getUrl();
+      return createdUrl !== previousUrl && createdUrl.includes("/session/");
+    },
+    {
+      timeout: 15_000,
+      timeoutMsg: "creating a project did not produce a new session route",
+    },
+  );
+  return createdUrl;
 }
 
 // The currently-mounted terminal pane's surface id, or "" before one exists.
@@ -102,7 +143,15 @@ export async function openView(browser: Browser, title: string): Promise<void> {
     `[role="toolbar"][aria-label="Views"] button[aria-label="${title}"]`,
   );
   await button.waitForExist({ timeout: 10_000 });
-  await button.click();
+  const sidebar = await browser.$("aside");
+  if ((await button.getAttribute("aria-pressed")) !== "true" || !(await sidebar.isExisting())) {
+    await button.click();
+  }
+  await browser.waitUntil(
+    async () =>
+      (await button.getAttribute("aria-pressed")) === "true" && (await sidebar.isExisting()),
+    { timeout: 10_000, timeoutMsg: `${title} sidebar view did not open` },
+  );
 }
 
 // Fresh session has an empty leaf (no auto-spawn); click "New terminal" to spawn, return its id.
@@ -149,6 +198,7 @@ export async function resetToHome(browser: Browser): Promise<void> {
     document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
   });
   const url = await browser.getUrl();
+  const leavingLogs = url.includes("/logs");
   if (url.includes("/session/") || url.includes("/logs")) {
     await browser.execute(() => {
       window.history.pushState({}, "", "/");
@@ -162,9 +212,11 @@ export async function resetToHome(browser: Browser): Promise<void> {
         '[role="menu"]',
         '[role="alertdialog"]',
         '[data-testid="inline-rename-input"]',
+        '[data-testid="log-viewer"]',
       ]) {
         if (await (await browser.$(sel)).isExisting()) return false;
       }
+      if (leavingLogs && !(await browser.$("[data-panel-id]")).isExisting()) return false;
       return (await browser.$("button*=New project")).isExisting();
     },
     { timeout: 15_000, timeoutMsg: "resetToHome did not reach a clean home baseline" },

@@ -44,6 +44,7 @@ let fakeLibraryTemplates: TemplateView[] = [];
 let fakeLaunchTemplates: LaunchTemplateView[] = [];
 const sessionListedFor: string[] = [];
 const sessionCreateCalls: Record<string, unknown>[] = [];
+const projectCreateCalls: Record<string, unknown>[] = [];
 const launchTemplateCreateCalls: Record<string, unknown>[] = [];
 
 // Bindings call: typedError(invoke(cmd, args))
@@ -68,6 +69,14 @@ beforeEach(() => {
         if (projectId) sessionListedFor.push(projectId);
         if (offset) return [];
         return projectId ? fakeSessions.filter((s) => s.projectId === projectId) : fakeSessions;
+      }
+      if (cmd === "project_create") {
+        projectCreateCalls.push(args ?? {});
+        return project(
+          `p-${projectCreateCalls.length}`,
+          (args?.["name"] as string | null) ?? "Untitled",
+          (args?.["workspaceId"] as string | null) ?? "ws-a",
+        );
       }
       if (cmd === "session_create") {
         sessionCreateCalls.push(args ?? {});
@@ -141,6 +150,7 @@ afterEach(() => {
   fakeLaunchTemplates = [];
   sessionListedFor.length = 0;
   sessionCreateCalls.length = 0;
+  projectCreateCalls.length = 0;
   launchTemplateCreateCalls.length = 0;
   setReady(false);
   resetUiStore();

@@ -36,8 +36,8 @@ UX/UI — ships the working app.
   project / session / surface, close, switch session) that fire even with terminal focus.
 - **Motion** — fade-only surface lifecycle (opacity 0↔1) and layout-change animations on the
   existing motion tokens; no layout shift.
-- **Accessibility** — ARIA labels / roles across chrome; Tab / Enter / Escape keyboard nav;
-  WCAG AA contrast on all token pairs (terminal canvas exempt by design).
+- **Accessibility** — partial ARIA labels / roles and panel keyboard handling landed;
+  complete nested-sidebar tooltip, keyboard-route, and rendered-state contrast audits remain open.
 - **Cross-platform** — macOS native decorations + drag region; Linux system title bar; ⌘ vs
   Ctrl accelerator labels.
 - **E2E** — panel split + spawn, close-surface confirm + preference persistence, panel-leaf
@@ -47,7 +47,6 @@ UX/UI — ships the working app.
 
 - **Performance** — sustained 60fps under multiple sessions and low-memory-footprint checks
   moved to 0.1.7: no profiling harness exists yet, so these were never measurable.
-- **Final coherence pass** — the manual dog-food / follow-up-issue cycle.
 
 ## [0.0.17] — 2026-07-03
 

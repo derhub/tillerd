@@ -4,6 +4,7 @@ import {
   createProject,
   openTerminal,
   panelIdForSurface,
+  resetCloseConfirmation,
   splitPanel,
   surfaceIds,
   type Browser,
@@ -34,6 +35,7 @@ async function closeTerminalPanel(b: Browser, surface: string): Promise<void> {
 
 test("closing a running terminal prompts for confirmation, and 'don't ask again' skips it for the rest of the session", async () => {
   const b = getApp();
+  await resetCloseConfirmation(b);
   await createProject(b, uniqueName("CloseConfirm"));
 
   // First close: a sibling leaf makes the close button appear, and the terminal is running, so

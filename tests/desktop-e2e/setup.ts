@@ -8,5 +8,6 @@ import { getApp, launchSharedApp, teardownSharedApp } from "./shared-app";
 beforeAll(launchSharedApp, 120_000);
 afterAll(teardownSharedApp, 30_000);
 beforeEach(async () => {
+  if (process.env.TILLERD_E2E_BOOT_ONLY) return;
   await resetToHome(getApp());
 }, 30_000);

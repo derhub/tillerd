@@ -10,6 +10,7 @@ import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { ProjectSessions } from "~/components/sidebar/ProjectSessions";
 import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_PROJECT, UNFILED_ID } from "~/components/sidebar/sidebar-data";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { reorderByDrop } from "~/lib/reorder";
 import { can } from "~/lib/stateModel";
 import { useProjectExpanded } from "~/lib/store";
@@ -121,22 +122,27 @@ export function ProjectRow({
           dragOver && "ring-1 ring-ring rounded-sm",
         )}
       >
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
-          data-testid="project-expand"
-          data-project-id={project.id}
-          className="flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted"
-        >
-          {expanded ? (
-            <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
-          ) : (
-            <ChevronRight strokeWidth={2} className="size-[var(--icon-sm)]" />
-          )}
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            tabIndex={0}
+            onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
+            data-testid="project-expand"
+            data-project-id={project.id}
+            className="flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {expanded ? (
+              <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
+            ) : (
+              <ChevronRight strokeWidth={2} className="size-[var(--icon-sm)]" />
+            )}
+          </TooltipTrigger>
+          <TooltipContent>
+            {expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
+          </TooltipContent>
+        </Tooltip>
         {isEditing ? (
           <InlineRenameInput
             initialValue={project.name}
@@ -170,32 +176,36 @@ export function ProjectRow({
         {detached && (
           <button
             type="button"
-            tabIndex={-1}
+            tabIndex={0}
             onClick={onFocusDetached}
             aria-label={`Re-attach ${project.name}`}
             title={`${project.name} is in another window — click to re-attach`}
             data-testid="project-detached-indicator"
             className={cn(
               "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-              "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
+              "text-amber-500/80 hover:text-amber-400 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
           >
             <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
           </button>
         )}
         {isDesktop && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={onNewSession}
-            className={cn(
-              "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-            )}
-            title={`New session in ${project.name}`}
-          >
-            <Plus strokeWidth={2} className="size-[var(--icon-sm)]" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              tabIndex={0}
+              onClick={onNewSession}
+              aria-label={`New session in ${project.name}`}
+              title={`New session in ${project.name}`}
+              className={cn(
+                "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                "text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              )}
+            >
+              <Plus strokeWidth={2} className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>New session in {project.name}</TooltipContent>
+          </Tooltip>
         )}
       </EntityContextMenu>
 

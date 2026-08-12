@@ -13,6 +13,7 @@ import {
   type StopSurfacesTarget,
 } from "~/components/sidebar/EntityDialogs";
 import { NewProjectButton } from "~/components/sidebar/NewProjectButton";
+import { NewProjectDialog } from "~/components/sidebar/NewProjectDialog";
 import {
   NewSessionTemplateDialog,
   type NewSessionTemplateTarget,
@@ -148,6 +149,7 @@ export function SessionSidebar({
   const [stopTarget, setStopTarget] = React.useState<StopSurfacesTarget | null>(null);
   const [templatePickerTarget, setTemplatePickerTarget] =
     React.useState<NewSessionTemplateTarget | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = React.useState(false);
 
   // One per-window subscription feeding the session-row status badges.
   React.useEffect(() => mountSessionStatus(), []);
@@ -185,24 +187,30 @@ export function SessionSidebar({
     [clearDetached],
   );
 
-  const handleNewProject = React.useCallback(() => {
-    if (!isDesktop) return;
-    const name = window.prompt("Project name (leave blank for a blank project):") ?? "";
-    createProject.mutate(
-      { name: name.trim() || null, workspaceId: activeWorkspaceId ?? null },
-      {
-        onSuccess: (proj) => {
-          void navigate({ to: "/" } as never);
-          createSession.mutate(newSessionArgs(proj.id), {
-            onSuccess: (sess) => {
-              setActiveProject(proj.id);
-              void navigate({ to: `/session/${sess.id}` } as never);
-            },
-          });
+  const handleCreateProject = React.useCallback(
+    (name: string) => {
+      if (!isDesktop) return;
+      createProject.mutate(
+        { name: name || null, workspaceId: activeWorkspaceId ?? null },
+        {
+          onSuccess: (proj) => {
+            void navigate({ to: "/" } as never);
+            createSession.mutate(newSessionArgs(proj.id), {
+              onSuccess: (sess) => {
+                setActiveProject(proj.id);
+                void navigate({ to: `/session/${sess.id}` } as never);
+              },
+            });
+          },
         },
-      },
-    );
-  }, [isDesktop, navigate, activeWorkspaceId, createProject, createSession]);
+      );
+    },
+    [isDesktop, navigate, activeWorkspaceId, createProject, createSession],
+  );
+
+  const handleNewProject = React.useCallback(() => {
+    if (isDesktop) setNewProjectOpen(true);
+  }, [isDesktop]);
 
   // The single point where a session actually gets created from a resolved
   // choice: empty, one of the project's launch templates directly, or a library
@@ -484,6 +492,11 @@ export function SessionSidebar({
         target={deleteConfirm}
         onCancel={() => setDeleteConfirm(null)}
         onConfirm={() => handleConfirmDelete()}
+      />
+      <NewProjectDialog
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+        onCreate={handleCreateProject}
       />
       <MovePickerDialog
         target={moveTarget}

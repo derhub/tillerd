@@ -69,9 +69,8 @@ test("auto-scroll follows new logs to the bottom", async () => {
     timeout: 15_000,
     timeoutMsg: "did not auto-scroll to the bottom on load",
   });
-
-  // Appended lines (later timestamps) are followed to the new bottom.
-  for (let i = 800; i < 900; i++) appendFileSync(file, line(i));
+  // Append one batch so the watcher performs one refresh rather than reacting to 100 writes.
+  appendFileSync(file, Array.from({ length: 100 }, (_, i) => line(i + 800)).join(""));
   await b.waitUntil(
     async () => {
       const text = await (await b.$(SCROLL)).getText();

@@ -8,6 +8,7 @@ import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { useTreeNav } from "~/components/sidebar/ProjectTree";
 import { DRAG_SESSION } from "~/components/sidebar/sidebar-data";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { sessionDisplayName } from "~/lib/panelTitle";
 import { useSessionBadge, type SessionBadge } from "~/lib/sessionStatus";
 import { cn } from "~/lib/utils";
@@ -159,21 +160,24 @@ export function SessionRow({
         />
       )}
       {isDesktop && (
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.stopPropagation();
-            onArchive();
-          }}
-          className={cn(
-            "opacity-0 group-hover:opacity-100 flex items-center p-0.5 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-            "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
-          )}
-          title="Archive session"
-        >
-          <Archive strokeWidth={2} className="size-[var(--icon-sm)]" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              onArchive();
+            }}
+            aria-label={`Archive ${label}`}
+            className={cn(
+              "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center p-0.5 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
+              "text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
+          >
+            <Archive strokeWidth={2} className="size-[var(--icon-sm)]" />
+          </TooltipTrigger>
+          <TooltipContent>Archive {label}</TooltipContent>
+        </Tooltip>
       )}
     </EntityContextMenu>
   );

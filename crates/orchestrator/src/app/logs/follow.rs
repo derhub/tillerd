@@ -83,6 +83,25 @@ impl LogFollower {
         self.offsets.insert(path.to_owned(), tail.end);
     }
 
+    async fn read_event(&mut self, event: &Event) {
+        for path in &event.paths {
+            if path == &self.dir {
+                self.read_directory().await;
+            } else {
+                self.read_appended(path).await;
+            }
+        }
+    }
+
+    async fn read_directory(&mut self) {
+        let Ok(mut entries) = tokio::fs::read_dir(&self.dir).await else {
+            return;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            self.read_appended(&entry.path()).await;
+        }
+    }
+
     /// Seed the tracked offset of every existing `.log` file to its current end,
     /// so a fresh subscription streams only lines appended after it begins (not
     /// the whole backlog -- callers backfill via `TailLog`).
@@ -125,9 +144,7 @@ impl LogFollower {
         }
 
         while let Some(event) = rx.recv().await {
-            for path in event.paths {
-                self.read_appended(&path).await;
-            }
+            self.read_event(&event).await;
         }
     }
 }
@@ -208,6 +225,23 @@ mod tests {
                 ("tillerd-daemon".to_owned(), "one".to_owned()),
                 ("tillerd-daemon".to_owned(), "two".to_owned()),
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_directory_event_rescans_and_emits_appended_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("tillerd-daemon.2026-06-25.log");
+        append(&file, "line\n");
+
+        let (mut follower, log) = follower_with_sink(dir.path(), "tillerd-daemon");
+        follower
+            .read_event(&Event::new(notify::EventKind::Any).add_path(dir.path().to_owned()))
+            .await;
+
+        assert_eq!(
+            log.lock().unwrap().as_slice(),
+            [("tillerd-daemon".to_owned(), "line".to_owned())]
         );
     }
 

@@ -142,9 +142,11 @@ function PanelToolbar({ children, className }: { children: React.ReactNode; clas
     <div
       className={cn(
         "flex items-center gap-0.5 ml-auto shrink-0",
-        "opacity-0 group-hover/panel:opacity-100 transition-opacity duration-[var(--motion-fast)] ease-standard",
+        "opacity-0 group-hover/panel:opacity-100 group-focus-within/panel:opacity-100 transition-opacity duration-[var(--motion-fast)] ease-standard",
         className,
       )}
+      role="toolbar"
+      aria-label="Panel actions"
     >
       {children}
     </div>
