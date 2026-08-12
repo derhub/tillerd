@@ -61,7 +61,6 @@ jobs:
       # Rust gate: promote every warn-level lint (incl. deprecated=deny, clippy::all) to a hard error.
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
-
   test:
     needs: lint
     runs-on: ubuntu-latest
