@@ -46,7 +46,7 @@ test("terminal copy writes the native system clipboard", async () => {
   await terminal.waitForExist({ timeout: 20_000 });
   await terminal.click();
   await b.keys(["Enter"]);
-  await b.keys(["p", "r", "i", "n", "t", "f", " ", "'", marker, "'"]);
+  await b.keys(["p", "r", "i", "n", "t", "f", " ", "'", ...marker.split(""), "'"]);
   await b.keys(["Enter"]);
   await b.waitUntil(async () => (await terminal.getText()).includes(marker), {
     timeout: 20_000,
