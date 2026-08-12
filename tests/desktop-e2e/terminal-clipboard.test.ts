@@ -85,5 +85,9 @@ test("terminal clipboard round-trips through the native system clipboard", async
   ]);
   await b.keys(process.platform === "darwin" ? ["Meta", "c"] : ["Control", "c"]);
 
+  await b.waitUntil(async () => (await readSystemClipboard()).includes(copyMarker), {
+    timeout: 10_000,
+    timeoutMsg: "native clipboard did not contain copied terminal output",
+  });
   expect(await readSystemClipboard()).toContain(copyMarker);
 }, 120_000);
