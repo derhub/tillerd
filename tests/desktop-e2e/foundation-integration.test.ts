@@ -99,12 +99,11 @@ test("storage, state model, and client engine compose across create/switch/reloa
     await openItem.waitForExist({ timeout: 10_000 });
     await openItem.click();
 
-    const indicator = await b.$('[data-testid="project-detached-indicator"]');
-    await indicator.waitForExist({ timeout: 10_000 });
-    expect(await indicator.isExisting()).toBe(true);
-
+    await (
+      await b.$('[data-testid="project-detached-indicator"]')
+    ).waitForExist({ timeout: 10_000 });
     await observePause(b);
-    await indicator.click();
+    await (await b.$('[data-testid="project-detached-indicator"]')).click();
     await (
       await b.$('[data-testid="project-detached-indicator"]')
     ).waitForExist({ timeout: 10_000, reverse: true });
