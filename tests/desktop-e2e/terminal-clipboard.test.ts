@@ -11,8 +11,8 @@ async function writeSystemClipboard(value: string): Promise<void> {
         ? ["wl-copy"]
         : ["xclip", "-selection", "clipboard"];
   const proc = Bun.spawn(command, { stdin: "pipe" });
-  proc.stdin.write(value);
-  proc.stdin.end();
+  await proc.stdin.write(value);
+  await proc.stdin.end();
   if ((await proc.exited) !== 0)
     throw new Error(`failed to write system clipboard with ${command[0]}`);
 }
