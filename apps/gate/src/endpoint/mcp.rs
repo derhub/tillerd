@@ -7,8 +7,8 @@ use std::sync::Arc;
 use bytes::Bytes;
 use contracts::SessionId;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, ContentBlock, ListToolsResult, PaginatedRequestParams,
-    ServerCapabilities, ServerInfo,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, ListToolsResult,
+    PaginatedRequestParams, ServerCapabilities, ServerInfo,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler, ServiceExt};
@@ -49,7 +49,7 @@ impl ServerHandler for GateMcp {
         &self,
         request: CallToolRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         let Identity { session, token } = self.identity.clone();
         route_call(&self.router, session, token, request).await
     }
@@ -73,7 +73,7 @@ async fn route_call(
     session: SessionId,
     token: Token,
     request: CallToolRequestParams,
-) -> Result<CallToolResult, McpError> {
+) -> Result<CallToolResponse, McpError> {
     let body = serde_json::to_vec(&request)
         .map(Bytes::from)
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
@@ -87,8 +87,9 @@ async fn route_call(
     match router.handle(inbound).await {
         Ok(Outbound::Forward(body)) => Ok(CallToolResult::success(vec![ContentBlock::text(
             String::from_utf8_lossy(&body).into_owned(),
-        )])),
-        Ok(Outbound::Accepted) => Ok(CallToolResult::success(Vec::new())),
+        )])
+        .into()),
+        Ok(Outbound::Accepted) => Ok(CallToolResult::success(Vec::new()).into()),
         Err(Reject::Unauthenticated) => Err(McpError::invalid_request("unauthenticated", None)),
         Err(other) => Err(McpError::invalid_params(other.to_string(), None)),
     }

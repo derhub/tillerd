@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use contracts::CorrelationId;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, GetPromptRequestParams, GetPromptResult,
+    CallToolRequestParams, CallToolResponse, GetPromptRequestParams, GetPromptResponse,
     ListPromptsResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
-    ReadResourceRequestParams, ReadResourceResult, ServerCapabilities, ServerInfo,
+    ReadResourceRequestParams, ReadResourceResponse, ServerCapabilities, ServerInfo,
 };
 use rmcp::service::{NotificationContext, RequestContext};
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
@@ -83,7 +83,7 @@ impl ServerHandler for Gateway {
         &self,
         request: CallToolRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, McpError> {
+    ) -> Result<CallToolResponse, McpError> {
         if self.supervisor.registry().owner_of(&request.name).is_none() {
             return Err(Self::unknown(&request.name));
         }
@@ -126,7 +126,7 @@ impl ServerHandler for Gateway {
                 .observe_result(&correlation, &request.name, rendered)
                 .await;
         }
-        result
+        result.map(Into::into)
     }
 
     async fn list_prompts(
@@ -143,7 +143,7 @@ impl ServerHandler for Gateway {
         &self,
         request: GetPromptRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<GetPromptResult, McpError> {
+    ) -> Result<GetPromptResponse, McpError> {
         let (backend, name) =
             router::split(&request.name).ok_or_else(|| Self::unknown(&request.name))?;
         let peer = self
@@ -155,6 +155,7 @@ impl ServerHandler for Gateway {
         params.arguments = request.arguments;
         peer.get_prompt(params)
             .await
+            .map(Into::into)
             .map_err(|e| Self::backend_error(backend, e))
     }
 
@@ -172,7 +173,7 @@ impl ServerHandler for Gateway {
         &self,
         request: ReadResourceRequestParams,
         _ctx: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, McpError> {
+    ) -> Result<ReadResourceResponse, McpError> {
         let backend = self
             .supervisor
             .registry()
@@ -185,6 +186,7 @@ impl ServerHandler for Gateway {
             .ok_or_else(|| Self::backend_error(&backend, "unavailable"))?;
         peer.read_resource(ReadResourceRequestParams::new(request.uri))
             .await
+            .map(Into::into)
             .map_err(|e| Self::backend_error(&backend, e))
     }
 }

@@ -67,6 +67,7 @@ async fn routes_a_namespaced_call_to_its_backend() {
         .unwrap();
 
     let rendered = serde_json::to_string(&result).unwrap();
+    assert!(!result.content.is_empty());
     assert!(rendered.contains("hello-gateway"), "got: {rendered}");
     gw.supervisor().shutdown().await;
 }
