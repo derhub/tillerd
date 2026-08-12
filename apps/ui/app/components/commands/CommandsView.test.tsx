@@ -169,6 +169,35 @@ describe("listing", () => {
     expect(screen.getAllByTestId("command-origin-badge")).toHaveLength(2);
   });
 
+  test("custom command rename is keyboard activatable", async () => {
+    commands = [makeCommand({ id: "c-1", name: "Custom Cmd", origin: "custom" })];
+    renderView();
+
+    const rename = await screen.findByRole("button", { name: "Rename Custom Cmd" });
+    fireEvent.click(rename, { detail: 0 });
+
+    expect(screen.getByTestId("inline-rename-input")).not.toBeNull();
+  });
+
+  test("Escape restores focus after keyboard rename", async () => {
+    commands = [
+      makeCommand({ id: "c-1", name: "Custom Cmd", origin: "custom" }),
+      makeCommand({ id: "c-2", name: "Custom Cmd", origin: "custom" }),
+    ];
+    renderView();
+
+    const rename = (await screen.findAllByRole("button", { name: "Rename Custom Cmd" }))[1]!;
+    rename.focus();
+    fireEvent.click(rename, { detail: 0 });
+    fireEvent.keyDown(screen.getByTestId("inline-rename-input"), { key: "Escape" });
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute("aria-label")).toBe("Rename Custom Cmd");
+      expect(
+        document.activeElement?.closest("[data-command-id]")?.getAttribute("data-command-id"),
+      ).toBe("c-2");
+    });
+  });
+
   test("shows an empty state with no commands", async () => {
     renderView();
     await waitFor(() => expect(screen.queryByTestId("commands-empty")).not.toBeNull());

@@ -6,6 +6,7 @@ import { Columns2, AlignJustify } from "lucide-react";
 import React from "react";
 
 import { Skeleton } from "~/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { lazyDiffsReact } from "~/lib/lazy";
 import { API_BASE } from "~/lib/serverUrl";
 import { SessionContext } from "~/lib/sessionContext";
@@ -55,6 +56,7 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
     );
   }
   if (files.length === 0) return <DiffPlaceholder message="No changes detected" />;
+  const toggleLabel = viewMode === "stacked" ? "Switch to split view" : "Switch to stacked view";
 
   return (
     <div className="flex flex-col h-full">
@@ -65,17 +67,20 @@ export function DiffPanel({ sessionId }: { sessionId: string | null }) {
         <span className="text-[0.917rem] text-muted-foreground flex-1">
           {files.length} file{files.length !== 1 ? "s" : ""}
         </span>
-        <button
-          type="button"
-          onClick={() => setViewMode(viewMode === "stacked" ? "split" : "stacked")}
-          title={viewMode === "stacked" ? "Switch to split view" : "Switch to stacked view"}
-          className={cn(
-            "flex items-center justify-center w-5 h-5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-            "text-muted-foreground hover:text-foreground hover:bg-muted",
-          )}
-        >
-          {viewMode === "stacked" ? <Columns2 size={12} /> : <AlignJustify size={12} />}
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            onClick={() => setViewMode(viewMode === "stacked" ? "split" : "stacked")}
+            aria-label={toggleLabel}
+            className={cn(
+              "flex items-center justify-center size-5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+              "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            )}
+          >
+            {viewMode === "stacked" ? <Columns2 size={12} /> : <AlignJustify size={12} />}
+          </TooltipTrigger>
+          <TooltipContent>{toggleLabel}</TooltipContent>
+        </Tooltip>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
         <DiffView files={files} viewMode={viewMode} />

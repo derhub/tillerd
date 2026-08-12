@@ -479,6 +479,7 @@ frozen at 0.0.6 — failures below are recorded as findings, not fixed by changi
 | foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
 | secondary-foreground / secondary | text | 8.35:1 PASS | 13.54:1 PASS |
 | accent-foreground / accent | text | 11.79:1 PASS | 11.66:1 PASS |
+| foreground at 75% / muted (inactive tabs) | text | 4.95:1 PASS | 6.39:1 PASS |
 | primary-foreground / primary | text | 4.79:1 PASS | 5.39:1 PASS |
 | destructive / background | text | 7.10:1 PASS | 7.17:1 PASS |
 | destructive / card | text | 6.57:1 PASS | 7.47:1 PASS |
@@ -486,6 +487,14 @@ frozen at 0.0.6 — failures below are recorded as findings, not fixed by changi
 | ring / background | ui (3:1) | 5.09:1 PASS | 5.18:1 PASS |
 | ring / card | ui (3:1) | 4.71:1 PASS | 5.39:1 PASS |
 | border / background | ui (3:1) | 1.23:1 **FAIL** | 1.21:1 **FAIL** |
+| amber re-attach / sidebar | ui (3:1) | 10.44:1 PASS | 4.82:1 PASS |
+| amber re-attach hover / sidebar accent | ui (3:1) | 9.57:1 PASS | 5.07:1 PASS |
+| emerald running / sidebar | ui (3:1) | 9.07:1 PASS | 5.26:1 PASS |
+| red failed / sidebar | ui (3:1) | 6.30:1 PASS | 6.21:1 PASS |
+| terminal-fg / terminal-surface | text | 12.88:1 PASS | 12.88:1 PASS |
+| terminal-muted / terminal-surface | text | 4.95:1 PASS | 4.95:1 PASS |
+| terminal focus ring / terminal-surface | ui (3:1) | 4.95:1 PASS | 4.95:1 PASS |
+| orange version mismatch / sidebar | ui (3:1) | 7.70:1 PASS | 4.97:1 PASS |
 
 **Findings:**
 - `muted-foreground` on `muted` fails AA in dark mode only (4.10:1, needs 4.5:1). Audited every

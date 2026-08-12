@@ -139,6 +139,13 @@ describe("GeneralSection", () => {
     await waitFor(() => expect(screen.getByTestId("ui-zoom-value").textContent).toBe("150%"));
   });
 
+  test("zoom controls are disabled at their bounds", async () => {
+    renderSection({ "ui.zoom": 0.5 });
+
+    expect((await screen.findByLabelText("Zoom out")).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByLabelText("Zoom in").hasAttribute("disabled")).toBe(false);
+  });
+
   test("zooming in persists a larger zoom level", async () => {
     renderSection({ "ui.zoom": 1 });
 

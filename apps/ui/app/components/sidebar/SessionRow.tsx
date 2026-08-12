@@ -16,10 +16,10 @@ import { cn } from "~/lib/utils";
 // Surface-runtime badge colors (fed by the surface-status push channel). Idle is
 // muted; running/starting/failed carry semantic hues.
 const BADGE_CLASS: Record<SessionBadge, string> = {
-  running: "bg-emerald-500/80",
-  starting: "bg-amber-500/80",
-  failed: "bg-red-500/80",
-  idle: "bg-muted-foreground/30",
+  running: "bg-emerald-700 dark:bg-emerald-400",
+  starting: "bg-amber-700 dark:bg-amber-400",
+  failed: "bg-red-700 dark:bg-red-400",
+  idle: "bg-muted-foreground",
 };
 
 function ActiveSessionLink({
@@ -171,7 +171,7 @@ export function SessionRow({
             aria-label={`Archive ${label}`}
             className={cn(
               "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center p-0.5 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard",
-              "text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
           >
             <Archive strokeWidth={2} className="size-[var(--icon-sm)]" />

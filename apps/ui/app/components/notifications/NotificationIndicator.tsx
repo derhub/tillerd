@@ -129,7 +129,7 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
             ) : (
               <span className="text-muted-foreground">{n.message}</span>
             )}
-            {n.detail ? <span className="text-muted-foreground/70">{n.detail}</span> : null}
+            {n.detail ? <span className="text-muted-foreground">{n.detail}</span> : null}
             <div className="flex items-center gap-0.5 pt-0.5">
               <ActionButton
                 label={`Mark read: ${notificationHeading(n)}`}
@@ -143,24 +143,29 @@ export function NotificationPanel({ items }: { items: NotificationWire[] }) {
               >
                 <Trash2 className="size-[var(--icon-md)]" />
               </ActionButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  aria-label={`Snooze: ${notificationHeading(n)}`}
-                  className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <Clock className="size-[var(--icon-md)]" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {SNOOZE_OPTIONS.map((opt) => (
-                    <DropdownMenuItem
-                      key={opt.minutes}
-                      onClick={() => handleSnooze(n.id, opt.minutes)}
-                    >
-                      {opt.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Tooltip>
+                <DropdownMenu>
+                  <TooltipTrigger
+                    render={
+                      <DropdownMenuTrigger className="rounded-sm p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                    }
+                    aria-label={`Snooze: ${notificationHeading(n)}`}
+                  >
+                    <Clock className="size-[var(--icon-md)]" />
+                  </TooltipTrigger>
+                  <DropdownMenuContent align="start">
+                    {SNOOZE_OPTIONS.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.minutes}
+                        onClick={() => handleSnooze(n.id, opt.minutes)}
+                      >
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <TooltipContent>Snooze: {notificationHeading(n)}</TooltipContent>
+              </Tooltip>
             </div>
           </li>
         ))}

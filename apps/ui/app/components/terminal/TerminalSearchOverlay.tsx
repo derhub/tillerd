@@ -1,6 +1,8 @@
 import { CaseSensitive, ChevronDown, ChevronUp, X } from "lucide-react";
 import React from "react";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
+
 export interface SearchQueryOptions {
   caseSensitive: boolean;
   incremental?: boolean;
@@ -94,7 +96,7 @@ export function TerminalSearchOverlay({
         placeholder="Find"
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={onKeyDown}
-        className="h-6 w-40 bg-transparent px-1 text-[0.917rem] outline-none placeholder:text-terminal-muted"
+        className="h-6 w-40 bg-transparent px-1 text-[0.917rem] outline-none placeholder:text-terminal-muted focus-visible:ring-1 focus-visible:ring-terminal-muted"
       />
       <span
         data-testid="terminal-search-count"
@@ -102,47 +104,59 @@ export function TerminalSearchOverlay({
       >
         {positionLabel(query, results)}
       </span>
-      <button
-        type="button"
-        data-testid="terminal-search-case"
-        aria-label="Match case"
-        aria-pressed={caseSensitive}
-        onClick={() => setCaseSensitive((v) => !v)}
-        className={`grid size-6 place-items-center transition-colors duration-[var(--motion-fast)] ease-standard ${
-          caseSensitive
-            ? "bg-terminal-success/20 text-terminal-fg"
-            : "text-terminal-muted hover:text-terminal-fg"
-        }`}
-      >
-        <CaseSensitive className="size-4" />
-      </button>
-      <button
-        type="button"
-        data-testid="terminal-search-prev"
-        aria-label="Previous match"
-        onClick={findPrevious}
-        className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg"
-      >
-        <ChevronUp className="size-4" />
-      </button>
-      <button
-        type="button"
-        data-testid="terminal-search-next"
-        aria-label="Next match"
-        onClick={findNext}
-        className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg"
-      >
-        <ChevronDown className="size-4" />
-      </button>
-      <button
-        type="button"
-        data-testid="terminal-search-close"
-        aria-label="Close search"
-        onClick={onClose}
-        className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg"
-      >
-        <X className="size-4" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          data-testid="terminal-search-case"
+          aria-label="Match case"
+          aria-pressed={caseSensitive}
+          onClick={() => setCaseSensitive((v) => !v)}
+          className={`grid size-6 place-items-center transition-colors duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-muted ${
+            caseSensitive
+              ? "bg-terminal-success/20 text-terminal-fg"
+              : "text-terminal-muted hover:text-terminal-fg"
+          }`}
+        >
+          <CaseSensitive className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>Match case</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          data-testid="terminal-search-prev"
+          aria-label="Previous match"
+          onClick={findPrevious}
+          className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-muted"
+        >
+          <ChevronUp className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>Previous match</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          data-testid="terminal-search-next"
+          aria-label="Next match"
+          onClick={findNext}
+          className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-muted"
+        >
+          <ChevronDown className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>Next match</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          data-testid="terminal-search-close"
+          aria-label="Close search"
+          onClick={onClose}
+          className="grid size-6 place-items-center text-terminal-muted hover:text-terminal-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-muted"
+        >
+          <X className="size-4" />
+        </TooltipTrigger>
+        <TooltipContent>Close search</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { StopSurfacesDialog, type StopSurfacesTarget } from "~/components/sideba
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
 import { SessionSidebar } from "~/components/sidebar/SessionSidebar";
 import { DEFAULT_WORKSPACE_ID } from "~/components/sidebar/sidebar-data";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { ACTION } from "~/lib/commands/ids";
 import { type CommandArgs, useRegisterHandlers } from "~/lib/commands/registry";
 import { can } from "~/lib/stateModel";
@@ -61,7 +62,10 @@ function ActivityDot({ activity }: { activity?: WorkspaceActivityView }) {
       data-running={activity.running}
       data-failed={activity.failed}
       title={`${activity.running} running, ${activity.failed} failed`}
-      className={cn("size-1.5 rounded-full shrink-0", failed ? "bg-red-500" : "bg-emerald-500")}
+      className={cn(
+        "size-1.5 rounded-full shrink-0",
+        failed ? "bg-red-700 dark:bg-red-400" : "bg-emerald-700 dark:bg-emerald-400",
+      )}
     />
   );
 }
@@ -117,6 +121,7 @@ export function WorkspaceSwitcherList({
                 data-testid="workspace-item"
                 data-workspace-id={ws.id}
                 onClick={() => onSelect(ws.id)}
+                aria-current={ws.id === activeId ? "true" : undefined}
                 onDoubleClick={() => onStartEdit(ws.id)}
                 className={cn(
                   "w-full text-left text-[0.75rem] truncate px-2 py-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
@@ -139,36 +144,40 @@ export function WorkspaceSwitcherList({
           )}
           <ActivityDot activity={activity?.get(ws.id)} />
           {detachedIds.has(ws.id) ? (
-            <button
-              type="button"
-              onClick={() => onReattach(ws.id)}
-              aria-label={`Re-attach ${ws.name}`}
-              title={`${ws.name} is in another window — click to re-attach`}
-              data-testid="workspace-detached-indicator"
-              data-workspace-id={ws.id}
-              className={cn(
-                "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-                "text-amber-500/80 hover:text-amber-400 hover:bg-muted",
-              )}
-            >
-              <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
-            </button>
-          ) : (
-            isDesktop && (
-              <button
+            <Tooltip>
+              <TooltipTrigger
                 type="button"
-                onClick={() => onDetach(ws.id)}
-                aria-label={`Open ${ws.name} in a new window`}
-                title={`Open ${ws.name} in a new window`}
-                data-testid="workspace-detach"
+                onClick={() => onReattach(ws.id)}
+                aria-label={`Re-attach ${ws.name}`}
+                data-testid="workspace-detached-indicator"
                 data-workspace-id={ws.id}
                 className={cn(
                   "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-                  "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                  "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 )}
               >
                 <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
-              </button>
+              </TooltipTrigger>
+              <TooltipContent>Re-attach {ws.name}</TooltipContent>
+            </Tooltip>
+          ) : (
+            isDesktop && (
+              <Tooltip>
+                <TooltipTrigger
+                  type="button"
+                  onClick={() => onDetach(ws.id)}
+                  aria-label={`Open ${ws.name} in a new window`}
+                  data-testid="workspace-detach"
+                  data-workspace-id={ws.id}
+                  className={cn(
+                    "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                    "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  )}
+                >
+                  <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
+                </TooltipTrigger>
+                <TooltipContent>Open {ws.name} in a new window</TooltipContent>
+              </Tooltip>
             )
           )}
         </div>

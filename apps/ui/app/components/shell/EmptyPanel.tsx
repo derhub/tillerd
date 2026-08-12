@@ -44,7 +44,7 @@ function PickerItem({
       <TerminalIcon className="size-[var(--icon-lg)] text-muted-foreground shrink-0" />
       <span className="flex flex-col min-w-0">
         <span className="text-[0.917rem] text-foreground truncate">{title}</span>
-        <span className="text-[0.75rem] text-muted-foreground/60 truncate">{subtitle}</span>
+        <span className="text-[0.75rem] text-muted-foreground truncate">{subtitle}</span>
       </span>
     </button>
   );
@@ -64,9 +64,7 @@ export function EmptyPanel({
       className="flex flex-col h-full items-center justify-center gap-4 px-4"
       data-testid="empty-panel-picker"
     >
-      <p className="text-[0.833rem] text-muted-foreground/50 uppercase tracking-wider">
-        New surface
-      </p>
+      <p className="text-[0.833rem] text-muted-foreground uppercase tracking-wider">New surface</p>
       <div className="flex flex-col gap-1.5 w-full max-w-60 max-h-[60vh] overflow-y-auto">
         <PickerItem
           title="New terminal"

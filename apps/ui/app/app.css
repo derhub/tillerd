@@ -79,6 +79,17 @@
   html {
     @apply font-sans;
   }
+  :where(
+    button,
+    a[href],
+    input,
+    select,
+    textarea:not(.xterm-helper-textarea),
+    summary,
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    @apply outline-none ring-1 ring-ring;
+  }
 }
 
 /* -- Resize handle active state ---------------------------------------- */

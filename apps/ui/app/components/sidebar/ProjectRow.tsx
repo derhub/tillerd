@@ -57,6 +57,7 @@ export function ProjectRow({
   const [dragOver, setDragOver] = React.useState(false);
   const [expanded, setExpanded] = useProjectExpanded(project.id);
   const { activeId, setActiveId } = useTreeNav();
+  const renameRef = React.useRef<HTMLButtonElement>(null);
 
   const isUnfiled = project.id === UNFILED_ID;
   const isEditing = editingId === project.id;
@@ -131,7 +132,7 @@ export function ProjectRow({
             aria-label={expanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
             data-testid="project-expand"
             data-project-id={project.id}
-            className="flex items-center p-0.5 rounded-sm text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="flex items-center p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {expanded ? (
               <ChevronDown strokeWidth={2} className="size-[var(--icon-sm)]" />
@@ -148,19 +149,27 @@ export function ProjectRow({
             initialValue={project.name}
             onConfirm={onRename}
             onCancel={onCancelEdit}
+            restoreFocus={() => renameRef.current}
             isProject={true}
           />
-        ) : (
-          <span
-            onDoubleClick={isUnfiled ? undefined : onStartEdit}
+        ) : !isUnfiled ? (
+          <button
+            ref={renameRef}
+            type="button"
+            aria-label={`Rename ${project.name}`}
+            onClick={(event) => event.detail === 0 && onStartEdit()}
+            onDoubleClick={onStartEdit}
             data-testid="project-name"
             data-project-id={project.id}
-            className={cn(
-              "text-[0.75rem] font-medium text-muted-foreground/70 truncate flex-1 cursor-text",
-              // Unfiled is a system section label (small-caps); user-named projects render as
-              // entered, not shouted.
-              isUnfiled && "uppercase tracking-wider",
-            )}
+            className="text-left text-[0.75rem] font-medium text-muted-foreground truncate flex-1 cursor-text"
+          >
+            {project.name}
+          </button>
+        ) : (
+          <span
+            data-testid="project-name"
+            data-project-id={project.id}
+            className="text-[0.75rem] font-medium text-muted-foreground truncate flex-1 uppercase tracking-wider"
           >
             {project.name}
           </span>
@@ -174,20 +183,22 @@ export function ProjectRow({
           />
         )}
         {detached && (
-          <button
-            type="button"
-            tabIndex={0}
-            onClick={onFocusDetached}
-            aria-label={`Re-attach ${project.name}`}
-            title={`${project.name} is in another window — click to re-attach`}
-            data-testid="project-detached-indicator"
-            className={cn(
-              "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-              "text-amber-500/80 hover:text-amber-400 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            )}
-          >
-            <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              tabIndex={0}
+              onClick={onFocusDetached}
+              aria-label={`Re-attach ${project.name}`}
+              data-testid="project-detached-indicator"
+              className={cn(
+                "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
+                "text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              )}
+            >
+              <ArrowUpRight strokeWidth={2} className="size-[var(--icon-sm)]" />
+            </TooltipTrigger>
+            <TooltipContent>Re-attach {project.name}</TooltipContent>
+          </Tooltip>
         )}
         {isDesktop && (
           <Tooltip>
@@ -199,7 +210,7 @@ export function ProjectRow({
               title={`New session in ${project.name}`}
               className={cn(
                 "flex items-center p-0.5 rounded-sm transition-colors duration-[var(--motion-fast)] ease-standard",
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               )}
             >
               <Plus strokeWidth={2} className="size-[var(--icon-sm)]" />

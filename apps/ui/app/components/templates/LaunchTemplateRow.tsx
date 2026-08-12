@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { cn } from "~/lib/utils";
 
 const ROW_ACTION_CLASS =
-  "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // One project launch-template row. Unlike a library template this carries no
 // name (spec: label derived from the spec, e.g. the first item's command) and
@@ -51,7 +51,7 @@ export function LaunchTemplateRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -67,7 +67,7 @@ export function LaunchTemplateRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+                "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
               )}
             >
               <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />

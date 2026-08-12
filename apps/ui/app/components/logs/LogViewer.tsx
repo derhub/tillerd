@@ -358,7 +358,7 @@ const LogRow = React.memo(function LogRow({ record }: { record: LogRecord }) {
         {record.level}
       </span>
       <span className="text-muted-foreground shrink-0">{service}</span>
-      {session ? <span className="text-muted-foreground/70 shrink-0">{session}</span> : null}
+      {session ? <span className="text-muted-foreground shrink-0">{session}</span> : null}
       <span className="flex-1 min-w-0">{record.body}</span>
     </div>
   );

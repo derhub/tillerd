@@ -46,7 +46,7 @@ export function DetachedWindow({ sessionId, placement }: { sessionId: string; pl
           >
             <span
               data-tauri-drag-region
-              className="truncate text-muted-foreground/60 flex-1 select-none text-[0.833rem] font-medium tracking-wider uppercase"
+              className="truncate text-muted-foreground flex-1 select-none text-[0.833rem] font-medium tracking-wider uppercase"
             >
               Terminal
             </span>

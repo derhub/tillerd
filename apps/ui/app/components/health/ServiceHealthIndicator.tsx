@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { query } from "@tillerd/client-bindings";
-import React from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { aggregateHealthState, type AggregateState } from "~/lib/health/aggregate";
@@ -10,15 +9,15 @@ import { cn } from "~/lib/utils";
 import { ServiceHealthPanel } from "./ServiceHealthPanel";
 
 const DOT: Record<AggregateState, string> = {
-  ready: "bg-emerald-500",
-  starting: "bg-amber-500",
-  failed: "bg-red-500",
+  ready: "bg-emerald-700 dark:bg-emerald-400",
+  starting: "bg-amber-700 dark:bg-amber-400",
+  failed: "bg-red-700 dark:bg-red-400",
 };
 
 const TEXT: Record<AggregateState, string> = {
-  ready: "text-emerald-300",
-  starting: "text-amber-300",
-  failed: "text-red-300",
+  ready: "text-emerald-700 dark:text-emerald-400",
+  starting: "text-amber-700 dark:text-amber-400",
+  failed: "text-red-700 dark:text-red-400",
 };
 
 export function ServiceHealthIndicator() {

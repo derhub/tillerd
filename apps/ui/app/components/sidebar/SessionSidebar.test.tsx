@@ -228,15 +228,33 @@ describe("guarded actions (stateModel mirror)", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  test("an ordinary project's context menu offers Delete", async () => {
+  test("menus expose menu semantics", async () => {
     setTreeData([project("p-1", "Ordinary", "ws-a")], []);
 
     renderSidebar(<SessionSidebar />);
-    await waitFor(() => expect(screen.queryByText("Ordinary")).not.toBeNull());
+    const row = await screen.findByRole("treeitem", { name: "Ordinary" });
+    expect(row.getAttribute("aria-expanded")).toBe("true");
 
-    fireEvent.contextMenu(projectRow("Ordinary"));
+    fireEvent.contextMenu(row);
 
-    await waitFor(() => expect(screen.queryByText("Delete")).not.toBeNull());
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeNull());
+    expect(screen.getByRole("menuitem", { name: "Delete" })).not.toBeNull();
+    expect(row.getAttribute("role")).toBe("treeitem");
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("menu focus round trip", async () => {
+    setTreeData([project("p-1", "Ordinary", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    const row = await screen.findByRole("treeitem", { name: "Ordinary" });
+    row.focus();
+    fireEvent.contextMenu(row);
+    const menu = await screen.findByRole("menu");
+    fireEvent.keyDown(menu, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(document.activeElement).toBe(row);
   });
 });
 
@@ -298,6 +316,96 @@ describe("lazy per-project session loading", () => {
   });
 });
 
+describe("keyboard tree navigation", () => {
+  test("sidebar tree keyboard traversal", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], [session("s-1", "p-1", "Session One")]);
+
+    renderSidebar(<SessionSidebar />);
+    const projectRow = await screen.findByRole("treeitem", { name: "Project One" });
+    const sessionRow = await screen.findByRole("treeitem", { name: "Session One" });
+
+    projectRow.focus();
+    fireEvent.keyDown(projectRow, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(sessionRow);
+
+    fireEvent.keyDown(sessionRow, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(projectRow);
+
+    fireEvent.keyDown(projectRow, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(sessionRow);
+
+    fireEvent.keyDown(sessionRow, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(projectRow);
+
+    fireEvent.keyDown(projectRow, { key: "ArrowLeft" });
+    expect(projectRow.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.keyDown(projectRow, { key: "ArrowRight" });
+    expect(projectRow.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("Space activates the focused tree row", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    const projectRow = await screen.findByRole("treeitem", { name: "Project One" });
+    expect(projectRow.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.keyDown(projectRow, { key: " " });
+
+    expect(projectRow.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("Enter activates the focused tree row", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    const projectRow = await screen.findByRole("treeitem", { name: "Project One" });
+    expect(projectRow.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.keyDown(projectRow, { key: "Enter" });
+
+    expect(projectRow.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  test("nested action keys do not toggle their project row", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    const projectRow = await screen.findByRole("treeitem", { name: "Project One" });
+    const newSession = screen.getByRole("button", { name: "New session in Project One" });
+    expect(projectRow.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.keyDown(newSession, { key: "Enter" });
+
+    expect(projectRow.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("project rename is keyboard activatable", async () => {
+    setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+    renderSidebar(<SessionSidebar />);
+    const rename = await screen.findByRole("button", { name: "Rename Project One" });
+    fireEvent.click(rename, { detail: 0 });
+
+    expect(screen.getByTestId("inline-rename-input")).not.toBeNull();
+  });
+});
+
+test("Escape restores focus after keyboard project rename", async () => {
+  setTreeData([project("p-1", "Project One", "ws-a")], []);
+
+  renderSidebar(<SessionSidebar />);
+  const rename = await screen.findByRole("button", { name: "Rename Project One" });
+  rename.focus();
+  fireEvent.click(rename, { detail: 0 });
+  fireEvent.keyDown(screen.getByTestId("inline-rename-input"), { key: "Escape" });
+
+  await waitFor(async () =>
+    expect(document.activeElement).toBe(
+      await screen.findByRole("button", { name: "Rename Project One" }),
+    ),
+  );
+});
 describe("new-session flow (template default + picker)", () => {
   function newSessionButton(name: string): HTMLElement {
     return screen.getByRole("button", { name: `New session in ${name}` });

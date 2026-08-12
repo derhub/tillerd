@@ -171,7 +171,7 @@ export function CommandsView() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center justify-between px-3">
-        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
           Commands
         </span>
         {isDesktop && (
@@ -194,7 +194,7 @@ export function CommandsView() {
         {commands.length === 0 ? (
           <p
             data-testid="commands-empty"
-            className="px-3 py-3 text-[0.833rem] text-muted-foreground/50 italic"
+            className="px-3 py-3 text-[0.833rem] text-muted-foreground italic"
           >
             No commands yet
           </p>

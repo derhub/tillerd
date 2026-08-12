@@ -7,6 +7,7 @@ interface InlineRenameInputProps {
   onConfirm: (newValue: string) => void;
   onCancel: () => void;
   isProject?: boolean;
+  restoreFocus?: () => HTMLElement | null;
 }
 
 export function InlineRenameInput({
@@ -14,6 +15,7 @@ export function InlineRenameInput({
   onConfirm,
   onCancel,
   isProject = false,
+  restoreFocus,
 }: InlineRenameInputProps) {
   const [value, setValue] = React.useState(initialValue);
   const [error, setError] = React.useState(false);
@@ -37,8 +39,11 @@ export function InlineRenameInput({
     } else if (e.key === "Escape") {
       const trigger = triggerRef.current;
       onCancel();
-      // Blur-cancel must NOT steal focus back; only Escape restores it to the row.
-      if (trigger?.isConnected) trigger.focus();
+      setTimeout(() => {
+        const replacement = restoreFocus?.();
+        if (replacement?.isConnected) replacement.focus();
+        else if (trigger?.isConnected) trigger.focus();
+      });
     }
   };
 

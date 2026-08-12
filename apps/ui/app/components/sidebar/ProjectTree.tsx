@@ -113,6 +113,7 @@ export function ProjectTree({
     if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return; // inline rename owns its keys
     const current = target.closest<HTMLElement>('[role="treeitem"]');
     if (!current || !treeRef.current?.contains(current)) return;
+    if (target !== current) return;
     const id = current.dataset.treeId ?? "";
     const level = current.dataset.level;
     const expanded = current.dataset.expanded === "true";
@@ -142,6 +143,7 @@ export function ProjectTree({
             ),
           );
         break;
+      case " ":
       case "Enter":
         e.preventDefault();
         if (level === "2") current.querySelector<HTMLElement>("a[href]")?.click();

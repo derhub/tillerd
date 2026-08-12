@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { cn } from "~/lib/utils";
 
 const ROW_ACTION_CLASS =
-  "opacity-0 group-hover:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 flex items-center justify-center w-6 h-6 rounded-sm transition-all duration-[var(--motion-fast)] ease-standard focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 // One portable-library template row. Prebuilt rows never offer Delete (`canEdit`
 // gates the def's `when` and this row's own hover button identically); there is
@@ -73,7 +73,7 @@ export function TemplateRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               <Download className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -90,7 +90,7 @@ export function TemplateRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               {template.pinned ? (
@@ -111,7 +111,7 @@ export function TemplateRow({
                 }}
                 className={cn(
                   ROW_ACTION_CLASS,
-                  "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+                  "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
                 )}
               >
                 <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />
