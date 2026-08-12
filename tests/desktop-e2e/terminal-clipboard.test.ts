@@ -47,7 +47,7 @@ test("terminal clipboard round-trips through the native system clipboard", async
 
   const pasteMarker = `clipboard-paste-${Date.now()}`;
   await writeSystemClipboard(`printf '${pasteMarker}'`);
-  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "v"]);
+  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "Shift", "v"]);
   await b.keys(["Enter"]);
   await b.waitUntil(async () => (await terminal.getText()).includes(pasteMarker), {
     timeout: 20_000,
@@ -56,7 +56,7 @@ test("terminal clipboard round-trips through the native system clipboard", async
 
   const copyMarker = `clipboard-copy-${Date.now()}`;
   await writeSystemClipboard(`printf '${copyMarker}'`);
-  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "v"]);
+  await b.keys(process.platform === "darwin" ? ["Meta", "v"] : ["Control", "Shift", "v"]);
   await b.keys(["Enter"]);
   await b.waitUntil(async () => (await terminal.getText()).includes(copyMarker), {
     timeout: 20_000,
@@ -83,7 +83,7 @@ test("terminal clipboard round-trips through the native system clipboard", async
       ],
     },
   ]);
-  await b.keys(process.platform === "darwin" ? ["Meta", "c"] : ["Control", "c"]);
+  await b.keys(process.platform === "darwin" ? ["Meta", "c"] : ["Control", "Shift", "c"]);
 
   await b.waitUntil(async () => (await readSystemClipboard()).includes(copyMarker), {
     timeout: 10_000,
