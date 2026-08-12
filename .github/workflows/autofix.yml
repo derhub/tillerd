@@ -42,6 +42,7 @@ jobs:
       - run: bunx oxlint --fix .
       - run: bun run format
       - id: autofix
+        continue-on-error: true
         uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
       - name: Wait for submitted fix
         if: steps.autofix.outputs.autofix_started == 'true'
@@ -58,3 +59,6 @@ jobs:
           done
           echo "Timed out waiting for autofix.ci to push the fix commit" >&2
           exit 1
+      - name: Fail unexpected autofix error
+        if: steps.autofix.outcome != 'success' && steps.autofix.outputs.autofix_started != 'true'
+        run: exit 1
