@@ -9,6 +9,7 @@ import {
   resetLeafToEmpty,
   serializeLayout,
   deserializeLayout,
+  setGroupSizesNode,
   countLeaves,
   collectLeaves,
   findLeaf,
@@ -26,13 +27,14 @@ const leaf = (id: string): PanelLeaf => ({
 });
 
 describe("splitNode", () => {
-  test("replaces leaf with horizontal group", () => {
+  test("New split starts equal", () => {
     const tree = leaf("a");
     const result = splitNode(tree, "a", "horizontal") as PanelGroupNode;
     expect(result.kind).toBe("group");
     expect(result.direction).toBe("horizontal");
     expect(result.displayMode).toBe("split");
     expect(result.children).toHaveLength(2);
+    expect(result.sizes).toEqual([50, 50]);
     expect(result.children[0]).toMatchObject({ id: "a" });
     expect(result.children[1]).toMatchObject({ kind: "panel", content: { type: "empty" } });
   });
@@ -49,11 +51,36 @@ describe("splitNode", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [50, 50],
       children: [leaf("a"), leaf("b")],
     };
     const result = splitNode(tree, "b", "horizontal") as PanelGroupNode;
     expect(result.children[0]).toMatchObject({ id: "a" });
     expect((result.children[1] as PanelGroupNode).kind).toBe("group");
+  });
+
+  test("Nested split sizes stay independent", () => {
+    const nested: PanelGroupNode = {
+      kind: "group",
+      id: "nested",
+      direction: "vertical",
+      displayMode: "split",
+      sizes: [50, 50],
+      children: [leaf("b"), leaf("c")],
+    };
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "root-group",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [30, 70],
+      children: [leaf("a"), nested],
+    };
+
+    const result = setGroupSizesNode(tree, "nested", [25, 75]) as PanelGroupNode;
+
+    expect(result.sizes).toEqual([30, 70]);
+    expect((result.children[1] as PanelGroupNode).sizes).toEqual([25, 75]);
   });
 
   test("no-op when id not found", () => {
@@ -73,11 +100,43 @@ describe("closeNode", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [34, 33, 33],
       children: [leaf("a"), leaf("b"), leaf("c")],
     };
     const result = closeNode(tree, "b") as PanelGroupNode;
     expect(result.children).toHaveLength(2);
     expect(result.children.map((c) => c.id)).toEqual(["a", "c"]);
+  });
+
+  test("selects a surviving tab when closing the active child", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "tabbar-top",
+      activeTabId: "b",
+      sizes: [34, 33, 33],
+      children: [leaf("a"), leaf("b"), leaf("c")],
+    };
+
+    const result = closeNode(tree, "b") as PanelGroupNode;
+
+    expect(result.activeTabId).toBe("a");
+  });
+
+  test("resets surviving zero-share children equally", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "g",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [0, 0, 100],
+      children: [leaf("a"), leaf("b"), leaf("c")],
+    };
+
+    const result = closeNode(tree, "c") as PanelGroupNode;
+
+    expect(result.sizes).toEqual([50, 50]);
   });
 
   test("collapses group when 1 child remains", () => {
@@ -86,6 +145,7 @@ describe("closeNode", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [50, 50],
       children: [leaf("a"), leaf("b")],
     };
     const result = closeNode(tree, "b");
@@ -113,6 +173,7 @@ describe("closeLeafSafe", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [50, 50],
       children: [leaf("a"), leaf("b")],
     };
     const result = closeLeafSafe(tree, "b");
@@ -151,6 +212,7 @@ describe("resetLeafToEmpty", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [50, 50],
       children: [
         { ...leaf("a"), content: { type: "terminal", placement: "slot-1" } },
         { ...leaf("b"), content: { type: "terminal", placement: "slot-2" } },
@@ -170,15 +232,132 @@ describe("resetLeafToEmpty", () => {
 });
 
 describe("serialize / deserialize", () => {
-  test("round-trips DEFAULT_LAYOUT", () => {
+  test("round-trips DEFAULT_LAYOUT in the versioned envelope", () => {
     const raw = serializeLayout(DEFAULT_LAYOUT);
-    const result = deserializeLayout(raw);
-    expect(result).toEqual(DEFAULT_LAYOUT);
+    expect(JSON.parse(raw)).toMatchObject({ version: 1 });
+    expect(deserializeLayout(raw)).toEqual(DEFAULT_LAYOUT);
   });
 
-  test("falls back to DEFAULT_LAYOUT on corrupt data in usePanelTree context", () => {
+  test("Versioned nested geometry restores", () => {
+    const nested: PanelGroupNode = {
+      kind: "group",
+      id: "nested",
+      direction: "vertical",
+      displayMode: "split",
+      sizes: [20, 80],
+      children: [leaf("b"), leaf("c")],
+    };
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "root-group",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [35, 65],
+      children: [leaf("a"), nested],
+    };
+
+    expect(deserializeLayout(serializeLayout(tree))).toEqual(tree);
+  });
+
+  test("restores a panel resized to zero share", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "group",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [0, 100],
+      children: [leaf("a"), leaf("b")],
+    };
+
+    expect(deserializeLayout(serializeLayout(tree))).toEqual(tree);
+  });
+
+  test("Unversioned layout is rejected", () => {
+    expect(() => deserializeLayout(JSON.stringify(DEFAULT_LAYOUT))).toThrow(
+      "unsupported layout version",
+    );
+  });
+
+  test("Invalid child sizes are rejected", () => {
+    const invalid = (sizes: unknown) =>
+      JSON.stringify({
+        version: 1,
+        root: {
+          kind: "group",
+          id: "g",
+          direction: "horizontal",
+          displayMode: "split",
+          sizes,
+          children: [leaf("a"), leaf("b")],
+        },
+      });
+
+    for (const sizes of [undefined, [100], [-1, 101], [0, 0], [Number.NaN, 100], ["50", 50]]) {
+      expect(() => deserializeLayout(invalid(sizes))).toThrow("invalid panel sizes");
+    }
+  });
+
+  test("rejects duplicate node identifiers", () => {
+    const tree: PanelGroupNode = {
+      kind: "group",
+      id: "group",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [50, 50],
+      children: [leaf("same"), leaf("same")],
+    };
+
+    expect(() => deserializeLayout(serializeLayout(tree))).toThrow("duplicate node id");
+  });
+
+  test("rejects an empty persisted blob", () => {
+    expect(() => deserializeLayout("")).toThrow("invalid layout JSON");
+  });
+
+  test("rejects empty and duplicate placement bindings", () => {
+    const terminal = (id: string, placement: string): PanelLeaf => ({
+      ...leaf(id),
+      content: { type: "terminal", placement },
+    });
+    expect(() => deserializeLayout(serializeLayout(terminal("a", "")))).toThrow(
+      "invalid panel placement",
+    );
+
+    const duplicate: PanelGroupNode = {
+      kind: "group",
+      id: "group",
+      direction: "horizontal",
+      displayMode: "split",
+      sizes: [50, 50],
+      children: [terminal("a", "same"), terminal("b", "same")],
+    };
+    expect(() => deserializeLayout(serializeLayout(duplicate))).toThrow("invalid panel placement");
+  });
+
+  test("rejects corrupt data", () => {
     expect(() => deserializeLayout("not json")).toThrow();
-    expect(() => deserializeLayout('{"kind":"invalid"}')).toThrow();
+    expect(() =>
+      deserializeLayout(
+        '{"version":1,"root":{"kind":"panel","id":"root","title":"","content":{"type":"empty"}}}',
+      ),
+    ).toThrow("invalid panel title");
+    expect(() =>
+      deserializeLayout(
+        JSON.stringify({
+          version: 1,
+          root: {
+            kind: "group",
+            id: "group",
+            direction: "horizontal",
+            displayMode: "tabbar-top",
+            activeTabId: "missing",
+            sizes: [50, 50],
+            children: [leaf("a"), leaf("b")],
+          },
+        }),
+      ),
+    ).toThrow("invalid active tab");
+    expect(() => deserializeLayout('{"version":1,"root":{"kind":"invalid"}}')).toThrow();
   });
 });
 
@@ -195,6 +374,7 @@ describe("findLeaf", () => {
       direction: "horizontal",
       displayMode: "split",
       children: [leaf("a"), leaf("b")],
+      sizes: [50, 50],
     };
     expect(findLeaf(tree, "b")).toMatchObject({ id: "b" });
   });
@@ -236,6 +416,7 @@ describe("countLeaves", () => {
       id: "g",
       direction: "horizontal",
       displayMode: "split",
+      sizes: [34, 33, 33],
       children: [leaf("a"), leaf("b"), leaf("c")],
     };
     expect(countLeaves(tree)).toBe(3);
