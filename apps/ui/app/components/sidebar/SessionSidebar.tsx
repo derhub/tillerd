@@ -530,7 +530,7 @@ export function SessionSidebar({
             data-testid="sidebar-empty"
             className="flex flex-col items-center gap-1 px-4 py-8 text-center"
           >
-            <p className="text-[0.833rem] text-muted-foreground/60">No projects yet</p>
+            <p className="text-[0.833rem] text-muted-foreground">No projects yet</p>
             {isDesktop && (
               <button
                 type="button"

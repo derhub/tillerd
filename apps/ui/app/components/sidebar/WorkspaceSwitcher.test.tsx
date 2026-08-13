@@ -54,6 +54,8 @@ describe("WorkspaceSwitcherList", () => {
     const inactiveItem = items.find((el) => el.getAttribute("data-workspace-id") === "ws-2");
 
     expect(activeItem?.className).toContain("bg-muted");
+    expect(activeItem?.getAttribute("aria-current")).toBe("true");
+    expect(inactiveItem?.getAttribute("aria-current")).toBeNull();
     expect(inactiveItem?.className).not.toContain("font-medium");
   });
 

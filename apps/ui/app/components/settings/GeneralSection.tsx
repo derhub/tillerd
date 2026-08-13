@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { useBoolGlobalSetting, useGlobalSetting } from "~/lib/settings/context";
 import {
   DEFAULT_UI_ZOOM,
@@ -100,16 +101,18 @@ export function GeneralSection() {
       <div className="flex items-center justify-between gap-3">
         <span className="text-foreground">Zoom</span>
         <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Zoom out"
-            disabled={zoom <= UI_ZOOM_MIN}
-            onClick={() => setZoom(zoom - UI_ZOOM_STEP)}
-          >
-            <Minus />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={<Button variant="outline" size="icon-sm" disabled={zoom <= UI_ZOOM_MIN} />}
+              type="button"
+              aria-label="Zoom out"
+              disabled={zoom <= UI_ZOOM_MIN}
+              onClick={() => setZoom(zoom - UI_ZOOM_STEP)}
+            >
+              <Minus />
+            </TooltipTrigger>
+            <TooltipContent>Zoom out</TooltipContent>
+          </Tooltip>
           <span
             className="w-12 text-center text-foreground tabular-nums"
             aria-live="polite"
@@ -117,16 +120,18 @@ export function GeneralSection() {
           >
             {zoomPercent}%
           </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Zoom in"
-            disabled={zoom >= UI_ZOOM_MAX}
-            onClick={() => setZoom(zoom + UI_ZOOM_STEP)}
-          >
-            <Plus />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={<Button variant="outline" size="icon-sm" disabled={zoom >= UI_ZOOM_MAX} />}
+              type="button"
+              aria-label="Zoom in"
+              disabled={zoom >= UI_ZOOM_MAX}
+              onClick={() => setZoom(zoom + UI_ZOOM_STEP)}
+            >
+              <Plus />
+            </TooltipTrigger>
+            <TooltipContent>Zoom in</TooltipContent>
+          </Tooltip>
           <Button
             type="button"
             variant="ghost"

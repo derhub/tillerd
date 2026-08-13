@@ -1,6 +1,7 @@
 import type { CommandView } from "@tillerd/client-bindings";
 
 import { Copy, Pencil, Pin, PinOff, Play, Trash2 } from "lucide-react";
+import React from "react";
 
 import { EntityContextMenu } from "~/components/shell/EntityContextMenu";
 import { InlineRenameInput } from "~/components/sidebar/InlineRenameInput";
@@ -42,6 +43,7 @@ export function CommandRow({
   onRequestDelete: (id: string, name: string) => void;
 }) {
   const canEdit = command.origin === "custom";
+  const renameRef = React.useRef<HTMLButtonElement>(null);
 
   return (
     <EntityContextMenu
@@ -61,23 +63,32 @@ export function CommandRow({
             initialValue={command.name}
             onConfirm={onConfirmRename}
             onCancel={onCancelRename}
+            restoreFocus={() => renameRef.current}
             isProject
           />
+        ) : isDesktop && canEdit ? (
+          <button
+            ref={renameRef}
+            type="button"
+            data-testid="command-name"
+            aria-label={`Rename ${command.name}`}
+            onClick={(event) => event.detail === 0 && onStartRename(command.id)}
+            onDoubleClick={() => onStartRename(command.id)}
+            className="min-w-0 truncate text-left text-[0.833rem] text-foreground cursor-text"
+          >
+            {command.name}
+          </button>
         ) : (
           <span
             data-testid="command-name"
-            onDoubleClick={isDesktop && canEdit ? () => onStartRename(command.id) : undefined}
-            className={cn(
-              "min-w-0 truncate text-[0.833rem] text-foreground",
-              canEdit && "cursor-text",
-            )}
+            className="min-w-0 truncate text-[0.833rem] text-foreground"
           >
             {command.name}
           </span>
         )}
         {/* The cli is secondary: it yields (shrink-3) so a short name is never clipped to make
             room for it, and it truncates first when the row is genuinely cramped. */}
-        <span className="min-w-0 shrink-[3] truncate text-[0.75rem] text-muted-foreground/60">
+        <span className="min-w-0 shrink-[3] truncate text-[0.75rem] text-muted-foreground">
           {command.cli}
         </span>
       </div>
@@ -109,7 +120,7 @@ export function CommandRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               <Play className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -126,7 +137,7 @@ export function CommandRow({
                 }}
                 className={cn(
                   ROW_ACTION_CLASS,
-                  "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                  "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 <Pencil className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -143,7 +154,7 @@ export function CommandRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               <Copy className="size-[var(--icon-sm)]" strokeWidth={2} />
@@ -160,7 +171,7 @@ export function CommandRow({
               }}
               className={cn(
                 ROW_ACTION_CLASS,
-                "text-muted-foreground/50 hover:text-foreground hover:bg-muted",
+                "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               {command.pinned ? (
@@ -181,7 +192,7 @@ export function CommandRow({
                 }}
                 className={cn(
                   ROW_ACTION_CLASS,
-                  "text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10",
+                  "text-muted-foreground hover:text-destructive hover:bg-destructive/10",
                 )}
               >
                 <Trash2 className="size-[var(--icon-sm)]" strokeWidth={2} />

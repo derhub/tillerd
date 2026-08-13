@@ -67,7 +67,7 @@ function ItemEditor({
       data-testid="spec-item"
     >
       <div className="flex items-center gap-2">
-        <span className="text-[0.75rem] text-muted-foreground/60 shrink-0">Item {index + 1}</span>
+        <span className="text-[0.75rem] text-muted-foreground shrink-0">Item {index + 1}</span>
         <div className="flex-1" />
         <Tooltip>
           {/* `disabled` on TooltipTrigger only suppresses the tooltip popup, not the
@@ -256,7 +256,7 @@ export function SpecEditorDialog({
 
         <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
           {items.length === 0 && (
-            <p className="text-[0.833rem] text-muted-foreground/60 italic">No items yet</p>
+            <p className="text-[0.833rem] text-muted-foreground italic">No items yet</p>
           )}
           {items.map((item, i) => (
             <ItemEditor

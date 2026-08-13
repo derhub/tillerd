@@ -128,7 +128,7 @@ function PanelTitle({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "truncate text-muted-foreground/60 flex-1 select-none text-[0.833rem] font-medium tracking-wider uppercase",
+        "truncate text-muted-foreground flex-1 select-none text-[0.833rem] font-medium tracking-wider uppercase",
         className,
       )}
     >

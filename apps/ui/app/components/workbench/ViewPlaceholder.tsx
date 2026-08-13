@@ -15,13 +15,13 @@ export function ViewPlaceholder({
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center px-3">
-        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
           {title}
         </span>
       </div>
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center">
         <Icon className="size-[var(--icon-lg)] text-muted-foreground/40" aria-hidden />
-        <p className="text-[0.833rem] text-muted-foreground/60">{hint}</p>
+        <p className="text-[0.833rem] text-muted-foreground">{hint}</p>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export function ProjectSessions({
   if (isPending) {
     return (
       <p
-        className="px-3 py-1 text-[0.833rem] text-muted-foreground/50 italic"
+        className="px-3 py-1 text-[0.833rem] text-muted-foreground italic"
         data-testid="sessions-loading"
       >
         Loading…
@@ -95,7 +95,7 @@ export function ProjectSessions({
           onClick={() => fetchNextPage()}
           disabled={isFetchingNextPage}
           data-testid="load-more-sessions"
-          className="mx-3 mt-0.5 text-left text-[0.75rem] text-muted-foreground/60 hover:text-foreground disabled:opacity-50"
+          className="mx-3 mt-0.5 text-left text-[0.75rem] text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           {isFetchingNextPage ? "Loading…" : "Load more"}
         </button>

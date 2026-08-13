@@ -208,7 +208,7 @@ export function TemplatesView() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center justify-between px-3">
-        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
           Templates
         </span>
         {isDesktop && (
@@ -244,7 +244,7 @@ export function TemplatesView() {
             {templates.length === 0 ? (
               <p
                 data-testid="templates-empty"
-                className="px-3 py-2 text-[0.833rem] text-muted-foreground/50 italic"
+                className="px-3 py-2 text-[0.833rem] text-muted-foreground italic"
               >
                 No templates yet
               </p>
@@ -287,7 +287,7 @@ export function TemplatesView() {
               {launchTemplates.length === 0 ? (
                 <p
                   data-testid="launch-templates-empty"
-                  className="px-3 py-2 text-[0.833rem] text-muted-foreground/50 italic"
+                  className="px-3 py-2 text-[0.833rem] text-muted-foreground italic"
                 >
                   No launch templates for this project
                 </p>
@@ -395,7 +395,7 @@ export function TemplatesView() {
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="px-3 pb-1 text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+    <h3 className="px-3 pb-1 text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
       {children}
     </h3>
   );

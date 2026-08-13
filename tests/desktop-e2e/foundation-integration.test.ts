@@ -87,14 +87,13 @@ test("storage, state model, and client engine compose across create/switch/reloa
 
     // Multi-window: opening P in a new window marks the parent project row (the observable
     // multi-window reaction). Re-attach afterwards so the child window does not linger.
-    await b.execute((projectName: string) => {
-      const heading = Array.from(document.querySelectorAll("span")).find(
-        (el) => el.textContent === projectName,
-      );
-      heading?.dispatchEvent(
+    const projectRow = await b.$(`[role="treeitem"][aria-label="${project}"]`);
+    await projectRow.waitForExist({ timeout: 10_000 });
+    await b.execute((element) => {
+      element.dispatchEvent(
         new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }),
       );
-    }, project);
+    }, projectRow);
     const openItem = await b.$('[role="menuitem"]*=Open in new window');
     await openItem.waitForExist({ timeout: 10_000 });
     await openItem.click();

@@ -45,7 +45,7 @@ export function ProfilesList({
   onExport,
 }: ProfilesListProps) {
   if (profiles.length === 0) {
-    return <p className="text-muted-foreground/60 italic text-[0.917rem]">No profiles</p>;
+    return <p className="text-muted-foreground italic text-[0.917rem]">No profiles</p>;
   }
 
   return (

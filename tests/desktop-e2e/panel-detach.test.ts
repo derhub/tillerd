@@ -71,14 +71,13 @@ test("opening a project in a new window marks the parent row", async () => {
 
   // Dispatch the context menu on the project heading (native right-click is unreliable under
   // WebDriver), then click "Open in new window".
-  await b.execute((projectName: string) => {
-    const heading = Array.from(document.querySelectorAll("span")).find(
-      (el) => el.textContent === projectName,
-    );
-    heading?.dispatchEvent(
+  const projectRow = await b.$(`[role="treeitem"][aria-label="${name}"]`);
+  await projectRow.waitForExist({ timeout: 10_000 });
+  await b.execute((element) => {
+    element.dispatchEvent(
       new MouseEvent("contextmenu", { bubbles: true, clientX: 40, clientY: 40 }),
     );
-  }, name);
+  }, projectRow);
 
   // The 0.0.12 project menu carries the full action list (Rename / Open in new window / Delete), so
   // target the open action by its label rather than menu position.

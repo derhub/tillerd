@@ -1,4 +1,5 @@
 import React from "react";
+import { flushSync } from "react-dom";
 
 import { cn } from "~/lib/utils";
 
@@ -7,6 +8,7 @@ interface InlineRenameInputProps {
   onConfirm: (newValue: string) => void;
   onCancel: () => void;
   isProject?: boolean;
+  restoreFocus?: () => HTMLElement | null;
 }
 
 export function InlineRenameInput({
@@ -14,6 +16,7 @@ export function InlineRenameInput({
   onConfirm,
   onCancel,
   isProject = false,
+  restoreFocus,
 }: InlineRenameInputProps) {
   const [value, setValue] = React.useState(initialValue);
   const [error, setError] = React.useState(false);
@@ -36,9 +39,10 @@ export function InlineRenameInput({
       onConfirm(value);
     } else if (e.key === "Escape") {
       const trigger = triggerRef.current;
-      onCancel();
-      // Blur-cancel must NOT steal focus back; only Escape restores it to the row.
-      if (trigger?.isConnected) trigger.focus();
+      flushSync(onCancel);
+      const replacement = restoreFocus?.();
+      if (replacement?.isConnected) replacement.focus();
+      else if (trigger?.isConnected) trigger.focus();
     }
   };
 

@@ -64,7 +64,7 @@ export function NewSessionTemplateDialog({
           <section>
             <SectionHeading>This project</SectionHeading>
             {launchTemplates.length === 0 ? (
-              <p className="px-2 py-2 text-[0.833rem] text-muted-foreground/50 italic">
+              <p className="px-2 py-2 text-[0.833rem] text-muted-foreground italic">
                 No launch templates for this project
               </p>
             ) : (
@@ -88,7 +88,7 @@ export function NewSessionTemplateDialog({
           <section>
             <SectionHeading>Library</SectionHeading>
             {libraryTemplates.length === 0 ? (
-              <p className="px-2 py-2 text-[0.833rem] text-muted-foreground/50 italic">
+              <p className="px-2 py-2 text-[0.833rem] text-muted-foreground italic">
                 No templates yet
               </p>
             ) : (
@@ -116,7 +116,7 @@ export function NewSessionTemplateDialog({
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="px-2 pb-1 text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+    <h3 className="px-2 pb-1 text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
       {children}
     </h3>
   );

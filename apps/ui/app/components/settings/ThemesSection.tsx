@@ -19,7 +19,7 @@ export interface ThemesListProps {
 
 export function ThemesList({ themes, activeId, onActivate, onExport, onDelete }: ThemesListProps) {
   if (themes.length === 0) {
-    return <p className="text-muted-foreground/60 italic text-[0.917rem]">No themes</p>;
+    return <p className="text-muted-foreground italic text-[0.917rem]">No themes</p>;
   }
 
   return (
@@ -46,7 +46,7 @@ export function ThemesList({ themes, activeId, onActivate, onExport, onDelete }:
           >
             {t.name}
           </button>
-          <span className="text-[0.75rem] text-muted-foreground/60 shrink-0">{t.origin}</span>
+          <span className="text-[0.75rem] text-muted-foreground shrink-0">{t.origin}</span>
           {t.id === activeId && (
             <span
               data-testid="theme-active-badge"

@@ -66,7 +66,7 @@ export function SearchView() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-8 shrink-0 items-center px-3">
-        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground/70">
+        <span className="text-[0.75rem] font-medium uppercase tracking-[0.05em] text-muted-foreground">
           Search
         </span>
       </div>
@@ -90,12 +90,12 @@ export function SearchView() {
       </div>
       <ScrollArea className="flex-1 min-h-0">
         {!enabled ? (
-          <p className="px-3 py-3 text-[0.833rem] text-muted-foreground/50 italic">
+          <p className="px-3 py-3 text-[0.833rem] text-muted-foreground italic">
             Type to search this workspace
           </p>
         ) : !hasResults ? (
           <p
-            className="px-3 py-3 text-[0.833rem] text-muted-foreground/50 italic"
+            className="px-3 py-3 text-[0.833rem] text-muted-foreground italic"
             data-testid="search-empty"
           >
             No matches
@@ -138,7 +138,7 @@ export function SearchView() {
 
 function GroupHeading({ children }: { children: React.ReactNode }) {
   return (
-    <span className="px-3 text-[0.75rem] font-medium uppercase tracking-wider text-muted-foreground/70 truncate">
+    <span className="px-3 text-[0.75rem] font-medium uppercase tracking-wider text-muted-foreground truncate">
       {children}
     </span>
   );

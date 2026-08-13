@@ -44,7 +44,7 @@ export function MovePickerDialog({
         </DialogDescription>
         <div className="flex flex-col gap-px max-h-64 overflow-y-auto">
           {target.targets.length === 0 ? (
-            <p className="px-2 py-2 text-[0.833rem] text-muted-foreground/60 italic">
+            <p className="px-2 py-2 text-[0.833rem] text-muted-foreground italic">
               No other {noun}s available
             </p>
           ) : (

@@ -471,13 +471,13 @@ macOS and Linux CI.
   terminal canvas stays dark in both themes by design).
 
 **Accessibility**
-- [ ] ARIA labels, tooltips, and keyboard routes for all interactive chrome elements remain
-  open; current implementation covers the tree owner and panel buttons but not every nested
-  sidebar action.
-- [ ] Keyboard navigation in chrome — full Tab / Enter / Escape traversal through sidebar
-  actions, panel actions, and dialogs remains open. Terminal canvas is exempt.
-- [ ] Color contrast — complete a full rendered-state WCAG AA audit; current token documentation
-  includes decorative and unused exceptions but does not cover all alpha-muted text.
+- [x] ARIA labels, matching tooltips, semantic state, and keyboard-reachable nested actions
+  cover all interactive chrome elements.
+- [x] Keyboard navigation in chrome — Tab / Shift+Tab for standalone and nested actions,
+  arrow/Enter/Space traversal in the sidebar tree, and Escape focus restoration for menus
+  and dialogs. Terminal canvas is exempt.
+- [x] Color contrast — deterministic token checks and rendered light/dark desktop coverage
+  pass for representative chrome states.
 
 **Cross-platform polish**
 - [x] macOS — native Tauri window decorations (traffic lights); sidebar top area is a

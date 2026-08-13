@@ -17,12 +17,12 @@ const STATE_LABEL: Record<RowState, string> = {
 };
 
 const STATE_DOT: Record<RowState, string> = {
-  ready: "bg-emerald-500",
-  starting: "bg-amber-500",
-  draining: "bg-amber-500",
-  versionMismatch: "bg-orange-500",
-  unavailable: "bg-red-500",
-  failed: "bg-red-500",
+  ready: "bg-emerald-700 dark:bg-emerald-400",
+  starting: "bg-amber-700 dark:bg-amber-400",
+  draining: "bg-amber-700 dark:bg-amber-400",
+  versionMismatch: "bg-orange-700 dark:bg-orange-400",
+  unavailable: "bg-red-700 dark:bg-red-400",
+  failed: "bg-red-700 dark:bg-red-400",
 };
 
 function phaseToState(phase: OrchestratorPhase): RowState {
@@ -55,7 +55,7 @@ function HealthRow({
       <span className="text-muted-foreground">{version ?? "—"}</span>
       <span className="text-muted-foreground">{STATE_LABEL[state]}</span>
       {reason ? (
-        <span className="text-red-300/70 truncate max-w-[16ch]" title={reason}>
+        <span className="text-destructive truncate max-w-[16ch]" title={reason}>
           {reason}
         </span>
       ) : null}

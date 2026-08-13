@@ -25,6 +25,21 @@ test("focuses the search input on open", () => {
   expect(document.activeElement).toBe(screen.getByTestId("terminal-search-input"));
 });
 
+test("renders terminal contrast tokens on the focused search chrome", () => {
+  const { controller } = fakeController();
+  render(<TerminalSearchOverlay controller={controller} results={null} onClose={() => {}} />);
+
+  const overlay = screen.getByTestId("terminal-search");
+  const input = screen.getByTestId("terminal-search-input");
+  const count = screen.getByTestId("terminal-search-count");
+
+  expect(document.activeElement).toBe(input);
+  expect(overlay.className).toContain("bg-terminal-surface");
+  expect(overlay.className).toContain("text-terminal-fg");
+  expect(input.className).toContain("focus-visible:ring-terminal-muted");
+  expect(count.className).toContain("text-terminal-muted");
+});
+
 test("an entered query runs an incremental case-insensitive search", () => {
   const { controller, calls } = fakeController();
   render(<TerminalSearchOverlay controller={controller} results={null} onClose={() => {}} />);

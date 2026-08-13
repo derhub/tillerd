@@ -29,12 +29,12 @@ export function WorkbenchStatus() {
     <div className="flex min-w-0 items-center gap-1.5 text-[0.75rem] text-muted-foreground select-none">
       {workspaceName ? <span className="truncate max-w-[16ch]">{workspaceName}</span> : null}
       {workspaceName && sessionTitle ? (
-        <span aria-hidden className="text-muted-foreground/50">
+        <span aria-hidden className="text-muted-foreground">
           /
         </span>
       ) : null}
       {sessionTitle ? (
-        <span className="truncate max-w-[24ch] text-foreground/80">{sessionTitle}</span>
+        <span className="truncate max-w-[24ch] text-muted-foreground">{sessionTitle}</span>
       ) : null}
     </div>
   );
