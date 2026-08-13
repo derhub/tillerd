@@ -33,6 +33,7 @@ export function PanelTree({
   zoomedLeafId,
   onSplit,
   onSetActiveTab,
+  onSetGroupSizes,
   onClose,
   onSpawn,
   onDetach,
@@ -52,6 +53,7 @@ export function PanelTree({
   zoomedLeafId: string | null;
   onSplit: (leafId: string, direction: "horizontal" | "vertical") => void;
   onSetActiveTab: (groupId: string, tabId: string) => void;
+  onSetGroupSizes: (groupId: string, sizes: number[]) => void;
   onClose: (leaf: PanelLeaf) => void;
   onSpawn: (leafId: string, command?: SpawnCommandRef) => void;
   onDetach: (leaf: PanelLeaf) => void;
@@ -90,7 +92,7 @@ export function PanelTree({
   const now = useElapsedTick();
 
   // Empty panel picker (ui-panel-compound "Empty panel picker", usability pass 12.4): the command
-  // library, so an empty leaf can spawn a terminal running a stored command, not just a login
+  // library, so an empty leaf can spawn a terminal running a stored command, not only a login
   // shell. Cached by TanStack Query, so multiple empty leaves in the same tree share one fetch.
   // Gated on the tree actually having an empty leaf so fully-populated panels (the common case)
   // never issue the command_list fetch on the hot session-switch path.
@@ -121,11 +123,16 @@ export function PanelTree({
           activeTabId={activeId}
           onSetActiveTab={(tabId) => onSetActiveTab(group.id, tabId)}
         >
-          <PanelGroup.Split className="h-full">
+          <PanelGroup.Split
+            className="h-full"
+            childIds={group.children.map((child) => child.id)}
+            sizes={group.sizes}
+            onSizesChange={(sizes) => onSetGroupSizes(group.id, sizes)}
+          >
             {group.children.map((child, i) => (
               <PanelGroup.SplitItem
                 key={child.id}
-                minSize={10}
+                panelId={child.id}
                 isLast={i === group.children.length - 1}
               >
                 {renderNode(child, `${path}-${i}`)}
@@ -207,7 +214,7 @@ export function PanelTree({
     // Zoom (panel-multiplexer-nav spec): the zoomed leaf is promoted to fill the whole panel area
     // via absolute-fill over the `relative` tree root, while every other leaf stays mounted
     // underneath -- no subtree swap, so siblings never unmount/detach and the zoomed pane is not
-    // remounted. Transient and unpersisted; toggling zoom off just drops the class.
+    // remounted. Transient and unpersisted; toggling zoom off drops the class.
     const isZoomed = zoomedLeafId === leaf.id;
 
     return (

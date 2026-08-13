@@ -1,19 +1,14 @@
+import type { GroupImperativeHandle, Layout } from "react-resizable-panels";
+
 import { ChevronRight } from "lucide-react";
 import React from "react";
 
 import type { DisplayMode } from "~/lib/panelTree";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/components/ui/collapsible";
-import {
-  ResizablePanelGroup as ResizablePanelGroupBase,
-  ResizablePanel,
-  ResizableHandle,
-} from "~/components/ui/resizable";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "~/components/ui/resizable";
 import { TabsList, TabsTrigger, Tabs, TabsContent } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ResizablePanelGroup = ResizablePanelGroupBase as React.ComponentType<any>;
 
 type PanelGroupContextValue = {
   state: {
@@ -28,6 +23,20 @@ type PanelGroupContextValue = {
 };
 
 const PanelGroupContext = React.createContext<PanelGroupContextValue | null>(null);
+
+const PanelSplitContext = React.createContext<{ reset: () => void } | null>(null);
+
+function panelSizesMatch(actual: readonly number[], expected: readonly number[]): boolean {
+  return (
+    actual.length === expected.length &&
+    actual.every((size, index) => Math.abs(size - expected[index]!) < 0.01)
+  );
+}
+
+// Object layout keys need a non-numeric prefix to preserve child order.
+function resizePanelId(id: string): string {
+  return `panel:${id}`;
+}
 
 function usePanelGroupContext() {
   const ctx = React.use(PanelGroupContext);
@@ -64,45 +73,90 @@ function PanelGroupProvider({
 
 function PanelGroupSplit({
   children,
-  autoSaveId,
+  childIds,
+  sizes,
+  onSizesChange,
   className,
 }: {
   children: React.ReactNode;
-  autoSaveId?: string;
+  childIds: string[];
+  sizes: number[];
+  onSizesChange: (sizes: number[]) => void;
   className?: string;
 }) {
   const { state } = usePanelGroupContext();
+  const groupRef = React.useRef<GroupImperativeHandle>(null);
+  const ignoredLayoutRef = React.useRef<Layout | null>(null);
+  const defaultLayout = Object.fromEntries(
+    childIds.map((id, index) => [resizePanelId(id), sizes[index] as number]),
+  );
+  const onLayoutChanged = React.useCallback(
+    (layout: Layout) => {
+      const nextSizes = childIds.map((id) => layout[resizePanelId(id)] as number);
+      const ignored = ignoredLayoutRef.current;
+      ignoredLayoutRef.current = null;
+      if (
+        ignored &&
+        panelSizesMatch(
+          nextSizes,
+          childIds.map((id) => ignored[resizePanelId(id)] as number),
+        )
+      ) {
+        return;
+      }
+      if (!panelSizesMatch(nextSizes, sizes)) onSizesChange(nextSizes);
+    },
+    [childIds, onSizesChange, sizes],
+  );
+  const reset = React.useCallback(() => {
+    const equalSizes = childIds.map(() => 100 / childIds.length);
+    const equalLayout = Object.fromEntries(
+      childIds.map((id, index) => [resizePanelId(id), equalSizes[index] as number]),
+    );
+    ignoredLayoutRef.current = equalLayout;
+    groupRef.current?.setLayout(equalLayout);
+    onSizesChange(equalSizes);
+  }, [childIds, onSizesChange]);
+
   return (
-    <ResizablePanelGroup
-      orientation={state.direction}
-      {...(autoSaveId ? { autoSaveId } : {})}
-      className={cn("h-full", className)}
-    >
-      {children}
-    </ResizablePanelGroup>
+    <PanelSplitContext value={{ reset }}>
+      <ResizablePanelGroup
+        id={state.id}
+        groupRef={groupRef}
+        orientation={state.direction}
+        defaultLayout={defaultLayout}
+        onLayoutChanged={onLayoutChanged}
+        className={cn("h-full", className)}
+      >
+        {children}
+      </ResizablePanelGroup>
+    </PanelSplitContext>
   );
 }
 
 function PanelGroupSplitItem({
   children,
+  panelId,
   minSize,
   isLast,
 }: {
   children: React.ReactNode;
+  panelId: string;
   minSize?: number;
   isLast: boolean;
 }) {
-  // defaultSize is uniform across every split item on purpose (ui-panel-compound "Divider
-  // reset"): react-resizable-panels' Separator resets its adjacent Panels to their defaultSize
-  // on double-click, so an equal defaultSize ratio here is what makes that reset land on an
-  // equal split. splitNode always produces exactly two children per group, so "its adjacent
-  // Panels" is the whole group. Do not diverge this value per item without re-deriving 100/n.
+  const split = React.use(PanelSplitContext);
+  if (!split) throw new Error("PanelGroup.SplitItem must be used inside PanelGroup.Split");
   return (
     <>
-      <ResizablePanel minSize={minSize ?? 10} defaultSize={33}>
+      <ResizablePanel
+        id={resizePanelId(panelId)}
+        data-panel-node-id={panelId}
+        minSize={`${minSize ?? 0}%`}
+      >
         {children}
       </ResizablePanel>
-      {!isLast && <ResizableHandle />}
+      {!isLast && <ResizableHandle disableDoubleClick onDoubleClick={split.reset} />}
     </>
   );
 }

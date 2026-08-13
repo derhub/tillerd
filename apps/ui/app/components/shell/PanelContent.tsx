@@ -58,7 +58,17 @@ export function PanelContent() {
     };
   }, []);
 
-  const { tree, split, close, setContent, resetToEmpty, setActiveTab } = usePanelTree(sessionId);
+  const {
+    tree,
+    layoutError,
+    layoutPending,
+    split,
+    close,
+    setContent,
+    resetToEmpty,
+    setActiveTab,
+    setGroupSizes,
+  } = usePanelTree(sessionId);
   const totalPanels = countLeaves(tree);
 
   // Per-placement live process status, fed by each terminal pane's onStatusChange. Backs the
@@ -278,9 +288,18 @@ export function PanelContent() {
 
   return (
     <div className="h-full w-full" onPointerDownCapture={onContentPointerDown}>
-      <RegisterHandlers handlers={panelHandlers} />
+      {!layoutPending && !layoutError && <RegisterHandlers handlers={panelHandlers} />}
       <RegisterHandlers handlers={terminalCommandHandlers} />
-      {bootRegion === "content" ? (
+      {layoutError ? (
+        <div className="flex h-full items-center justify-center p-6" role="alert">
+          <div className="max-w-md space-y-2 text-center">
+            <h2 className="text-base font-medium">This session layout is incompatible</h2>
+            <p className="text-sm text-muted-foreground">
+              Delete this development session from the sidebar and create a new one.
+            </p>
+          </div>
+        </div>
+      ) : bootRegion === "content" && !layoutPending ? (
         <PanelTree
           tree={tree}
           totalPanels={totalPanels}
@@ -293,6 +312,7 @@ export function PanelContent() {
           zoomedLeafId={zoomedLeafId}
           onSplit={split}
           onSetActiveTab={setActiveTab}
+          onSetGroupSizes={setGroupSizes}
           onClose={handleClose}
           onSpawn={handleSpawn}
           onDetach={detach}
@@ -301,7 +321,7 @@ export function PanelContent() {
           onStatusChange={handleStatusChange}
           onRequestReset={handleRequestReset}
         />
-      ) : bootRegion === "skeleton" ? (
+      ) : bootRegion === "skeleton" || layoutPending ? (
         <div className="h-full w-full p-3" data-testid="content-skeleton">
           <Skeleton className="h-full w-full" />
         </div>

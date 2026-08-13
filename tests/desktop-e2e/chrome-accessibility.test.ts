@@ -65,11 +65,15 @@ test("chrome keyboard journeys and rendered contrast", async () => {
   await deleteItem.click();
   const dialog = await browser.$('[role="alertdialog"]');
   await dialog.waitForExist({ timeout: 10_000 });
-  expect(
-    await browser.execute(() =>
-      document.querySelector('[role="alertdialog"]')?.contains(document.activeElement),
-    ),
-  ).toBe(true);
+  await browser.waitUntil(
+    async () =>
+      Boolean(
+        await browser.execute(() =>
+          document.querySelector('[role="alertdialog"]')?.contains(document.activeElement),
+        ),
+      ),
+    { timeout: 10_000, timeoutMsg: "delete dialog did not receive focus" },
+  );
   await browser.keys(["Escape"]);
   await dialog.waitForExist({ timeout: 10_000, reverse: true });
   expect(await restoredProject.isFocused()).toBe(true);

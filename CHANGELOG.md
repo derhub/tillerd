@@ -16,6 +16,8 @@ distribution and returns the agent surface (ADR-0027).
 
 - **E2E** — session-row status badge driven by the surface-status push channel (idle → running on
   spawn); sidebar project expand/collapse persistence across a genuine app restart.
+- **Panel geometry** — nested divider proportions persist per session across reloads; incompatible
+  development layouts now surface a blocking error instead of silently rebuilding panel bindings.
 
 ## [0.0.20] — 2026-07-11
 
