@@ -31,7 +31,7 @@ strsim = "0.11"
 ignore = "0.4"
 # Static embedding model (default features include the model hub, so the model is
 # downloaded on first use and cached for offline reuse).
-model2vec-rs = "0.2"
+model2vec-rs = "0.3"
 
 [dev-dependencies]
 tempfile.workspace = true

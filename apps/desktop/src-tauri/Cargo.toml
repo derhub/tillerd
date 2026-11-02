@@ -22,7 +22,7 @@ tauri = { version = "2", features = [] }
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "sync", "rt", "macros", "fs", "time"] }
-dirs = "6"
+dirs = "7"
 libc = "0.2"
 tillerd-paths.workspace = true
 contracts.workspace = true

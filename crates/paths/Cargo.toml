@@ -10,7 +10,7 @@ name = "tillerd_paths"
 path = "src/lib.rs"
 
 [dependencies]
-dirs = "6"
+dirs = "7"
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["json", "env-filter"] }
 tracing-appender = "0.2"
